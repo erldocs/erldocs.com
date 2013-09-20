@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ftp (inets) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ftp</h1>
+  <h2 class="modsummary">A File Transfer Protocol client</h2>
+
+  <div class="description">
+
+    <p>The <code>ftp</code> module implements a client for file transfer
+      according to a subset of the File Transfer Protocol (see RFC959). </p>
+
+    <p>Starting from inets version 4.4.1 the ftp
+      client will always try to use passive ftp mode and only resort
+      to active ftp mode if this fails. There is a start option 
+      <a href="#mode" class="seealso">mode</a> where this default behavior 
+      may be changed. </p>
+
+    <span id="two_start"> </span>
+
+    <p>There are two ways to start an ftp client. One is using the 
+      <a href="#service_start" class="seealso">Inets service framework</a>
+      and the other is to start it directy as a standalone process 
+      using the <a href="#open" class="seealso">open</a> function. </p>
+
+    <p>For a simple example of an ftp session see 
+      <a href="ftp_client.html" class="seealso">Inets User's Guide.</a></p>
+
+    <p>In addition to the ordinary functions for receiving and sending
+      files (see <code>recv/2</code>, <code>recv/3</code>, <code>send/2</code> and
+      <code>send/3</code>) there are functions for receiving remote files as
+      binaries (see <code>recv_bin/2</code>) and for sending binaries to to be
+      stored as remote files (see <code>send_bin/3</code>).</p>
+
+    <p>There is also a set of functions for sending and receiving
+      contiguous parts of a file to be stored in a remote file (for send
+      see <code>send_chunk_start/2</code>, <code>send_chunk/2</code> and
+      <code>send_chunk_end/1</code> and for receive see
+      <code>recv_chunk_start/2</code> and <code>recv_chunk/</code>).</p>
+
+    <p>The particular return values of the functions below depend very
+      much on the implementation of the FTP server at the remote
+      host. In particular the results from <code>ls</code> and <code>nlist</code>
+      varies. Often real errors are not reported as errors by <code>ls</code>,
+      even if for instance a file or directory does not
+      exist. <code>nlist</code> is usually more strict, but some
+      implementations have the peculiar behaviour of responding with an
+      error, if the request is a listing of the contents of directory
+      which exists but is empty.</p>
+
+    <span id="service_start"> </span>
+  </div>
+
+  <div class="section">
+    <h4>FTP CLIENT SERVICE START/STOP </h4>
+    
+    <p>The FTP client can be started and stopped dynamically in runtime by
+      calling the Inets application API 
+      <code>inets:start(ftpc, ServiceConfig)</code>,
+      or <code>inets:start(ftpc, ServiceConfig, How)</code>, and
+      <code>inets:stop(ftpc, Pid)</code>. 
+      See <a href="inets.html" class="seealso">inets(3)</a> for more info. </p>
+    <p>Below follows a description of
+      the available configuration options.</p>
+    
+    <taglist>
+      <dt>{host, Host}</dt>
+      <item>
+        <span id="host"> </span>
+	<p>Host = <code>string() | ip_address()</code> </p>
+      </item>
+
+      <dt>{port, Port}</dt>
+      <item>
+        <span id="port"> </span>
+	<p>Port = <code>integer() &gt; 0</code> </p>
+	<p>Default is 21.</p>
+      </item>
+
+      <dt>{mode, Mode}</dt>
+      <item>
+        <span id="mode"> </span>
+	<p>Mode = <code>active | passive</code> </p>
+	<p>Default is <code>passive</code>. </p> 
+      </item>
+
+      <dt>{verbose, Verbose}</dt>
+      <item>
+        <span id="verbose"> </span>
+	<p>Verbose = <code>boolean()</code> </p>
+	<p>This determines if the FTP communication should be
+	  verbose or not. </p>
+	<p>Default is <code>false</code>. </p>
+      </item>
+
+      <dt>{debug, Debug}</dt>
+      <item>
+        <span id="debug"> </span>
+	<p>Debug = <code>trace | debug | disable</code> </p>
+	<p>Debugging using the dbg toolkit. </p>
+	<p>Default is <code>disable</code>. </p>
+      </item>
+
+      <dt>{ipfamily, IpFamily}</dt>
+      <item>
+        <span id="ipfamily"> </span>
+	<p>IpFamily = <code>inet | inet6 | inet6fb4</code> </p>
+	<p>With <code>inet6fb4</code> the client behaves as before 
+	  (it tries to use IPv6 and only if that does not work, it 
+          uses IPv4). </p>
+	<p>Default is <code>inet</code> (IPv4). </p>
+      </item>
+
+      <dt>{timeout, Timeout}</dt>
+      <item>
+        <span id="timeout"> </span>
+	<p>Timeout = <code>non_neg_integer()</code> </p>
+	<p>Connection timeout. </p>
+	<p>Default is 60000 (milliseconds). </p>
+      </item>
+
+      <dt>{dtimeout, DTimeout}</dt>
+      <item>
+        <span id="dtimeout"> </span>
+	<p>DTimeout = <code>non_neg_integer() | infinity</code> </p>
+	<p>Data Connect timeout. 
+	The time the client will wait for the server to connect to the 
+	data socket. </p>
+	<p>Default is infinity. </p>
+      </item>
+
+      <dt>{progress, Progress}</dt>
+      <item>
+        <span id="progress"> </span>
+	<p>Progress = <code>ignore | {CBModule, CBFunction, InitProgress}</code></p>
+	<p>CBModule = <code>atom()</code>, CBFunction = <code>atom()</code> </p>
+	<p>InitProgress = <code>term()</code> </p>
+	<p>Default is <code>ignore</code>. </p>
+      </item>  
+
+    </taglist>
+  
+    <p>The progress option is intended to be used by applications that
+      want to create some type of progress report such as a progress bar in
+      a GUI.  The default value for the progress option is ignore
+      e.i. the option is not used.  When the progress option is
+      specified the following will happen when ftp:send/[3,4] or
+      ftp:recv/[3,4] are called.</p>
+    
+    <list type="bulleted">
+      <item>
+	<p>Before a file is transfered the following call will
+	  be made to indicate the start of the file transfer and how big
+	  the file is. The return value of the callback function
+	  should be a new value for the UserProgressTerm that will
+	  bu used as input next time the callback function is
+	  called.</p>
+	<br  />
+	<p><code>
+	  CBModule:CBFunction(InitProgress, File, {file_size, FileSize})
+	</code></p>
+	<br  />
+      </item>
+      
+      <item>
+	<p>Every time a chunk of bytes is transfered the
+	  following call will be made:</p>
+	<br  />
+	<p><code>
+	    CBModule:CBFunction(UserProgressTerm, File, {transfer_size, TransferSize})             </code></p>
+	<br  />
+      </item>
+
+      <item>
+	<p>At the end of the file the following call will be
+	  made to indicate the end of the transfer.</p>
+	<br  />
+	<p><code>
+	    CBModule:CBFunction(UserProgressTerm, File, {transfer_size, 0})             </code></p>
+	<br  />
+      </item>
+    </list>
+    
+    <p>The callback function should be defined as </p>
+
+    <p><code>
+	CBModule:CBFunction(UserProgressTerm, File, Size) -&gt; UserProgressTerm        </code></p>
+    
+    <p><code>
+	CBModule = CBFunction = atom()
+      </code></p>
+
+    <p><code>
+	UserProgressTerm = term()
+      </code></p>
+
+    <p><code>
+	File = string()
+      </code></p>
+
+    <p><code>
+	Size = {transfer_size, integer()} | {file_size, integer()} | {file_size, unknown}        </code></p>
+    
+    <p>Alas for remote files it is not possible for ftp to determine the
+      file size in a platform independent way. In this case the size
+      will be <code>unknown</code> and it is left to the application to find
+      out the size. </p>
+    
+    <div class="note"><h2>Note!</h2>
+      <p>The callback is made by a middleman process, hence the
+	file transfer will not be affected by the code in the progress
+	callback function. If the callback should crash this will be
+	detected by the ftp connection process that will print an
+	info-report and then go one as if the progress option was set
+	to ignore. </p>
+    </div>
+    
+    <p>The file transfer type is set to the default of the FTP server
+      when the session is opened. This is usually ASCCI-mode.
+    </p>
+    
+    <p>The current local working directory (cf. <code>lpwd/1</code>) is set to
+      the value reported by <code>file:get_cwd/1</code>. the wanted
+      local directory.
+    </p>
+    
+    <p>The return value <code>Pid</code> is used as a reference to the
+      newly created ftp client in all other functions, and they should
+      be called by the process that created the connection. The ftp
+      client process monitors the process that created it and
+      will terminate if that process terminates.</p>   
+  </div>
+  
+  <div class="section">
+    <h4>COMMON DATA TYPES </h4>
+    <p>Here follows type definitions that are used by more than one
+      function in the FTP client API. </p>
+    <p><code> pid() - identifier of an ftp connection.</code></p>
+    <p><code> string() = list of ASCII characters.</code></p>
+    <p><code> shortage_reason() = etnospc | epnospc</code></p>
+    <p><code> restriction_reason() = epath | efnamena | elogin | enotbinary
+      - note not all restrictions may always relevant to all functions
+    </code></p>
+    <p><code>common_reason() = econn | eclosed | term() - some kind of
+      explanation of what went wrong.</code></p>
+
+    <span id="account"> </span>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="account/2">account(Pid, Account) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Account = string()</code></li>
+        <li><code>Reason = eacct | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>If an account is needed for an operation set the account
+          with this operation.</p>
+
+       <span id="append"> </span>
+       <span id="append2"> </span>
+       <span id="append3"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append/2">append(Pid, LocalFile) -&gt; </h3>
+      <h3 id="append/3">append(Pid, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>LocalFile = RemoteFile = string()</code></li>
+        <li><code>Reason = epath | elogin | etnospc | epnospc | efnamena | common_reason</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfers the file <code>LocalFile</code> to the remote server. If 
+          <code>RemoteFile</code> is specified, the name of the remote file that the
+          file will be appended to is set to <code>RemoteFile</code>; otherwise 
+          the name is set to <code>LocalFile</code> If the file does not exists the
+          file will be created.</p>
+
+       <span id="append_bin"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append_bin/3">append_bin(Pid, Bin, RemoteFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()()</code></li>
+        <li><code>RemoteFile = string()</code></li>
+        <li><code>Reason =  restriction_reason()| shortage_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfers the binary <code>Bin</code> to the remote server and append 
+          it to the file <code>RemoteFile</code>. If the file does not exists it 
+          will be created.</p>
+
+       <span id="append_chunk"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append_chunk/2">append_chunk(Pid, Bin) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()</code></li>
+        <li><code>Reason = echunk | restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfer the chunk <code>Bin</code> to the remote server, which 
+          append it into the file specified in the call to 
+          <code>append_chunk_start/2</code>. </p>
+        <p>Note that for some errors, e.g. file system full, it is 
+          necessary to to call <code>append_chunk_end</code> to get the 
+          proper reason.</p>
+
+       <span id="append_chunk_start"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append_chunk_start/2">append_chunk_start(Pid, File) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>File = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Start the transfer of chunks for appending to the file 
+          <code>File</code> at the remote server. If the file does not exists 
+          it will be created.</p>
+
+       <span id="append_chunk_end"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append_chunk_end/1">append_chunk_end(Pid) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Reason = echunk | restriction_reason() | shortage_reason() </code></li>
+      </ul>
+      <div class="description">
+        <p>Stops transfer of chunks for appending to the remote server. 
+          The file at the remote server, specified in the call to 
+          <code>append_chunk_start/2</code> is closed by the server.</p>
+
+       <span id="cd"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="cd/2">cd(Pid, Dir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Dir = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() </code></li>
+      </ul>
+      <div class="description">
+        <p>Changes the working directory at the remote server to 
+          <code>Dir</code>.</p>
+
+       <span id="close"> </span>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="close/1">close(Pid) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Pid = pid()</code></li>
+      </ul>
+      <div class="description">
+	<p>Ends an ftp session, created using the 
+          <a href="#open" class="seealso">open</a> function. </p>
+
+       <span id="delete"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete/2">delete(Pid, File) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>File = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Deletes the file <code>File</code> at the remote server.</p>
+
+       <span id="append"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="formaterror/1">formaterror(Tag) -&gt; string()</h3>
+      
+      <ul class="type">
+        <li><code>Tag = {error, atom()} | atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Given an error return value <code>{error, AtomReason}</code>,
+          this function returns a readable string describing the error.</p>
+
+       <span id="lcd"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lcd/2">lcd(Pid, Dir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Dir = string()</code></li>
+        <li><code>Reason = restriction_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes the working directory to <code>Dir</code> for the local client. </p>
+
+       <span id="lpwd"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lpwd/1">lpwd(Pid) -&gt; {ok, Dir}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the current working directory at the local client.</p>
+
+       <span id="ls"> </span>
+       <span id="ls1"> </span>
+       <span id="ls2"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="ls/1">ls(Pid) -&gt; </h3>
+      <h3 id="ls/2">ls(Pid, Pathname) -&gt; {ok, Listing} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Pathname = string()</code></li>
+        <li><code>Listing = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a list of files in long format. </p>
+        <p><code>Pathname</code> can be a directory, a group of files or 
+          even a file. The <code>Pathname</code> string can contain wildcard(s). </p>
+        <p><code>ls/1</code> implies the user's current remote directory. </p>
+        <p>The format of <code>Listing</code> is operating system dependent 
+          (on UNIX it is typically produced from the output of the 
+          <code>ls -l</code> shell command).</p>
+
+       <span id="mkdir"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="mkdir/2">mkdir(Pid, Dir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Dir = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates the directory <code>Dir</code> at the remote server.</p>
+
+       <span id="nlist"> </span>
+       <span id="nlist1"> </span>
+       <span id="nlist2"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="nlist/1">nlist(Pid) -&gt; </h3>
+      <h3 id="nlist/2">nlist(Pid, Pathname) -&gt; {ok, Listing} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Pathname = string()</code></li>
+        <li><code>Listing = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a list of files in short format. </p>
+        <p><code>Pathname</code> can be a directory, a group of files or 
+          even a file. The <code>Pathname</code> string can contain wildcard(s). </p>
+        <p><code>nlist/1</code> implies the user's current remote directory. </p>
+        <p>The format of <code>Listing</code> is a stream of
+          file names, where each name is separated by &lt;CRLF&gt; or
+          &lt;NL&gt;. Contrary to the <code>ls</code> function, the purpose of
+          <code>nlist</code> is to make it possible for a program to
+          automatically process file name information.</p>
+
+       <span id="open"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="open/1">open(Host) -&gt; {ok, Pid} | {error, Reason}</h3>
+      <h3 id="open/2">open(Host, Opts) -&gt; {ok, Pid} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Host = string() | ip_address()</code></li>
+	<li><code>Opts = options()</code></li>
+	<li><code>options() = [option()]</code></li>
+	<li><code>option() = start_option() | open_option()</code></li>
+	<li><code>start_option() = {verbose, verbose()} | {debug, debug()}</code></li>
+	<li><code>verbose() = boolean() (defaults to false)</code></li>
+	<li><code>debug() = disable | debug | trace (defaults to disable)</code></li>
+	<li><code>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}</code></li>
+	<li><code>ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)</code></li>
+	<li><code>port() = integer() &gt; 0 (defaults to 21)</code></li>
+	<li><code>mode() = active | passive (defaults to passive)</code></li>
+	<li><code>timeout() = integer() &gt; 0 (defaults to 60000 milliseconds)</code></li>
+	<li><code>dtimeout() = integer() &gt; 0 | infinity (defaults to infinity)</code></li>
+	<li><code>pogress() = ignore | {module(), function(), initial_data()} (defaults to ignore)</code></li>
+	<li><code>module() = atom()</code></li>
+	<li><code>function() = atom()</code></li>
+	<li><code>initial_data() = term()</code></li>
+	<li><code>Reason = ehost | term()</code></li>
+      </ul>
+
+      <div class="description">
+	<p>This function is used to start a standalone ftp client process 
+          (without the inets service framework) and 
+          open a session with the FTP server at <code>Host</code>. </p>
+
+        <p>A session opened in this way, is closed using the 
+          <a href="#close" class="seealso">close</a> function. </p>
+
+       <span id="pwd"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="pwd/1">pwd(Pid) -&gt; {ok, Dir} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Pid = pid()</code></li>
+	<li><code>Reason = restriction_reason() | common_reason() </code></li>
+      </ul>
+      <div class="description">
+	<p>Returns the current working directory at the remote server. </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="pwd/1-1">pwd(Pid) -&gt; {ok, Dir} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() </code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the current working directory at the remote server.</p>
+
+       <span id="recv"> </span>
+       <span id="recv2"> </span>
+       <span id="recv3"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recv/2">recv(Pid, RemoteFile) -&gt; </h3>
+      <h3 id="recv/3">recv(Pid, RemoteFile, LocalFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>RemoteFile = LocalFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() | file_write_error_reason() </code></li>
+        <li><code>file_write_error_reason() = see file:write/2</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfer the file <code>RemoteFile</code> from the remote server
+          to the the file system of the local client. If
+          <code>LocalFile</code> is specified, the local file will be
+          <code>LocalFile</code>; otherwise it will be
+          <code>RemoteFile</code>.</p>
+        <p>If the file write fails
+          (e.g. enospc), then the command is aborted and <code>{error, file_write_error_reason()}</code> is returned. The file is
+          however <em>not</em> removed.</p>
+
+       <span id="recv_bin"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recv_bin/2">recv_bin(Pid, RemoteFile) -&gt; {ok, Bin} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()</code></li>
+        <li><code>RemoteFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfers the file <code>RemoteFile</code> from the remote server and 
+          receives it as a binary.</p>
+
+       <span id="recv_chunk_start"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recv_chunk_start/2">recv_chunk_start(Pid, RemoteFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>RemoteFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Start transfer of the file <code>RemoteFile</code> from the
+          remote server.</p>
+
+       <span id="recv_chunk"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recv_chunk/1">recv_chunk(Pid) -&gt; ok | {ok, Bin} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Receive a chunk of the remote file (<code>RemoteFile</code> of 
+          <code>recv_chunk_start</code>). The return values has the following 
+          meaning:</p>
+        <list type="bulleted">
+          <item><code>ok</code> the transfer is complete.</item>
+          <item><code>{ok, Bin}</code> just another chunk of the file.</item>
+          <item><code>{error, Reason}</code> transfer failed.</item>
+        </list>
+
+       <span id="rename"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="rename/3">rename(Pid, Old, New) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>CurrFile = NewFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Renames <code>Old</code> to <code>New</code> at the remote server.</p>
+
+       <span id="rmdir"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="rmdir/2">rmdir(Pid, Dir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Dir = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Removes directory <code>Dir</code> at the remote server.</p>
+
+       <span id="send"> </span>
+       <span id="send2"> </span>
+       <span id="send3"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send/2">send(Pid, LocalFile) -&gt;</h3>
+      <h3 id="send/3">send(Pid, LocalFile, RemoteFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>LocalFile = RemoteFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() | shortage_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfers the file <code>LocalFile</code> to the remote server. If 
+          <code>RemoteFile</code> is specified, the name of the remote file is set
+          to <code>RemoteFile</code>; otherwise the name is set to <code>LocalFile</code>.</p>
+
+       <span id="send_bin"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send_bin/3">send_bin(Pid, Bin, RemoteFile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()()</code></li>
+        <li><code>RemoteFile = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() | shortage_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfers the binary <code>Bin</code> into the file <code>RemoteFile</code> 
+          at the remote server.</p>
+
+       <span id="send_chunk"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send_chunk/2">send_chunk(Pid, Bin) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Bin = binary()</code></li>
+        <li><code>Reason = echunk | restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Transfer the chunk <code>Bin</code> to the remote server, which 
+          writes it into the file specified in the call to 
+          <code>send_chunk_start/2</code>. </p>
+        <p>Note that for some errors, e.g. file system full, it is 
+          necessary to to call <code>send_chunk_end</code> to get the 
+          proper reason.</p>
+
+       <span id="send_chunk_start"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send_chunk_start/2">send_chunk_start(Pid, File) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>File = string()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Start transfer of chunks into the file <code>File</code> at the 
+          remote server.</p>
+
+       <span id="send_chunk_end"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send_chunk_end/1">send_chunk_end(Pid) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Reason = restriction_reason() | common_reason() | shortage_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Stops transfer of chunks to the remote server. The file at the
+          remote server, specified in the call to <code>send_chunk_start/2</code> 
+          is closed by the server.</p>
+
+       <span id="type"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="type/2">type(Pid, Type) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Type = ascii | binary</code></li>
+        <li><code>Reason = etype | restriction_reason() | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets the file transfer type to <code>ascii</code> or <code>binary</code>. When
+          an ftp session is opened, the default transfer type of the
+          server is used, most often <code>ascii</code>, which is the default
+          according to RFC 959.</p>
+
+       <span id="user3"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="user/3">user(Pid, User, Password) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>User = Password = string()</code></li>
+        <li><code>Reason = euser | common_reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Performs login of <code>User</code> with <code>Password</code>.</p>
+
+       <span id="user4"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="user/4">user(Pid, User, Password, Account) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>User = Password = string()</code></li>
+        <li><code>Reason = euser | common_reason() </code></li>
+      </ul>
+      <div class="description">
+        <p>Performs login of <code>User</code> with <code>Password</code> to the account 
+          specified by <code>Account</code>.</p>
+
+       <span id="quote"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="quote/2">quote(Pid, Command) -&gt; [FTPLine]</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Command = string()</code></li>
+        <li><code>FTPLine = string() - Note the telnet end of line characters, from the ftp protocol definition, CRLF e.g. "\\r\\n" has been removed.</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends an arbitrary FTP command and returns verbatimly a list
+          of the lines sent back by the FTP server. This functions is
+          intended to give an application accesses to FTP commands
+          that are server specific or that may not be provided by
+          this FTP client. </p>
+        <div class="note"><h2>Note!</h2>
+          <p>FTP commands that require a data connection can not be
+            successfully issued with this function. </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>ERRORS</h4>
+    <p>The possible error reasons and the corresponding diagnostic strings 
+      returned by <code>formaterror/1</code> are as follows:
+      </p>
+    <taglist>
+      <dt><code>echunk</code></dt>
+      <item>
+        <p>Synchronisation error during chunk sending. 
+          </p>
+        <p>A call has been made to <code>send_chunk/2</code> or
+          <code>send_chunk_end/1</code>, before a call to
+          <code>send_chunk_start/2</code>; or a call has been made to another
+          transfer function during chunk sending, i.e. before a call
+          to <code>send_chunk_end/1</code>.</p>
+      </item>
+      <dt><code>eclosed</code></dt>
+      <item>
+        <p>The session has been closed.</p>
+      </item>
+      <dt><code>econn</code></dt>
+      <item>
+        <p>Connection to remote server prematurely closed.</p>
+      </item>
+      <dt><code>ehost</code></dt>
+      <item>
+        <p>Host not found, FTP server not found, or connection rejected
+          by FTP server.</p>
+      </item>
+      <dt><code>elogin</code></dt>
+      <item>
+        <p>User not logged in.</p>
+      </item>
+      <dt><code>enotbinary</code></dt>
+      <item>
+        <p>Term is not a binary.</p>
+      </item>
+      <dt><code>epath</code></dt>
+      <item>
+        <p>No such file or directory, or directory already exists, or
+          permission denied.</p>
+      </item>
+      <dt><code>etype</code></dt>
+      <item>
+        <p>No such type.</p>
+      </item>
+      <dt><code>euser</code></dt>
+      <item>
+        <p>User name or password not valid.</p>
+      </item>
+      <dt><code>etnospc</code></dt>
+      <item>
+        <p>Insufficient storage space in system [452].</p>
+      </item>
+      <dt><code>epnospc</code></dt>
+      <item>
+        <p>Exceeded storage allocation (for current directory or
+          dataset) [552].</p>
+      </item>
+      <dt><code>efnamena</code></dt>
+      <item>
+        <p>File name not allowed [553].</p>
+      </item>
+    </taglist>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p>file, filename, J. Postel and J. Reynolds: File Transfer Protocol
+      (RFC 959).
+      </p>
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#account/2">account/2</a></li><li><a href="#append/2">append/2</a></li><li><a href="#append/3">append/3</a></li><li><a href="#append_bin/3">append_bin/3</a></li><li><a href="#append_chunk/2">append_chunk/2</a></li><li><a href="#append_chunk_start/2">append_chunk_start/2</a></li><li><a href="#append_chunk_end/1">append_chunk_end/1</a></li><li><a href="#cd/2">cd/2</a></li><li><a href="#close/1">close/1</a></li><li><a href="#delete/2">delete/2</a></li><li><a href="#formaterror/1">formaterror/1</a></li><li><a href="#lcd/2">lcd/2</a></li><li><a href="#lpwd/1">lpwd/1</a></li><li><a href="#ls/1">ls/1</a></li><li><a href="#ls/2">ls/2</a></li><li><a href="#mkdir/2">mkdir/2</a></li><li><a href="#nlist/1">nlist/1</a></li><li><a href="#nlist/2">nlist/2</a></li><li><a href="#open/1">open/1</a></li><li><a href="#open/2">open/2</a></li><li><a href="#pwd/1">pwd/1</a></li><li><a href="#pwd/1-1">pwd/1-1</a></li><li><a href="#recv/2">recv/2</a></li><li><a href="#recv/3">recv/3</a></li><li><a href="#recv_bin/2">recv_bin/2</a></li><li><a href="#recv_chunk_start/2">recv_chunk_start/2</a></li><li><a href="#recv_chunk/1">recv_chunk/1</a></li><li><a href="#rename/3">rename/3</a></li><li><a href="#rmdir/2">rmdir/2</a></li><li><a href="#send/2">send/2</a></li><li><a href="#send/3">send/3</a></li><li><a href="#send_bin/3">send_bin/3</a></li><li><a href="#send_chunk/2">send_chunk/2</a></li><li><a href="#send_chunk_start/2">send_chunk_start/2</a></li><li><a href="#send_chunk_end/1">send_chunk_end/1</a></li><li><a href="#type/2">type/2</a></li><li><a href="#user/3">user/3</a></li><li><a href="#user/4">user/4</a></li><li><a href="#quote/2">quote/2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

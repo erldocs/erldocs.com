@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>inviso_lfm (inviso) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>inviso_lfm</h1>
+  <h2 class="modsummary">An Inviso Off-Line Logfile Merger</h2>
+  <div class="description">
+    <p>Implements an off-line logfile merger, merging binary trace-log files from several nodes together in chronological order. The logfile merger can also do pid-to-alias translations.</p>
+    <p>The logfile merger is supposed to be called from the Erlang shell or a higher layer trace tool. For it to work, all logfiles and trace information files (containing the pid-alias associations) must be located in the file system accessible from this node and organized according to the API description.</p>
+    <p>The logfile merger starts a process, the output process, which in its turn starts one reader process for every node it shall merge logfiles from. Note that the reason for a process for each node is not remote communication, the logfile merger is an off-line utility, it is to sort the logfile entries in chronological order.</p>
+    <p>The logfile merger can be customized both when it comes to the implementation of the reader processes and the output the output process shall generate for every logfile entry.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="merge/2">merge(Files, OutFile) -&gt;</h3>
+      <h3 id="merge/3">merge(Files, WorkHFun, InitHandlerData) -&gt;</h3>
+      <h3 id="merge/5">merge(Files, BeginHFun, WorkHFun, EndHFun, InitHandlerData) -&gt; {ok, Count} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Files = [FileDescription]</code></li>
+        <li><code>&nbsp;FileDescription = FileSet | {reader,RMod,RFunc,FileSet}</code></li>
+        <li><code>&nbsp;&nbsp;FileSet = {Node,LogFiles} | {Node,[LogFiles]}</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;Node = atom()</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;LogFiles = [{trace_log,[FileName]}] | [{trace_log,[FileName]},{ti_log,TiFileSpec}]</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;&nbsp;TiFileSpec = [string()] - a list of one string.</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;&nbsp;FileName = string()</code></li>
+        <li><code>&nbsp;&nbsp;RMod = RFunc = atom()</code></li>
+        <li><code>OutFile = string()</code></li>
+        <li><code>BeginHFun = fun(InitHandlerData) -&gt; {ok, NewHandlerData} | {error, Reason}</code></li>
+        <li><code>WorkHFun = fun(Node, LogEntry, PidMappings, HandlerData) -&gt; {ok, NewHandlerData}</code></li>
+        <li><code>&nbsp;LogEntry = tuple()</code></li>
+        <li><code>&nbsp;PidMappings = term()</code></li>
+        <li><code>EndHFun = fun(HandlerData) -&gt; ok | {error, Reason}</code></li>
+        <li><code>Count = int()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Merges the logfiles in <code>Files</code> together into one file in chronological order. The logfile merger consists of an output process and one or several reader processes.</p>
+        <p>Returns <code>{ok, Count}</code> where <code>Count</code> is the total number of log entries processed, if successful.</p>
+        <p>When specifying <code>LogFiles</code>, currently the standard reader-process only supports:</p>
+        <list type="bulleted">
+          <item>one single file</item>
+          <item>a list of wraplog files, following the naming convention <code>&lt;Prefix&gt;&lt;Nr&gt;&lt;Suffix&gt;</code>.</item>
+        </list>
+        <p>Note that (when using the standard reader process) it is possible to give a list of <code>LogFiles</code>. The list must be sorted starting with the oldest. This will cause several trace-logs (from the same node) to be merged together in the same <code>OutFile</code>. The reader process will simply start reading the next file (or wrapset) when the previous is done.</p>
+        <p><code>FileDescription == {reader,RMod,RFunc,FileSet}</code> indicates that <code>spawn(RMod, RFunc, [OutputPid,LogFiles])</code> shall create a reader process.</p>
+        <p>The output process is customized with <code>BeginHFun</code>, <code>WorkHFun</code> and <code>EndHFun</code>. If using <code>merge/2</code> a default output process configuration is used, basically creating a text file and writing the output line by line. <code>BeginHFun</code> is called once before requesting log entries from the reader processes. <code>WorkHFun</code> is called for every log entry (trace message) <code>LogEntry</code>. Here the log entry typically gets written to the output. <code>PidMappings</code> is the translations produced by the reader process. <code>EndHFun</code> is called when all reader processes have terminated.</p>
+        <p>Currently the standard reader can only handle one ti-file (per <code>LogFiles</code>). The current inviso meta tracer is further not capable of wrapping ti-files. (This also because a wrapped ti-log will most likely be worthless since alias associations done in the beginning are erased but still used in the trace-log).</p>
+        <p>The standard reader process is implemented in the module <code>inviso_lfm_tpreader</code> (trace port reader). It understands Erlang linked in trace-port driver generated trace-logs and <code>inviso_rt_meta</code> generated trace information files.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Writing Your Own Reader Process</h4>
+    <p>Writing a reader process is not that difficult. It must:</p>
+    <list type="bulleted">
+      <item>Export an init-like function accepting two arguments, pid of the output process and the <code>LogFiles</code> component. <code>LogFiles</code> is actually only used by the reader processes, making it possible to redefine <code>LogFiles</code> if implementing an own reader process.</item>
+      <item>Respond to <code>{get_next_entry, OutputPid}</code> messages with <code>{next_entry, self(), PidMappings, NowTimeStamp, Term}</code> or <code>{next_entry, self(), {error,Reason}}</code>.</item>
+      <item>Terminate normally when no more log entries are available.</item>
+      <item>Terminate on an incoming EXIT-signal from <code>OutputPid</code>.</item>
+    </list>
+    <p>The reader process must of course understand the format of a logfile written by the runtime component.</p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#merge/2">merge/2</a></li><li><a href="#merge/3">merge/3</a></li><li><a href="#merge/5">merge/5</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

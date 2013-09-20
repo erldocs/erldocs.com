@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>dbg (runtime_tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>dbg</h1>
+  <h2 class="modsummary">The Text Based Trace Facility</h2>
+  <div class="description">
+    <p>This module implements a text based interface to the
+      <code>trace/3</code> and the <code>trace_pattern/2</code> BIFs.  It makes it
+      possible to trace functions, processes and messages on text based
+      terminals. It can be used instead of, or as complement to, the
+      <code>pman</code> module.
+      </p>
+    <p>For some examples of how to use <code>dbg</code> from the Erlang
+      shell, see the <a href="#simple_example" class="seealso">simple example</a> section.
+      </p>
+    <p>The utilities are also suitable to use in system testing on
+      large systems, where other tools have too much impact on the
+      system performance.  Some primitive support for sequential tracing
+      is also included, see the <a href="#advanced" class="seealso">advanced topics</a> section.
+      </p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="fun2ms/1">fun2ms(LiteralFun) -&gt; MatchSpec</h3>
+      
+      <ul class="type">
+        <li><code>LiteralFun = fun() literal</code></li>
+        <li><code>MatchSpec = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Pseudo function that by means of a <code>parse_transform</code>
+          translates the <em>literal</em><code>fun()</code> typed as parameter in
+          the function call to a match specification as described in
+          the <code>match_spec</code> manual of <code>ERTS</code> users guide.
+          (with literal I mean that the <code>fun()</code> needs to
+          textually be written as the parameter of the function, it
+          cannot be held in a variable which in turn is passed to the 
+          function). </p>
+        <p>The parse transform is implemented in the module
+          <code>ms_transform</code> and the source <em>must</em> include the
+          file <code>ms_transform.hrl</code> in STDLIB for this
+          pseudo function to work. Failing to include the hrl file in
+          the source will result in a runtime error, not a compile
+          time ditto. The include file is easiest included by adding
+          the line
+          <code>-include_lib("stdlib/include/ms_transform.hrl").</code> to
+          the source file.</p>
+        <p>The <code>fun()</code> is very restricted, it can take only a
+          single parameter (the parameter list to match), a sole variable or a
+          list. It needs to use the <code>is_</code>XXX guard tests and one
+          cannot use language constructs that have no representation
+          in a match_spec (like <code>if</code>, <code>case</code>,
+          <code>receive</code> etc). The return value from the fun will be
+          the return value of the resulting match_spec.</p>
+        <p>Example:</p>
+        <pre class="sh_erlang">
+1&gt; <code>dbg:fun2ms(fun([M,N]) when N &gt; 3 -&gt; return_trace() end).</code>
+[{['$1','$2'],[{'&gt;','$2',3}],[{return_trace}]}]</pre>
+        <p>Variables from the environment can be imported, so that this
+          works:</p>
+        <pre class="sh_erlang">
+2&gt; <code>X=3.</code>
+3
+3&gt; <code>dbg:fun2ms(fun([M,N]) when N &gt; X  -&gt; return_trace() end).</code>
+[{['$1','$2'],[{'&gt;','$2',{const,3}}],[{return_trace}]}]</pre>
+        <p>The imported variables will be replaced by match_spec
+          <code>const</code> expressions, which is consistent with the
+          static scoping for Erlang <code>fun()</code>s. Local or global
+          function calls can not be in the guard or body of the fun
+          however. Calls to builtin match_spec functions of course is
+          allowed:</p>
+        <pre class="sh_erlang">
+4&gt; <code>dbg:fun2ms(fun([M,N]) when N &gt; X, is_atomm(M)  -&gt; return_trace() end).</code>
+Error: fun containing local erlang function calls ('is_atomm' called in guard) cannot be translated into match_spec
+{error,transform_error}
+5&gt; <code>dbg:fun2ms(fun([M,N]) when N &gt; X, is_atom(M)  -&gt; return_trace() end).</code>
+[{['$1','$2'],[{'&gt;','$2',{const,3}},{is_atom,'$1'}],[{return_trace}]}]</pre>
+        <p>As you can see by the example, the function can be called from
+          the shell too. The <code>fun()</code> needs to be literally in the
+          call when used from the shell as well. Other means than the 
+          parse_transform are used in the shell case, but more or less
+          the same restrictions apply (the exception being records,
+          as they are not handled by the shell).</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>If the parse_transform is not applied to a module which calls this
+            pseudo function, the call will fail in runtime (with a 
+            <code>badarg</code>). The module <code>dbg</code> actually exports a
+            function with this name, but it should never really be called
+            except for when using the function in the shell. If the
+            <code>parse_transform</code> is properly applied by including
+            the <code>ms_transform.hrl</code> header file, compiled code
+            will never call the function, but the function call is
+            replaced by a literal match_spec.</p>
+        </div>
+        <p>More information is provided by the <code>ms_transform</code>
+          manual page in STDLIB.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="h/0">h() -&gt; ok </h3>
+      
+      <div class="description">
+        <p>Gives a list of items for brief online help.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="h/1">h(Item) -&gt; ok </h3>
+      
+      <ul class="type">
+        <li><code>Item = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Gives a brief help text for functions in the dbg module. The
+          available items can be listed with <code>dbg:h/0</code></p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="p/1">p(Item) -&gt; {ok, MatchDesc} | {error, term()} </h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>p(Item, [m])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="p/2">p(Item, Flags) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <ul class="type">
+        <li><code>MatchDesc = [MatchNum]</code></li>
+        <li><code>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</code></li>
+        <li><code>RPCError = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Traces <code>Item</code> in accordance to the value specified
+          by <code>Flags</code>. The variation of <code>Item</code> is listed below:</p>
+        <list type="bulleted">
+          <item>If the <code>Item</code> is a <code>pid()</code>, the corresponding
+           process is traced.  The process may be a remote process
+           (on another Erlang node). The node must be in the list of
+           traced nodes (<a href="#n" class="seealso">see</a><code>n/1</code> and <code>tracer/0/2/3</code>).</item>
+          <item>If the <code>Item</code> is the atom <code>all</code>, all processes in the
+           system as well as all processes created hereafter are
+           to be traced. This also affects all nodes added with the
+          <code>n/1</code> or <code>tracer/0/2/3</code> function.</item>
+          <item>If the <code>Item</code> is the atom <code>new</code>, no currently existing
+           processes are affected, but every process created after the
+           call is.This also affects all nodes added with the
+          <code>n/1</code> or <code>tracer/0/2/3</code> function.</item>
+          <item>If the <code>Item</code> is the atom <code>existing</code>, all
+           existing processes are traced, but new processes will not
+           be affected.This also affects all nodes added with the
+          <code>n/1</code> or <code>tracer/0/2/3</code> function.</item>
+          <item>If the <code>Item</code> is an atom other than <code>all</code>,
+          <code>new</code> or <code>existing</code>, the process with the
+           corresponding registered name is traced.The process may be a 
+           remote process (on another Erlang node). The node must be added 
+           with the <code>n/1</code> or <code>tracer/0/2/3</code> function.</item>
+          <item>If the <code>Item</code> is an integer, the process <code>&lt;0.Item.0&gt;</code> is
+           traced.</item>
+          <item>If the <code>Item</code> is a tuple <code>{X, Y, Z}</code>, the
+           process <code>&lt;X.Y.Z&gt;</code> is
+           traced. </item>
+	  <item>If the <code>Item</code> is a string "&lt;X.Y.Z&gt;"
+	    as returned from <code>pid_to_list/1</code>, the process
+	   <code>&lt;X.Y.Z&gt;</code> is traced. </item>
+        </list>
+        <p><code>Flags</code> can be a single atom,
+          or a list of flags. The available flags are:
+          </p>
+        <taglist>
+          <dt><code>s (send)</code></dt>
+          <item>
+            <p>Traces the messages the process sends.</p>
+          </item>
+          <dt><code>r (receive)</code></dt>
+          <item>
+            <p>Traces the messages the process receives.</p>
+          </item>
+          <dt><code>m (messages)</code></dt>
+          <item>
+            <p>Traces the messages the process receives and sends.</p>
+          </item>
+          <dt><code>c (call)</code></dt>
+          <item>
+            <p>Traces global function calls for the process
+              according to the trace patterns set in the system (see tp/2).</p>
+          </item>
+          <dt><code>p (procs)</code></dt>
+          <item>
+            <p>Traces process related events to the process.</p>
+          </item>
+          <dt><code>sos (set on spawn)</code></dt>
+          <item>
+            <p>Lets all processes created by the traced
+              process inherit the trace flags 
+              of the traced process.</p>
+          </item>
+          <dt><code>sol (set on link)</code></dt>
+          <item>
+            <p>Lets another process, <code>P2</code>, inherit the
+              trace flags of the traced 
+              process whenever the traced process links to <code>P2</code>.</p>
+          </item>
+          <dt><code>sofs (set on first spawn)</code></dt>
+          <item>
+            <p>This is the same as <code>sos</code>, but only 
+              for the first process spawned by the traced process.</p>
+          </item>
+          <dt><code>sofl (set on first link)</code></dt>
+          <item>
+            <p>This is the same as <code>sol</code>, but only for
+              the first call to 
+              <code>link/1</code> by the traced process.</p>
+          </item>
+          <dt><code>all</code></dt>
+          <item>
+            <p>Sets all flags.</p>
+          </item>
+          <dt><code>clear</code></dt>
+          <item>
+            <p>Clears all flags.
+              </p>
+          </item>
+        </taglist>
+        <p>The list can also include any of the flags allowed in 
+          <code>erlang:trace/3</code></p>
+        <p>The function returns either an error tuple or a tuple
+          <code>{ok, List}</code>. The <code>List</code> consists of
+          specifications of how many processes that matched (in the
+          case of a pure pid() exactly 1). The specification of
+          matched processes is <code>{matched, Node, N}</code>. If the
+          remote processor call,<code>rpc</code>, to a remote node fails,
+          the <code>rpc</code> error message is delivered as a fourth
+          argument and the number of matched processes are 0. Note
+          that the result {ok, List} may contain a list where
+          <code>rpc</code> calls to one, several or even all nodes failed.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="c/3">c(Mod, Fun, Args)</h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>c(Mod, Fun, Args, all)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="c/4">c(Mod, Fun, Args, Flags)</h3>
+      
+      <div class="description">
+        <p>Evaluates the expression <code>apply(Mod, Fun, Args)</code> with the trace
+          flags in <code>Flags</code> set. This is a convenient way to trace processes 
+          from the Erlang shell.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="i/0">i() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Displays information about all traced processes.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tp/2">tp(Module,MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tp({Module, '_', '_'}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tp/3">tp(Module,Function,MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tp({Module, Function, '_'}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tp/4">tp(Module, Function, Arity, MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tp({Module, Function, Arity}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tp/4-1">tp({Module, Function, Arity}, MatchSpec) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <ul class="type">
+        <li><code>Module = atom() | '_'</code></li>
+        <li><code>Function = atom() | '_'</code></li>
+        <li><code>Arity = integer() |'_'</code></li>
+        <li><code>MatchSpec = integer() | Built-inAlias | [] | match_spec()</code></li>
+	<li><code>Built-inAlias = x | c | cx</code></li>
+        <li><code>MatchDesc = [MatchInfo]</code></li>
+        <li><code>MatchInfo = {saved, integer()} | MatchNum</code></li>
+        <li><code>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</code></li>
+      </ul>
+      <div class="description">
+        <p>This function enables call trace for one or more
+          functions. All exported functions matching the <code>{Module, Function, Arity}</code> argument will be concerned, but the
+          <code>match_spec()</code> may further narrow down the set of function
+          calls generating trace messages.</p>
+        <p>For a description of the <code>match_spec()</code> syntax,
+          please turn to the
+          <em>User's guide</em> part of the online
+          documentation for the runtime system (<em>erts</em>). The
+          chapter <em>Match Specification in Erlang</em> explains the 
+          general match specification "language".</p>
+        <p>The Module, Function and/or Arity parts of the tuple may
+          be specified as the atom <code>'_'</code> which is a "wild-card"
+          matching all modules/functions/arities. Note, if the
+          Module is specified as <code>'_'</code>, the Function and Arity
+          parts have to be specified as '_' too. The same holds for the
+          Functions relation to the Arity.</p>
+        <p>All nodes added with <code>n/1</code> or <code>tracer/0/2/3</code> will
+          be affected by this call, and if Module is not <code>'_'</code>
+          the module will be loaded on all nodes.</p>
+        <p>The function returns either an error tuple or a tuple
+          <code>{ok, List}</code>. The <code>List</code> consists of specifications of how
+          many functions that matched, in the same way as the processes
+          are presented in the return value of <code>p/2</code>. </p>
+        <p>There may be a tuple <code>{saved, N}</code> in the return value,
+          if the MatchSpec is other
+          than []. The integer <code>N</code> may then be used in
+          subsequent calls to this function and will stand as an
+          "alias" for the given expression. There are also a couple of
+	  built-in aliases for common expressions, see <code>ltp/0</code> below 
+	  for details.</p>
+        <p>If an error is returned, it can be due to errors in
+          compilation of the match specification. Such errors are
+          presented as a list of tuples <code>{error, string()}</code> where
+          the string is a textual explanation of the compilation
+          error. An example:</p>
+        <pre class="sh_erlang">
+(x@y)4&gt; <code>dbg:tp({dbg,ltp,0},[{[],[],[{message, two, arguments}, {noexist}]}]).</code>
+{error,
+ [{error,"Special form 'message' called with wrong number of
+          arguments in {message,two,arguments}."},
+  {error,"Function noexist/1 does_not_exist."}]}</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tpl/2">tpl(Module,MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tpl({Module, '_', '_'}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tpl/3">tpl(Module,Function,MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tpl({Module, Function, '_'}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tpl/4">tpl(Module, Function, Arity, MatchSpec)</h3>
+      
+      <div class="description">
+        <p>Same as tpl({Module, Function, Arity}, MatchSpec)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tpl/4-1">tpl({Module, Function, Arity}, MatchSpec) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <div class="description">
+        <p>This function works as <code>tp/2</code>, but enables
+          tracing for local calls (and local functions) as well as for
+          global calls (and functions).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctp/0">ctp()</h3>
+      
+      <div class="description">
+        <p>Same as ctp({'_', '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctp/1">ctp(Module)</h3>
+      
+      <div class="description">
+        <p>Same as ctp({Module, '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctp/2">ctp(Module, Function)</h3>
+      
+      <div class="description">
+        <p>Same as ctp({Module, Function, '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctp/3">ctp(Module, Function, Arity)</h3>
+      
+      <div class="description">
+        <p>Same as ctp({Module, Function, Arity})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctp/3-1">ctp({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <ul class="type">
+        <li><code>Module = atom() | '_'</code></li>
+        <li><code>Function = atom() | '_'</code></li>
+        <li><code>Arity = integer() | '_'</code></li>
+        <li><code>MatchDesc = [MatchNum]</code></li>
+        <li><code>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</code></li>
+      </ul>
+      <div class="description">
+        <p>This function disables call tracing on the specified
+          functions. The semantics of the parameter is the same
+          as for the corresponding function specification in
+          <code>tp/2</code> or <code>tpl/2</code>. Both local and global call trace
+          is disabled. </p>
+        <p>The return value reflects how many functions that matched,
+          and is constructed as described in <code>tp/2</code>. No tuple
+          <code>{saved, N}</code> is however ever returned (for obvious reasons).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpl/0">ctpl()</h3>
+      
+      <div class="description">
+        <p>Same as ctpl({'_', '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpl/1">ctpl(Module)</h3>
+      
+      <div class="description">
+        <p>Same as ctpl({Module, '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpl/2">ctpl(Module, Function)</h3>
+      
+      <div class="description">
+        <p>Same as ctpl({Module, Function, '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpl/3">ctpl(Module, Function, Arity)</h3>
+      
+      <div class="description">
+        <p>Same as ctpl({Module, Function, Arity})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpl/3-1">ctpl({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <div class="description">
+        <p>This function works as <code>ctp/1</code>, but only disables
+          tracing set up with <code>tpl/2</code> (not with <code>tp/2</code>).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpg/0">ctpg()</h3>
+      
+      <div class="description">
+        <p>Same as ctpg({'_', '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpg/1">ctpg(Module)</h3>
+      
+      <div class="description">
+        <p>Same as ctpg({Module, '_', '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpg/2">ctpg(Module, Function)</h3>
+      
+      <div class="description">
+        <p>Same as ctpg({Module, Function, '_'})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpg/3">ctpg(Module, Function, Arity)</h3>
+      
+      <div class="description">
+        <p>Same as ctpg({Module, Function, Arity})</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ctpg/3-1">ctpg({Module, Function, Arity}) -&gt; {ok, MatchDesc} | {error, term()}</h3>
+      
+      <div class="description">
+        <p>This function works as <code>ctp/1</code>, but only disables
+          tracing set up with <code>tp/2</code> (not with <code>tpl/2</code>).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ltp/0">ltp() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Use this function to recall all match specifications previously
+          used in the session (i. e. previously saved during calls
+          to <code>tp/2</code>, and built-in match specifications.
+          This is very useful, as a complicated
+          match_spec can be quite awkward to write. Note that the
+          match specifications are lost if <code>stop/0</code> is called.</p>
+        <p>Match specifications used can be saved in a file (if a
+          read-write file system is present) for use in later
+          debugging sessions, see <code>wtp/1</code> and <code>rtp/1</code></p>
+	<p>There are three built-in trace patterns:
+	  <code>exception_trace</code>, <code>caller_trace</code> 
+	  and <code>caller_exception_trace</code> (or <code>x</code>, <code>c</code> and 
+	  <code>cx</code> respectively). 
+	  Exception trace sets a trace which will show function names, 
+	  parameters, return values and exceptions thrown from functions. 
+	  Caller traces display function names, parameters and information 
+	  about which function called it. An example using a built-in alias:</p>
+	  <pre class="sh_erlang">
+(x@y)4&gt; <code>dbg:tp(lists,sort,cx).</code>
+{ok,[{matched,nonode@nohost,2},{saved,cx}]}
+(x@y)4&gt; <code>lists:sort([2,1]).</code>
+(&lt;0.32.0&gt;) call lists:sort([2,1]) ({erl_eval,do_apply,5})
+(&lt;0.32.0&gt;) returned from lists:sort/1 -&gt; [1,2]
+[1,2]</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="dtp/0">dtp() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Use this function to "forget" all match specifications
+          saved during calls to <code>tp/2</code>.
+          This is useful when one wants to restore other match
+          specifications from a file with <code>rtp/1</code>. Use
+          <code>dtp/1</code> to delete specific saved match specifications. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="dtp/1">dtp(N) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>N = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Use this function to "forget" a specific match specification
+          saved during calls to <code>tp/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="wtp/1">wtp(Name) -&gt; ok | {error, IOError}</h3>
+      
+      <ul class="type">
+        <li><code>Name = string()</code></li>
+        <li><code>IOError = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function will save all match specifications saved
+          during the session (during calls to <code>tp/2</code>)
+          and built-in match specifications in a text
+          file with the name designated by <code>Name</code>. The format
+          of the file is textual, why it can be edited with an
+          ordinary text editor, and then restored with
+          <code>rtp/1</code>. </p>
+        <p>Each match spec in the file ends with a full stop
+          (<code>.</code>) and new (syntactically correct) match
+          specifications can be added to the file manually.</p>
+        <p>The function returns <code>ok</code> or an error tuple where the
+          second element contains the I/O error that made the
+          writing impossible.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="rtp/1">rtp(Name) -&gt; ok | {error, Error}</h3>
+      
+      <ul class="type">
+        <li><code>Name = string()</code></li>
+        <li><code>Error = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function reads match specifications from a file
+          (possibly) generated by the <code>wtp/1</code> function. It checks
+          the syntax of all match specifications and verifies that
+          they are correct. The error handling principle is "all or
+          nothing", i. e. if some of the match specifications are
+          wrong, none of the specifications are added to the list of
+          saved match specifications for the running system. </p>
+        <p>The match specifications in the file are <em>merged</em>
+          with the current match specifications, so that no duplicates
+          are generated. Use <code>ltp/0</code> to see what numbers were
+          assigned to the specifications from the file.</p>
+        <p>The function will return an error, either due to I/O
+          problems (like a non existing or non readable file) or due
+          to file format problems. The errors from a bad format file
+          are in a more or less textual format, which will give a hint
+          to what's causing the problem.          <span id="n"> </span>
+</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="n/1">n(Nodename) -&gt; {ok, Nodename} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Nodename = atom()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>The <code>dbg</code> server keeps a list of nodes where tracing
+          should be performed. Whenever a <code>tp/2</code> call or a
+          <code>p/2</code> call is made, it is executed for all nodes in this
+          list including the local node (except for <code>p/2</code> with a
+          specific <code>pid()</code> as first argument, in which case the
+          command is executed only on the node where the designated
+          process resides).
+          </p>
+        <p>This function adds a remote node (<code>Nodename</code>) to the
+          list of nodes where tracing is performed. It starts a tracer
+          process on the remote node, which will send all trace messages
+          to the tracer process on the local node (via the Erlang
+          distribution). If no tracer process is running on the local
+          node, the error reason <code>no_local_tracer</code> is returned. The
+          tracer process on the local node must be started with the
+          <code>tracer/0/2</code> function.
+          </p>
+        <p>If <code>Nodename</code> is the local node, the error reason
+          <code>cant_add_local_node</code> is returned.
+          </p>
+        <p>If a trace port (<a href="#trace_port" class="seealso">see</a><code>trace_port/2</code>) is
+          running on the local node, remote nodes can not be traced with
+          a tracer process. The error reason
+          <code>cant_trace_remote_pid_to_local_port</code> is returned. A
+          trace port can however be started on the remote node with the
+          <code>tracer/3</code> function.
+          </p>
+        <p>The function will also return an error if the node
+          <code>Nodename</code> is not reachable.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="cn/1">cn(Nodename) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Nodename = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Clears a node from the list of traced nodes. Subsequent
+          calls to <code>tp/2</code> and <code>p/2</code> will not consider that
+          node, but tracing already activated on the node will continue
+          to be in effect.</p>
+        <p>Returns <code>ok</code>, cannot fail.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ln/0">ln() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Shows the list of traced nodes on the console.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tracer/0">tracer() -&gt; {ok, pid()} | {error, already_started}</h3>
+      
+      <div class="description">
+        <p>This function starts a server on the local node that will
+          be the recipient of all trace messages. All subsequent calls
+          to <code>p/2</code> will result in messages sent to the newly
+          started trace server.</p>
+        <p>A trace server started in this way will simply display the
+          trace messages in a formatted way in the Erlang shell
+          (i. e. use io:format). See <code>tracer/2</code> for a description
+          of how the trace message handler can be customized.          <span id="tracer2"> </span>
+</p>
+        <p>To start a similar tracer on a remote node, use <code>n/1</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tracer/2">tracer(Type, Data) -&gt; {ok, pid()} | {error, Error}</h3>
+      
+      <ul class="type">
+        <li><code>Type = port | process</code></li>
+        <li><code>Data = PortGenerator | HandlerSpec</code></li>
+        <li><code>HandlerSpec = {HandlerFun, InitialData}</code></li>
+        <li><code>HandlerFun = fun() (two arguments)</code></li>
+        <li><code>InitialData = term()</code></li>
+        <li><code>PortGenerator = fun() (no arguments)</code></li>
+        <li><code>Error = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function starts a tracer server with additional
+          parameters on the local node. The first parameter, the
+          <code>Type</code>, indicates if trace messages should be handled
+          by a receiving process (<code>process</code>) or by a tracer port
+          (<code>port</code>). For a description about tracer ports see
+          <code>trace_port/2</code>.
+          </p>
+        <p>If <code>Type</code> is a process, a message handler function can
+          be specified (<code>HandlerSpec</code>). The handler function, which
+          should be a <code>fun</code> taking two arguments, will be called
+          for each trace message, with the first argument containing the
+          message as it is and the second argument containing the return
+          value from the last invocation of the fun. The initial value
+          of the second parameter is specified in the <code>InitialData</code>
+          part of the <code>HandlerSpec</code>. The <code>HandlerFun</code> may
+          choose any appropriate action to take when invoked, and can
+          save a state for the next invocation by returning it.
+          </p>
+        <p>If <code>Type</code> is a port, then the second parameter should
+          be a <em>fun</em> which takes no arguments and returns a
+          newly opened trace port when called. Such a <em>fun</em> is
+          preferably generated by calling <code>trace_port/2</code>.
+          </p>
+        <p>If an error is returned, it can either be due to a tracer
+          server already running (<code>{error,already_started}</code>) or
+          due to the <code>HandlerFun</code> throwing an exception.
+          </p>
+        <p>To start a similar tracer on a remote node, use
+          <code>tracer/3</code>.          <span id="trace_port"> </span>
+</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tracer/3">tracer(Nodename, Type, Data) -&gt; {ok, Nodename} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Nodename = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is equivalent to <code>tracer/2</code>, but acts on
+          the given node. A tracer is started on the node
+          (<code>Nodename</code>) and the node is added to the list of traced
+          nodes.
+          </p>
+        <div class="note"><h2>Note!</h2>
+          <p>This function is not equivalent to <code>n/1</code>. While
+            <code>n/1</code> starts a process tracer which redirects all trace
+            information to a process tracer on the local node (i.e. the
+            trace control node), <code>tracer/3</code> starts a tracer of any
+            type which is independent of the tracer on the trace control
+            node.</p>
+        </div>
+        <p>For details, <a href="#tracer2" class="seealso">see</a><code>tracer/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace_port/2">trace_port(Type, Parameters) -&gt; fun()</h3>
+      
+      <ul class="type">
+        <li><code>Type = ip | file</code></li>
+        <li><code>Parameters = Filename | WrapFilesSpec | IPPortSpec</code></li>
+        <li><code>Filename = string() | [string()] | atom()</code></li>
+        <li><code>WrapFilesSpec = {Filename, wrap, Suffix} | {Filename, wrap, Suffix, WrapSize} | {Filename, wrap, Suffix, WrapSize, WrapCnt}</code></li>
+        <li><code>Suffix = string()</code></li>
+        <li><code>WrapSize = integer() &gt;= 0 | {time, WrapTime}</code></li>
+        <li><code>WrapTime = integer() &gt;= 1</code></li>
+        <li><code>WrapCnt = integer() &gt;= 1</code></li>
+        <li><code>IpPortSpec = PortNumber | {PortNumber, QueSize}</code></li>
+        <li><code>PortNumber = integer()</code></li>
+        <li><code>QueSize = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function creates a trace port generating <em>fun</em>.
+          The <em>fun</em> takes no arguments and returns a newly opened
+          trace port. The return value from this function is suitable as
+          a second parameter to tracer/2, i.e. <code>dbg:tracer(port, dbg:trace_port(ip, 4711))</code>. </p>
+        <p>A trace port is an
+          Erlang port to a dynamically linked in driver that handles
+          trace messages directly, without the overhead of sending them
+          as messages in the Erlang virtual machine.</p>
+        <p>Two trace drivers are currently implemented, the
+          <code>file</code> and the <code>ip</code> trace drivers. The file driver
+          sends all trace messages into one or several binary files, 
+          from where they later can be fetched and processed with the
+          <code>trace_client/2</code> function. The ip driver opens a TCP/IP
+          port where it listens for connections. When a client
+          (preferably started by calling <code>trace_client/2</code> on
+          another Erlang node) connects, all trace messages are sent
+          over the IP network for further processing by the remote
+          client. </p>
+        <p>Using a trace port significantly lowers the overhead
+          imposed by using tracing.</p>
+        <p>The file trace driver expects a filename or a wrap files 
+          specification as parameter. A file is written with a high
+          degree of buffering, why all trace messages are <em>not</em>
+          guaranteed to be saved in the file in case of a system
+          crash. That is the price to pay for low tracing overhead.</p>
+        <p>A wrap files specification is used to limit the disk
+          space consumed by the trace. The trace is written to a
+          limited number of files each with a limited size. 
+          The actual filenames are <code>Filename ++ SeqCnt ++ Suffix</code>, where <code>SeqCnt</code> counts as a decimal string
+          from <code>0</code> to <code>WrapCnt</code> and then around again from
+          <code>0</code>. When a trace term written to 
+          the current file makes it longer than <code>WrapSize</code>,
+          that file is closed, if the number of files in this 
+          wrap trace is as many as <code>WrapCnt</code> the oldest file
+          is deleted then a new file is opened to become the current.
+          Thus, when a wrap trace has been stopped, there are at most
+          <code>WrapCnt</code> trace files saved with a size of at least
+          <code>WrapSize</code> (but not much bigger), except for 
+          the last file that might even be empty. The default values
+          are <code>WrapSize = 128*1024</code> and <code>WrapCnt = 8</code>.</p>
+        <p>The <code>SeqCnt</code> values in the filenames are all in the
+          range <code>0</code> through <code>WrapCnt</code> with a gap in the
+          circular sequence. The gap is needed to find the end of the
+          trace.</p>
+        <p>If the <code>WrapSize</code> is specified as 
+          <code>{time, WrapTime}</code>, the current file is closed when it
+          has been open more than <code>WrapTime</code> milliseconds,
+          regardless of it being empty or not.</p>
+        <p>The ip trace driver has a queue of <code>QueSize</code> messages
+          waiting to be delivered. If the driver cannot deliver messages
+          as fast as they are produced by the runtime system, a special
+          message is sent, which indicates how many messages that are
+          dropped. That message will arrive at the handler function
+          specified in <code>trace_client/3</code> as the tuple <code>{drop, N}</code> where <code>N</code> is the number of consecutive messages
+          dropped. In case of heavy tracing, drop's are likely to occur,
+          and they surely occur if no client is reading the trace
+          messages.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="flush_trace_port/0">flush_trace_port()</h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>flush_trace_port(node())</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="flush_trace_port/1">flush_trace_port(Nodename) -&gt; ok | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>trace_port_control(Nodename,flush)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace_port_control/1">trace_port_control(Operation)</h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>trace_port_control(node(),Operation)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace_port_control/2">trace_port_control(Nodename,Operation) -&gt;  ok | {ok, Result} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Nodename = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is used to do a control operation on the
+          active trace port driver on the given node
+          (<code>Nodename</code>). Which operations are allowed as well
+          as their return values depend on which trace driver
+          is used.</p>
+        <p>Returns either <code>ok</code> or <code>{ok, Result}</code> 
+          if the operation was successful, or <code>{error, Reason}</code> 
+          if the current tracer is a process 
+          or if it is a port not supporting the operation.</p>
+        <p>The allowed values for <code>Operation</code> are:</p>
+        <taglist>
+          <dt><code>flush</code></dt>
+          <item>
+            <p>This function is used to flush the internal buffers 
+              held by a trace port driver. Currently only the 
+              file trace driver supports this operation. 
+              Returns <code>ok</code>.</p>
+          </item>
+          <dt><code>get_listen_port</code></dt>
+          <item>
+            <p>Returns <code>{ok, IpPort}</code> where <code>IpPort</code>is
+              the IP port number used by the driver listen socket.
+              Only the ip trace driver supports this operation.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace_client/2">trace_client(Type, Parameters) -&gt; pid()</h3>
+      
+      <ul class="type">
+        <li><code>Type = ip | file | follow_file</code></li>
+        <li><code>Parameters = Filename | WrapFilesSpec | IPClientPortSpec</code></li>
+        <li><code>Filename = string() | [string()] | atom()</code></li>
+        <li><code>WrapFilesSpec = see trace_port/2</code></li>
+        <li><code>Suffix = string()</code></li>
+        <li><code>IpClientPortSpec = PortNumber | {Hostname, PortNumber}</code></li>
+        <li><code>PortNumber = integer()</code></li>
+        <li><code>Hostname = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function starts a trace client that reads the output
+          created by a trace port driver and handles it in mostly the
+          same way as a tracer process created by the <code>tracer/0</code>
+          function.</p>
+        <p>If <code>Type</code> is <code>file</code>, the client reads all trace
+          messages stored in the file named <code>Filename</code> or 
+          specified by <code>WrapFilesSpec</code> (must be the same as used
+          when creating the trace, see trace_port/2)
+          and let's the default handler function format the
+          messages on the console. This is one way to interpret the data
+          stored in a file by the file trace port driver.</p>
+        <p>If <code>Type</code> is <code>follow_file</code>, the client behaves as
+          in the <code>file</code> case, but keeps trying to read (and
+          process) more data
+          from the file until stopped by <code>stop_trace_client/1</code>.
+          <code>WrapFilesSpec</code> is not allowed as second argument 
+          for this <code>Type</code>.</p>
+        <p>If <code>Type</code> is <code>ip</code>, the client connects to the
+          TCP/IP port <code>PortNumber</code> on the host <code>Hostname</code>,
+          from where it reads trace messages until the TCP/IP connection
+          is closed. If no <code>Hostname</code> is specified, the local host
+          is assumed.</p>
+        <p>As an example, one can let trace messages be sent over the
+          network to another Erlang node (preferably <em>not</em>
+          distributed), where the formatting occurs:</p>
+        <p>On the node <code>stack</code> there's an Erlang node
+          <code>ant@stack</code>, in the shell, type the following:</p>
+        <pre class="sh_erlang">
+ant@stack&gt; <code>dbg:tracer(port, dbg:trace_port(ip,4711)).</code>
+&lt;0.17.0&gt;
+ant@stack&gt; <code>dbg:p(self(), send).</code>
+{ok,1}</pre>
+        <p>All trace messages are now sent to the trace port driver,
+          which in turn listens for connections on the TCP/IP port
+          4711. If we want to see the messages on another node,
+          preferably on another host, we do like this:</p>
+        <pre class="sh_erlang">
+-&gt; <code>dbg:trace_client(ip, {"stack", 4711}).</code>
+&lt;0.42.0&gt;</pre>
+        <p>If we now send a message from the shell on the node
+          <code>ant@stack</code>, where all sends from the shell are traced:</p>
+        <pre class="sh_erlang">
+ant@stack&gt; <code>self() ! hello.</code>
+hello</pre>
+        <p>The following will appear at the console on the node that
+          started the trace client:</p>
+        <pre class="sh_erlang">
+(&lt;0.23.0&gt;) &lt;0.23.0&gt; ! hello
+(&lt;0.23.0&gt;) &lt;0.22.0&gt; ! {shell_rep,&lt;0.23.0&gt;,{value,hello,[],[]}}</pre>
+        <p>The last line is generated due to internal message passing
+          in the Erlang shell. The process id's will vary.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace_client/3">trace_client(Type, Parameters, HandlerSpec) -&gt; pid()</h3>
+      
+      <ul class="type">
+        <li><code>Type = ip | file | follow_file</code></li>
+        <li><code>Parameters = Filename | WrapFilesSpec | IPClientPortSpec</code></li>
+        <li><code>Filename = string() | [string()] | atom()</code></li>
+        <li><code>WrapFilesSpec = see trace_port/2</code></li>
+        <li><code>Suffix = string()</code></li>
+        <li><code>IpClientPortSpec = PortNumber | {Hostname, PortNumber}</code></li>
+        <li><code>PortNumber = integer()</code></li>
+        <li><code>Hostname = string()</code></li>
+        <li><code>HandlerSpec = {HandlerFun, InitialData}</code></li>
+        <li><code>HandlerFun = fun() (two arguments)</code></li>
+        <li><code>InitialData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function works exactly as <code>trace_client/2</code>, but
+          allows you to write your own handler function. The handler
+          function works mostly as the one described in
+          <code>tracer/2</code>, but will also have to be prepared to handle
+          trace messages of the form <code>{drop, N}</code>, where <code>N</code> is
+          the number of dropped messages. This pseudo trace message will
+          only occur if the ip trace driver is used.</p>
+        <p>For trace type <code>file</code>, the pseudo trace message
+          <code>end_of_trace</code> will appear at the end of the trace. The
+          return value from the handler function is in this case
+          ignored.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop_trace_client/1">stop_trace_client(Pid) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function shuts down a previously started trace
+          client. The <code>Pid</code> argument is the process id returned
+          from the <code>trace_client/2</code> or <code>trace_client/3</code> call.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_tracer/0">get_tracer()</h3>
+      
+      <div class="description">
+        <p>Equivalent to <code>get_tracer(node())</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_tracer/1">get_tracer(Nodename) -&gt; {ok, Tracer}</h3>
+      
+      <ul class="type">
+        <li><code>Nodename = atom()</code></li>
+        <li><code>Tracer = port() | pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the process or port to which all trace
+          messages are sent. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; stopped</h3>
+      
+      <div class="description">
+        <p>Stops the <code>dbg</code> server and clears all trace flags for
+          all processes and all trace patterns for all functions. Also
+          shuts down all trace clients and closes all trace ports.</p>
+        <p>Note that no trace patterns are affected by this
+          function.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop_clear/0">stop_clear() -&gt; stopped</h3>
+      
+      <div class="description">
+        <p>Same as stop/0, but also clears all trace patterns on local
+          and global functions calls.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="simple_example"> </span>
+    <h4>Simple examples - tracing from the shell</h4>
+    <p>The simplest way of tracing from the Erlang shell is to use
+      <code>dbg:c/3</code> or <code>dbg:c/4</code>, e.g. tracing the function
+      <code>dbg:get_tracer/0</code>:</p>
+    <pre class="sh_erlang">
+(tiger@durin)84&gt; <code>dbg:c(dbg,get_tracer,[]).</code>
+(&lt;0.154.0&gt;) &lt;0.152.0&gt; ! {&lt;0.154.0&gt;,{get_tracer,tiger@durin}}
+(&lt;0.154.0&gt;) out {dbg,req,1}
+(&lt;0.154.0&gt;) &lt;&lt; {dbg,{ok,&lt;0.153.0&gt;}}
+(&lt;0.154.0&gt;) in {dbg,req,1}
+(&lt;0.154.0&gt;) &lt;&lt; timeout
+{ok,&lt;0.153.0&gt;}
+(tiger@durin)85&gt;</pre>
+    <p>Another way of tracing from the shell is to explicitly start a
+      <em>tracer</em> and then set the <em>trace flags</em> of your
+      choice on the processes you want to trace, e.g. trace messages and
+      process events:</p>
+    <pre class="sh_erlang">
+(tiger@durin)66&gt; <code>Pid = spawn(fun() -&gt; receive {From,Msg} -&gt; From ! Msg end end).</code>
+&lt;0.126.0&gt;
+(tiger@durin)67&gt; <code>dbg:tracer().</code>
+{ok,&lt;0.128.0&gt;}
+(tiger@durin)68&gt; <code>dbg:p(Pid,[m,procs]).</code>
+{ok,[{matched,tiger@durin,1}]}
+(tiger@durin)69&gt; <code>Pid ! {self(),hello}.</code>
+(&lt;0.126.0&gt;) &lt;&lt; {&lt;0.116.0&gt;,hello}
+{&lt;0.116.0&gt;,hello}
+(&lt;0.126.0&gt;) &lt;&lt; timeout
+(&lt;0.126.0&gt;) &lt;0.116.0&gt; ! hello
+(&lt;0.126.0&gt;) exit normal
+(tiger@durin)70&gt; <code>flush().</code>
+Shell got hello
+ok
+(tiger@durin)71&gt;</pre>
+    <p>If you set the <code>call</code> trace flag, you also have to set a
+      <em>trace pattern</em> for the functions you want to trace:</p>
+    <pre class="sh_erlang">
+(tiger@durin)77&gt; <code>dbg:tracer().</code>
+{ok,&lt;0.142.0&gt;}
+(tiger@durin)78&gt; <code>dbg:p(all,call).</code>
+{ok,[{matched,tiger@durin,3}]}
+(tiger@durin)79&gt; <code>dbg:tp(dbg,get_tracer,0,[]).</code>
+{ok,[{matched,tiger@durin,1}]}
+(tiger@durin)80&gt; <code>dbg:get_tracer().</code>
+(&lt;0.116.0&gt;) call dbg:get_tracer()
+{ok,&lt;0.143.0&gt;}
+(tiger@durin)81&gt; <code>dbg:tp(dbg,get_tracer,0,[{'_',[],[{return_trace}]}]).</code>
+{ok,[{matched,tiger@durin,1},{saved,1}]}
+(tiger@durin)82&gt; <code>dbg:get_tracer().</code>
+(&lt;0.116.0&gt;) call dbg:get_tracer()
+(&lt;0.116.0&gt;) returned from dbg:get_tracer/0 -&gt; {ok,&lt;0.143.0&gt;}
+{ok,&lt;0.143.0&gt;}
+(tiger@durin)83&gt;</pre>
+  </div>
+
+  <div class="section">
+    <span id="advanced"> </span>
+    <h4>Advanced topics - combining with seq_trace</h4>
+    <p>The <code>dbg</code> module is primarily targeted towards
+      tracing through the <code>erlang:trace/3</code> function. It is
+      sometimes desired to trace messages in a more delicate way, which
+      can be done with the help of the <code>seq_trace</code> module. 
+      </p>
+    <p><code>seq_trace</code> implements sequential tracing (known in the
+      AXE10 world, and sometimes called "forlopp tracing"). <code>dbg</code>
+      can interpret messages generated from <code>seq_trace</code> and the
+      same tracer function for both types of tracing can be used. The
+      <code>seq_trace</code> messages can even be sent to a trace port for
+      further analysis.
+      </p>
+    <p>As a match specification can turn on sequential tracing, the
+      combination of <code>dbg</code> and <code>seq_trace</code> can be quite
+      powerful.  This brief example shows a session where sequential
+      tracing is used:</p>
+    <pre class="sh_erlang">
+1&gt; <code>dbg:tracer().</code>
+{ok,&lt;0.30.0&gt;}
+2&gt; <code>{ok, Tracer} = dbg:get_tracer().</code>
+{ok,&lt;0.31.0&gt;}
+3&gt; <code>seq_trace:set_system_tracer(Tracer).</code>
+false
+4&gt; <code>dbg:tp(dbg, get_tracer, 0, [{[],[],[{set_seq_token, send, true}]}]).</code>
+{ok,[{matched,nonode@nohost,1},{saved,1}]}
+5&gt; <code>dbg:p(all,call).</code>
+{ok,[{matched,nonode@nohost,22}]}
+6&gt; <code>dbg:get_tracer(), seq_trace:set_token([]).</code>
+(&lt;0.25.0&gt;) call dbg:get_tracer()
+SeqTrace [0]: (&lt;0.25.0&gt;) &lt;0.30.0&gt; ! {&lt;0.25.0&gt;,get_tracer} [Serial: {2,4}]
+SeqTrace [0]: (&lt;0.30.0&gt;) &lt;0.25.0&gt; ! {dbg,{ok,&lt;0.31.0&gt;}} [Serial: {4,5}]
+{1,0,5,&lt;0.30.0&gt;,4}</pre>
+    <p>This session sets the system_tracer to the same process as
+      the ordinary tracer process (i. e. &lt;0.31.0&gt;) and sets the
+      trace pattern for the function <code>dbg:get_tracer</code> to one that
+      has the action of setting a sequential token. When the function
+      is called by a traced process (all processes are traced in this
+      case), the process gets "contaminated" by the token and
+      <code>seq_trace</code> messages are sent both for the server request
+      and the response. The <code>seq_trace:set_token([])</code> after the
+      call clears the <code>seq_trace</code> token, why no messages are sent
+      when the answer propagates via the shell to the console port. 
+      The output would otherwise have been more noisy.</p>
+  </div>
+
+  <div class="section">
+    <h4>Note of caution</h4>
+    <p>When tracing function calls on a group leader process (an IO process), there is risk 
+      of causing a deadlock. This will happen if a group leader process generates a trace 
+      message and the tracer process, by calling the trace handler function, sends an IO 
+      request to the same group leader. The problem can only occur if the trace handler 
+      prints to tty using an <code>io</code> function such as <code>format/2</code>. Note that when
+      <code>dbg:p(all,call)</code> is called, IO processes are also traced.  
+      Here's an example:</p>
+    <pre class="sh_erlang">
+%% Using a default line editing shell
+1&gt; <code>dbg:tracer(process, {fun(Msg,_) -&gt; io:format("~p~n", [Msg]), 0 end, 0}).</code>
+{ok,&lt;0.37.0&gt;}
+2&gt; <code>dbg:p(all, [call]).</code>
+{ok,[{matched,nonode@nohost,25}]}
+3&gt; <code>dbg:tp(mymod,[{'_',[],[]}]).</code>
+{ok,[{matched,nonode@nohost,0},{saved,1}]}
+4&gt; <code>mymod:</code> % TAB pressed here
+%% -- Deadlock --</pre>
+    <p>Here's another example:</p>
+    <pre class="sh_erlang">
+%% Using a shell without line editing (oldshell)
+1&gt; <code>dbg:tracer(process).</code>
+{ok,&lt;0.31.0&gt;}
+2&gt; <code>dbg:p(all, [call]).</code>
+{ok,[{matched,nonode@nohost,25}]}
+3&gt; <code>dbg:tp(lists,[{'_',[],[]}]).</code>
+{ok,[{matched,nonode@nohost,0},{saved,1}]}
+% -- Deadlock --</pre>
+    <p>The reason we get a deadlock in the first example is because when TAB is pressed 
+      to expand the function name, the group leader (which handles character input) calls
+      <code>mymod:module_info()</code>. This generates a trace message which, in turn, causes the 
+      tracer process to send an IO request to the group leader (by calling <code>io:format/2</code>).
+      We end up in a deadlock.</p>
+    <p>In the second example we use the default trace handler function. This handler
+      prints to tty by sending IO requests to the <code>user</code> process. When Erlang is
+      started in oldshell mode, the shell process will have <code>user</code> as its
+      group leader and so will the tracer process in this example. Since <code>user</code> calls 
+      functions in <code>lists</code> we end up in a deadlock as soon as the first IO request is sent.</p>
+    <p>Here are a few suggestions for how to avoid deadlock:</p>
+    <list type="bulleted">
+      <item>Don't trace the group leader of the tracer process. If tracing has been switched on
+       for all processes, call <code>dbg:p(TracerGLPid,clear)</code> to stop tracing the group leader
+       (<code>TracerGLPid</code>). <code>process_info(TracerPid,group_leader)</code> tells you 
+       which process this is (<code>TracerPid</code> is returned from <code>dbg:get_tracer/0</code>).</item>
+      <item>Don't trace the <code>user</code> process if using the default trace handler function.</item>
+      <item>In your own trace handler function, call <code>erlang:display/1</code> instead of an
+      <code>io</code> function or, if <code>user</code> is not used as group leader, print to 
+      <code>user</code> instead of the default group leader. Example:
+      <code>io:format(user,Str,Args)</code>.</item>
+    </list>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#fun2ms/1">fun2ms/1</a></li><li><a href="#h/0">h/0</a></li><li><a href="#h/1">h/1</a></li><li><a href="#p/1">p/1</a></li><li><a href="#p/2">p/2</a></li><li><a href="#c/3">c/3</a></li><li><a href="#c/4">c/4</a></li><li><a href="#i/0">i/0</a></li><li><a href="#tp/2">tp/2</a></li><li><a href="#tp/3">tp/3</a></li><li><a href="#tp/4">tp/4</a></li><li><a href="#tp/4-1">tp/4-1</a></li><li><a href="#tpl/2">tpl/2</a></li><li><a href="#tpl/3">tpl/3</a></li><li><a href="#tpl/4">tpl/4</a></li><li><a href="#tpl/4-1">tpl/4-1</a></li><li><a href="#ctp/0">ctp/0</a></li><li><a href="#ctp/1">ctp/1</a></li><li><a href="#ctp/2">ctp/2</a></li><li><a href="#ctp/3">ctp/3</a></li><li><a href="#ctp/3-1">ctp/3-1</a></li><li><a href="#ctpl/0">ctpl/0</a></li><li><a href="#ctpl/1">ctpl/1</a></li><li><a href="#ctpl/2">ctpl/2</a></li><li><a href="#ctpl/3">ctpl/3</a></li><li><a href="#ctpl/3-1">ctpl/3-1</a></li><li><a href="#ctpg/0">ctpg/0</a></li><li><a href="#ctpg/1">ctpg/1</a></li><li><a href="#ctpg/2">ctpg/2</a></li><li><a href="#ctpg/3">ctpg/3</a></li><li><a href="#ctpg/3-1">ctpg/3-1</a></li><li><a href="#ltp/0">ltp/0</a></li><li><a href="#dtp/0">dtp/0</a></li><li><a href="#dtp/1">dtp/1</a></li><li><a href="#wtp/1">wtp/1</a></li><li><a href="#rtp/1">rtp/1</a></li><li><a href="#n/1">n/1</a></li><li><a href="#cn/1">cn/1</a></li><li><a href="#ln/0">ln/0</a></li><li><a href="#tracer/0">tracer/0</a></li><li><a href="#tracer/2">tracer/2</a></li><li><a href="#tracer/3">tracer/3</a></li><li><a href="#trace_port/2">trace_port/2</a></li><li><a href="#flush_trace_port/0">flush_trace_port/0</a></li><li><a href="#flush_trace_port/1">flush_trace_port/1</a></li><li><a href="#trace_port_control/1">trace_port_control/1</a></li><li><a href="#trace_port_control/2">trace_port_control/2</a></li><li><a href="#trace_client/2">trace_client/2</a></li><li><a href="#trace_client/3">trace_client/3</a></li><li><a href="#stop_trace_client/1">stop_trace_client/1</a></li><li><a href="#get_tracer/0">get_tracer/0</a></li><li><a href="#get_tracer/1">get_tracer/1</a></li><li><a href="#stop/0">stop/0</a></li><li><a href="#stop_clear/0">stop_clear/0</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

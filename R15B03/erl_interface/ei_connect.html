@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ei_connect (erl_interface) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ei_connect</h1>
+  <libsummary>Communicate with distributed erlang</libsummary>
+  <div class="description">
+    <p>This module enables C programs to communicate with erlang nodes,
+      using the erlang distribution over TCP/IP.</p>
+    <p>A C node appears to Erlang as a
+      <em>hidden node</em>.
+      That is, Erlang processes that know the name of the
+      C node are able to communicate with it in a normal manner, but
+      the node name will not appear in the listing provided by the
+      Erlang function <code>nodes/0</code>.</p>
+    <p>The environment variable <code>ERL_EPMD_PORT</code> can be used
+      to indicate which logical cluster a C node belongs to.</p>
+  </div>
+
+  <div class="section">
+    <h4>Timeout functions</h4>
+    <p>Most functions appear in a version with the suffix
+      <code>_tmo</code> appended to the function name. Those function take
+      an additional argument, a timeout in <em>milliseconds</em>. The
+      semantics is this; for each communication primitive involved in
+      the operation, if the primitive does not complete within the time
+      specified, the function will return an error and
+      <code>erl_errno</code> will be set to <code>ETIMEDOUT</code>. With
+      communication primitive is meant an operation on the socket, like
+      <code>connect</code>, <code>accept</code>, <code>recv</code> or <code>send</code>.</p>
+    <p>Obviously the timeouts are for implementing fault tolerance,
+      not to keep hard realtime promises. The <code>_tmo</code> functions
+      are for detecting non-responsive peers and to avoid blocking on
+      socket operations. </p>
+    <p>A timeout value of <code>0</code> (zero), means that timeouts are
+      disabled. Calling a <code>_tmo</code>-function with the last argument as
+      <code>0</code> is therefore exactly the same thing as calling the
+      function without the <code>_tmo</code> suffix.</p>
+    <p>As with all other ei functions, you are <em>not</em> expected
+      to put the socket in non blocking mode yourself in the program. Every
+      use of non blocking mode is embedded inside the timeout
+      functions. The socket will always be back in blocking mode after
+      the operations are completed (regardless of the result). To
+      avoid problems, leave the socket options alone. Ei will handle
+      any socket options that need modification.</p>
+    <p>In all other senses, the <code>_tmo</code> functions inherit all 
+      the return values and the semantics from the functions without 
+      the <code>_tmo</code> suffix.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <pre>int ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</pre>
+      <pre>int ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</pre>
+      
+      <div class="description">
+        <p>These function initializes the <code>ec</code> structure, to
+          identify the node name and cookie of the server. One of them
+          has to be called before other functions that works on the
+          type <code>ei_cnode</code> or a file descriptor associated with a
+          connection to another node are used.</p>
+        <p><code>ec</code> is a structure containing information about the
+          C-node. It is used in other <code>ei</code> functions for
+          connecting and receiving data.</p>
+        <p><code>this_node_name</code> is the  registered name of the process
+          (the name before '@').</p>
+        <p><code>cookie</code> is the cookie for the node.</p>
+        <p><code>creation</code> identifies a specific instance of a C
+          node. It can help prevent the node from receiving messages
+          sent to an earlier process with the same registered name.</p>
+        <p><code>thishostname</code> is the name of the machine we're running
+          on. If long names are to be used, it should be fully
+          qualified (i.e. <code>durin.erix.ericsson.se</code> instead of
+          <code>durin</code>).</p>
+        <p><code>thisalivename</code> is the registered name of the process.</p>
+        <p><code>thisnodename</code> is the full name of the node,
+          i.e. <code>einode@durin</code>.</p>
+        <p><code>thispaddr</code> if the IP address of the host.</p>
+        <p>A C node acting as a server will be assigned a creation
+          number when it calls <code>ei_publish()</code>.</p>
+        <p>A connection is closed by simply closing the socket. Refer
+          to system documentation to close the socket gracefully (when
+          there are outgoing packets before close).</p>
+        <p>This function return a negative value indicating that an error
+          occurred.</p>
+        <p>Example 1:
+          </p>
+        <pre class="sh_erlang">
+int n = 0;
+struct in_addr addr;
+ei_cnode ec;
+addr.s_addr = inet_addr("150.236.14.75");
+if (ei_connect_xinit(&ec,
+                     "chivas",
+                     "madonna",
+                     "madonna@chivas.du.etx.ericsson.se",
+                     &addr;
+                     "cookie...",
+                     n++) &lt; 0) {
+    fprintf(stderr,"ERROR when initializing: %d",erl_errno);
+    exit(-1);
+}
+        </pre>
+        <p>Example 2:
+          </p>
+        <pre class="sh_erlang">
+if (ei_connect_init(&ec, "madonna", "cookie...", n++) &lt; 0) {
+    fprintf(stderr,"ERROR when initializing: %d",erl_errno);
+    exit(-1);
+}
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_connect(ei_cnode* ec, char *nodename)</pre>
+      <pre>int ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</pre>
+      
+      <div class="description">
+        <p>These functions set up a connection to an Erlang node.</p>
+        <p><code>ei_xconnect()</code> requires the IP address of the remote
+          host and the alive name of the remote node
+          to be specified. <code>ei_connect()</code> provides an alternative
+          interface, and determines the information from the node name
+          provided.</p>
+        <p><code>addr</code> is the 32-bit IP address of the remote host.</p>
+        <p><code>alive</code> is the alivename of the remote node.</p>
+        <p><code>node</code> is the name of the remote node.</p>
+        <p>These functions return an open file descriptor on success, or
+          a negative value indicating that an error occurred --- in
+          which case they will set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EHOSTUNREACH</code></dt>
+          <item>The remote host <code>node</code> is unreachable</item>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+        <p>Additionally, <code>errno</code> values from
+          <code>socket</code><em>(2)</em> and <code>connect</code><em>(2)</em>
+          system calls may be propagated into <code>erl_errno</code>.</p>
+        <p>Example:</p>
+        <pre class="sh_erlang">
+#define NODE   "madonna@chivas.du.etx.ericsson.se"
+#define ALIVE  "madonna"
+#define IP_ADDR "150.236.14.75"
+
+/*** Variant 1 ***/
+int fd = ei_connect(&ec, NODE);
+
+/*** Variant 2 ***/
+struct in_addr addr;
+addr.s_addr = inet_addr(IP_ADDR);
+fd = ei_xconnect(&ec, &addr, ALIVE);
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)</pre>
+      <pre>int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_connect and ei_xconnect with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive(int fd, unsigned char* bufp, int bufsize)</pre>
+      
+      <div class="description">
+        <p>This function receives a message consisting of a sequence
+          of bytes in the Erlang external format.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection. It
+          is obtained from a previous <code>ei_connect</code> or
+          <code>ei_accept</code>.</p>
+        <p><code>bufp</code> is a buffer large enough to hold the expected
+          message. </p>
+        <p><code>bufsize</code> indicates the size of <code>bufp</code>.</p>
+        <p>If a <em>tick</em> occurs, i.e., the Erlang node on the
+          other end of the connection has polled this node to see if it
+          is still alive, the function will return <code>ERL_TICK</code> and
+          no message will be placed in the buffer. Also,
+          <code>erl_errno</code> will be set to <code>EAGAIN</code>.</p>
+        <p>On success, the message is placed in the specified buffer
+          and the function returns the number of bytes actually read. On
+          failure, the function returns <code>ERL_ERROR</code> and will set
+          <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EAGAIN</code></dt>
+          <item>Temporary error: Try again.</item>
+          <dt><code>EMSGSIZE</code></dt>
+          <item>Buffer too small.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive_tmo(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_receive with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</pre>
+      <pre>int ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x)</pre>
+      
+      <div class="description">
+        <p>These functions receives a message to the buffer in
+          <code>x</code>.  <code>ei_xreceive_msg</code> allows the buffer in
+          <code>x</code> to grow, but <code>ei_receive_msg</code> fails if the
+          message is bigger than the preallocated buffer in <code>x</code>.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>msg</code> is a pointer to an <code>erlang_msg</code> structure
+          and contains information on the message received.</p>
+        <p><code>x</code> is buffer obtained from <code>ei_x_new</code>.</p>
+        <p>On success, the function returns <code>ERL_MSG</code> and the
+          <code>msg</code> struct will be initialized. <code>erlang_msg</code>
+          is defined as follows:</p>
+        <pre class="sh_erlang">
+typedef struct {
+    long msgtype;
+    erlang_pid from;
+    erlang_pid to;
+    char toname[MAXATOMLEN+1];
+    char cookie[MAXATOMLEN+1];
+    erlang_trace token;
+} erlang_msg;
+        </pre>
+        <p><code>msgtype</code> identifies the type of message, and is one of
+          <code>ERL_SEND</code>, <code>ERL_REG_SEND</code>, <code>ERL_LINK</code>,
+          <code>ERL_UNLINK</code> and <code>ERL_EXIT</code>.</p>
+        <p>If <code>msgtype</code> is <code>ERL_SEND</code> this indicates that an
+          ordinary send operation has taken place, and <code>msg-&gt;to</code>
+          contains the Pid of the recipient (the C-node). If
+          <code>type</code> is <code>ERL_REG_SEND</code> then a registered send
+          operation took place, and <code>msg-&gt;from</code> contains the Pid
+          of the sender.</p>
+        <p>If <code>msgtype</code> is <code>ERL_LINK</code> or <code>ERL_UNLINK</code>, then
+          <code>msg-&gt;to</code> and <code>msg-&gt;from</code> contain the pids of the
+          sender and recipient of the link or unlink.</p>
+        <p>If <code>msgtype</code> is <code>ERL_EXIT</code>, then this indicates that
+          a link has been broken. In this case, <code>msg-&gt;to</code> and
+          <code>msg-&gt;from</code> contain the pids of the linked processes.</p>
+        <p>The return value is the same as for <code>ei_receive</code>, see
+          above.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned imeout_ms)</pre>
+      <pre>int ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_receive_msg and ei_xreceive_msg with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive_encoded(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen)</pre>
+      
+      <div class="description">
+        <p>This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.</p>
+        <p>In essence the function performs the same operation as
+          <code>ei_xreceive_msg</code>, but instead of using an ei_x_buff, the
+          function expects a pointer to a character pointer
+          (<code>mbufp</code>), where the character pointer should point to a
+          memory area allocated by <code>malloc</code>. The argument
+          <code>bufsz</code> should be a pointer to an integer containing the
+          exact size (in bytes) of the memory area. The function may
+          reallocate the memory area and will in such cases put the new
+          size in <code>*bufsz</code> and update <code>*mbufp</code>.</p>
+        <p>Furthermore the function returns either ERL_TICK or the
+          <code>msgtype</code> field of the <code>erlang_msg *msg</code>. The actual
+          length of the message is put in <code>*msglen</code>. On error it
+          will return a value <code>&lt; 0</code>.</p>
+        <p>It is recommended to use ei_xreceive_msg instead when
+          possible, for the sake of readability. The function will
+          however be retained in the interface for compatibility and
+          will <em>not</em> be removed not be removed in future releases
+          without notice.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_receive_encoded with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send(int fd, erlang_pid* to, char* buf, int len)</pre>
+      
+      <div class="description">
+        <p>This function sends an Erlang term to a process.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>to</code> is the Pid of the intended recipient of the
+          message.</p>
+        <p><code>buf</code> is the buffer containing the term in binary
+          format.</p>
+        <p><code>len</code> is the length of the message in bytes.</p>
+        <p>The function returns 0 if successful, otherwise -1, in the
+          latter case it will set <code>erl_errno</code> to <code>EIO</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_send with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send_encoded(int fd, erlang_pid* to, char* buf, int len)</pre>
+      
+      <div class="description">
+        <p>Works exactly as ei_send, the alternative name retained for
+          backward compatibility. The function will <em>not</em> be
+          removed without notice.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send_encoded_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_send_encoded with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_reg_send(ei_cnode* ec, int fd, char* server_name, char* buf, int len)</pre>
+      
+      <div class="description">
+        <p>This function sends an Erlang term to a registered process.
+          </p>
+        <p>This function sends an Erlang term to a process.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>server_name</code> is the registered name of the intended
+          recipient.</p>
+        <p><code>buf</code> is the buffer containing the term in binary
+          format.</p>
+        <p><code>len</code> is the length of the message in bytes.</p>
+        <p>The function returns 0 if successful, otherwise -1, in the
+          latter case it will set <code>erl_errno</code> to <code>EIO</code>.</p>
+        <p>Example, send the atom "ok" to the process "worker":</p>
+        <pre class="sh_erlang">
+ei_x_buff x;
+ei_x_new_with_version(&x);
+ei_x_encode_atom(&x, "ok");
+if (ei_reg_send(&ec, fd, x.buff, x.index) &lt; 0)
+    handle_error();
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_reg_send with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send_reg_encoded(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</pre>
+      
+      <div class="description">
+        <p>This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.</p>
+        <p>The function works as <code>ei_reg_send</code> with one
+          exception. Instead of taking the <code>ei_cnode</code> as a first
+          argument, it takes a second argument, an <code>erlang_pid</code>
+          which should be the process identifier of the sending process
+          (in the erlang distribution protocol). </p>
+        <p>A suitable <code>erlang_pid</code> can be constructed from the
+          <code>ei_cnode</code> structure by the following example code:</p>
+        <pre class="sh_erlang">
+          ei_cnode ec;
+          erlang_pid *self;
+          int fd; /* the connection fd */
+          ...
+          self = ei_self(&ec);
+          self-&gt;num = fd;
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)</pre>
+      
+      <div class="description">
+        <p>ei_send_reg_encoded with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x)</pre>
+      <pre>int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)</pre>
+      <pre>int ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)</pre>
+      
+      <div class="description">
+        <p>These functions support calling Erlang functions on remote nodes.
+          <code>ei_rpc_to()</code> sends an rpc request to a remote node and
+          <code>ei_rpc_from()</code> receives the results of such a call.
+          <code>ei_rpc()</code> combines the functionality of these two functions
+          by sending an rpc request and waiting for the results. See also
+          <code>rpc:call/4</code>. </p>
+        <p><code>ec</code> is the C-node structure previously initiated by a
+          call to <code>ei_connect_init()</code> or
+          <code>ei_connect_xinit()</code></p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>timeout</code> is the maximum time (in ms) to wait for
+          results. Specify <code>ERL_NO_TIMEOUT</code> to wait forever.
+          <code>ei_rpc()</code> will wait infinitely for the answer,
+          i.e. the call will never time out.</p>
+        <p><code>mod</code> is the name of the module containing the function
+          to be run on the remote node.</p>
+        <p><code>fun</code> is the name of the function to run.</p>
+        <p><code>argbuf</code> is a pointer to a buffer with an encoded
+          Erlang list, without a version magic number, containing the
+          arguments to be passed to the function.</p>
+        <p><code>argbuflen</code> is the length of the buffer containing the
+          encoded Erlang list.</p>
+        <p><code>msg</code> structure of type <code>erlang_msg</code> and contains
+          information on the message received. See <code>ei_receive_msg()</code>
+          for a description of the <code>erlang_msg</code> format.</p>
+        <p><code>x</code> points to the dynamic buffer that receives the
+          result. For for <code>ei_rpc()</code> this will be the result
+          without the version magic number. For <code>ei_rpc_from()</code>
+          the result will return a version magic number and a 2-tuple
+          <code>{rex,Reply}</code>.</p>
+        <p><code>ei_rpc()</code> returns the number of bytes in the result
+          on success and -1 on failure. <code>ei_rpc_from()</code> returns
+          number of bytes or one of <code>ERL_TICK</code>, <code>ERL_TIMEOUT</code>
+          and <code>ERL_ERROR</code> otherwise. When failing,
+          all three functions set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+          <dt><code>ETIMEDOUT</code></dt>
+          <item>Timeout expired.</item>
+          <dt><code>EAGAIN</code></dt>
+          <item>Temporary error: Try again.</item>
+        </taglist>
+        <p>Example, check to see if an erlang process is alive:</p>
+        <pre class="sh_erlang">
+int index = 0, is_alive;
+ei_x_buff args, result;
+
+ei_x_new(&result);
+ei_x_new(&args);
+ei_x_encode_list_header(&args, 1);
+ei_x_encode_pid(&args, &check_pid);
+ei_x_encode_empty_list(&args);
+
+if (ei_rpc(&ec, fd, "erlang", "is_process_alive",
+           args.buff, args.index, &result) &lt; 0)
+    handle_error();
+
+if (ei_decode_version(result.buff, &index) &lt; 0
+    || ei_decode_bool(result.buff, &index, &is_alive) &lt; 0)
+    handle_error();
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_publish(ei_cnode *ec, int port)</pre>
+      
+      <div class="description">
+        <p>These functions are used by a server process to register
+          with the local name server <em>epmd</em>, thereby allowing
+          other processes to send messages by using the registered name.
+          Before calling either of these functions, the process should
+          have called <code>bind()</code> and <code>listen()</code> on an open socket.</p>
+        <p><code>ec</code> is the C-node structure.</p>
+        <p><code>port</code> is the local name to register, and should be the
+          same as the port number that was previously bound to the socket.</p>
+        <p><code>addr</code> is the 32-bit IP address of the local host.</p>
+        <p>To unregister with epmd, simply close the returned
+          descriptor. Do not use <code>ei_unpublish()</code>, which is deprecated anyway.</p>
+        <p>On success, the functions return a descriptor connecting the
+          calling process to epmd. On failure, they return -1 and set
+          <code>erl_errno</code> to <code>EIO</code>.</p>
+        <p>Additionally, <code>errno</code> values from <code>socket</code><em>(2)</em>
+          and <code>connect</code><em>(2)</em> system calls may be propagated
+          into <code>erl_errno</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_publish_tmo(ei_cnode *ec, int port, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_publish with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)</pre>
+      
+      <div class="description">
+        <p>This function is used by a server process to accept a
+          connection from a client process.</p>
+        <p><code>ec</code> is the C-node structure.</p>
+        <p><code>listensock</code> is an open socket descriptor on which
+          <code>listen()</code> has previously been called.</p>
+        <p><code>conp</code> is a pointer to an <code>ErlConnect</code> struct,
+          described as follows:</p>
+        <pre class="sh_erlang">
+typedef struct {
+  char ipadr[4];             
+  char nodename[MAXNODELEN];
+} ErlConnect;
+        </pre>
+        <p>On success, <code>conp</code> is filled in with the address and
+          node name of the connecting client and a file descriptor is
+          returned. On failure, <code>ERL_ERROR</code> is returned and
+          <code>erl_errno</code> is set to <code>EIO</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_accept_tmo(ei_cnode *ec, int listensock, ErlConnect *conp, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_accept with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_unpublish(ei_cnode *ec)</pre>
+      
+      <div class="description">
+        <p>This function can be called by a process to unregister a
+          specified node from epmd on the localhost. This is however usually not 
+	  allowed, unless epmd was started with the -relaxed_command_check 
+	  flag, which it normally isn't.</p>
+
+	  <p>To unregister a node you have published, you should
+	  close the descriptor that was returned by  
+	  <code>ei_publish()</code>.</p> 
+
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future 
+	  release.</p>
+        </div>
+        <p><code>ec</code> is the node structure of the node to unregister.</p>
+        <p>If the node was successfully unregistered from epmd, the
+          function returns 0. Otherwise, it returns -1 and sets
+          <code>erl_errno</code> is to <code>EIO</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_unpublish_tmo(ei_cnode *ec, unsigned timeout_ms)</pre>
+      
+      <div class="description">
+        <p>ei_unpublish with an optional timeout argument,
+          see the description at the beginning of this document.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>const char * ei_thisnodename(ei_cnode *ec)</pre>
+      <pre>const char * ei_thishostname(ei_cnode *ec)</pre>
+      <pre>const char * ei_thisalivename(ei_cnode *ec)</pre>
+      
+      <div class="description">
+        <p>These functions can be used to retrieve information about
+          the C Node. These values are initially set with
+          <code>ei_connect_init()</code> or <code>ei_connect_xinit()</code>.</p>
+        <p>They simply fetches the appropriate field from the <code>ec</code>
+          structure. Read the field directly will probably be safe for
+          a long time, so these functions are not really needed.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>erlang_pid * ei_self(ei_cnode *ec)</pre>
+      
+      <div class="description">
+        <p>This function retrieves the Pid of the C-node. Every C-node
+          has a (pseudo) pid used in <code>ei_send_reg</code>, <code>ei_rpc</code>
+          and others. This is contained in a field in the <code>ec</code>
+          structure. It will be safe for a long time to fetch this
+          field directly from the <code>ei_cnode</code> structure.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>struct hostent *ei_gethostbyname(const char *name)</pre>
+      <pre>struct hostent *ei_gethostbyaddr(const char *addr, int len, int type)</pre>
+      <pre>struct hostent *ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)</pre>
+      <pre>struct hostent *ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)</pre>
+      
+      <div class="description">
+        <p>These are convenience functions for some common name lookup functions.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_get_tracelevel(void)</pre>
+      <pre>void ei_set_tracelevel(int level)</pre>
+      
+      <div class="description">
+        <p>These functions are used to set tracing on the distribution. The levels are different verbosity levels. A higher level means more information.
+	See also Debug Information and <code>EI_TRACELEVEL</code> below. </p>
+	<p> <code>ei_set_tracelevel</code> and <code>ei_get_tracelevel</code> are not thread safe.  </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Debug Information</h4>
+    <p>If a connection attempt fails, the following can be checked:</p>
+    <list type="bulleted">
+      <item><code>erl_errno</code></item>
+      <item>that the right cookie was used</item>
+      <item>that <em>epmd</em> is running</item>
+      <item>the remote Erlang node on the other side is running the
+       same version of Erlang as the <code>ei</code>
+       library.</item>
+      <item>the environment variable <code>ERL_EPMD_PORT</code>
+       is set correctly.</item>
+    </list>
+    <p>The connection attempt can be traced by setting a tracelevel by either using
+    <code>ei_set_tracelevel</code> or by setting the environment variable <code>EI_TRACELEVEL</code>.
+    The different tracelevels has the following messages:</p>
+    <list>
+    	<item>1: Verbose error messages</item>
+    	<item>2: Above messages and verbose warning messages </item>
+    	<item>3: Above messages and progress reports for connection handling</item>
+    	<item>4: Above messages and progress reports for communication</item>
+    	<item>5: Above messages and progress reports for data conversion</item>
+    </list>
+  </div>
+
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs" />
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+
