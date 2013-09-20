@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ets (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ets</h1>
+  <h2 class="modsummary">Built-In Term Storage</h2>
+  <div class="description">
+    <p>This module is an interface to the Erlang built-in term storage
+      BIFs. These provide the ability to store very large quantities of
+      data in an Erlang runtime system, and to have constant access
+      time to the data. (In the case of <code>ordered_set</code>, see below,
+      access time is proportional to the logarithm of the number of
+      objects stored).</p>
+    <p>Data is organized as a set of dynamic tables, which can store
+      tuples. Each table is created by a process. When the process
+      terminates, the table is automatically destroyed. Every table has
+      access rights set at creation.</p>
+    <p>Tables are divided into four different types, <code>set</code>,
+      <code>ordered_set</code>, <code>bag</code> and <code>duplicate_bag</code>.
+      A <code>set</code> or <code>ordered_set</code> table can only have one object
+      associated with each key. A <code>bag</code> or <code>duplicate_bag</code> can
+      have many objects associated with each key.</p>
+    <p>The number of tables stored at one Erlang node is limited.
+      The current default limit is approximately 1400 tables. The upper
+      limit can be increased by setting the environment variable
+      <code>ERL_MAX_ETS_TABLES</code> before starting the Erlang runtime
+      system (i.e. with the <code>-env</code> option to
+      <code>erl</code>/<code>werl</code>). The actual limit may be slightly higher
+      than the one specified, but never lower.</p>
+    <p>Note that there is no automatic garbage collection for tables.
+      Even if there are no references to a table from any process, it
+      will not automatically be destroyed unless the owner process
+      terminates. It can be destroyed explicitly by using
+      <code>delete/1</code>. The default owner is the process that created the
+      table. Table ownership can be transferred at process termination
+      by using the <a href="#heir" class="seealso">heir</a> option or explicitly
+      by calling <a href="#give_away/3" class="seealso">give_away/3</a>.</p>
+    <p>Some implementation details:</p>
+    <list type="bulleted">
+      <item>In the current implementation, every object insert and
+       look-up operation results in a copy of the object.</item>
+      <item><code>'$end_of_table'</code> should not be used as a key since
+       this atom is used to mark the end of the table when using
+      <code>first</code>/<code>next</code>.</item>
+    </list>
+    <p>Also worth noting is the subtle difference between
+      <em>matching</em> and <em>comparing equal</em>, which is
+      demonstrated by the different table types <code>set</code> and
+      <code>ordered_set</code>. Two Erlang terms <code>match</code> if they are of
+      the same type and have the same value, so that <code>1</code> matches
+      <code>1</code>, but not <code>1.0</code> (as <code>1.0</code> is a <code>float()</code>
+      and not an <code>integer()</code>). Two Erlang terms <em>compare equal</em> if they either are of the same type and value, or if
+      both are numeric types and extend to the same value, so that
+      <code>1</code> compares equal to both <code>1</code> and <code>1.0</code>. The
+      <code>ordered_set</code> works on the <em>Erlang term order</em> and
+      there is no defined order between an <code>integer()</code> and a
+      <code>float()</code> that extends to the same value, hence the key
+      <code>1</code> and the key <code>1.0</code> are regarded as equal in an
+      <code>ordered_set</code> table.</p>
+  </div>
+  <div class="section">
+    <h4>Failure</h4>
+    <p>In general, the functions below will exit with reason
+      <code>badarg</code> if any argument is of the wrong format, if the
+      table identifier is invalid or if the operation is denied due to
+      table access rights (<a href="#protected" class="seealso">protected</a>
+      or <a href="#private" class="seealso">private</a>).</p>
+  </div>
+  <div class="section"><span id="concurrency"> </span>
+    <h4>Concurrency</h4>
+      <p>This module provides some limited support for concurrent access.
+       All updates to single objects are guaranteed to be both <em>atomic</em>
+       and <em>isolated</em>. This means that an updating operation towards
+       a single object will either succeed or fail completely without any
+       effect at all (atomicy).
+       Nor can any intermediate results of the update be seen by other
+       processes (isolation). Some functions that update several objects
+       state that they even guarantee atomicy and isolation for the entire
+       operation. In database terms the isolation level can be seen as
+       "serializable", as if all isolated operations were carried out serially,
+       one after the other in a strict order.</p>
+      <p>No other support is available within ETS that would guarantee
+       consistency between objects. However, the <code>safe_fixtable/2</code>
+       function can be used to guarantee that a sequence of
+      <code>first/1</code> and <code>next/2</code> calls will traverse the table
+       without errors and that each existing object in the table is visited
+       exactly once, even if another process (or the same process)
+       simultaneously deletes or inserts objects into the table.
+       Nothing more is guaranteed; in particular objects that are inserted
+       or deleted during such a traversal may be visited once or not at all.
+       Functions that internally traverse over a table, like <code>select</code>
+       and <code>match</code>, will give the same guarantee as <code>safe_fixtable</code>.</p>
+  </div>
+  <div class="section">
+    <span id="match_spec"> </span>
+    <h4>Match Specifications</h4>
+    <p>Some of the functions uses a <em>match specification</em>,
+      match_spec. A brief explanation is given in
+      <a href="#select/2" class="seealso">select/2</a>. For a detailed
+      description, see the chapter "Match specifications in Erlang" in
+      <em>ERTS User's Guide</em>.</p>
+  </div>
+
+  <datatypes>
+    <datatype>
+      
+      <div class="description">
+        <p>Opaque continuation used by <a href="#select/1" class="seealso">
+          <code>select/1</code></a> and <a href="#select/3" class="seealso">
+          <code>select/3</code></a>.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="match_spec" />
+      <div class="description"><p>A match specification, see above.</p></div>
+    </datatype>
+    <datatype>
+      <name name="match_pattern" />
+    </datatype>
+    <datatype>
+      <name name="tab" />
+    </datatype>
+    <datatype>
+      <name name="tid" />
+      <div class="description"><p>A table identifier, as returned by new/2.</p></div>
+    </datatype>
+  </datatypes>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="all/0">all() -&gt; [Tab]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a list of all tables at the node. Named tables are
+          given by their names, unnamed tables are given by their
+          table identifiers.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete/1">delete(Tab) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Deletes the entire table <code>Tab</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete/2">delete(Tab, Key) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Deletes all objects with the key <code>Key</code> from the table
+          <code>Tab</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete_all_objects/1">delete_all_objects(Tab) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Delete all objects in the ETS table <code>Tab</code>. 
+         The operation is guaranteed to be
+         <a href="#concurrency" class="seealso">atomic and isolated</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete_object/2">delete_object(Tab,Object) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Object = tuple()</code></li>
+      </ul>
+      <div class="description">
+        <p>Delete the exact object <code>Object</code> from the ETS table,
+          leaving objects with the same key but other differences
+          (useful for type <code>bag</code>). In a <code>duplicate_bag</code>, all
+          instances of the object will be deleted.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="file2tab/1">file2tab(Filename) -&gt; {ok, Tab} | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Reads a file produced by <a href="#tab2file/2" class="seealso">tab2file/2</a> or 
+	  <a href="#tab2file/3" class="seealso">tab2file/3</a> and creates the
+          corresponding table <code><anno>Tab</anno></code>.</p>
+	<p>Equivalent to <code>file2tab(<anno>Filename</anno>, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="file2tab/2">file2tab(Filename, Options) -&gt; {ok, Tab} | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Reads a file produced by <a href="#tab2file/2" class="seealso">tab2file/2</a> or 
+	  <a href="#tab2file/3" class="seealso">tab2file/3</a> and creates the
+          corresponding table <code><anno>Tab</anno></code>.</p>
+	<p>The currently only supported option is <code>{verify,boolean()}</code>. If
+	verification is turned on (by means of specifying 
+	<code>{verify,true}</code>), the function utilizes whatever
+	information is present in the file to assert that the
+	information is not damaged. How this is done depends on which
+	<code>extended_info</code> was written using 
+	<a href="#tab2file/3" class="seealso">tab2file/3</a>.</p>
+	<p>If no <code>extended_info</code> is present in the file and
+	<code>{verify,true}</code> is specified, the number of objects
+	written is compared to the size of the original table when the
+	dump was started. This might make verification fail if the
+	table was
+	<code>public</code> and objects were added or removed while the
+	table was dumped to file. To avoid this type of problems,
+	either do not verify files dumped while updated simultaneously
+	or use the <code>{extended_info, [object_count]}</code> option to
+	<a href="#tab2file/3" class="seealso">tab2file/3</a>, which
+	extends the information in the file with the number of objects
+	actually written.</p>
+	<p>If verification is turned on and the file was written with
+	the option <code>{extended_info, [md5sum]}</code>, reading the file
+	is slower and consumes radically more CPU time than
+	otherwise.</p>
+        <p><code>{verify,false}</code> is the default.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="first/1">first(Tab) -&gt; Key | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the first key <code>Key</code> in the table <code>Tab</code>.
+          If the table is of the <code>ordered_set</code> type, the first key
+          in Erlang term order will be returned. If the table is of any
+          other type, the first key according to the table's internal
+          order will be returned. If the table is empty,
+          <code>'$end_of_table'</code> will be returned.</p>
+        <p>Use <code>next/2</code> to find subsequent keys in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="foldl/3">foldl(Function, Acc0, Tab) -&gt; Acc1</h3>
+      
+      <div class="description">
+        <p><code><anno>Acc0</anno></code> is returned if the table is empty.
+          This function is similar to <code>lists:foldl/3</code>. The order in
+          which the elements of the table are traversed is unspecified,
+          except for tables of type <code>ordered_set</code>, for which they
+          are traversed first to last.</p>
+
+	 <p>If <code><anno>Function</anno></code> inserts objects into the table, or another
+	 process inserts objects into the table, those objects <em>may</em>
+	 (depending on key ordering) be included in the traversal.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="foldr/3">foldr(Function, Acc0, Tab) -&gt; Acc1</h3>
+      
+      <div class="description">
+        <p><code><anno>Acc0</anno></code> is returned if the table is empty.
+          This function is similar to <code>lists:foldr/3</code>. The order in
+          which the elements of the table are traversed is unspecified,
+          except for tables of type <code>ordered_set</code>, for which they
+          are traversed last to first.</p>
+
+	 <p>If <code><anno>Function</anno></code> inserts objects into the table, or another
+	 process inserts objects into the table, those objects <em>may</em>
+	 (depending on key ordering) be included in the traversal.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="from_dets/2">from_dets(Tab, DetsTab) -&gt; true</h3>
+      
+      <div class="description">
+        <p>Fills an already created ETS table with the objects in the
+          already opened Dets table named <code><anno>DetsTab</anno></code>. The existing
+          objects of the ETS table are kept unless overwritten.</p>
+	<p>Throws a badarg error if any of the tables does not exist or the 
+	  dets table is not open.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="fun2ms/1">fun2ms(LiteralFun) -&gt; MatchSpec</h3>
+      
+      <div class="description">
+        <p>Pseudo function that by means of a <code>parse_transform</code>
+          translates <code><anno>LiteralFun</anno></code> typed as parameter in the
+          function call to a
+          <a href="#match_spec" class="seealso">match_spec</a>. With
+          "literal" is meant that the fun needs to textually be written
+          as the parameter of the function, it cannot be held in a
+          variable which in turn is passed to the function).</p>
+        <p>The parse transform is implemented in the module
+          <code>ms_transform</code> and the source <em>must</em> include the
+          file <code>ms_transform.hrl</code> in STDLIB for this
+          pseudo function to work. Failing to include the hrl file in
+          the source will result in a runtime error, not a compile
+          time ditto. The include file is easiest included by adding
+          the line
+          <code>-include_lib("stdlib/include/ms_transform.hrl").</code> to
+          the source file.</p>
+        <p>The fun is very restricted, it can take only a single
+          parameter (the object to match): a sole variable or a
+          tuple. It needs to use the <code>is_</code>XXX guard tests.
+          Language constructs that have no representation
+          in a match_spec (like <code>if</code>, <code>case</code>, <code>receive</code>
+          etc) are not allowed.</p>
+        <p>The return value is the resulting match_spec.</p>
+        <p>Example:</p>
+        <pre class="sh_erlang">
+1&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; 3 -&gt; M end).</code>
+[{{'$1','$2'},[{'&gt;','$2',3}],['$1']}]</pre>
+        <p>Variables from the environment can be imported, so that this
+          works:</p>
+        <pre class="sh_erlang">
+2&gt; <code>X=3.</code>
+3
+3&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X -&gt; M end).</code>
+[{{'$1','$2'},[{'&gt;','$2',{const,3}}],['$1']}]</pre>
+        <p>The imported variables will be replaced by match_spec
+          <code>const</code> expressions, which is consistent with the
+          static scoping for Erlang funs. Local or global function
+          calls can not be in the guard or body of the fun however.
+          Calls to builtin match_spec functions of course is allowed:</p>
+        <pre class="sh_erlang">
+4&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X, is_atomm(M) -&gt; M end).</code>
+Error: fun containing local Erlang function calls
+('is_atomm' called in guard) cannot be translated into match_spec
+{error,transform_error}
+5&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X, is_atom(M) -&gt; M end).</code>
+[{{'$1','$2'},[{'&gt;','$2',{const,3}},{is_atom,'$1'}],['$1']}]</pre>
+        <p>As can be seen by the example, the function can be called
+          from the shell too. The fun needs to be literally in the call
+          when used from the shell as well. Other means than the
+          parse_transform are used in the shell case, but more or less
+          the same restrictions apply (the exception being records,
+          as they are not handled by the shell).</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>If the parse_transform is not applied to a module which
+            calls this pseudo function, the call will fail in runtime
+            (with a <code>badarg</code>). The module <code>ets</code> actually
+            exports a function with this name, but it should never
+            really be called except for when using the function in the
+            shell. If the <code>parse_transform</code> is properly applied by
+            including the <code>ms_transform.hrl</code> header file, compiled
+            code will never call the function, but the function call is
+            replaced by a literal match_spec.</p>
+        </div>
+        <p>For more information, see
+          <a href="ms_transform.html#top" class="seealso">ms_transform(3)</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="give_away/3">give_away(Tab, Pid, GiftData) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Pid = pid()</code></li>
+        <li><code>GiftData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Make process <code>Pid</code> the new owner of table <code>Tab</code>.
+          If successful, the message
+          <code>{'ETS-TRANSFER',Tab,FromPid,GiftData}</code> will be sent
+          to the new owner.</p>
+        <p>The process <code>Pid</code> must be alive, local and not already the
+          owner of the table. The calling process must be the table owner.</p>
+        <p>Note that <code>give_away</code> does not at all affect the
+          <a href="#heir" class="seealso">heir</a> option of the table. A table
+          owner can for example set the <code>heir</code> to itself, give the table
+          away and then get it back in case the receiver terminates.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="i/0">i() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Displays information about all ETS tables on tty.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="i/1">i(Tab) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Browses the table <code><anno>Tab</anno></code> on tty.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info/1">info(Tab) -&gt; [{Item, Value}] | undefined</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Item = atom(), see below</code></li>
+        <li><code>Value = term(), see below</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns information about the table <code>Tab</code> as a list of
+          <code>{Item, Value}</code> tuples. If <code>Tab</code> has the correct type
+	  for a table identifier, but does not refer to an existing ETS
+	  table, <code>undefined</code> is returned. If <code>Tab</code> is not of the
+	  correct type, this function fails with reason <code>badarg</code>.</p>
+
+        <list type="bulleted">
+          <item><code>Item=memory, Value=integer()</code>          <br  />
+
+           The number of words allocated to the table.</item>
+          <item><code>Item=owner, Value=pid()</code>          <br  />
+
+           The pid of the owner of the table.</item>
+          <item><code>Item=heir, Value=pid()|none</code>          <br  />
+
+           The pid of the heir of the table, or <code>none</code> if no heir is set.</item>
+          <item><code>Item=name, Value=atom()</code>          <br  />
+
+           The name of the table.</item>
+          <item><code>Item=size, Value=integer()</code>          <br  />
+
+           The number of objects inserted in the table.</item>
+          <item><code>Item=node, Value=atom()</code>          <br  />
+
+           The node where the table is stored. This field is no longer
+           meaningful as tables cannot be accessed from other nodes.</item>
+          <item><code>Item=named_table, Value=true|false</code>          <br  />
+
+           Indicates if the table is named or not.</item>
+          <item><code>Item=type, Value=set|ordered_set|bag|duplicate_bag</code>          <br  />
+
+           The table type.</item>
+          <item><code>Item=keypos, Value=integer()</code>          <br  />
+
+           The key position.</item>
+          <item><code>Item=protection, Value=public|protected|private</code>          <br  />
+
+           The table access rights.</item>
+           <item><code>Item=compressed, Value=true|false</code>          <br  />
+
+            Indicates if the table is compressed or not.</item>
+        </list>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info/2">info(Tab, Item) -&gt; Value | undefined</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Item, Value - see below</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the information associated with <code>Item</code> for
+          the table <code>Tab</code>, or returns <code>undefined</code> if <code>Tab</code>
+	  does not refer an existing ETS table.
+	  If <code>Tab</code> is not of the correct type, or if <code>Item</code> is not
+	  one of the allowed values, this function fails with reason <code>badarg</code>.</p>
+
+	  <div class="warning"><h2>Warning!</h2><p>In R11B and earlier, this function would not fail but return
+	  <code>undefined</code> for invalid values for <code>Item</code>.</p>
+	  </div>
+
+	  <p>In addition to the <code>{Item,Value}</code>
+          pairs defined for <code>info/1</code>, the following items are
+          allowed:</p>
+        <list type="bulleted">
+          <item><code>Item=fixed, Value=true|false</code>          <br  />
+
+           Indicates if the table is fixed by any process or not.</item>
+          <item>
+            <p><code>Item=safe_fixed, Value={FirstFixed,Info}|false</code>              <br  />
+</p>
+            <p>If the table has been fixed using <code>safe_fixtable/2</code>,
+              the call returns a tuple where <code>FirstFixed</code> is the
+              time when the table was first fixed by a process, which
+              may or may not be one of the processes it is fixed by
+              right now.</p>
+            <p><code>Info</code> is a possibly empty lists of tuples
+              <code>{Pid,RefCount}</code>, one tuple for every process the
+              table is fixed by right now. <code>RefCount</code> is the value
+              of the reference counter, keeping track of how many times
+              the table has been fixed by the process.</p>
+            <p>If the table never has been fixed, the call returns
+              <code>false</code>.</p></item>
+          <item><p><code>Item=stats, Value=tuple()</code>          <br  />
+	  Returns internal statistics about set, bag and duplicate_bag tables on an internal format used by OTP test suites.
+	  Not for production use.</p></item>
+        </list>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="init_table/2">init_table(Tab, InitFun) -&gt; true</h3>
+      
+      <div class="description">
+        <p>Replaces the existing objects of the table <code><anno>Tab</anno></code> with
+          objects created by calling the input function <code><anno>InitFun</anno></code>,
+          see below. This function is provided for compatibility with
+          the <code>dets</code> module, it is not more efficient than filling
+          a table by using <code>ets:insert/2</code>.
+          </p>
+        <p>When called with the argument <code>read</code> the function
+          <code><anno>InitFun</anno></code> is assumed to return <code>end_of_input</code> when
+          there is no more input, or <code>{<anno>Objects</anno>, Fun}</code>, where
+          <code><anno>Objects</anno></code> is a list of objects and <code>Fun</code> is a new
+          input function. Any other value Value is returned as an error
+          <code>{error, {init_fun, Value}}</code>. Each input function will be
+          called exactly once, and should an error occur, the last
+          function is called with the argument <code>close</code>, the reply
+          of which is ignored.</p>
+        <p>If the type of the table is <code>set</code> and there is more
+          than one object with a given key, one of the objects is
+          chosen. This is not necessarily the last object with the given
+          key in the sequence of objects returned by the input
+          functions. This holds also for duplicated
+          objects stored in tables of type <code>bag</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="insert/2">insert(Tab, ObjectOrObjects) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>ObjectOrObjects = tuple() | [tuple()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Inserts the object or all of the objects in the list
+          <code>ObjectOrObjects</code> into the table <code>Tab</code>.  
+          If the table is a <code>set</code> and the key of the inserted
+          objects <em>matches</em> the key of any object in the table,
+          the old object will be replaced. If the table is an
+          <code>ordered_set</code> and the key of the inserted object
+          <em>compares equal</em> to the key of any object in the
+          table, the old object is also replaced. If the list contains
+          more than one object with <em>matching</em> keys and the table is a
+          <code>set</code>, one will be inserted, which one is
+          not defined. The same thing holds for <code>ordered_set</code>, but
+          will also happen if the keys <em>compare equal</em>.</p>
+        <p>The entire operation is guaranteed to be
+          <a href="#concurrency" class="seealso">atomic and isolated</a>,
+          even when a list of objects is inserted.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="insert_new/2">insert_new(Tab, ObjectOrObjects) -&gt; boolean()</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>ObjectOrObjects = tuple() | [tuple()]</code></li>
+      </ul>
+      <div class="description">
+        <p>This function works exactly like <code>insert/2</code>, with the
+          exception that instead of overwriting objects with the same
+          key (in the case of <code>set</code> or <code>ordered_set</code>) or
+          adding more objects with keys already existing in the table
+          (in the case of <code>bag</code> and <code>duplicate_bag</code>), it
+          simply returns <code>false</code>. If <code>ObjectOrObjects</code> is a
+          list, the function checks <em>every</em> key prior to
+          inserting anything. Nothing will be inserted if not
+          <em>all</em> keys present in the list are absent from the
+          table. Like <code>insert/2</code>, the entire operation is guaranteed to be
+          <a href="#concurrency" class="seealso">atomic and isolated</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="is_compiled_ms/1">is_compiled_ms(Term) -&gt; boolean()</h3>
+      
+      <ul class="type">
+        <li><code>Term = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is used to check if a term is a valid
+          compiled <a href="#match_spec" class="seealso">match_spec</a>.
+          The compiled match_spec is an opaque datatype which can
+          <em>not</em> be sent between Erlang nodes nor be stored on
+          disk. Any attempt to create an external representation of a
+          compiled match_spec will result in an empty binary
+          (<code>&lt;&lt;&gt;&gt;</code>). As an example, the following
+          expression:</p>
+        <pre class="sh_erlang">
+ets:is_compiled_ms(ets:match_spec_compile([{'_',[],[true]}])).</pre>
+        <p>will yield <code>true</code>, while the following expressions:</p>
+        <pre class="sh_erlang">
+MS = ets:match_spec_compile([{'_',[],[true]}]),
+Broken = binary_to_term(term_to_binary(MS)),
+ets:is_compiled_ms(Broken).</pre>
+        <p>will yield false, as the variable <code>Broken</code> will contain
+          a compiled match_spec that has passed through external
+          representation.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>The fact that compiled match_specs has no external
+            representation is for performance reasons. It may be subject
+            to change in future releases, while this interface will
+            still remain for backward compatibility reasons.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="last/1">last(Tab) -&gt; Key | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the last key <code>Key</code> according to Erlang term
+          order in the table <code>Tab</code> of the <code>ordered_set</code> type.
+          If the table is of any other type, the function is synonymous
+          to <code>first/2</code>. If the table is empty,
+          <code>'$end_of_table'</code> is returned.</p>
+        <p>Use <code>prev/2</code> to find preceding keys in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="lookup/2">lookup(Tab, Key) -&gt; [Object]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+        <li><code>Object = tuple()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a list of all objects with the key <code>Key</code> in
+          the table <code>Tab</code>.</p>
+        <p>In the case of <code>set, bag and duplicate_bag</code>, an object
+          is returned only if the given key <em>matches</em> the key
+          of the object in the table. If the table is an
+          <code>ordered_set</code> however, an object is returned if the key
+          given <em>compares equal</em> to the key of an object in the
+          table. The difference being the same as between <code>=:=</code>
+          and <code>==</code>. As an example, one might insert an object
+          with the
+          <code>integer()</code> <code>1</code> as a key in an <code>ordered_set</code>
+          and get the object returned as a result of doing a
+          <code>lookup/2</code> with the <code>float()</code> <code>1.0</code> as the
+          key to search for.</p>
+        <p>If the table is of type <code>set</code> or <code>ordered_set</code>,
+          the function returns either the empty list or a list with one
+          element, as there cannot be more than one object with the same
+          key. If the table is of type <code>bag</code> or
+          <code>duplicate_bag</code>, the function returns a list of
+          arbitrary length.</p>
+        <p>Note that the time order of object insertions is preserved;
+          The first object inserted with the given key will be first
+          in the resulting list, and so on.</p>
+        <p>Insert and look-up times in tables of type <code>set</code>,
+          <code>bag</code> and <code>duplicate_bag</code> are constant, regardless
+          of the size of the table. For the <code>ordered_set</code>
+          data-type, time is proportional to the (binary) logarithm of
+          the number of objects.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="lookup_element/3">lookup_element(Tab, Key, Pos) -&gt; Elem</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+        <li><code>Pos = integer()</code></li>
+        <li><code>Elem = term() | [term()]</code></li>
+      </ul>
+      <div class="description">
+        <p>If the table <code>Tab</code> is of type <code>set</code> or
+          <code>ordered_set</code>, the function returns the <code>Pos</code>:th
+          element of the object with the key <code>Key</code>.</p>
+        <p>If the table is of type <code>bag</code> or <code>duplicate_bag</code>,
+          the functions returns a list with the <code>Pos</code>:th element of
+          every object with the key <code>Key</code>.</p>
+        <p>If no object with the key <code>Key</code> exists, the function
+          will exit with reason <code>badarg</code>.</p>
+        <p>The difference between <code>set</code>, <code>bag</code> and 
+          <code>duplicate_bag</code> on one hand, and <code>ordered_set</code> on
+          the other, regarding the fact that <code>ordered_set</code>'s
+          view keys as equal when they <em>compare equal</em>
+          whereas the other table types only regard them equal when
+          they <em>match</em>, naturally holds for
+          <code>lookup_element</code> as well as for <code>lookup</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match/2">match(Tab, Pattern) -&gt; [Match]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Pattern = tuple()</code></li>
+        <li><code>Match = [term()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Matches the objects in the table <code>Tab</code> against the
+          pattern <code>Pattern</code>.</p>
+        <p>A pattern is a term that may contain:</p>
+        <list type="bulleted">
+          <item>bound parts (Erlang terms),</item>
+          <item><code>'_'</code> which matches any Erlang term, and</item>
+          <item>pattern variables: <code>'$N'</code> where
+          <code>N</code>=0,1,...</item>
+        </list>
+        <p>The function returns a list with one element for each
+          matching object, where each element is an ordered list of
+          pattern variable bindings. An example:</p>
+        <pre class="sh_erlang">
+6&gt; <code>ets:match(T, '$1').</code> % Matches every object in the table
+[[{rufsen,dog,7}],[{brunte,horse,5}],[{ludde,dog,5}]]
+7&gt; <code>ets:match(T, {'_',dog,'$1'}).</code>
+[[7],[5]]
+8&gt; <code>ets:match(T, {'_',cow,'$1'}).</code>
+[]</pre>
+        <p>If the key is specified in the pattern, the match is very
+          efficient. If the key is not specified, i.e. if it is a
+          variable or an underscore, the entire table must be searched.
+          The search time can be substantial if the table is very large.</p>
+        <p>On tables of the <code>ordered_set</code> type, the result is in
+          the same order as in a <code>first/next</code> traversal.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match/3">match(Tab, Pattern, Limit) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Pattern = tuple()</code></li>
+        <li><code>Match = [term()]</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Works like <code>ets:match/2</code> but only returns a limited
+          (<code>Limit</code>) number of matching objects. The
+          <code>Continuation</code> term can then be used in subsequent calls
+          to <code>ets:match/1</code> to get the next chunk of matching
+          objects. This is a space efficient way to work on objects in a
+          table which is still faster than traversing the table object
+          by object using <code>ets:first/1</code> and <code>ets:next/1</code>.</p>
+        <p><code>'$end_of_table'</code> is returned if the table is empty.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match/1">match(Continuation) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Match = [term()]</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Continues a match started with <code>ets:match/3</code>. The next
+          chunk of the size given in the initial <code>ets:match/3</code>
+          call is returned together with a new <code>Continuation</code>
+          that can be used in subsequent calls to this function.</p>
+        <p><code>'$end_of_table'</code> is returned when there are no more
+          objects in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_delete/2">match_delete(Tab, Pattern) -&gt; true</h3>
+      
+      <div class="description">
+        <p>Deletes all objects which match the pattern <code><anno>Pattern</anno></code>
+          from the table <code><anno>Tab</anno></code>. See <code>match/2</code> for a
+          description of patterns.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_object/2">match_object(Tab, Pattern) -&gt; [Object]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Pattern = Object = tuple()</code></li>
+      </ul>
+      <div class="description">
+        <p>Matches the objects in the table <code>Tab</code> against the
+          pattern <code>Pattern</code>. See <code>match/2</code> for a description
+          of patterns. The function returns a list of all objects which
+          match the pattern.</p>
+        <p>If the key is specified in the pattern, the match is very
+          efficient. If the key is not specified, i.e. if it is a
+          variable or an underscore, the entire table must be searched.
+          The search time can be substantial if the table is very large.</p>
+        <p>On tables of the <code>ordered_set</code> type, the result is in
+          the same order as in a <code>first/next</code> traversal.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_object/3">match_object(Tab, Pattern, Limit) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Pattern = tuple()</code></li>
+        <li><code>Match = [term()]</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Works like <code>ets:match_object/2</code> but only returns a
+          limited (<code>Limit</code>) number of matching objects. The
+          <code>Continuation</code> term can then be used in subsequent calls
+          to <code>ets:match_object/1</code> to get the next chunk of matching
+          objects. This is a space efficient way to work on objects in a
+          table which is still faster than traversing the table object
+          by object using <code>ets:first/1</code> and <code>ets:next/1</code>.</p>
+        <p><code>'$end_of_table'</code> is returned if the table is empty.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_object/1">match_object(Continuation) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Match = [term()]</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Continues a match started with <code>ets:match_object/3</code>.
+          The next chunk of the size given in the initial
+          <code>ets:match_object/3</code> call is returned together with a
+          new <code>Continuation</code> that can be used in subsequent calls
+          to this function.</p>
+        <p><code>'$end_of_table'</code> is returned when there are no more
+          objects in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_spec_compile/1">match_spec_compile(MatchSpec) -&gt; CompiledMatchSpec</h3>
+      
+      <ul class="type">
+        <li><code>MatchSpec = match_spec()</code></li>
+        <li><code>CompiledMatchSpec = comp_match_spec()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function transforms a
+          <a href="#match_spec" class="seealso">match_spec</a> into an
+          internal representation that can be used in subsequent calls
+          to <code>ets:match_spec_run/2</code>. The internal representation is
+          opaque and can not be converted to external term format and
+          then back again without losing its properties (meaning it can
+          not be sent to a process on another node and still remain a
+          valid compiled match_spec, nor can it be stored on disk).
+          The validity of a compiled match_spec can be checked using
+          <code>ets:is_compiled_ms/1</code>.</p>
+        <p>If the term <code>MatchSpec</code> can not be compiled (does not
+          represent a valid match_spec), a <code>badarg</code> fault is
+          thrown.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>This function has limited use in normal code, it is used by
+            Dets to perform the <code>dets:select</code> operations.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_spec_run/2">match_spec_run(List,CompiledMatchSpec) -&gt; list()</h3>
+      
+      <ul class="type">
+        <li><code>List = [ tuple() ]</code></li>
+        <li><code>CompiledMatchSpec = comp_match_spec()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function executes the matching specified in a
+          compiled <a href="#match_spec" class="seealso">match_spec</a> on
+          a list of tuples. The <code>CompiledMatchSpec</code> term should be
+          the result of a call to <code>ets:match_spec_compile/1</code> and
+          is hence the internal representation of the match_spec one
+          wants to use.</p>
+        <p>The matching will be executed on each element in <code>List</code>
+          and the function returns a list containing all results. If an
+          element in <code>List</code> does not match, nothing is returned
+          for that element. The length of the result list is therefore
+          equal or less than the the length of the parameter
+          <code>List</code>. The two calls in the following example will give
+          the same result (but certainly not the same execution
+          time...):</p>
+        <pre class="sh_erlang">
+Table = ets:new...
+MatchSpec = ....
+% The following call...
+ets:match_spec_run(ets:tab2list(Table),
+ets:match_spec_compile(MatchSpec)),
+% ...will give the same result as the more common (and more efficient)
+ets:select(Table,MatchSpec),</pre>
+        <div class="note"><h2>Note!</h2>
+          <p>This function has limited use in normal code, it is used by
+            Dets to perform the <code>dets:select</code> operations and by
+            Mnesia during transactions.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="member/2">member(Tab, Key) -&gt; true | false</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Works like <code>lookup/2</code>, but does not return the objects.
+          The function returns <code>true</code> if one or more elements in
+          the table has the key <code>Key</code>, <code>false</code> otherwise.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="new/2">new(Name, Options) -&gt; tid() | atom()</h3>
+      
+      <ul class="type">
+        <li><code>Name = atom()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | Tweaks</code></li>
+        <li><code>&nbsp;&nbsp;Type = set | ordered_set | bag | duplicate_bag</code></li>
+        <li><code>&nbsp;&nbsp;Access = public | protected | private</code></li>
+        <li><code>&nbsp;&nbsp;Tweaks = {write_concurrency,boolean()} | {read_concurrency,boolean()} | compressed</code></li>
+        <li><code>&nbsp;&nbsp;Pos = integer()</code></li>
+        <li><code>&nbsp;&nbsp;HeirData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a new table and returns a table identifier which can
+          be used in subsequent operations. The table identifier can be
+          sent to other processes so that a table can be shared between
+          different processes within a node.</p>
+        <p>The parameter <code>Options</code> is a list of atoms which
+          specifies table type, access rights, key position and if the
+          table is named or not. If one or more options are left out,
+          the default values are used. This means that not specifying
+          any options (<code>[]</code>) is the same as specifying
+          <code>[set, protected, {keypos,1}, {heir,none}, {write_concurrency,false}, {read_concurrency,false}]</code>.</p>
+        <list type="bulleted">
+          <item>
+            <p><code>set</code>
+              The table is a <code>set</code> table -  one key, one object,
+              no order among objects. This is the default table type.</p>
+          </item>
+          <item>
+            <p><code>ordered_set</code>
+              The table is a <code>ordered_set</code> table -  one key, one
+              object, ordered in Erlang term order, which is the order
+              implied by the &lt; and &gt; operators. Tables of this type
+              have a somewhat different behavior in some situations
+              than tables of the other types. Most notably the
+              <code>ordered_set</code> tables regard keys as equal when they
+              <em>compare equal</em>, not only when they match. This
+              means that to an <code>ordered_set</code>, the
+              <code>integer()</code> <code>1</code> and the <code>float()</code> <code>1.0</code> are regarded as equal. This also means that the
+              key used to lookup an element not necessarily
+              <em>matches</em> the key in the elements returned, if
+              <code>float()</code>'s and <code>integer()</code>'s are mixed in
+              keys of a table.</p>
+          </item>
+          <item>
+            <p><code>bag</code>
+              The table is a <code>bag</code> table which can have many
+              objects, but only one instance of each object, per key.</p>
+          </item>
+          <item>
+            <p><code>duplicate_bag</code>
+              The table is a <code>duplicate_bag</code> table which can have
+              many objects, including multiple copies of the same
+              object, per key.</p>
+          </item>
+          <item>
+            <p><code>public</code>
+              Any process may read or write to the table.</p>
+          </item>
+          <item>
+            <span id="protected"> </span>
+            <p><code>protected</code>
+              The owner process can read and write to the table. Other
+              processes can only read the table. This is the default
+              setting for the access rights.</p>
+          </item>
+          <item>
+            <span id="private"> </span>
+            <p><code>private</code>
+              Only the owner process can read or write to the table.</p>
+          </item>
+          <item>
+            <p><code>named_table</code>
+              If this option is present, the name <code>Name</code> is
+              associated with the table identifier. The name can then
+              be used instead of the table identifier in subsequent
+              operations.</p>
+          </item>
+          <item>
+            <p><code>{keypos,Pos}</code>
+              Specfies which element in the stored tuples should be
+              used as key. By default, it is the first element, i.e.
+              <code>Pos=1</code>. However, this is not always appropriate. In
+              particular, we do not want the first element to be the
+              key if we want to store Erlang records in a table.</p>
+            <p>Note that any tuple stored in the table must have at
+              least <code>Pos</code> number of elements.</p>
+          </item>
+          <item>
+            <span id="heir"> </span>
+            <p><code>{heir,Pid,HeirData} | {heir,none}</code><br  />
+              Set a process as heir. The heir will inherit the table if
+              the owner terminates. The message
+              <code>{'ETS-TRANSFER',tid(),FromPid,HeirData}</code> will be sent to
+              the heir when that happens. The heir must be a local process.
+              Default heir is <code>none</code>, which will destroy the table when
+              the owner terminates.</p>
+          </item>
+          <item>
+            <span id="new_2_write_concurrency"> </span>
+            <p><code>{write_concurrency,boolean()}</code>
+              Performance tuning. Default is <code>false</code>, in which case an operation that
+              mutates (writes to) the table will obtain exclusive access,
+              blocking any concurrent access of the same table until finished.
+              If set to <code>true</code>, the table is optimized towards concurrent
+              write access. Different objects of the same table can be mutated
+              (and read) by concurrent processes. This is achieved to some degree
+              at the expense of sequential access and concurrent reader performance.
+	      The <code>write_concurrency</code> option can be combined with the
+	      <a href="#new_2_read_concurrency" class="seealso">read_concurrency</a>
+	      option. You typically want to combine these when large concurrent
+	      read bursts and large concurrent write bursts are common (see the
+	      documentation of the
+	      <a href="#new_2_read_concurrency" class="seealso">read_concurrency</a>
+	      option for more information).
+              Note that this option does not change any guarantees about 
+              <a href="#concurrency" class="seealso">atomicy and isolation</a>.
+              Functions that makes such promises over several objects (like
+              <code>insert/2</code>) will gain less (or nothing) from this option.</p>
+             <p>Table type <code>ordered_set</code> is not affected by this option in current
+              implementation.</p>
+          </item>
+          <item>
+            <span id="new_2_read_concurrency"> </span>
+	    <p><code>{read_concurrency,boolean()}</code>
+              Performance tuning. Default is <code>false</code>. When set to
+	      <code>true</code>, the table is optimized for concurrent read
+	      operations. When this option is enabled on a runtime system with
+	      SMP support, read operations become much cheaper; especially on
+	      systems with multiple physical processors. However, switching
+	      between read and write operations becomes more expensive. You
+	      typically want to enable this option when concurrent read
+	      operations are much more frequent than write operations, or when
+	      concurrent reads and writes comes in large read and write
+	      bursts (i.e., lots of reads not interrupted by writes, and lots
+	      of writes not interrupted by reads). You typically do
+	      <em>not</em> want to enable this option when the common access
+	      pattern is a few read operations interleaved with a few write
+	      operations repeatedly. In this case you will get a performance
+	      degradation by enabling this option. The <code>read_concurrency</code>
+	      option can be combined with the
+	      <a href="#new_2_write_concurrency" class="seealso">write_concurrency</a>
+	      option. You typically want to combine these when large concurrent
+	      read bursts and large concurrent write bursts are common.</p>
+          </item>
+          <item>
+            <span id="new_2_compressed"> </span>
+	          <p><code>compressed</code>
+              If this option is present, the table data will be stored in a more compact format to
+              consume less memory. The downside is that it will make table operations slower.
+              Especially operations that need to inspect entire objects,
+              such as <code>match</code> and <code>select</code>, will get much slower. The key element
+              is not compressed in current implementation.</p>
+          </item>
+        </list>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="next/2">next(Tab, Key1) -&gt; Key2 | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key1 = Key2 = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the next key <code>Key2</code>, following the key
+          <code>Key1</code> in the table <code>Tab</code>. If the table is of the
+          <code>ordered_set</code> type, the next key in Erlang term order is
+          returned. If the table is of any other type, the next key
+          according to the table's internal order is returned. If there
+          is no next key, <code>'$end_of_table'</code> is returned.</p>
+        <p>Use <code>first/1</code> to find the first key in the table.</p>
+        <p>Unless a table of type <code>set</code>, <code>bag</code> or
+          <code>duplicate_bag</code> is protected using
+          <code>safe_fixtable/2</code>, see below, a traversal may fail if
+          concurrent updates are made to the table. If the table is of
+          type <code>ordered_set</code>, the function returns the next key in
+          order, even if the object does no longer exist.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="prev/2">prev(Tab, Key1) -&gt; Key2 | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key1 = Key2 = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the previous key <code>Key2</code>, preceding the key
+          <code>Key1</code> according the Erlang term order in the table
+          <code>Tab</code> of the <code>ordered_set</code> type. If the table is of
+          any other type, the function is synonymous to <code>next/2</code>.
+          If there is no previous key, <code>'$end_of_table'</code> is
+          returned.</p>
+        <p>Use <code>last/1</code> to find the last key in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="rename/2">rename(Tab, Name) -&gt; Name</h3>
+      
+      <ul class="type">
+        <li><code>Tab = Name = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Renames the named table <code>Tab</code> to the new name
+          <code>Name</code>. Afterwards, the old name can not be used to
+          access the table. Renaming an unnamed table has no effect.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="repair_continuation/2">repair_continuation(Continuation, MatchSpec) -&gt; Continuation</h3>
+      
+      <div class="description">
+        <p>This function can be used to restore an opaque continuation
+          returned by <code>ets:select/3</code> or <code>ets:select/1</code> if the
+          continuation has passed through external term format (been
+          sent between nodes or stored on disk).</p>
+        <p>The reason for this function is that continuation terms
+          contain compiled match_specs and therefore will be
+          invalidated if converted to external term format. Given that
+          the original match_spec is kept intact, the continuation can
+          be restored, meaning it can once again be used in subsequent
+          <code>ets:select/1</code> calls even though it has been stored on
+          disk or on another node.</p>
+        <p>As an example, the following sequence of calls will fail:</p>
+        <pre class="sh_erlang">
+T=ets:new(x,[]),
+...
+{_,C} = ets:select(T,ets:fun2ms(fun({N,_}=A)
+when (N rem 10) =:= 0 -&gt;
+A
+end),10),
+Broken = binary_to_term(term_to_binary(C)),
+ets:select(Broken).</pre>
+        <p>...while the following sequence will work:</p>
+        <pre class="sh_erlang">
+T=ets:new(x,[]),
+...
+MS = ets:fun2ms(fun({N,_}=A)
+when (N rem 10) =:= 0 -&gt;
+A
+end),
+{_,C} = ets:select(T,MS,10),
+Broken = binary_to_term(term_to_binary(C)),
+ets:select(ets:repair_continuation(Broken,MS)).</pre>
+        <p>...as the call to <code>ets:repair_continuation/2</code> will
+          reestablish the (deliberately) invalidated continuation
+          <code>Broken</code>.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>This function is very rarely needed in application code. It
+            is used by Mnesia to implement distributed <code>select/3</code>
+            and <code>select/1</code> sequences. A normal application would
+            either use Mnesia or keep the continuation from being
+            converted to external format.</p>
+          <p>The reason for not having an external representation of a
+            compiled match_spec is performance. It may be subject to
+            change in future releases, while this interface will remain
+            for backward compatibility.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="safe_fixtable/2">safe_fixtable(Tab, true|false) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Fixes a table of the <code>set</code>, <code>bag</code> or
+          <code>duplicate_bag</code> table type for safe traversal.</p>
+        <p>A process fixes a table by calling
+          <code>safe_fixtable(Tab,true)</code>. The table remains fixed until
+          the process releases it by calling
+          <code>safe_fixtable(Tab,false)</code>, or until the process
+          terminates.</p>
+        <p>If several processes fix a table, the table will remain fixed
+          until all processes have released it (or terminated).
+          A reference counter is kept on a per process basis, and N
+          consecutive fixes requires N releases to actually release
+          the table.</p>
+        <p>When a table is fixed, a sequence of <code>first/1</code> and
+          <code>next/2</code> calls are guaranteed to succeed and each object in
+	  the table will only be returned once, even if objects
+          are removed or inserted during the traversal.
+	  The keys for new objects inserted during the traversal <em>may</em>
+	  be returned by <a href="#next/2" class="seealso">next/2</a>
+	  (it depends on the internal ordering of the keys). An example:</p>
+        <pre class="sh_erlang">
+clean_all_with_value(Tab,X) -&gt;
+    safe_fixtable(Tab,true),
+    clean_all_with_value(Tab,X,ets:first(Tab)),
+    safe_fixtable(Tab,false).
+
+clean_all_with_value(Tab,X,'$end_of_table') -&gt;
+    true;
+clean_all_with_value(Tab,X,Key) -&gt;
+    case ets:lookup(Tab,Key) of
+        [{Key,X}] -&gt;
+            ets:delete(Tab,Key);
+        _ -&gt;
+            true
+    end,
+    clean_all_with_value(Tab,X,ets:next(Tab,Key)).</pre>
+        <p>Note that no deleted objects are actually removed from a
+          fixed table until it has been released. If a process fixes a
+          table but never releases it, the memory used by the deleted
+          objects will never be freed. The performance of operations on
+          the table will also degrade significantly.</p>
+        <p>Use <code>info/2</code> to retrieve information about which
+          processes have fixed which tables. A system with a lot of
+          processes fixing tables may need a monitor which sends alarms
+          when tables have been fixed for too long.</p>
+        <p>Note that for tables of the <code>ordered_set</code> type,
+          <code>safe_fixtable/2</code> is not necessary as calls to
+          <code>first/1</code> and <code>next/2</code> will always succeed.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select/2">select(Tab, MatchSpec) -&gt; [Match]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Match = term()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+      </ul>
+      <div class="description">
+        <p>Matches the objects in the table <code>Tab</code> using a
+          <a href="#match_spec" class="seealso">match_spec</a>. This is a
+          more general call than the <code>ets:match/2</code> and
+          <code>ets:match_object/2</code> calls. In its simplest forms the
+          match_specs look like this:</p>
+        <list type="bulleted">
+          <item>MatchSpec = [MatchFunction]</item>
+          <item>MatchFunction = {MatchHead, [Guard], [Result]}</item>
+          <item>MatchHead = "Pattern as in ets:match"</item>
+          <item>Guard = {"Guardtest name", ...}</item>
+          <item>Result = "Term construct"</item>
+        </list>
+        <p>This means that the match_spec is always a list of one or
+          more tuples (of arity 3). The tuples first element should be
+          a pattern as described in the documentation of
+          <code>ets:match/2</code>. The second element of the tuple should
+          be a list of 0 or more guard tests (described below). The
+          third element of the tuple should be a list containing a
+          description of the value to actually return. In almost all
+          normal cases the list contains exactly one term which fully
+          describes the value to return for each object.</p>
+        <p>The return value is constructed using the "match variables"
+          bound in the MatchHead or using the special match variables
+          <code>'$_'</code> (the whole matching object) and <code>'$$'</code> (all
+          match variables in a list), so that the following
+          <code>ets:match/2</code> expression:</p>
+        <pre class="sh_erlang">
+ets:match(Tab,{'$1','$2','$3'})</pre>
+        <p>is exactly equivalent to:</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</pre>
+        <p>- and the following <code>ets:match_object/2</code> call:</p>
+        <pre class="sh_erlang">
+ets:match_object(Tab,{'$1','$2','$1'})</pre>
+        <p>is exactly equivalent to</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</pre>
+        <p>Composite terms can be constructed in the <code>Result</code> part
+          either by simply writing a list, so that this code:</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$3'},[],['$$']}])</pre>
+        <p>gives the same output as:</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])</pre>
+        <p>i.e. all the bound variables in the match head as a list. If
+          tuples are to be constructed, one has to write a tuple of
+          arity 1 with the single element in the tuple being the tuple
+          one wants to construct (as an ordinary tuple could be mistaken
+          for a <code>Guard</code>). Therefore the following call:</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</pre>
+        <p>gives the same output as:</p>
+        <pre class="sh_erlang">
+ets:select(Tab,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])</pre>
+        <p>- this syntax is equivalent to the syntax used in the trace
+          patterns (see
+          <a href="../runtime_tools/dbg.html" class="seealso">dbg(3)</a>).</p>
+        <p>The <code>Guard</code>s are constructed as tuples where the first
+          element is the name of the test and the rest of the elements
+          are the parameters of the test. To check for a specific type
+          (say a list) of the element bound to the match variable
+          <code>'$1'</code>, one would write the test as
+          <code>{is_list, '$1'}</code>. If the test fails, the object in the
+          table will not match and the next <code>MatchFunction</code> (if
+          any) will be tried. Most guard tests present in Erlang can be
+          used, but only the new versions prefixed <code>is_</code> are
+          allowed (like <code>is_float</code>, <code>is_atom</code> etc).</p>
+        <p>The <code>Guard</code> section can also contain logic and
+          arithmetic operations, which are written with the same syntax
+          as the guard tests (prefix notation), so that a guard test
+          written in Erlang looking like this:</p>
+        <pre class="sh_erlang">
+is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
+        <p>is expressed like this (X replaced with '$1' and Y with
+          '$2'):</p>
+        <pre class="sh_erlang">
+[{is_integer, '$1'}, {is_integer, '$2'}, {'&lt;', {'+', '$1', '$2'}, 4711}]</pre>
+        <p>On tables of the <code>ordered_set</code> type, objects are visited
+          in the same order as in a <code>first/next</code>
+          traversal. This means that the match specification will be
+          executed against objects with keys in the <code>first/next</code>
+          order and the corresponding result list will be in the order of that
+          execution.</p>
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select/3">select(Tab, MatchSpec, Limit) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Match = term()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Works like <code>ets:select/2</code> but only returns a limited
+          (<code>Limit</code>) number of matching objects. The
+          <code>Continuation</code> term can then be used in subsequent calls
+          to <code>ets:select/1</code> to get the next chunk of matching
+          objects. This is a space efficient way to work on objects in a
+          table which is still faster than traversing the table object
+          by object using <code>ets:first/1</code> and <code>ets:next/1</code>.</p>
+        <p><code>'$end_of_table'</code> is returned if the table is empty.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select/1">select(Continuation) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Match = term()</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Continues a match started with
+          <code>ets:select/3</code>. The next
+          chunk of the size given in the initial <code>ets:select/3</code>
+          call is returned together with a new <code>Continuation</code>
+          that can be used in subsequent calls to this function.</p>
+        <p><code>'$end_of_table'</code> is returned when there are no more
+          objects in the table.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select_count/2">select_count(Tab, MatchSpec) -&gt; NumMatched</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Object = tuple()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+        <li><code>NumMatched = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Matches the objects in the table <code>Tab</code> using a
+          <a href="#match_spec" class="seealso">match_spec</a>. If the
+          match_spec returns <code>true</code> for an object, that object
+          considered a match and is counted. For any other result from
+          the match_spec the object is not considered a match and is
+          therefore not counted.</p>
+        <p>The function could be described as a <code>match_delete/2</code>
+          that does not actually delete any elements, but only counts
+          them.</p>
+        <p>The function returns the number of objects matched.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select_delete/2">select_delete(Tab, MatchSpec) -&gt; NumDeleted</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Object = tuple()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+        <li><code>NumDeleted = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Matches the objects in the table <code>Tab</code> using a
+          <a href="#match_spec" class="seealso">match_spec</a>. If the
+          match_spec returns <code>true</code> for an object, that object is
+          removed from the table. For any other result from the
+          match_spec the object is retained. This is a more general
+          call than the <code>ets:match_delete/2</code> call.</p>
+        <p>The function returns the number of objects actually
+          deleted from the table.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>The <code>match_spec</code> has to return the atom <code>true</code> if
+            the object is to be deleted. No other return value will get the
+            object deleted, why one can not use the same match specification for
+            looking up elements as for deleting them.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select_reverse/2">select_reverse(Tab, MatchSpec) -&gt; [Match]</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Match = term()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+      </ul>
+      <div class="description">
+
+      <p>Works like <code>select/2</code>, but returns the list in reverse
+      order for the <code>ordered_set</code> table type. For all other table
+      types, the return value is identical to that of <code>select/2</code>.</p>
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select_reverse/3">select_reverse(Tab, MatchSpec, Limit) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Match = term()</code></li>
+        <li><code>MatchSpec = match_spec()</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+
+      <p>Works like <code>select/3</code>, but for the <code>ordered_set</code>
+      table type, traversing is done starting at the last object in
+      Erlang term order and moves towards the first. For all other
+      table types, the return value is identical to that of
+      <code>select/3</code>.</p>
+
+      <p>Note that this is <em>not</em> equivalent to
+      reversing the result list of a <code>select/3</code> call, as the result list
+      is not only reversed, but also contains the last <code>Limit</code>
+      matching objects in the table, not the first.</p>
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="select_reverse/1">select_reverse(Continuation) -&gt; {[Match],Continuation} | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Match = term()</code></li>
+        <li><code>Continuation = term()</code></li>
+      </ul>
+      <div class="description">
+
+      <p>Continues a match started with
+      <code>ets:select_reverse/3</code>. If the table is an
+      <code>ordered_set</code>, the traversal of the table will continue
+      towards objects with keys earlier in the Erlang term order. The
+      returned list will also contain objects with keys in reverse
+      order.</p>
+
+      <p>For all other table types, the behaviour is exatly that of <code>select/1</code>.</p>
+      <p>Example:</p>
+      <code>
+1&gt; T = ets:new(x,[ordered_set]).
+2&gt; [ ets:insert(T,{N}) || N &lt;- lists:seq(1,10) ].
+...
+3&gt; {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
+...
+4&gt; R0.
+[{10},{9},{8},{7}]
+5&gt; {R1,C1} = ets:select_reverse(C0).
+...
+6&gt; R1.
+[{6},{5},{4},{3}]
+7&gt; {R2,C2} = ets:select_reverse(C1).
+...
+8&gt; R2.
+[{2},{1}]
+9&gt; '$end_of_table' = ets:select_reverse(C2).
+...
+      </code>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="setopts/2">setopts(Tab, Opts) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Opts = Opt | [Opt]</code></li>
+        <li><code>Opt = {heir,pid(),HeirData} | {heir,none}</code></li>
+        <li><code>HeirData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Set table options. The only option that currently is allowed to be
+          set after the table has been created is
+          <a href="#heir" class="seealso">heir</a>. The calling process must be
+          the table owner.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="slot/2">slot(Tab, I) -&gt; [Object] | '$end_of_table'</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>I = integer()</code></li>
+        <li><code>Object = tuple()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is mostly for debugging purposes, Normally
+          one should use <code>first/next</code> or <code>last/prev</code> instead.</p>
+        <p>Returns all objects in the <code>I</code>:th slot of the table
+          <code>Tab</code>. A table can be traversed by repeatedly calling
+          the function, starting with the first slot <code>I=0</code> and
+          ending when <code>'$end_of_table'</code> is returned.
+          The function will fail with reason <code>badarg</code> if the
+          <code>I</code> argument is out of range.</p>
+        <p>Unless a table of type <code>set</code>, <code>bag</code> or
+          <code>duplicate_bag</code> is protected using
+          <code>safe_fixtable/2</code>, see above, a traversal may fail if
+          concurrent updates are made to the table. If the table is of
+          type <code>ordered_set</code>, the function returns a list
+          containing the <code>I</code>:th object in Erlang term order.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tab2file/2">tab2file(Tab, Filename) -&gt; ok | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Dumps the table <code><anno>Tab</anno></code> to the file <code><anno>Filename</anno></code>.</p>
+	<p>Equivalent to <code>tab2file(<anno>Tab</anno>, <anno>Filename</anno>,[])</code></p>
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tab2file/3">tab2file(Tab, Filename, Options) -&gt; ok | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Dumps the table <code><anno>Tab</anno></code> to the file <code><anno>Filename</anno></code>.</p>
+	<p>When dumping the table, certain information about the table
+	is dumped to a header at the beginning of the dump. This
+	information contains data about the table type,
+	name, protection, size, version and if it's a named table. It
+	also contains notes about what extended information is added
+	to the file, which can be a count of the objects in the file
+	or a MD5 sum of the header and records in the file.</p>
+	<p>The size field in the header might not correspond to the
+	actual number of records in the file if the table is public
+	and records are added or removed from the table during
+	dumping. Public tables updated during dump, and that one wants
+	to verify when reading, needs at least one field of extended
+	information for the read verification process to be reliable
+	later.</p>
+	<p>The <code>extended_info</code> option specifies what extra
+	information is written to the table dump:</p>
+	<taglist>
+	<dt><code>object_count</code></dt>
+	<item><p>The number of objects actually written to the file is
+	noted in the file footer, why verification of file truncation
+	is possible even if the file was updated during
+	dump.</p></item>
+	<dt><code>md5sum</code></dt>
+	<item><p>The header and objects in the file are checksummed using
+	the built in MD5 functions. The MD5 sum of all objects is
+	written in the file footer, so that verification while reading
+	will detect the slightest bitflip in the file data. Using this
+	costs a fair amount of CPU time.</p></item>
+	</taglist>
+	<p>Whenever the <code>extended_info</code> option is used, it
+	results in a file not readable by versions of ets prior to
+	that in stdlib-1.15.1</p> 
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tab2list/1">tab2list(Tab) -&gt; [Object]</h3>
+      
+      <div class="description">
+        <p>Returns a list of all objects in the table <code><anno>Tab</anno></code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tabfile_info/1">tabfile_info(Filename) -&gt; {ok, TableInfo} | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Returns information about the table dumped to file by 
+        <a href="#tab2file/2" class="seealso">tab2file/2</a> or 
+	  <a href="#tab2file/3" class="seealso">tab2file/3</a></p>
+	<p>The following items are returned:</p>
+	<taglist>
+	<dt>name</dt>
+	<item><p>The name of the dumped table. If the table was a
+          named table, a table with the same name cannot exist when the
+          table is loaded from file with 
+	  <a href="#file2tab/2" class="seealso">file2tab/2</a>. If the table is
+          not saved as a named table, this field has no significance
+          at all when loading the table from file.</p></item>
+	<dt>type</dt>
+	<item>The ets type of the dumped table (i.e. <code>set</code>, <code>bag</code>,
+	<code>duplicate_bag</code> or <code>ordered_set</code>). This type will be used 
+	when loading the table again.</item>
+	<dt>protection</dt>
+	<item>The protection of the dumped table (i.e. <code>private</code>,
+	<code>protected</code> or <code>public</code>). A table loaded from the file 
+	will get the same protection.</item>
+	<dt>named_table</dt>
+	<item><code>true</code> if the table was a named table when dumped
+	to file, otherwise <code>false</code>. Note that when a named table
+	is loaded from a file, there cannot exist a table in the
+	system with the same name.</item>
+	<dt>keypos</dt>
+	<item>The <code>keypos</code> of the table dumped to file, which 
+	will be used when loading the table again.</item>
+	<dt>size</dt>
+	<item>The number of objects in the table when the table dump
+	to file started, which in case of a <code>public</code> table need
+	not correspond to the number of objects actually saved to the
+	file, as objects might have been added or deleted by another
+	process during table dump.</item>
+	<dt>extended_info</dt>
+	<item>The extended information written in the file footer to
+	allow stronger verification during table loading from file, as
+	specified to <a href="#tab2file/3" class="seealso">tab2file/3</a>. Note that this
+	function only tells <em>which</em> information is present, not
+	the values in the file footer. The value is a list containing
+	one or more of the atoms <code>object_count</code> and
+	<code>md5sum</code>.</item>
+	<dt>version</dt>
+	<item>A tuple <code>{<anno>Major</anno>,<anno>Minor</anno>}</code> containing the major and
+	minor version of the file format for ets table dumps. This
+	version field was added beginning with stdlib-1.5.1, files
+	dumped with older versions will return <code>{0,0}</code> in this
+	field.</item>
+	</taglist>	
+	<p>An error is returned if the file is inaccessible, 
+	badly damaged or not an file produced with <a href="#tab2file/2" class="seealso">tab2file/2</a> or <a href="#tab2file/3" class="seealso">tab2file/3</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table/1">table(Tab) -&gt; QueryHandle</h3>
+      <h3 id="table/2">table(Tab, Options) -&gt; QueryHandle</h3>
+      
+      <div class="description">
+        <p><span id="qlc_table"> </span>Returns a QLC (Query List
+          Comprehension) query handle. The module <code>qlc</code> implements
+          a query language aimed mainly at Mnesia but ETS tables, Dets
+          tables, and lists are also recognized by QLC as sources of
+          data. Calling <code>ets:table/1,2</code> is the means to make the
+          ETS table <code>Tab</code> usable to QLC.</p>
+        <p>When there are only simple restrictions on the key position
+          QLC uses <code>ets:lookup/2</code> to look up the keys, but when
+          that is not possible the whole table is traversed. The
+          option <code>traverse</code> determines how this is done:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>first_next</code>. The table is traversed one key at
+              a time by calling <code>ets:first/1</code> and
+              <code>ets:next/2</code>.</p>
+          </item>
+          <item>
+            <p><code>last_prev</code>. The table is traversed one key at
+              a time by calling <code>ets:last/1</code> and
+              <code>ets:prev/2</code>.</p>
+          </item>
+          <item>
+            <p><code>select</code>. The table is traversed by calling
+              <code>ets:select/3</code> and <code>ets:select/1</code>. The option
+              <code>n_objects</code> determines the number of objects
+              returned (the third argument of <code>select/3</code>); the
+              default is to return <code>100</code> objects at a time. The
+              <a href="#match_spec" class="seealso">match_spec</a> (the
+              second argument of <code>select/3</code>) is assembled by QLC:
+              simple filters are translated into equivalent match_specs
+              while more complicated filters have to be applied to all
+              objects returned by <code>select/3</code> given a match_spec
+              that matches all objects.</p>
+          </item>
+          <item>
+            <p><code>{select, <anno>MatchSpec</anno>}</code>. As for <code>select</code>
+              the table is traversed by calling <code>ets:select/3</code> and
+              <code>ets:select/1</code>. The difference is that the
+              match_spec is explicitly given. This is how to state
+              match_specs that cannot easily be expressed within the
+              syntax provided by QLC.</p>
+          </item>
+        </list>
+        <p>The following example uses an explicit match_spec to
+          traverse the table:</p>
+        <pre class="sh_erlang">
+9&gt; <code>true = ets:insert(Tab = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),</code>
+<code>MS = ets:fun2ms(fun({X,Y}) when (X &gt; 1) or (X &lt; 5) -&gt; {Y} end),</code>
+<code>QH1 = ets:table(Tab, [{traverse, {select, MS}}]).</code></pre>
+        <p>An example with implicit match_spec:</p>
+        <pre class="sh_erlang">
+10&gt; <code>QH2 = qlc:q([{Y} || {X,Y} &lt;- ets:table(Tab), (X &gt; 1) or (X &lt; 5)]).</code></pre>
+        <p>The latter example is in fact equivalent to the former which
+          can be verified using the function <code>qlc:info/1</code>:</p>
+        <pre class="sh_erlang">
+11&gt; <code>qlc:info(QH1) =:= qlc:info(QH2).</code>
+true</pre>
+        <p><code>qlc:info/1</code> returns information about a query handle,
+          and in this case identical information is returned for the
+          two query handles.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="test_ms/2">test_ms(Tuple, MatchSpec) -&gt; {ok, Result} | {error, Errors}</h3>
+      
+      <div class="description">
+        <p>This function is a utility to test a
+          <a href="#match_spec" class="seealso">match_spec</a> used in
+          calls to <code>ets:select/2</code>. The function both tests
+          <code><anno>MatchSpec</anno></code> for "syntactic" correctness and runs the
+          match_spec against the object <code><anno>Tuple</anno></code>. If the match_spec
+          contains errors, the tuple <code>{error, <anno>Errors</anno>}</code> is returned
+          where <code><anno>Errors</anno></code> is a list of natural language
+          descriptions of what was wrong with the match_spec. If the
+          match_spec is syntactically OK, the function returns
+          <code>{ok,<anno>Result</anno>}</code> where <code><anno>Result</anno></code> is what would have been
+          the result in a real <code>ets:select/2</code> call or <code>false</code>
+          if the match_spec does not match the object <code><anno>Tuple</anno></code>.</p>
+        <p>This is a useful debugging and test tool, especially when
+          writing complicated <code>ets:select/2</code> calls.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="to_dets/2">to_dets(Tab, DetsTab) -&gt; DetsTab</h3>
+      
+      <div class="description">
+        <p>Fills an already created/opened Dets table with the objects
+          in the already opened ETS table named <code><anno>Tab</anno></code>. The Dets
+          table is emptied before the objects are inserted.</p>
+      </div>
+    </div>
+    <div class="function"> 
+      <h3 id="update_counter/3">update_counter(Tab, Key, UpdateOp) -&gt; Result</h3>
+      <h3 id="update_counter/3-1">update_counter(Tab, Key, [UpdateOp]) -&gt; [Result]</h3>
+      <h3 id="update_counter/3-2">update_counter(Tab, Key, Incr) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = term()</code></li> 
+        <li><code>UpdateOp = {Pos,Incr} | {Pos,Incr,Threshold,SetValue}</code></li>
+        <li><code>Pos = Incr = Threshold = SetValue = Result = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function provides an efficient way to update one or more 
+          counters, without the hassle of having to look up an object, update 
+          the object by incrementing an element and insert the resulting object 
+          into the table again. (The update is done atomically; i.e. no process 
+          can access the ets table in the middle of the operation.)
+        </p>
+        <p>It will destructively update the object with key <code>Key</code>
+          in the table <code>Tab</code> by adding <code>Incr</code> to the element
+          at the <code>Pos</code>:th position. The new counter value is
+          returned. If no position is specified, the element directly
+          following the key (<code>&lt;keypos&gt;+1</code>) is updated.</p>
+        <p>If a <code>Threshold</code> is specified, the counter will be
+          reset to the value <code>SetValue</code> if the following
+          conditions occur:</p>
+        <list type="bulleted">
+          <item>The <code>Incr</code> is not negative (<code>&gt;= 0</code>) and the
+           result would be greater than (<code>&gt;</code>) <code>Threshold</code></item>
+          <item>The <code>Incr</code> is negative (<code>&lt; 0</code>) and the
+           result would be less than (<code>&lt;</code>)
+          <code>Threshold</code></item>
+        </list>
+        <p>A list of <code>UpdateOp</code> can be supplied to do several update 
+            operations within the object. The operations are carried out in the
+            order specified in the list. If the same counter position occurs 
+            more than one time in the list, the corresponding counter will thus 
+            be updated several times, each time based on the previous result. 
+            The return value is a list of the new counter values from each 
+            update operation in the same order as in the operation list. If an 
+            empty list is specified, nothing is updated and an empty list is 
+            returned. If the function should fail, no updates will be done at 
+            all.
+        </p>
+        <p>The given Key is used to identify the object by either
+          <em>matching</em> the key of an object in a <code>set</code> table,
+          or <em>compare equal</em> to the key of an object in an
+          <code>ordered_set</code> table (see 
+          <a href="#lookup/2" class="seealso">lookup/2</a> and 
+          <a href="#new/2" class="seealso">new/2</a>
+          for details on the difference).</p>
+        <p>The function will fail with reason <code>badarg</code> if:</p>
+        <list type="bulleted">
+          <item>the table is not of type <code>set</code> or
+          <code>ordered_set</code>,</item>
+          <item>no object with the right key exists,</item>
+          <item>the object has the wrong arity,</item>
+          <item>the element to update is not an integer,</item>
+          <item>the element to update is also the key, or,</item>
+          <item>any of <code>Pos</code>, <code>Incr</code>, <code>Threshold</code> or
+          <code>SetValue</code> is not an integer</item>
+        </list>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="update_element/4">update_element(Tab, Key, {Pos,Value}) -&gt; true | false</h3>
+      <h3 id="update_element/4-1">update_element(Tab, Key, [{Pos,Value}]) -&gt; true | false</h3>
+      
+      <ul class="type">
+        <li><code>Tab = tid() | atom()</code></li>
+        <li><code>Key = Value = term()</code></li>
+        <li><code>Pos = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function provides an efficient way to update one or more 
+          elements within an object, without the hassle of having to look up, 
+          update and write back the entire object.
+        </p>
+        <p>It will destructively update the object with key <code>Key</code>
+          in the table <code>Tab</code>. The element at the <code>Pos</code>:th position 
+          will be given the value <code>Value</code>. </p>
+        <p>A list of <code>{Pos,Value}</code> can be supplied to update several
+            elements within the same object. If the same position occurs more 
+            than one in the list, the last value in the list will be written. If 
+            the list is empty or the function fails, no updates will be done at
+            all. The function is also atomic in the sense that other processes 
+            can never see any intermediate results.
+        </p>
+        <p>The function returns <code>true</code> if an object with the key
+        <code>Key</code> was found, <code>false</code> otherwise.
+        </p>
+        <p>The given Key is used to identify the object by either
+          <em>matching</em> the key of an object in a <code>set</code> table,
+          or <em>compare equal</em> to the key of an object in an
+          <code>ordered_set</code> table (see 
+          <a href="#lookup/2" class="seealso">lookup/2</a> and 
+          <a href="#new/2" class="seealso">new/2</a>
+          for details on the difference).</p>
+        <p>The function will fail with reason <code>badarg</code> if:</p>
+        <list type="bulleted">
+          <item>the table is not of type <code>set</code> or
+          <code>ordered_set</code>,</item> 
+          <item><code>Pos</code> is less than 1 or greater than the object
+          arity, or,</item>
+          <item>the element to update is also the key</item>
+        </list>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#all/0">all/0</a></li><li><a href="#delete/1">delete/1</a></li><li><a href="#delete/2">delete/2</a></li><li><a href="#delete_all_objects/1">delete_all_objects/1</a></li><li><a href="#delete_object/2">delete_object/2</a></li><li><a href="#file2tab">file2tab</a></li><li><a href="#file2tab-1">file2tab-1</a></li><li><a href="#first/1">first/1</a></li><li><a href="#foldl">foldl</a></li><li><a href="#foldr">foldr</a></li><li><a href="#from_dets">from_dets</a></li><li><a href="#fun2ms">fun2ms</a></li><li><a href="#give_away/3">give_away/3</a></li><li><a href="#i">i</a></li><li><a href="#i-1">i-1</a></li><li><a href="#info/1">info/1</a></li><li><a href="#info/2">info/2</a></li><li><a href="#init_table">init_table</a></li><li><a href="#insert/2">insert/2</a></li><li><a href="#insert_new/2">insert_new/2</a></li><li><a href="#is_compiled_ms/1">is_compiled_ms/1</a></li><li><a href="#last/1">last/1</a></li><li><a href="#lookup/2">lookup/2</a></li><li><a href="#lookup_element/3">lookup_element/3</a></li><li><a href="#match/2">match/2</a></li><li><a href="#match/3">match/3</a></li><li><a href="#match/1">match/1</a></li><li><a href="#match_delete">match_delete</a></li><li><a href="#match_object/2">match_object/2</a></li><li><a href="#match_object/3">match_object/3</a></li><li><a href="#match_object/1">match_object/1</a></li><li><a href="#match_spec_compile/1">match_spec_compile/1</a></li><li><a href="#match_spec_run/2">match_spec_run/2</a></li><li><a href="#member/2">member/2</a></li><li><a href="#new/2">new/2</a></li><li><a href="#next/2">next/2</a></li><li><a href="#prev/2">prev/2</a></li><li><a href="#rename/2">rename/2</a></li><li><a href="#repair_continuation">repair_continuation</a></li><li><a href="#safe_fixtable/2">safe_fixtable/2</a></li><li><a href="#select/2">select/2</a></li><li><a href="#select/3">select/3</a></li><li><a href="#select/1">select/1</a></li><li><a href="#select_count/2">select_count/2</a></li><li><a href="#select_delete/2">select_delete/2</a></li><li><a href="#select_reverse/2">select_reverse/2</a></li><li><a href="#select_reverse/3">select_reverse/3</a></li><li><a href="#select_reverse/1">select_reverse/1</a></li><li><a href="#setopts/2">setopts/2</a></li><li><a href="#slot/2">slot/2</a></li><li><a href="#tab2file">tab2file</a></li><li><a href="#tab2file-1">tab2file-1</a></li><li><a href="#tab2list">tab2list</a></li><li><a href="#tabfile_info">tabfile_info</a></li><li><a href="#table">table</a></li><li><a href="#table-1">table-1</a></li><li><a href="#test_ms">test_ms</a></li><li><a href="#to_dets">to_dets</a></li><li><a href="#update_counter/3">update_counter/3</a></li><li><a href="#update_counter/3-1">update_counter/3-1</a></li><li><a href="#update_counter/3-2">update_counter/3-2</a></li><li><a href="#update_element/4">update_element/4</a></li><li><a href="#update_element/4-1">update_element/4-1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

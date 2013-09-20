@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ssh_connection (ssh) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ssh_connection</h1>
+  <h2 class="modsummary">This module provides an API to the ssh connection protocol.
+  </h2>
+  <div class="description">
+    <p>This module provides an API to the ssh connection protocol.
+    Not all features of the connection protocol are officially supported yet.
+    Only the ones supported are documented here.</p>
+  </div>
+
+   <div class="section">
+    <h4>COMMON DATA TYPES </h4>
+    <p>Type definitions that are used more than once in this module and/or
+    abstractions to indicate the intended use of the data type:</p>
+    
+    <p><code>boolean() = true | false </code></p>
+    <p><code>string() = list of ASCII characters</code></p>
+    <p><code>timeout() =  infinity | integer() - in milliseconds.</code></p>
+    <p><code>ssh_connection_ref() - opaque to the user returned by
+    ssh:connect/3 or sent to a ssh channel processes</code></p>
+    <p><code>ssh_channel_id() = integer() </code></p>
+    <p><code>ssh_data_type_code() = 1 ("stderr") | 0 ("normal") are
+    currently valid values see RFC 4254 section 5.2.</code></p>
+    <p><code>ssh_request_status() = success | failure</code></p>
+   </div>
+
+   <div class="section">
+     <h4>MESSAGES SENT TO CHANNEL PROCESSES</h4>
+     
+     <p>As a result of the ssh connection protocol messages on the form
+     <code>{ssh_cm, ssh_connection_ref(), term()}</code>
+     will be sent to a channel process. The term will contain
+     information regarding the ssh connection protocol event,
+     for details see the ssh channel behavior callback <a href="ssh_channel.html" class="seealso">handle_ssh_msg/2 </a> </p>
+   </div>
+   
+ <div class="functions"><h4>Functions</h4><hr  />
+   
+   <div class="function">
+     <h3 id="adjust_window/3">adjust_window(ConnectionRef, ChannelId, NumOfBytes) -&gt; ok</h3>
+     
+     <ul class="type">
+       <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+       <li><code> ChannelId = ssh_channel_id() </code></li>
+       <li><code> NumOfBytes = integer()</code></li>
+     </ul>
+      <div class="description">
+	<p>Adjusts the ssh flowcontrol window. </p>
+	
+	<div class="note"><h2>Note!</h2><p>This will be taken care of by the ssh_channel
+	behavior when the callback <a href="ssh_channel.html" class="seealso">
+	handle_ssh_msg/2 </a> has returned after processing a
+	{ssh_cm, ssh_connection_ref(), {data, ssh_channel_id(),
+	ssh_data_type_code(), binary()}}
+	message, and should normally not be called explicitly.</p></div>
+      </div>
+   </div>
+   
+   <div class="function">
+     <h3 id="close/2">close(ConnectionRef, ChannelId) -&gt; ok</h3>
+     
+     <ul class="type">
+       <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+       <li><code> ChannelId = ssh_channel_id()</code></li>
+     </ul>
+     <div class="description">
+       <p>Sends a close message on the channel <code>ChannelId</code>
+       </p>
+
+       <div class="note"><h2>Note!</h2><p>This function will be called by the ssh channel
+       behavior when the channel is terminated see <a href="ssh_channel.html" class="seealso"> ssh_channel(3) </a> and should
+       normally not be called explicitly.</p></div>
+     </div>
+   </div>
+   
+   <div class="function">
+     <h3 id="exec/4">exec(ConnectionRef, ChannelId, Command, TimeOut) -&gt; ssh_request_status()  </h3>
+     
+     <ul class="type">
+       <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+       <li><code> ChannelId = ssh_channel_id()</code></li>
+       <li><code> Command = string()</code></li>
+       <li><code>Timeout = timeout() </code></li>
+     </ul>
+     <div class="description">
+       <p>Will request that the server start the execution of the
+       given command, the result will be received as:</p>
+
+       <taglist>
+	 <dt><code> N X {ssh_cm,
+	 ssh_connection_ref(), {data, ssh_channel_id(), ssh_data_type_code(),
+	 binary() = Data}} </code></dt>
+	 <item>The result of executing the command may be only one line
+	 or thousands of lines depending on the command.</item>
+
+	 <dt><code> 1 X {ssh_cm, ssh_connection_ref(), {eof, ssh_channel_id()}}</code></dt>
+	 <item>Indicates that no more data will be sent.</item>
+
+	 <dt><code>0 or 1 X {ssh_cm,
+	 ssh_connection_ref(), {exit_signal,
+	 ssh_channel_id(), string() = ExitSignal, string() = ErrorMsg, string() = LanguageString}}</code></dt>
+	 <item>Not all systems send signals. For details on valid string
+	 values see RFC 4254 section 6.10 </item>
+	 
+	  <dt><code>0 or 1 X {ssh_cm, ssh_connection_ref(), {exit_status,
+	  ssh_channel_id(), integer() = ExitStatus}}</code></dt>
+	  <item>It is recommended by the <code>ssh connection protocol</code> that this
+	  message shall be sent, but that may not always be the case.</item>
+
+	  <dt><code> 1 X {ssh_cm, ssh_connection_ref(),
+	  {closed, ssh_channel_id()}}</code></dt>
+	  <item>Indicates that the ssh channel started for the
+	  execution of the command has now been shutdown.</item>
+       </taglist>
+       
+       <p> These message should be handled by the
+       client. The <a href="ssh_channel.html" class="seealso">ssh channel
+       behavior</a> can be used when writing a client.
+       </p>
+     </div>
+   </div>
+
+
+   <div class="function">
+     <h3 id="exit_status/3">exit_status(ConnectionRef, ChannelId, Status) -&gt; ok</h3>
+     
+     <ul class="type">
+       <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+       <li><code> ChannelId = ssh_channel_id()</code></li>
+       <li><code> Status = integer()</code></li>
+     </ul>
+     <div class="description">
+       <p>Sends the exit status of a command to the client.</p>
+     </div>
+ </div>
+   
+     <div class="function">
+       <h3 id="reply_request/4">reply_request(ConnectionRef, WantReply, Status, CannelId) -&gt; ok</h3>
+       
+      <ul class="type">
+	<li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	<li><code> WantReply =  boolean()</code></li>
+	<li><code> Status = ssh_request_status() </code></li>
+	<li><code> ChannelId = ssh_channel_id()</code></li>
+      </ul>
+      <div class="description">
+	<p>Sends status replies to requests where the requester has
+	stated that they want a status report e.i .<code> WantReply = true</code>,
+	if <code> WantReply</code> is false calling this function will be a
+	"noop". Should be called after handling an ssh connection
+	protocol message containing a <code>WantReply</code> boolean
+	value. See the ssh_channel behavior callback <a href="ssh_channel.html" class="seealso"> handle_ssh_msg/2 </a>
+	</p>
+      </div>
+     </div>
+    
+     <div class="function">
+       <h3 id="send/3">send(ConnectionRef, ChannelId, Data) -&gt;</h3>
+       <h3 id="send/4">send(ConnectionRef, ChannelId, Data, Timeout) -&gt;</h3>
+       <h3 id="send/4-1">send(ConnectionRef, ChannelId, Type, Data) -&gt;</h3>
+       <h3 id="send/5">send(ConnectionRef, ChannelId, Type, Data, TimeOut) -&gt;
+       ok | {error, timeout}</h3>
+       
+       <ul class="type">
+	<li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	<li><code> ChannelId = ssh_channel_id()</code></li>
+	<li><code> Data = binary()</code></li>
+	<li><code> Type = ssh_data_type_code()</code></li>
+	<li><code> Timeout = timeout()</code></li>
+       </ul>
+       <div class="description">
+	 <p>Sends channel data. 
+	 </p>
+       </div>
+     </div>
+     
+     <div class="function">
+       <h3 id="send_eof/2">send_eof(ConnectionRef, ChannelId) -&gt; ok </h3>
+       
+       <ul class="type">
+	<li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	<li><code> ChannelId = ssh_channel_id()</code></li>
+       </ul>
+       <div class="description">
+	 <p>Sends eof on the channel <code>ChannelId</code>.
+	 </p>
+       </div>
+     </div>
+
+     <div class="function">
+       <h3 id="session_channel/2">session_channel(ConnectionRef, Timeout) -&gt; </h3>
+       <h3 id="session_channel/4">session_channel(ConnectionRef, InitialWindowSize,
+       MaxPacketSize, Timeout) -&gt; {ok, ssh_channel_id()} | {error, Reason}</h3>
+       
+       <ul class="type">
+	 <li><code> ConnectionRef = ssh_connection_ref()</code></li>
+	 <li><code> InitialWindowSize = integer() </code></li>
+	 <li><code> MaxPacketSize = integer() </code></li>
+	 <li><code> Timeout = timeout()</code></li>
+	 <li><code> Reason = term() </code></li>
+       </ul>
+       <div class="description">
+	 <p>Opens a channel for a ssh session. A session is a
+	 remote execution of a program. The program may be a shell, an
+	 application, a system command, or some built-in subsystem.
+	</p>
+       </div>
+     </div>
+
+    <div class="function">
+      <h3 id="setenv/5">setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -&gt; ssh_request_status()</h3>
+      
+      <ul class="type">
+	<li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	<li><code> ChannelId = ssh_channel_id()</code></li>
+	<li><code> Var = string()</code></li>
+	<li><code> Value = string()</code></li>
+	<li><code> Timeout = timeout()</code></li>
+      </ul>
+      <div class="description">
+	<p> Environment variables may be passed to the shell/command to be
+	started later.
+	</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="shell/2">shell(ConnectionRef, ChannelId) -&gt; ssh_request_status()
+      </h3>
+      
+       <ul class="type">
+	 <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	 <li><code> ChannelId = ssh_channel_id()</code></li>
+       </ul>
+       <div class="description">
+	 <p> Will request that the user's default shell (typically
+	 defined in /etc/passwd in UNIX systems) be started at the
+	 other end. 
+	 </p>
+       </div>
+    </div>
+
+    <div class="function">
+      <h3 id="subsystem/4">subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -&gt; ssh_request_status()</h3>
+      
+       <ul class="type">
+	 <li><code> ConnectionRef = ssh_connection_ref() </code></li>
+	 <li><code> ChannelId = ssh_channel_id()</code></li>
+	 <li><code> Subsystem = string()</code></li>
+	 <li><code> Timeout = timeout()</code></li>
+       </ul>
+       <div class="description">
+	 <p> Sends a request to execute a predefined subsystem.
+	 </p>
+       </div>
+    </div>
+    
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#adjust_window/3">adjust_window/3</a></li><li><a href="#close/2">close/2</a></li><li><a href="#exec/4">exec/4</a></li><li><a href="#exit_status/3">exit_status/3</a></li><li><a href="#reply_request/4">reply_request/4</a></li><li><a href="#send/3">send/3</a></li><li><a href="#send/4">send/4</a></li><li><a href="#send/4-1">send/4-1</a></li><li><a href="#send/5">send/5</a></li><li><a href="#send_eof/2">send_eof/2</a></li><li><a href="#session_channel/2">session_channel/2</a></li><li><a href="#session_channel/4">session_channel/4</a></li><li><a href="#setenv/5">setenv/5</a></li><li><a href="#shell/2">shell/2</a></li><li><a href="#subsystem/4">subsystem/4</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

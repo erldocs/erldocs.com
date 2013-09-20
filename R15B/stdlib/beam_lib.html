@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>beam_lib (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>beam_lib</h1>
+  <h2 class="modsummary">An Interface To the BEAM File Format</h2>
+  <div class="description">
+    <p><code>beam_lib</code> provides an interface to files created by
+      the BEAM compiler ("BEAM files"). The format used, a variant of
+      "EA IFF 1985" Standard for Interchange Format Files, divides data
+      into chunks.</p>
+    <p>Chunk data can be returned as binaries or as compound terms.
+      Compound terms are returned when chunks are referenced by names
+      (atoms) rather than identifiers (strings).  The names recognized
+      and the corresponding identifiers are:</p>
+    <list type="bulleted">
+      <item><code>abstract_code ("Abst")</code></item>
+      <item><code>attributes ("Attr")</code></item>
+      <item><code>compile_info ("CInf")</code></item>
+      <item><code>exports ("ExpT")</code></item>
+      <item><code>labeled_exports ("ExpT")</code></item>
+      <item><code>imports ("ImpT")</code></item>
+      <item><code>indexed_imports ("ImpT")</code></item>
+      <item><code>locals ("LocT")</code></item>
+      <item><code>labeled_locals ("LocT")</code></item>
+      <item><code>atoms ("Atom")</code></item>
+    </list>
+  </div>
+
+  <div class="section">
+    <span id="debug_info"> </span>
+    <h4>Debug Information/Abstract Code</h4>
+    <p>The option <code>debug_info</code> can be given to the compiler (see
+      <a href="../compiler/compile.html#debug_info" class="seealso">compile(3)</a>)
+      in order to have debug information in the form of abstract code
+      (see <a href="../erts/absform.html" class="seealso">The Abstract Format</a>
+      in ERTS User's Guide) stored in the <code>abstract_code</code> chunk.
+      Tools such as Debugger and Xref require the debug information to
+      be included.</p>
+    <div class="warning"><h2>Warning!</h2>
+      <p>Source code can be reconstructed from the debug information.
+        Use encrypted debug information (see below) to prevent this.</p>
+    </div>
+    <p>The debug information can also be removed from BEAM files
+      using <a href="#strip/1" class="seealso">strip/1</a>,
+      <a href="#strip_files/1" class="seealso">strip_files/1</a> and/or
+      <a href="#strip_release/1" class="seealso">strip_release/1</a>.</p>
+    <div class="section">
+      <h4>Reconstructing source code</h4>
+      <p>Here is an example of how to reconstruct source code from
+        the debug information in a BEAM file <code>Beam</code>:</p>
+      <pre class="sh_erlang">
+      {ok,{_,[{abstract_code,{_,AC}}]}} = beam_lib:chunks(Beam,[abstract_code]).
+      io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</pre>
+    </div>
+    <div class="section">
+    <h4>Encrypted debug information</h4>
+      <p>The debug information can be encrypted in order to keep
+        the source code secret, but still being able to use tools such as
+        Xref or Debugger. </p>
+      <p>To use encrypted debug information, a key must be provided to
+        the compiler and <code>beam_lib</code>. The key is given as a string and
+        it is recommended that it contains at least 32 characters and
+        that both upper and lower case letters as well as digits and
+        special characters are used.</p>
+      <p>The default type -- and currently the only type -- of crypto
+        algorithm is <code>des3_cbc</code>, three rounds of DES. The key string
+        will be scrambled using <code>erlang:md5/1</code> to generate
+        the actual keys used for <code>des3_cbc</code>.</p>
+      <div class="note"><h2>Note!</h2>
+        <p>As far as we know by the time of writing, it is
+          infeasible to break <code>des3_cbc</code> encryption without any
+          knowledge of the key. Therefore, as long as the key is kept
+          safe and is unguessable, the encrypted debug information
+          <em>should</em> be safe from intruders.</p>
+      </div>
+      <p>There are two ways to provide the key:</p>
+      <list type="ordered">
+        <item>
+          <p>Use the compiler option <code>{debug_info,Key}</code>, see
+            <a href="../compiler/compile.html#debug_info_key" class="seealso">compile(3)</a>,
+            and the function
+            <a href="#crypto_key_fun/1" class="seealso">crypto_key_fun/1</a>
+            to register a fun which returns the key whenever
+            <code>beam_lib</code> needs to decrypt the debug information.</p>
+          <p>If no such fun is registered, <code>beam_lib</code> will instead
+            search for a <code>.erlang.crypt</code> file, see below.</p>
+        </item>
+        <item>
+          <p>Store the key in a text file named <code>.erlang.crypt</code>.</p>
+          <p>In this case, the compiler option <code>encrypt_debug_info</code>
+            can be used, see
+            <a href="../compiler/compile.html#encrypt_debug_info" class="seealso">compile(3)</a>.</p>
+        </item>
+      </list>
+    </div>
+    <div class="section">
+      <h4>.erlang.crypt</h4>
+      <p><code>beam_lib</code> searches for <code>.erlang.crypt</code> in the current
+        directory and then the home directory for the current user. If
+        the file is found and contains a key, <code>beam_lib</code> will
+        implicitly create a crypto key fun and register it.</p>
+      <p>The <code>.erlang.crypt</code> file should contain a single list of
+        tuples:</p>
+      <pre class="sh_erlang">
+      {debug_info, Mode, Module, Key}</pre>
+      <p><code>Mode</code> is the type of crypto algorithm; currently, the only
+        allowed value thus is <code>des3_cbc</code>. <code>Module</code> is either an
+        atom, in which case <code>Key</code> will only be used for the module
+        <code>Module</code>, or <code>[]</code>, in which case <code>Key</code> will be
+        used for all modules. <code>Key</code> is the non-empty key string.</p>
+      <p>The <code>Key</code> in the first tuple where both <code>Mode</code> and
+        <code>Module</code> matches will be used.</p>
+      <p>Here is an example of an <code>.erlang.crypt</code> file that returns
+        the same key for all modules:</p>
+      <pre class="sh_erlang">
+[{debug_info, des3_cbc, [], "%&gt;7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].</pre>
+      <p>And here is a slightly more complicated example of an
+        <code>.erlang.crypt</code> which provides one key for the module
+        <code>t</code>, and another key for all other modules:</p>
+      <pre class="sh_erlang">
+[{debug_info, des3_cbc, t, "My KEY"},
+ {debug_info, des3_cbc, [], "%&gt;7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].</pre>
+      <div class="note"><h2>Note!</h2>
+        <p>Do not use any of the keys in these examples. Use your own
+          keys.</p>
+      </div>
+    </div>
+  </div>
+
+  <datatypes>
+    <datatype>
+      <name name="beam" />
+      <div class="description">
+        <p>Each of the functions described below accept either the
+          module name, the filename, or a binary containing the beam
+          module.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="chunkdata" />
+      <div class="description">
+        <p>The list of attributes is sorted on <code>Attribute</code>
+          (in attrib_entry()), and each
+          attribute name occurs once in the list. The attribute values
+          occur in the same order as in the file. The lists of functions
+          are also sorted.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="chunkid" />
+      <div class="description">
+        <p>"Abst" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom"</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="dataB" />
+    </datatype>
+    <datatype>
+      <name name="abst_code" />
+      <div class="description">
+        <p>It is not checked that the forms conform to the abstract format
+          indicated by <code><anno>AbstVersion</anno></code>. <code>no_abstract_code</code> means
+          that the <code>"Abst"</code> chunk is present, but empty.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="forms" />
+    </datatype>
+    <datatype>
+      <name name="compinfo_entry" />
+    </datatype>
+    <datatype>
+      <name name="attrib_entry" />
+    </datatype>
+    <datatype>
+      <name name="labeled_entry" />
+    </datatype>
+    <datatype>
+      <name name="index" />
+    </datatype>
+    <datatype>
+      <name name="label" />
+    </datatype>
+    <datatype>
+      <name name="chunkref" />
+    </datatype>
+    <datatype>
+      <name name="chunkname" />
+    </datatype>
+    <datatype>
+      <name name="chnk_rsn" />
+    </datatype>
+    <datatype>
+      <name name="info_rsn" />
+    </datatype>
+  </datatypes>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="chunks/2">chunks/2</h3>
+      
+      <div class="description">
+        <p>Reads chunk data for selected chunks refs. The order of
+          the returned list of chunk data is determined by the order
+          of the list of chunks references.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="chunks/3">chunks/3</h3>
+      
+      <div class="description">
+        <p>Reads chunk data for selected chunks refs. The order of
+          the returned list of chunk data is determined by the order
+          of the list of chunks references.</p>
+        <p>By default, if any requested chunk is missing in <code><anno>Beam</anno></code>,
+          an <code>error</code> tuple is returned.
+          However, if the option <code>allow_missing_chunks</code> has been given,
+          a result will be returned even if chunks are missing.
+          In the result list, any missing chunks will be represented as
+          <code>{<anno>ChunkRef</anno>,missing_chunk}</code>.
+          Note, however, that if the <code>"Atom"</code> chunk if missing, that is
+          considered a fatal error and the return value will be an <code>error</code>
+          tuple.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="version/1">version/1</h3>
+      
+      <div class="description">
+        <p>Returns the module version(s). A version is defined by
+          the module attribute <code>-vsn(Vsn)</code>. If this attribute is
+          not specified, the version defaults to the checksum of
+          the module. Note that if the version <code>Vsn</code> is not a list,
+          it is made into one, that is <code>{ok,{Module,[Vsn]}}</code> is
+          returned. If there are several <code>-vsn</code> module attributes,
+          the result is the concatenated list of versions. Examples:</p>
+        <pre class="sh_erlang">
+1&gt; <code>beam_lib:version(a).</code> % -vsn(1).
+{ok,{a,[1]}}
+2&gt; <code>beam_lib:version(b).</code> % -vsn([1]).
+{ok,{b,[1]}}
+3&gt; <code>beam_lib:version(c).</code> % -vsn([1]). -vsn(2).
+{ok,{c,[1,2]}}
+4&gt; <code>beam_lib:version(d).</code> % no -vsn attribute
+{ok,{d,[275613208176997377698094100858909383631]}}</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="md5/1">md5/1</h3>
+      
+      <div class="description">
+        <p>Calculates an MD5 redundancy check for the code of the module
+          (compilation date and other attributes are not included).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info/1">info/1</h3>
+      
+      <div class="description">
+        <p>Returns a list containing some information about a BEAM file
+          as tuples <code>{Item, Info}</code>:</p>
+        <taglist>
+          <dt><code>{file, <anno>Filename</anno>} | {binary, <anno>Binary</anno>}</code></dt>
+          <item>
+            <p>The name (string) of the BEAM file, or the binary from
+              which the information was extracted.</p>
+          </item>
+          <dt><code>{module, <anno>Module</anno>}</code></dt>
+          <item>
+            <p>The name (atom) of the module.</p>
+          </item>
+          <dt><code>{chunks, [{<anno>ChunkId</anno>, <anno>Pos</anno>, <anno>Size</anno>}]}</code></dt>
+          <item>
+            <p>For each chunk, the identifier (string) and the position
+              and size of the chunk data, in bytes.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="cmp/2">cmp/2</h3>
+      
+      <type name="cmp_rsn" />
+      <div class="description">
+        <p>Compares the contents of two BEAM files. If the module names
+          are the same, and all chunks except for the <code>"CInf"</code> chunk
+	  (the chunk containing the compilation information which is
+	  returned by <code>Module:module_info(compile)</code>)
+	  have the same contents in both files,
+          <code>ok</code> is returned. Otherwise an error message is returned.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="cmp_dirs/2">cmp_dirs/2</h3>
+      
+      <div class="description">
+        <p>The <code>cmp_dirs/2</code> function compares the BEAM files in
+          two directories. Only files with extension <code>".beam"</code> are
+          compared. BEAM files that exist in directory <code><anno>Dir1</anno></code>
+          (<code><anno>Dir2</anno></code>) only are returned in <code><anno>Only1</anno></code>
+          (<code><anno>Only2</anno></code>). BEAM files that exist on both directories but
+          are considered different by <code>cmp/2</code> are returned as
+          pairs {<code><anno>Filename1</anno></code>, <code><anno>Filename2</anno></code>} where
+          <code><anno>Filename1</anno></code> (<code><anno>Filename2</anno></code>) exists in directory
+          <code><anno>Dir1</anno></code> (<code><anno>Dir2</anno></code>).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="diff_dirs/2">diff_dirs(Dir1, Dir2) -&gt; ok | {error, beam_lib, Reason}</h3>
+      
+      <div class="description">
+        <p>The <code>diff_dirs/2</code> function compares the BEAM files in
+          two directories the way <code>cmp_dirs/2</code> does, but names of
+          files that exist in only one directory or are different are
+          presented on standard output.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="strip/1">strip/1</h3>
+      
+      <div class="description">
+        <p>The <code>strip/1</code> function removes all chunks from a BEAM
+          file except those needed by the loader. In particular,
+          the debug information (<code>abstract_code</code> chunk) is removed.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="strip_files/1">strip_files/1</h3>
+      
+      <div class="description">
+        <p>The <code>strip_files/1</code> function removes all chunks except
+          those needed by the loader from BEAM files. In particular,
+          the debug information (<code>abstract_code</code> chunk) is removed.
+          The returned list contains one element for each given file
+          name, in the same order as in <code>Files</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="strip_release/1">strip_release/1</h3>
+      
+      <div class="description">
+        <p>The <code>strip_release/1</code> function removes all chunks
+          except those needed by the loader from the BEAM files of a
+          release. <code><anno>Dir</anno></code> should be the installation root
+          directory. For example, the current OTP release can be
+          stripped with the call
+          <code>beam_lib:strip_release(code:root_dir())</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format_error/1">format_error/1</h3>
+      
+      <div class="description">
+        <p>Given the error returned by any function in this module, 
+          the function <code>format_error</code> returns a descriptive string
+          of the error in English. For file errors, the function 
+          <code>file:format_error(Posix)</code> should be called.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="crypto_key_fun/1">crypto_key_fun(CryptoKeyFun) -&gt; ok | {error, Reason}</h3>
+      
+      <type name="crypto_fun" />
+      <type name="crypto_fun_arg" />
+      <type name="mode" />
+      <div class="description">
+        <p>The <code>crypto_key_fun/1</code> function registers a unary fun
+          that will be called if <code>beam_lib</code> needs to read an
+          <code>abstract_code</code> chunk that has been encrypted. The fun
+          is held in a process that is started by the function.</p>
+        <p>If there already is a fun registered when attempting to
+          register a fun, <code>{error, exists}</code> is returned.</p>
+        <p>The fun must handle the following arguments:</p>
+        <pre class="sh_erlang">
+          CryptoKeyFun(init) -&gt; ok | {ok, NewCryptoKeyFun} | {error, Term}</pre>
+        <p>Called when the fun is registered, in the process that holds
+          the fun. Here the crypto key fun can do any necessary
+          initializations. If <code>{ok, NewCryptoKeyFun}</code> is returned
+          then <code>NewCryptoKeyFun</code> will be registered instead of
+          <code>CryptoKeyFun</code>. If <code>{error, Term}</code> is returned,
+          the registration is aborted and <code>crypto_key_fun/1</code>
+          returns <code>{error, Term}</code> as well.</p>
+        <pre class="sh_erlang">
+          CryptoKeyFun({debug_info, Mode, Module, Filename}) -&gt; Key</pre>
+        <p>Called when the key is needed for the module <code>Module</code>
+          in the file named <code>Filename</code>. <code>Mode</code> is the type of
+          crypto algorithm; currently, the only possible value thus is
+          <code>des3_cbc</code>. The call should fail (raise an exception) if
+          there is no key available.</p>
+        <pre class="sh_erlang">
+          CryptoKeyFun(clear) -&gt; term()</pre>
+        <p>Called before the fun is unregistered. Here any cleaning up
+          can be done. The return value is not important, but is passed
+          back to the caller of <code>clear_crypto_key_fun/0</code> as part
+          of its return value.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="clear_crypto_key_fun/0">clear_crypto_key_fun() -&gt; undefined | {ok, Result}</h3>
+      
+      <div class="description">
+        <p>Unregisters the crypto key fun and terminates the process
+          holding it, started by <code>crypto_key_fun/1</code>.</p>
+        <p>The <code>clear_crypto_key_fun/1</code> either returns
+          <code>{ok, undefined}</code> if there was no crypto key fun
+          registered, or <code>{ok, Term}</code>, where <code>Term</code> is
+          the return value from <code>CryptoKeyFun(clear)</code>, see
+          <code>crypto_key_fun/1</code>.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#chunks">chunks</a></li><li><a href="#chunks-1">chunks-1</a></li><li><a href="#version">version</a></li><li><a href="#md5">md5</a></li><li><a href="#info">info</a></li><li><a href="#cmp">cmp</a></li><li><a href="#cmp_dirs">cmp_dirs</a></li><li><a href="#diff_dirs">diff_dirs</a></li><li><a href="#strip">strip</a></li><li><a href="#strip_files">strip_files</a></li><li><a href="#strip_release">strip_release</a></li><li><a href="#format_error">format_error</a></li><li><a href="#crypto_key_fun">crypto_key_fun</a></li><li><a href="#clear_crypto_key_fun">clear_crypto_key_fun</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

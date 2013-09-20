@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>gen_fsm (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>gen_fsm</h1>
+  <h2 class="modsummary">Generic Finite State Machine Behaviour</h2>
+  <div class="description">
+    <p>A behaviour module for implementing a finite state machine.
+      A generic finite state machine process (gen_fsm) implemented
+      using this module will have a standard set of interface functions
+      and include functionality for tracing and error reporting. It will
+      also fit into an OTP supervision tree. Refer to
+      <a href="../doc/design_principles/fsm.html" class="seealso">OTP Design Principles</a> for more information.</p>
+    <p>A gen_fsm assumes all specific parts to be located in a callback
+      module exporting a pre-defined set of functions. The relationship
+      between the behaviour functions and the callback functions can be
+      illustrated as follows:</p>
+    <pre class="sh_erlang">
+gen_fsm module                    Callback module
+--------------                    ---------------
+gen_fsm:start_link                -----&gt; Module:init/1
+
+gen_fsm:send_event                -----&gt; Module:StateName/2
+
+gen_fsm:send_all_state_event      -----&gt; Module:handle_event/3
+
+gen_fsm:sync_send_event           -----&gt; Module:StateName/3
+
+gen_fsm:sync_send_all_state_event -----&gt; Module:handle_sync_event/4
+
+-                                 -----&gt; Module:handle_info/3
+
+-                                 -----&gt; Module:terminate/3
+
+-                                 -----&gt; Module:code_change/4</pre>
+    <p>If a callback function fails or returns a bad value, the gen_fsm
+      will terminate.</p>
+    <p>A gen_fsm handles system messages as documented in
+       <a href="sys.html" class="seealso">sys(3)</a>. The <code>sys</code> module
+       can be used for debugging a gen_fsm.</p>
+    <p>Note that a gen_fsm does not trap exit signals automatically,
+      this must be explicitly initiated in the callback module.</p>
+    <p>Unless otherwise stated, all functions in this module fail if
+      the specified gen_fsm does not exist or if bad arguments are
+      given.</p>
+    <p>The gen_fsm process can go into hibernation 
+    (see <a href="../erts/erlang.html#erlanghibernate/3" class="seealso">erlang(3)</a>) if a callback
+    function specifies <code>'hibernate'</code> instead of a timeout value. This
+    might be useful if the server is expected to be idle for a long
+    time. However this feature should be used with care as hibernation
+    implies at least two garbage collections (when hibernating and
+    shortly after waking up) and is not something you'd want to do
+    between each call to a busy state machine.</p>
+
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="start_link/3">start_link(Module, Args, Options) -&gt; Result</h3>
+      <h3 id="start_link/4">start_link(FsmName, Module, Args, Options) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>FsmName = {local,Name} | {global,GlobalName}</code></li>
+        <li><code>&nbsp;Name = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Args = term()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</code></li>
+        <li><code>&nbsp;&nbsp;Dbgs = [Dbg]</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</code></li>
+        <li><code>&nbsp;&nbsp;SOpts = [SOpt]</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;SOpt - see erlang:spawn_opt/2,3,4,5</code></li>
+        <li><code>Result = {ok,Pid} | ignore | {error,Error}</code></li>
+        <li><code>&nbsp;Pid = pid()</code></li>
+        <li><code>&nbsp;Error = {already_started,Pid} | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a gen_fsm process as part of a supervision tree.
+          The function should be called, directly or indirectly, by
+          the supervisor. It will, among other things, ensure that
+          the gen_fsm is linked to the supervisor.</p>
+        <p>The gen_fsm process calls <code>Module:init/1</code> to
+          initialize. To ensure a synchronized start-up procedure,
+          <code>start_link/3,4</code> does not return until
+          <code>Module:init/1</code> has returned.</p>
+        <p>If <code>FsmName={local,Name}</code>, the gen_fsm is registered
+          locally as <code>Name</code> using <code>register/2</code>.
+          If <code>FsmName={global,GlobalName}</code>, the gen_fsm is
+          registered globally as <code>GlobalName</code> using
+          <code>global:register_name/2</code>. If no name is provided,
+          the gen_fsm is not registered.</p>
+        <p><code>Module</code> is the name of the callback module.</p>
+        <p><code>Args</code> is an arbitrary term which is passed as
+          the argument to <code>Module:init/1</code>.</p>
+        <p>If the option <code>{timeout,Time}</code> is present, the gen_fsm
+          is allowed to spend <code>Time</code> milliseconds initializing
+          or it will be terminated and the start function will return
+          <code>{error,timeout}</code>.</p>
+        <p>If the option <code>{debug,Dbgs}</code> is present,
+          the corresponding <code>sys</code> function will be called for each
+          item in <code>Dbgs</code>. See
+          <a href="sys.html" class="seealso">sys(3)</a>.</p>
+        <p>If the option <code>{spawn_opt,SOpts}</code> is present,
+          <code>SOpts</code> will be passed as option list to
+          the <code>spawn_opt</code> BIF which is used to spawn the gen_fsm
+          process. See
+          <a href="../erts/erlang.html#spawn_opt/2" class="seealso">erlang(3)</a>.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>Using the spawn option <code>monitor</code> is currently not
+            allowed, but will cause the function to fail with reason
+            <code>badarg</code>.</p>
+        </div>
+        <p>If the gen_fsm is successfully created and initialized
+          the function returns <code>{ok,Pid}</code>, where <code>Pid</code> is
+          the pid of the gen_fsm. If there already exists a process with
+          the specified <code>FsmName</code>, the function returns
+          <code>{error,{already_started,Pid}}</code> where <code>Pid</code> is
+          the pid of that process.</p>
+        <p>If <code>Module:init/1</code> fails with <code>Reason</code>,
+          the function returns <code>{error,Reason}</code>. If
+          <code>Module:init/1</code> returns <code>{stop,Reason}</code> or
+          <code>ignore</code>, the process is terminated and the function
+          returns <code>{error,Reason}</code> or <code>ignore</code>, respectively.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start/3">start(Module, Args, Options) -&gt; Result</h3>
+      <h3 id="start/4">start(FsmName, Module, Args, Options) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>FsmName = {local,Name} | {global,GlobalName}</code></li>
+        <li><code>&nbsp;Name = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Args = term()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</code></li>
+        <li><code>&nbsp;&nbsp;Dbgs = [Dbg]</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</code></li>
+        <li><code>&nbsp;&nbsp;SOpts = [term()]</code></li>
+        <li><code>Result = {ok,Pid} | ignore | {error,Error}</code></li>
+        <li><code>&nbsp;Pid = pid()</code></li>
+        <li><code>&nbsp;Error = {already_started,Pid} | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a stand-alone gen_fsm process, i.e. a gen_fsm which
+          is not part of a supervision tree and thus has no supervisor.</p>
+        <p>See <a href="#start_link/3" class="seealso">start_link/3,4</a>
+          for a description of arguments and return values.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="send_event/2">send_event(FsmRef, Event) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>FsmRef = Name | {Name,Node} | {global,GlobalName} | pid()</code></li>
+        <li><code>&nbsp;Name = Node = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Event = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends an event asynchronously to the gen_fsm <code>FsmRef</code>
+          and returns <code>ok</code> immediately. The gen_fsm will call
+          <code>Module:StateName/2</code> to handle the event, where
+          <code>StateName</code> is the name of the current state of
+          the gen_fsm.</p>
+        <p><code>FsmRef</code> can be:</p>
+        <list type="bulleted">
+          <item>the pid,</item>
+          <item><code>Name</code>, if the gen_fsm is locally registered,</item>
+          <item><code>{Name,Node}</code>, if the gen_fsm is locally
+           registered at another node, or</item>
+          <item><code>{global,GlobalName}</code>, if the gen_fsm is globally
+           registered.</item>
+        </list>
+        <p><code>Event</code> is an arbitrary term which is passed as one of
+          the arguments to <code>Module:StateName/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="send_all_state_event/2">send_all_state_event(FsmRef, Event) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>FsmRef = Name | {Name,Node} | {global,GlobalName} | pid()</code></li>
+        <li><code>&nbsp;Name = Node = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Event = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends an event asynchronously to the gen_fsm <code>FsmRef</code>
+          and returns <code>ok</code> immediately. The gen_fsm will call
+          <code>Module:handle_event/3</code> to handle the event.</p>
+        <p>See <a href="#send_event/2" class="seealso">send_event/2</a>
+          for a description of the arguments.</p>
+        <p>The difference between <code>send_event</code> and
+          <code>send_all_state_event</code> is which callback function is
+          used to handle the event. This function is useful when
+          sending events that are handled the same way in every state,
+          as only one <code>handle_event</code> clause is needed to handle
+          the event instead of one clause in each state name function.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sync_send_event/2">sync_send_event(FsmRef, Event) -&gt; Reply</h3>
+      <h3 id="sync_send_event/3">sync_send_event(FsmRef, Event, Timeout) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>FsmRef = Name | {Name,Node} | {global,GlobalName} | pid()</code></li>
+        <li><code>&nbsp;Name = Node = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Event = term()</code></li>
+        <li><code>Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>Reply = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends an event to the gen_fsm <code>FsmRef</code> and waits until a
+          reply arrives or a timeout occurs. The gen_fsm will call
+          <code>Module:StateName/3</code> to handle the event, where
+          <code>StateName</code> is the name of the current state of
+          the gen_fsm.</p>
+        <p>See <a href="#send_event/2" class="seealso">send_event/2</a>
+          for a description of <code>FsmRef</code> and <code>Event</code>.</p>
+        <p><code>Timeout</code> is an integer greater than zero which
+          specifies how many milliseconds to wait for a reply, or
+          the atom <code>infinity</code> to wait indefinitely. Default value
+          is 5000. If no reply is received within the specified time,
+          the function call fails.</p>
+        <p>The return value <code>Reply</code> is defined in the return value
+          of <code>Module:StateName/3</code>.</p>
+        <p>The ancient behaviour of sometimes consuming the server
+          exit message if the server died during the call while
+          linked to the client has been removed in OTP R12B/Erlang 5.6.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sync_send_all_state_event/2">sync_send_all_state_event(FsmRef, Event) -&gt; Reply</h3>
+      <h3 id="sync_send_all_state_event/3">sync_send_all_state_event(FsmRef, Event, Timeout) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>FsmRef = Name | {Name,Node} | {global,GlobalName} | pid()</code></li>
+        <li><code>&nbsp;Name = Node = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Event = term()</code></li>
+        <li><code>Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>Reply = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends an event to the gen_fsm <code>FsmRef</code> and waits until a
+          reply arrives or a timeout occurs. The gen_fsm will call
+          <code>Module:handle_sync_event/4</code> to handle the event.</p>
+        <p>See <a href="#send_event/2" class="seealso">send_event/2</a>
+          for a description of <code>FsmRef</code> and <code>Event</code>. See
+          <a href="#sync_send_event/3" class="seealso">sync_send_event/3</a>
+          for a description of <code>Timeout</code> and <code>Reply</code>.</p>
+        <p>See
+          <a href="#send_all_state_event/2" class="seealso">send_all_state_event/2</a>
+          for a discussion about the difference between
+          <code>sync_send_event</code> and <code>sync_send_all_state_event</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="reply/2">reply(Caller, Reply) -&gt; true</h3>
+      
+      <ul class="type">
+        <li><code>Caller - see below</code></li>
+        <li><code>Reply = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function can be used by a gen_fsm to explicitly send a
+          reply to a client process that called
+          <a href="#sync_send_event/2" class="seealso">sync_send_event/2,3</a>
+          or
+          <a href="#sync_send_all_state_event/2" class="seealso">sync_send_all_state_event/2,3</a>,
+          when the reply cannot be defined in the return value of
+          <code>Module:State/3</code> or <code>Module:handle_sync_event/4</code>.</p>
+        <p><code>Caller</code> must be the <code>From</code> argument provided to
+          the callback function. <code>Reply</code> is an arbitrary term,
+          which will be given back to the client as the return value of
+          <code>sync_send_event/2,3</code> or
+          <code>sync_send_all_state_event/2,3</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="send_event_after/2">send_event_after(Time, Event) -&gt; Ref</h3>
+      
+      <ul class="type">
+        <li><code>Time = integer()</code></li>
+        <li><code>Event = term()</code></li>
+        <li><code>Ref = reference()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends a delayed event internally in the gen_fsm that calls
+          this function after <code>Time</code> ms. Returns immediately a
+          reference that can be used to cancel the delayed send using
+          <a href="#cancel_timer/1" class="seealso">cancel_timer/1</a>.</p>
+        <p>The gen_fsm will call <code>Module:StateName/2</code> to handle
+          the event, where <code>StateName</code> is the name of the current
+          state of the gen_fsm at the time the delayed event is
+          delivered.</p>
+        <p><code>Event</code> is an arbitrary term which is passed as one of
+          the arguments to <code>Module:StateName/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start_timer/2">start_timer(Time, Msg) -&gt; Ref</h3>
+      
+      <ul class="type">
+        <li><code>Time = integer()</code></li>
+        <li><code>Msg = term()</code></li>
+        <li><code>Ref = reference()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sends a timeout event internally in the gen_fsm that calls
+          this function after <code>Time</code> ms. Returns immediately a
+          reference that can be used to cancel the timer using
+          <a href="#cancel_timer/1" class="seealso">cancel_timer/1</a>.</p>
+        <p>The gen_fsm will call <code>Module:StateName/2</code> to handle
+          the event, where <code>StateName</code> is the name of the current
+          state of the gen_fsm at the time the timeout message is
+          delivered.</p>
+        <p><code>Msg</code> is an arbitrary term which is passed in the
+          timeout message, <code>{timeout, Ref, Msg}</code>, as one of
+          the arguments to <code>Module:StateName/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="cancel_timer/1">cancel_timer(Ref) -&gt; RemainingTime | false</h3>
+      
+      <ul class="type">
+        <li><code>Ref = reference()</code></li>
+        <li><code>RemainingTime = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Cancels an internal timer referred by <code>Ref</code> in the
+          gen_fsm that calls this function.</p>
+        <p><code>Ref</code> is a reference returned from
+          <a href="#send_event_after/2" class="seealso">send_event_after/2</a>
+          or
+          <a href="#start_timer/2" class="seealso">start_timer/2</a>.</p>
+        <p>If the timer has already timed out, but the event not yet
+          been delivered, it is cancelled as if it had <em>not</em>
+          timed out, so there will be no false timer event after
+          returning from this function.</p>
+        <p>Returns the remaining time in ms until the timer would
+          have expired if <code>Ref</code> referred to an active timer,
+          <code>false</code> otherwise.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="enter_loop/4">enter_loop(Module, Options, StateName, StateData)</h3>
+      <h3 id="enter_loop/5">enter_loop(Module, Options, StateName, StateData, FsmName)</h3>
+      <h3 id="enter_loop/5-1">enter_loop(Module, Options, StateName, StateData, Timeout)</h3>
+      <h3 id="enter_loop/6">enter_loop(Module, Options, StateName, StateData, FsmName, Timeout)</h3>
+      
+      <ul class="type">
+        <li><code>Module = atom()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code>&nbsp;Option = {debug,Dbgs}</code></li>
+        <li><code>&nbsp;&nbsp;Dbgs = [Dbg]</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</code></li>
+        <li><code>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</code></li>
+        <li><code>StateName = atom()</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>FsmName = {local,Name} | {global,GlobalName}</code></li>
+        <li><code>&nbsp;Name = atom()</code></li>
+        <li><code>&nbsp;GlobalName = term()</code></li>
+        <li><code>Timeout = int() | infinity</code></li>
+      </ul>
+      <div class="description">
+        <p>Makes an existing process into a gen_fsm. Does not return,
+          instead the calling process will enter the gen_fsm receive
+          loop and become a gen_fsm process. The process <em>must</em>
+          have been started using one of the start functions in
+          <code>proc_lib</code>, see
+          <a href="proc_lib.html" class="seealso">proc_lib(3)</a>. The user is
+          responsible for any initialization of the process, including
+          registering a name for it.</p>
+        <p>This function is useful when a more complex initialization
+          procedure is needed than the gen_fsm behaviour provides.</p>
+        <p><code>Module</code>, <code>Options</code> and <code>FsmName</code> have
+          the same meanings as when calling
+          <a href="#start_link/3" class="seealso">start[_link]/3,4</a>.
+          However, if <code>FsmName</code> is specified, the process must have
+          been registered accordingly <em>before</em> this function is
+          called.</p>
+        <p><code>StateName</code>, <code>StateData</code> and <code>Timeout</code> have
+          the same meanings as in the return value of
+          <a href="#Moduleinit" class="seealso">Module:init/1</a>.
+          Also, the callback module <code>Module</code> does not need to
+          export an <code>init/1</code> function.</p>
+        <p>Failure: If the calling process was not started by a
+          <code>proc_lib</code> start function, or if it is not registered
+          according to <code>FsmName</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>CALLBACK FUNCTIONS</h4>
+    <p>The following functions should be exported from a <code>gen_fsm</code>
+      callback module.</p>
+    <p>In the description, the expression <em>state name</em> is used to
+      denote a state of the state machine. <em>state data</em> is used
+      to denote the internal state of the Erlang process which
+      implements the state machine.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="init/1">Module:init(Args) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Args = term()</code></li>
+        <li><code>Result = {ok,StateName,StateData} | {ok,StateName,StateData,Timeout}</code></li>
+	<li><code>&nbsp;&nbsp;| {ok,StateName,StateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason} | ignore</code></li>
+        <li><code>&nbsp;StateName = atom()</code></li>
+        <li><code>&nbsp;StateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <span id="Moduleinit"> </span>
+        <p>Whenever a gen_fsm is started using
+          <a href="#start/3" class="seealso">gen_fsm:start/3,4</a> or
+          <a href="#start_link/3" class="seealso">gen_fsm:start_link/3,4</a>,
+          this function is called by the new process to initialize.</p>
+        <p><code>Args</code> is the <code>Args</code> argument provided to the start
+          function.</p>
+        <p>If initialization is successful, the function should return
+          <code>{ok,StateName,StateData}</code>, 
+          <code>{ok,StateName,StateData,Timeout}</code> or <code>{ok,StateName,StateData,hibernate}</code>, 
+	  where <code>StateName</code>
+          is the initial state name and <code>StateData</code> the initial
+          state data of the gen_fsm.</p>
+        <p>If an integer timeout value is provided, a timeout will occur
+          unless an event or a message is received within <code>Timeout</code>
+          milliseconds. A timeout is represented by the atom
+          <code>timeout</code> and should be handled by
+          the <code>Module:StateName/2</code> callback functions. The atom
+          <code>infinity</code> can be used to wait indefinitely, this is
+          the default value.</p>
+	<p>If <code>hibernate</code> is specified instead of a timeout value, the process will go 
+	   into hibernation when waiting for the next message to arrive (by calling 
+	   <a href="proc_lib.html#hibernate/3" class="seealso">proc_lib:hibernate/3</a>).</p>
+         <p>If something goes wrong during the initialization
+          the function should return <code>{stop,Reason}</code>, where
+          <code>Reason</code> is any term, or <code>ignore</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="StateName/2">Module:StateName(Event, StateData) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Event = timeout | term()</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Result = {next_state,NextStateName,NewStateData} </code></li>
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</code></li>
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason,NewStateData}</code></li>
+        <li><code>&nbsp;NextStateName = atom()</code></li>
+        <li><code>&nbsp;NewStateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>There should be one instance of this function for each
+          possible state name. Whenever a gen_fsm receives an event
+          sent using
+          <a href="#send_event/2" class="seealso">gen_fsm:send_event/2</a>,
+          the instance of this function with the same name as
+          the current state name <code>StateName</code> is called to handle
+          the event. It is also called if a timeout occurs.</p>
+        <p><code>Event</code> is either the atom <code>timeout</code>, if a timeout
+          has occurred, or the <code>Event</code> argument provided to
+          <code>send_event/2</code>.</p>
+        <p><code>StateData</code> is the state data of the gen_fsm.</p>
+        <p>If the function returns
+          <code>{next_state,NextStateName,NewStateData}</code>, 
+          <code>{next_state,NextStateName,NewStateData,Timeout}</code> or
+	  <code>{next_state,NextStateName,NewStateData,hibernate}</code>,
+          the gen_fsm will continue executing with the current state
+          name set to <code>NextStateName</code> and with the possibly
+          updated state data <code>NewStateData</code>. See
+          <code>Module:init/1</code> for a description of <code>Timeout</code> and <code>hibernate</code>.</p>
+        <p>If the function returns <code>{stop,Reason,NewStateData}</code>,
+          the gen_fsm will call
+          <code>Module:terminate(Reason,NewStateData)</code> and terminate.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="handle_event/3">Module:handle_event(Event, StateName, StateData) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Event = term()</code></li>
+        <li><code>StateName = atom()</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Result = {next_state,NextStateName,NewStateData} </code></li>
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</code></li>
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason,NewStateData}</code></li>
+        <li><code>&nbsp;NextStateName = atom()</code></li>
+        <li><code>&nbsp;NewStateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Whenever a gen_fsm receives an event sent using
+          <a href="#send_all_state_event/2" class="seealso">gen_fsm:send_all_state_event/2</a>,
+          this function is called to handle the event.</p>
+        <p><code>StateName</code> is the current state name of the gen_fsm.</p>
+        <p>See <code>Module:StateName/2</code> for a description of the other
+          arguments and possible return values.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="StateName/3">Module:StateName(Event, From, StateData) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Event = term()</code></li>
+        <li><code>From = {pid(),Tag}</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Result = {reply,Reply,NextStateName,NewStateData}</code></li> 
+	<li><code>&nbsp;&nbsp;| {reply,Reply,NextStateName,NewStateData,Timeout}</code></li> 
+	<li><code>&nbsp;&nbsp;| {reply,Reply,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData}</code></li> 
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</code></li> 
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason,Reply,NewStateData} | {stop,Reason,NewStateData}</code></li>
+        <li><code>&nbsp;Reply = term()</code></li>
+        <li><code>&nbsp;NextStateName = atom()</code></li>
+        <li><code>&nbsp;NewStateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = normal | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>There should be one instance of this function for each
+          possible state name. Whenever a gen_fsm receives an event
+          sent using
+          <a href="#sync_send_event/2" class="seealso">gen_fsm:sync_send_event/2,3</a>,
+          the instance of this function with the same name as
+          the current state name <code>StateName</code> is called to handle
+          the event.</p>
+        <p><code>Event</code> is the <code>Event</code> argument provided to
+          <code>sync_send_event</code>.</p>
+        <p><code>From</code> is a tuple <code>{Pid,Tag}</code> where <code>Pid</code> is
+          the pid of the process which called <code>sync_send_event/2,3</code>
+          and <code>Tag</code> is a unique tag.</p>
+        <p><code>StateData</code> is the state data of the gen_fsm.</p>
+        <p>If the function returns
+          <code>{reply,Reply,NextStateName,NewStateData}</code>, 
+          <code>{reply,Reply,NextStateName,NewStateData,Timeout}</code> or 
+	  <code>{reply,Reply,NextStateName,NewStateData,hibernate}</code>,
+          <code>Reply</code> will be given back to <code>From</code> as the return
+          value of <code>sync_send_event/2,3</code>. The gen_fsm then
+          continues executing with the current state name set to
+          <code>NextStateName</code> and with the possibly updated state data
+          <code>NewStateData</code>. See <code>Module:init/1</code> for a
+          description of <code>Timeout</code> and <code>hibernate</code>.</p>
+        <p>If the function returns
+          <code>{next_state,NextStateName,NewStateData}</code>, 
+          <code>{next_state,NextStateName,NewStateData,Timeout}</code> or
+          <code>{next_state,NextStateName,NewStateData,hibernate}</code>,
+          the gen_fsm will continue executing in <code>NextStateName</code>
+          with <code>NewStateData</code>. Any reply to <code>From</code> must be
+          given explicitly using
+          <a href="#reply/2" class="seealso">gen_fsm:reply/2</a>.</p>
+        <p>If the function returns
+          <code>{stop,Reason,Reply,NewStateData}</code>, <code>Reply</code> will be
+          given back to <code>From</code>. If the function returns
+          <code>{stop,Reason,NewStateData}</code>, any reply to <code>From</code>
+          must be given explicitly using <code>gen_fsm:reply/2</code>.
+          The gen_fsm will then call
+          <code>Module:terminate(Reason,NewStateData)</code> and terminate.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="handle_sync_event/4">Module:handle_sync_event(Event, From, StateName, StateData) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Event = term()</code></li>
+        <li><code>From = {pid(),Tag}</code></li>
+        <li><code>StateName = atom()</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Result = {reply,Reply,NextStateName,NewStateData}</code></li> 
+	<li><code>&nbsp;&nbsp;| {reply,Reply,NextStateName,NewStateData,Timeout}</code></li> 
+	<li><code>&nbsp;&nbsp;| {reply,Reply,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData}</code></li> 
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</code></li> 
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason,Reply,NewStateData} | {stop,Reason,NewStateData}</code></li>
+        <li><code>&nbsp;Reply = term()</code></li>
+        <li><code>&nbsp;NextStateName = atom()</code></li>
+        <li><code>&nbsp;NewStateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Whenever a gen_fsm receives an event sent using
+          <a href="#sync_send_all_state_event/2" class="seealso">gen_fsm:sync_send_all_state_event/2,3</a>,
+          this function is called to handle the event.</p>
+        <p><code>StateName</code> is the current state name of the gen_fsm.</p>
+        <p>See <code>Module:StateName/3</code> for a description of the other
+          arguments and possible return values.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="handle_info/3">Module:handle_info(Info, StateName, StateData) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Info = term()</code></li>
+        <li><code>StateName = atom()</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Result = {next_state,NextStateName,NewStateData}</code></li> 
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</code></li>
+	<li><code>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</code></li>
+        <li><code>&nbsp;&nbsp;| {stop,Reason,NewStateData}</code></li>
+        <li><code>&nbsp;NextStateName = atom()</code></li>
+        <li><code>&nbsp;NewStateData = term()</code></li>
+        <li><code>&nbsp;Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>&nbsp;Reason = normal | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called by a gen_fsm when it receives any
+          other message than a synchronous or asynchronous event (or a
+          system message).</p>
+        <p><code>Info</code> is the received message.</p>
+        <p>See <code>Module:StateName/2</code> for a description of the other
+          arguments and possible return values.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="terminate/3">Module:terminate(Reason, StateName, StateData)</h3>
+      
+      <ul class="type">
+        <li><code>Reason = normal | shutdown | {shutdown,term()} | term()</code></li>
+        <li><code>StateName = atom()</code></li>
+        <li><code>StateData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called by a gen_fsm when it is about to
+          terminate. It should be the opposite of <code>Module:init/1</code>
+          and do any necessary cleaning up. When it returns, the gen_fsm
+          terminates with <code>Reason</code>. The return value is ignored.</p>
+        <p><code>Reason</code> is a term denoting the stop reason,
+          <code>StateName</code> is the current state name, and
+          <code>StateData</code> is the state data of the gen_fsm.</p>
+        <p><code>Reason</code> depends on why the gen_fsm is terminating. If
+          it is because another callback function has returned a stop
+          tuple <code>{stop,..}</code>, <code>Reason</code> will have the value
+          specified in that tuple. If it is due to a failure,
+          <code>Reason</code> is the error reason.</p>
+        <p>If the gen_fsm is part of a supervision tree and is ordered
+          by its supervisor to terminate, this function will be called
+          with <code>Reason=shutdown</code> if the following conditions apply:</p>
+        <list type="bulleted">
+          <item>the gen_fsm has been set to trap exit signals, and</item>
+          <item>the shutdown strategy as defined in the supervisor's
+           child specification is an integer timeout value, not
+          <code>brutal_kill</code>.</item>
+        </list>
+        <p>Even if the gen_fsm is <em>not</em> part of a supervision tree,
+	   this function will be called if it receives an <code>'EXIT'</code>
+	   message from its parent. <code>Reason</code> will be the same as in
+	   the <code>'EXIT'</code> message.</p>
+        <p>Otherwise, the gen_fsm will be immediately terminated.</p>
+        <p>Note that for any other reason than <code>normal</code>,
+          <code>shutdown</code>, or <code>{shutdown,Term}</code> the gen_fsm is
+	  assumed to terminate due to an error and
+	  an error report is issued using
+          <a href="../kernel/error_logger.html#format/2" class="seealso">error_logger:format/2</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="code_change/4">Module:code_change(OldVsn, StateName, StateData, Extra) -&gt; {ok, NextStateName, NewStateData}</h3>
+      
+      <ul class="type">
+        <li><code>OldVsn = Vsn | {down,  Vsn}</code></li>
+        <li><code>&nbsp;&nbsp;Vsn = term()</code></li>
+        <li><code>StateName = NextStateName = atom()</code></li>
+        <li><code>StateData = NewStateData = term()</code></li>
+        <li><code>Extra = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called by a gen_fsm when it should update
+          its internal state data during a release upgrade/downgrade,
+          i.e. when the instruction <code>{update,Module,Change,...}</code>
+          where <code>Change={advanced,Extra}</code> is given in
+          the <code>appup</code> file. See
+          <a href="../doc/design_principles/release_handling.html#instr" class="seealso">OTP Design Principles</a>.</p>
+        <p>In the case of an upgrade, <code>OldVsn</code> is <code>Vsn</code>, and
+          in the case of a downgrade, <code>OldVsn</code> is
+          <code>{down,Vsn}</code>. <code>Vsn</code> is defined by the <code>vsn</code>
+          attribute(s) of the old version of the callback module
+          <code>Module</code>. If no such attribute is defined, the version is
+          the checksum of the BEAM file.</p>
+        <p><code>StateName</code> is the current state name and
+          <code>StateData</code> the internal state data of the gen_fsm.</p>
+        <p><code>Extra</code> is passed as-is from the <code>{advanced,Extra}</code>
+          part of the update instruction.</p>
+        <p>The function should return the new current state name and
+          updated internal data.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format_status/3">Module:format_status(Opt, [PDict, StateData]) -&gt; Status</h3>
+      
+      <ul class="type">
+        <li><code>Opt = normal | terminate</code></li>
+        <li><code>PDict = [{Key, Value}]</code></li>
+        <li><code>StateData = term()</code></li>
+        <li><code>Status = term()</code></li>
+      </ul>
+      <div class="description">
+        <div class="note"><h2>Note!</h2>
+          <p>This callback is optional, so callback modules need not
+            export it. The gen_fsm module provides a default
+            implementation of this function that returns the callback
+            module state data.</p>
+        </div>
+        <p>This function is called by a gen_fsm process when:</p>
+        <list typed="bulleted">
+          <item>One
+            of <a href="sys.html#get_status/1" class="seealso">sys:get_status/1,2</a>
+            is invoked to get the gen_fsm status. <code>Opt</code> is set to
+            the atom <code>normal</code> for this case.</item>
+          <item>The gen_fsm terminates abnormally and logs an
+            error. <code>Opt</code> is set to the atom <code>terminate</code> for
+            this case.</item>
+        </list>
+        <p>This function is useful for customising the form and
+          appearance of the gen_fsm status for these cases. A callback
+          module wishing to customise the <code>sys:get_status/1,2</code>
+          return value as well as how its status appears in
+          termination error logs exports an instance
+          of <code>format_status/2</code> that returns a term describing the
+          current status of the gen_fsm.</p>
+        <p><code>PDict</code> is the current value of the gen_fsm's
+          process dictionary.</p>
+        <p><code>StateData</code> is the internal state data of the
+          gen_fsm.</p>
+        <p>The function should return <code>Status</code>, a term that
+          customises the details of the current state and status of
+          the gen_fsm. There are no restrictions on the
+          form <code>Status</code> can take, but for
+          the <code>sys:get_status/1,2</code> case (when <code>Opt</code>
+          is <code>normal</code>), the recommended form for
+          the <code>Status</code> value is <code>[{data, [{"StateData",
+          Term}]}]</code> where <code>Term</code> provides relevant details of
+          the gen_fsm state data. Following this recommendation isn't
+          required, but doing so will make the callback module status
+          consistent with the rest of the <code>sys:get_status/1,2</code>
+          return value.</p>
+        <p>One use for this function is to return compact alternative
+          state data representations to avoid having large state terms
+          printed in logfiles.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><a href="gen_event.html" class="seealso">gen_event(3)</a>,
+      <a href="gen_server.html" class="seealso">gen_server(3)</a>,
+      <a href="supervisor.html" class="seealso">supervisor(3)</a>,
+      <a href="proc_lib.html" class="seealso">proc_lib(3)</a>,
+      <a href="sys.html" class="seealso">sys(3)</a></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#start_link/3">start_link/3</a></li><li><a href="#start_link/4">start_link/4</a></li><li><a href="#start/3">start/3</a></li><li><a href="#start/4">start/4</a></li><li><a href="#send_event/2">send_event/2</a></li><li><a href="#send_all_state_event/2">send_all_state_event/2</a></li><li><a href="#sync_send_event/2">sync_send_event/2</a></li><li><a href="#sync_send_event/3">sync_send_event/3</a></li><li><a href="#sync_send_all_state_event/2">sync_send_all_state_event/2</a></li><li><a href="#sync_send_all_state_event/3">sync_send_all_state_event/3</a></li><li><a href="#reply/2">reply/2</a></li><li><a href="#send_event_after/2">send_event_after/2</a></li><li><a href="#start_timer/2">start_timer/2</a></li><li><a href="#cancel_timer/1">cancel_timer/1</a></li><li><a href="#enter_loop/4">enter_loop/4</a></li><li><a href="#enter_loop/5">enter_loop/5</a></li><li><a href="#enter_loop/5-1">enter_loop/5-1</a></li><li><a href="#enter_loop/6">enter_loop/6</a></li><li><a href="#init/1">init/1</a></li><li><a href="#StateName/2">StateName/2</a></li><li><a href="#handle_event/3">handle_event/3</a></li><li><a href="#StateName/3">StateName/3</a></li><li><a href="#handle_sync_event/4">handle_sync_event/4</a></li><li><a href="#handle_info/3">handle_info/3</a></li><li><a href="#terminate/3">terminate/3</a></li><li><a href="#code_change/4">code_change/4</a></li><li><a href="#format_status/3">format_status/3</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

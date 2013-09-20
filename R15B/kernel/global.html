@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>global (kernel) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>global</h1>
+  <h2 class="modsummary">A Global Name Registration Facility</h2>
+  <div class="description">
+    <p>This documentation describes the Global module which consists
+      of the following functionalities:</p>
+
+    <list type="bulleted">
+      <item>registration of global names;</item>
+      <item>global locks;</item>
+      <item>maintenance of the fully connected network.</item>
+    </list>
+
+    <p>These services are controlled via the process
+      <code>global_name_server</code> which exists on every node. The global
+      name server is started automatically when a node is started.
+      With the term <em>global</em> is meant over a system consisting
+      of several Erlang nodes.</p>
+ 
+    <p>The ability to globally register names is a central concept in
+      the programming of distributed Erlang systems. In this module,
+      the equivalent of the <code>register/2</code> and <code>whereis/1</code>
+      BIFs (for local name registration) are implemented, but for a
+      network of Erlang nodes. A registered name is an alias for a
+      process identifier (pid). The global name server monitors
+      globally registered pids. If a process terminates, the name will
+      also be globally unregistered.</p>
+
+    <p>The registered names are stored in replica global name tables on
+      every node. There is no central storage point. Thus,
+      the translation of a name to a pid is fast, as it is always done
+      locally. When any action in taken which results in a change to
+      the global name table, all tables on other nodes are automatically
+      updated.</p>
+
+    <p>Global locks have lock identities and are set on a specific
+      resource. For instance, the specified resource could be a pid.
+      When a global lock is set, access to the locked resource is
+      denied for all other resources other than the lock requester.</p>
+
+    <p>Both the registration and lock functionalities are atomic. All
+      nodes involved in these actions will have the same view of
+      the information.</p>
+
+    <p>The global name server also performs the critical task of
+      continuously monitoring changes in node configuration: if a node
+      which runs a globally registered process goes down, the name
+      will be globally unregistered. To this end the global name
+      server subscribes to <code>nodeup</code> and <code>nodedown</code> messages
+      sent from the <code>net_kernel</code> module. Relevant Kernel
+      application variables in this context are <code>net_setuptime</code>,
+      <code>net_ticktime</code>, and <code>dist_auto_connect</code>. See also
+      <a href="kernel_app.html#net_setuptime" class="seealso">kernel(6)</a>.</p>
+
+    <p>The name server will also maintain a fully connected network. For
+      example, if node <code>N1</code> connects to node <code>N2</code> (which is
+      already connected to <code>N3</code>), the global name servers on the
+      nodes <code>N1</code> and <code>N3</code> will make sure that also <code>N1</code>
+      and <code>N3</code> are connected. If this is not desired, the command
+      line flag <code>-connect_all false</code> can be used (see also
+      <a href="../erts/erl.html#connect_all" class="seealso">erl(1)</a>). In
+      this case the name registration facility cannot be used, but the
+      lock mechanism will still work.</p>
+
+    <p>If the global name server fails to connect nodes (<code>N1</code> and
+      <code>N3</code> in the example above) a warning event is sent to the
+      error logger. The presence of such an event does not exclude the
+      possibility that the nodes will later connect--one can for
+      example try the command <code>rpc:call(N1, net_adm, ping, [N2])</code> in
+      the Erlang shell--but it indicates some kind of problem with
+      the network.</p>
+
+    <div class="note"><h2>Note!</h2>
+      <p>If the fully connected network is not set up properly, the
+        first thing to try is to increase the value of
+        <code>net_setuptime</code>.</p>
+    </div>
+
+  </div>
+
+  <datatypes>
+    <datatype>
+      <name name="id" />
+    </datatype>
+  </datatypes>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="del_lock/1">del_lock(Id) -&gt; true</h3>
+      <h3 id="del_lock/2">del_lock(Id, Nodes) -&gt; true</h3>
+      
+      <div class="description">
+        <p>Deletes the lock <code><anno>Id</anno></code> synchronously.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="notify_all_name/3">notify_all_name(Name, Pid1, Pid2) -&gt; none</h3>
+      
+      <div class="description">
+        <p>This function can be used as a name resolving function for
+          <code>register_name/3</code> and <code>re_register_name/3</code>. It
+          unregisters both pids, and sends the message
+          <code>{global_name_conflict, <anno>Name</anno>, OtherPid}</code> to both
+          processes.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="random_exit_name/3">random_exit_name(Name, Pid1, Pid2) -&gt; none</h3>
+      
+      <div class="description">
+        <p>This function can be used as a name resolving function for
+          <code>register_name/3</code> and <code>re_register_name/3</code>. It
+          randomly chooses one of the pids for registration and kills
+          the other one.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="random_notify_name/3">random_notify_name(Name, Pid1, Pid2) -&gt; none</h3>
+      
+      <div class="description">
+        <p>This function can be used as a name resolving function for
+          <code>register_name/3</code> and <code>re_register_name/3</code>. It
+          randomly chooses one of the pids for registration, and sends
+          the message <code>{global_name_conflict, <anno>Name</anno>}</code> to the other
+          pid.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="register_name/2">register_name(Name, Pid) -&gt; yes | no</h3>
+      <h3 id="register_name/3">register_name(Name, Pid, Resolve) -&gt; yes | no</h3>
+      
+      <type name="method" />
+      <type_desc name="method">{<code>Module</code>, <code>Function</code>}
+        is also allowed
+      </type_desc>
+      <div class="description">
+        <p>Globally associates the name <code><anno>Name</anno></code> with a pid, that is,
+          Globally notifies all nodes of a new global name in a network
+          of Erlang nodes.</p>
+
+        <p>When new nodes are added to the network, they are informed
+          of the globally registered names that already exist.
+          The network is also informed of any global names in newly
+          connected nodes. If any name clashes are discovered,
+          the <code><anno>Resolve</anno></code> function is called. Its purpose is to
+          decide which pid is correct. If the function crashes, or
+          returns anything other than one of the pids, the name is
+          unregistered. This function is called once for each name
+          clash.</p>
+
+        <p>There are three pre-defined resolve functions:
+          <code>random_exit_name/3</code>, <code>random_notify_name/3</code>, and
+          <code>notify_all_name/3</code>. If no <code><anno>Resolve</anno></code> function is
+          defined, <code>random_exit_name</code> is used. This means that one
+          of the two registered processes will be selected as correct
+          while the other is killed.</p>
+
+        <p>This function is completely synchronous. This means that
+          when this function returns, the name is either registered on
+          all nodes or none.</p>
+
+        <p>The function returns <code>yes</code> if successful, <code>no</code> if
+          it fails. For example, <code>no</code> is returned if an attempt
+          is made to register an already registered process or to
+          register a process with a name that is already in use.</p>
+
+        <div class="note"><h2>Note!</h2>
+          <p>Releases up to and including OTP R10 did not check if the
+            process was already registered. As a consequence the
+            global name table could become inconsistent. The old
+            (buggy) behavior can be chosen by giving the Kernel
+            application variable <code>global_multi_name_action</code> the
+            value <code>allow</code>.</p>
+        </div>
+
+        <p>If a process with a registered name dies, or the node goes
+          down, the name is unregistered on all nodes.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="registered_names/0">registered_names() -&gt; [Name]</h3>
+      
+      <div class="description">
+        <p>Returns a lists of all globally registered names.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="re_register_name/2">re_register_name(Name, Pid) -&gt; term()</h3>
+      <h3 id="re_register_name/3">re_register_name(Name, Pid, Resolve) -&gt; term()</h3>
+      
+      <type name="method" />
+      <type_desc name="method">{<code>Module</code>, <code>Function</code>}
+        is also allowed
+      </type_desc>
+      <div class="description">
+        <p>Atomically changes the registered name <code><anno>Name</anno></code> on all
+          nodes to refer to <code><anno>Pid</anno></code>.</p>
+
+        <p>The <code><anno>Resolve</anno></code> function has the same behavior as in
+          <code>register_name/2,3</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send/2">send(Name, Msg) -&gt; Pid</h3>
+      
+      <div class="description">
+        <p>Sends the message <code><anno>Msg</anno></code> to the pid globally registered
+          as <code><anno>Name</anno></code>.</p>
+
+        <p>Failure: If <code><anno>Name</anno></code> is not a globally registered
+          name, the calling function will exit with reason
+          <code>{badarg, {<anno>Name</anno>, <anno>Msg</anno>}}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_lock/1">set_lock(Id) -&gt; boolean()</h3>
+      <h3 id="set_lock/2">set_lock(Id, Nodes) -&gt; boolean()</h3>
+      <h3 id="set_lock/3">set_lock(Id, Nodes, Retries) -&gt; boolean()</h3>
+      
+      <type name="id" />
+      <type name="retries" />
+      <div class="description">
+        <p>Sets a lock on the specified nodes (or on all nodes if none
+          are specified) on <code><anno>ResourceId</anno></code> for
+          <code><anno>LockRequesterId</anno></code>. If a lock already exists on
+          <code><anno>ResourceId</anno></code> for another requester than
+          <code><anno>LockRequesterId</anno></code>, and <code><anno>Retries</anno></code> is not equal to 0,
+          the process sleeps for a while and will try to execute
+          the action later. When <code><anno>Retries</anno></code> attempts have been made,
+          <code>false</code> is returned, otherwise <code>true</code>. If
+          <code><anno>Retries</anno></code> is <code>infinity</code>, <code>true</code> is eventually
+          returned (unless the lock is never released).</p>
+
+        <p>If no value for <code><anno>Retries</anno></code> is given, <code>infinity</code> is
+          used.</p>
+
+        <p>This function is completely synchronous.</p>
+
+        <p>If a process which holds a lock dies, or the node goes
+          down, the locks held by the process are deleted.</p>
+
+        <p>The global name server keeps track of all processes sharing
+          the same lock, that is, if two processes set the same lock,
+          both processes must delete the lock.</p>
+
+        <p>This function does not address the problem of a deadlock. A
+          deadlock can never occur as long as processes only lock one
+          resource at a time. But if some processes try to lock two or
+          more resources, a deadlock may occur. It is up to the
+          application to detect and rectify a deadlock.</p>
+
+        <div class="note"><h2>Note!</h2>
+          <p>Some values of <code><anno>ResourceId</anno></code> should be avoided or
+            Erlang/OTP will not work properly. A list of resources to
+            avoid: <code>global</code>, <code>dist_ac</code>,
+            <code>mnesia_table_lock</code>, <code>mnesia_adjust_log_writes</code>,
+            <code>pg2</code>.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sync/0">sync() -&gt; ok | {error, Reason :: term()}</h3>
+      
+      <div class="description">
+        <p>Synchronizes the global name server with all nodes known to
+          this node. These are the nodes which are returned from
+          <code>erlang:nodes()</code>. When this function returns,
+          the global name server will receive global information from
+          all nodes. This function can be called when new nodes are
+          added to the network.</p>
+        <p>The only possible error reason <code>Reason</code> is
+          <code>{"global_groups definition error", Error}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trans/2">trans(Id, Fun) -&gt; Res | aborted</h3>
+      <h3 id="trans/3">trans(Id, Fun, Nodes) -&gt; Res | aborted</h3>
+      <h3 id="trans/4">trans(Id, Fun, Nodes, Retries) -&gt; Res | aborted</h3>
+      
+      <type name="retries" />
+      <type name="trans_fun" />
+      <div class="description">
+        <p>Sets a lock on <code><anno>Id</anno></code> (using <code>set_lock/3</code>). If this
+          succeeds, <code><anno>Fun</anno>()</code> is evaluated and the result <code><anno>Res</anno></code>
+          is returned.  Returns <code>aborted</code> if the lock attempt
+          failed. If <code><anno>Retries</anno></code> is set to <code>infinity</code>,
+          the transaction will not abort.</p>
+
+        <p><code>infinity</code> is the default setting and will be used if 
+          no value is given for <code><anno>Retries</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="unregister_name/1">unregister_name(Name) -&gt; term()</h3>
+      
+      <div class="description">
+        <p>Removes the globally registered name <code><anno>Name</anno></code> from
+          the network of Erlang nodes.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="whereis_name/1">whereis_name(Name) -&gt; pid() | undefined</h3>
+      
+      <div class="description">
+        <p>Returns the pid with the globally registered name
+          <code><anno>Name</anno></code>. Returns <code>undefined</code> if the name is not
+          globally registered.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="global_group.html" class="seealso">global_group(3)</a>,
+       <a href="net_kernel.html" class="seealso">net_kernel(3)</a></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#del_lock">del_lock</a></li><li><a href="#del_lock-1">del_lock-1</a></li><li><a href="#notify_all_name">notify_all_name</a></li><li><a href="#random_exit_name">random_exit_name</a></li><li><a href="#random_notify_name">random_notify_name</a></li><li><a href="#register_name">register_name</a></li><li><a href="#register_name-1">register_name-1</a></li><li><a href="#registered_names">registered_names</a></li><li><a href="#re_register_name">re_register_name</a></li><li><a href="#re_register_name-1">re_register_name-1</a></li><li><a href="#send">send</a></li><li><a href="#set_lock">set_lock</a></li><li><a href="#set_lock-1">set_lock-1</a></li><li><a href="#set_lock-2">set_lock-2</a></li><li><a href="#sync">sync</a></li><li><a href="#trans">trans</a></li><li><a href="#trans-1">trans-1</a></li><li><a href="#trans-2">trans-2</a></li><li><a href="#unregister_name">unregister_name</a></li><li><a href="#whereis_name">whereis_name</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

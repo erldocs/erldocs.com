@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <title>unicode - R13B04 - erldocs.com (Erlang Documentation)</title>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  
+  <body>
+
+    <div id="sidebar">
+      <input type="text" value="Loading..." id="search" autocomplete="off" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      
+  
+  <h1>unicode</h1>
+  <h2 class="modsummary">Functions for converting Unicode characters</h2>
+  <div class="description">
+  <p>This module contains functions for converting between different character representations. Basically it converts between iso-latin-1 characters and Unicode ditto, but it can also convert between different Unicode encodings (like UTF-8, UTF-16 and UTF-32).</p>
+  <p>The default Unicode encoding in Erlang is in binaries UTF-8, which is also the format in which built in functions and libraries in OTP expect to find binary Unicode data. In lists, Unicode data is encoded as integers, each integer representing one character and encoded simply as the Unicode codepoint for the character.</p> 
+  <p>Other Unicode encodings than integers representing codepoints or UTF-8 in binaries are referred to as "external encodings". The iso-latin-1 encoding is in binaries and lists referred to as latin1-encoding.</p>
+  <p>It is recommended to only use external encodings for communication with external entities where this is required. When working inside the Erlang/OTP environment, it is recommended to keep binaries in UTF-8 when representing Unicode characters. Latin1 encoding is supported both for backward compatibility and for communication with external entities not supporting Unicode character sets.</p>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <span id="charlist_definition"> </span>
+    <pre class="sh_erlang">
+unicode_binary() = binary() with characters encoded in UTF-8 coding standard
+unicode_char() = integer() representing valid unicode codepoint
+
+chardata() = charlist() | unicode_binary()
+
+charlist() = [unicode_char() | unicode_binary() | charlist()]
+  a unicode_binary is allowed as the tail of the list</pre>
+
+    <pre class="sh_erlang">
+external_unicode_binary() = binary() 
+  with characters coded in a user specified Unicode encoding other 
+  than UTF-8 (UTF-16 or UTF-32)
+
+external_chardata() = external_charlist() | external_unicode_binary()
+
+external_charlist() = [unicode_char() | external_unicode_binary() | external_charlist()]
+  an external_unicode_binary is allowed as the tail of the list</pre>
+
+    <pre class="sh_erlang">
+latin1_binary() = binary() with characters coded in iso-latin-1
+latin1_char() = integer() representing valid latin1 character (0-255)
+
+latin1_chardata() = latin1_charlist() | latin1_binary()
+
+latin1_charlist() = [latin1_char() | latin1_binary() | latin1_charlist()]
+  a latin1_binary is allowed as the tail of the list</pre>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="bom_to_encoding/1">bom_to_encoding(Bin) -&gt; {Encoding,Length}</h3>
+      
+      <ul class="type">
+        <li><code>Bin = binary() of byte_size 4 or more</code></li>
+        <li><code>Encoding = latin1 | utf8 | {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>
+	<li><code>Length = int()</code></li>
+      </ul>
+      <div class="description">
+
+      <p>Check for a UTF byte order mark (BOM) in the beginning of a
+      binary.  If the supplied binary <code>Bin</code> begins with a valid
+      byte order mark for either UTF-8, UTF-16 or UTF-32, the function
+      returns the encoding identified along with the length of the BOM
+      in bytes.</p>
+
+      <p>If no BOM is found, the function returns <code>{latin1,0}</code></p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="characters_to_list/1">characters_to_list(Data) -&gt; list() | {error, list(), RestData} | {incomplete, list(), binary()} </h3>
+      
+      <ul class="type">
+        <li><code>Data = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>RestData = latin1_chardata() | chardata() | external_chardata()</code></li>
+      </ul>
+      <div class="description">
+      <p>Same as characters_to_list(Data,unicode).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="characters_to_list/2">characters_to_list(Data, InEncoding) -&gt; list() | {error, list(), RestData} | {incomplete, list(), binary()} </h3>
+      
+      <ul class="type">
+        <li><code>Data = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>RestData = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>InEncoding = latin1 | unicode | utf8 | utf16 | utf32 | {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>
+      </ul>
+      <div class="description">
+
+      <p>This function converts a possibly deep list of integers and
+      binaries into a list of integers representing unicode
+      characters. The binaries in the input may have characters
+      encoded as latin1 (0 - 255, one character per byte), in which
+      case the <code>InEncoding</code> parameter should be given as
+      <code>latin1</code>, or have characters encoded as one of the
+      UTF-encodings, which is given as the <code>InEncoding</code>
+      parameter. Only when the <code>InEncoding</code> is one of the UTF
+      encodings, integers in the list are allowed to be grater than
+      255.</p>
+      
+      <p>If <code>InEncoding</code> is <code>latin1</code>, the <code>Data</code> parameter
+      corresponds to the <code>iodata()</code> type, but for <code>unicode</code>,
+      the <code>Data</code> parameter can contain integers greater than 255
+      (unicode characters beyond the iso-latin-1 range), which would
+      make it invalid as <code>iodata()</code>.</p>
+
+      <p>The purpose of the function is mainly to be able to convert
+      combinations of unicode characters into a pure unicode
+      string in list representation for further processing. For
+      writing the data to an external entity, the reverse function
+      <a href="#characters_to_binary/3" class="seealso">characters_to_binary/3</a>
+      comes in handy.</p>
+ 
+       <p>The option <code>unicode</code> is an alias for <code>utf8</code>, as this is the
+      preferred encoding for Unicode characters in
+      binaries. <code>utf16</code> is an alias for <code>{utf16,big}</code> and
+      <code>utf32</code> is an alias for <code>{utf32,big}</code>. The <code>big</code>
+      and <code>little</code> atoms denote big or little endian
+      encoding.</p> 
+
+      <p>If for some reason, the data cannot be converted, either
+      because of illegal unicode/latin1 characters in the list, or
+      because of invalid UTF encoding in any binaries, an error
+      tuple is returned. The error tuple contains the tag
+      <code>error</code>, a list representing the characters that could be
+      converted before the error occurred and a representation of the
+      characters including and after the offending integer/bytes. The
+      last part is mostly for debugging as it still constitutes a
+      possibly deep and/or mixed list, not necessarily of the same
+      depth as the original data. The error occurs when traversing the
+      list and whatever's left to decode is simply returned as is.</p>
+
+      <p>However, if the input <code>Data</code> is a pure binary, the third
+      part of the error tuple is guaranteed to be a binary as
+      well.</p>
+
+      <p>Errors occur for the following reasons:</p>
+      <ul>
+
+           <li>Integers out of range - If <code>InEncoding</code> is
+	   <code>latin1</code>, an error occurs whenever an integer greater
+	   than 255 is found in the lists. If <code>InEncoding</code> is
+	   of a Unicode type, error occurs whenever an integer greater than
+	   <code>16#10FFFF</code> (the maximum unicode character) or in the
+	   range <code>16#D800</code> to <code>16#DFFF</code> (invalid unicode
+	   range) is found.</li>
+
+	   <li>UTF encoding incorrect - If <code>InEncoding</code> is
+	   one of the UTF types, the bytes in any binaries have to be valid
+	   in that encoding. Errors can occur for various
+	   reasons, including "pure" decoding errors 
+	   (like the upper
+	   bits of the bytes being wrong), the bytes are decoded to a
+	   too large number, the bytes are decoded to a code-point in the 
+	   invalid unicode
+	   range or encoding is "overlong", meaning that a
+	   number should have been encoded in fewer bytes. The
+	   case of a truncated UTF is handled specially, see the
+	   paragraph about incomplete binaries below. If
+	   <code>InEncoding</code> is <code>latin1</code>, binaries are always valid 
+	   as long as they contain whole bytes,
+	   as each byte falls into the valid iso-latin-1 range.</li>
+
+      </ul>	   
+
+      <p>A special type of error is when no actual invalid integers or
+      bytes are found, but a trailing <code>binary()</code> consists of too
+      few bytes to decode the last character. This error might occur
+      if bytes are read from a file in chunks or binaries in other
+      ways are split on non UTF character boundaries. In this case an
+      <code>incomplete</code> tuple is returned instead of the <code>error</code>
+      tuple. It consists of the same parts as the <code>error</code> tuple, but
+      the tag is <code>incomplete</code> instead of <code>error</code> and the
+      last element is always guaranteed to be a binary consisting of
+      the first part of a (so far) valid UTF character.</p>
+
+      <p>If one UTF characters is split over two consecutive
+      binaries in the <code>Data</code>, the conversion succeeds. This means
+      that a character can be decoded from a range of binaries as long
+      as the whole range is given as input without errors
+      occurring. Example:</p>
+
+<code>
+     decode_data(Data) -&gt;
+         case unicode:characters_to_list(Data,unicode) of
+             {incomplete,Encoded, Rest} -&gt;
+	           More = get_some_more_data(),
+		   Encoded ++ decode_data([Rest, More]);
+	     {error,Encoded,Rest} -&gt;
+	           handle_error(Encoded,Rest);
+             List -&gt;
+	           List
+         end.
+</code>
+      <p>Bit-strings that are not whole bytes are however not allowed,
+      so a UTF character has to be split along 8-bit boundaries to
+      ever be decoded.</p>
+
+      <p>If any parameters are of the wrong type, the list structure
+      is invalid (a number as tail) or the binaries does not contain
+      whole bytes (bit-strings), a <code>badarg</code> exception is
+      thrown.</p>
+ 
+      </div>
+    </div>
+    <div class="function">
+     <h3 id="characters_to_binary/1">characters_to_binary(Data) -&gt;  binary() | {error, binary(), RestData} | {incomplete, binary(), binary()} </h3>
+            <ul class="type">
+        <li><code>Data = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>RestData = latin1_chardata() | chardata() | external_chardata()</code></li>
+       </ul>
+      <div class="description">
+      <p>Same as characters_to_binary(Data, unicode, unicode).</p>
+      </div>
+    </div>
+    <div class="function">    
+     <h3 id="characters_to_binary/2">characters_to_binary(Data,InEncoding) -&gt;  binary() | {error, binary(), RestData} | {incomplete, binary(), binary()} </h3>
+            <ul class="type">
+        <li><code>Data = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>RestData = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>InEncoding = latin1 | unicode | utf8 | utf16 | utf32 | {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>
+      </ul>
+      <div class="description">
+      <p>Same as characters_to_binary(Data, InEncoding, unicode).</p>
+      </div>
+    </div>    
+    <div class="function">
+      <h3 id="characters_to_binary/3">characters_to_binary(Data, InEncoding, OutEncoding) -&gt; binary() | {error, binary(), RestData} | {incomplete, binary(), binary()} </h3>
+      
+      <ul class="type">
+        <li><code>Data = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>RestData = latin1_chardata() | chardata() | external_chardata()</code></li>
+        <li><code>InEncoding = latin1 | unicode | utf8 | utf16 | utf32 | {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>
+	<li><code>OutEncoding = latin1 | unicode | utf8 | utf16 | utf32| {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>	
+      </ul>
+      <div class="description">
+
+      <p>This function behaves as <a href="#characters_to_list/2" class="seealso">
+      characters_to_list/2</a>, but produces an binary
+      instead of a unicode list. The
+      <code>InEncoding</code> defines how input is to be interpreted if
+      binaries are present in the <code>Data</code>, while
+      <code>OutEncoding</code> defines in what format output is to be
+      generated.</p>
+
+      <p>The option <code>unicode</code> is an alias for <code>utf8</code>, as this is the
+      preferred encoding for Unicode characters in
+      binaries. <code>utf16</code> is an alias for <code>{utf16,big}</code> and
+      <code>utf32</code> is an alias for <code>{utf32,big}</code>. The <code>big</code>
+      and <code>little</code> atoms denote big or little endian
+      encoding.</p> 
+
+      <p>Errors and exceptions occur as in <a href="#characters_to_list/2" class="seealso">
+      characters_to_list/2</a>, but the second element
+      in the <code>error</code> or
+      <code>incomplete</code> tuple will be a <code>binary()</code> and not a
+      <code>list()</code>.</p>
+
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="encoding_to_bom/1">encoding_to_bom(InEncoding) -&gt; Bin</h3>
+      
+      <ul class="type">
+        <li><code>Bin = binary() of byte_size 4 or less</code></li>
+        <li><code>InEncoding = latin1 | unicode | utf8 | utf16 | utf32 | {utf16,little} | {utf16,big} | {utf32,little} | {utf32,big}</code></li>
+	<li><code>Length = int()</code></li>
+      </ul>
+      <div class="description">
+
+      <p>Create an UTF byte order mark (BOM) as a binary from the
+      supplied <code>InEncoding</code>. The BOM is, if supported at all,
+      expected to be placed first in UTF encoded files or
+      messages.</p>
+
+      <p>The function returns <code>&lt;&lt;&gt;&gt;</code> for the
+      <code>latin1</code> encoding, there is no BOM for ISO-latin-1.</p>
+
+      <p>It can be noted that the BOM for UTF-8 is seldom used, and it
+      is really not a <em>byte order</em> mark. There are obviously no
+      byte order issues with UTF-8, so the BOM is only there to
+      differentiate UTF-8 encoding from other UTF formats.</p>
+
+      </div>
+    </div>
+  </div>
+
+      <ul id="funs"><li><a href="#bom_to_encoding/1">bom_to_encoding/1</a></li><li><a href="#characters_to_list/1">characters_to_list/1</a></li><li><a href="#characters_to_list/2">characters_to_list/2</a></li><li><a href="#characters_to_binary/1">characters_to_binary/1</a></li><li><a href="#characters_to_binary/2">characters_to_binary/2</a></li><li><a href="#characters_to_binary/3">characters_to_binary/3</a></li><li><a href="#encoding_to_bom/1">encoding_to_bom/1</a></li></ul>
+    </div>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+      
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

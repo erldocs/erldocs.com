@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>systools (sasl) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>systools</h1>
+  <h2 class="modsummary">A Set of Release Handling Tools.</h2>
+  <div class="description">
+    <p>This module contains functions to generate boot scripts
+      (<code>.boot</code>, <code>.script</code>), release upgrade scripts
+      (<code>relup</code>), and release packages.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="make_relup/3">make_relup(Name, UpFrom, DownTo) -&gt; Result</h3>
+      <h3 id="make_relup/4">make_relup(Name, UpFrom, DownTo, [Opt]) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Name = string()</code></li>
+        <li><code>UpFrom = DownTo = [Name | {Name,Descr}]</code></li>
+        <li><code>&nbsp;Descr = term()</code></li>
+        <li><code>Opt = {path,[Dir]} | restart_emulator | silent | noexec | {outdir,Dir}
+	| warnings_as_errors</code></li>
+        <li><code>&nbsp;Dir = string()</code></li>
+        <li><code>Result = ok | error | {ok,Relup,Module,Warnings} | {error,Module,Error}</code></li>
+        <li><code>&nbsp;Relup - see relup(4)</code></li>
+        <li><code>&nbsp;Module = atom()</code></li>
+        <li><code>&nbsp;Warnings = Error = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Generates a release upgrade file <code>relup</code> containing a
+          script which describes how to upgrade the system from a number
+          of previous releases, and how to downgrade to a number of
+          previous releases. The script is used by
+          <code>release_handler</code> when installing a new version of a
+          release in run-time.</p>
+        <p>By default, <code>relup</code> is placed in the current working
+          directory. If the option <code>{outdir,Dir}</code> is provided,
+          <code>relup</code> is placed in <code>Dir</code> instead.</p>
+        <p>The release resource file <code>Name.rel</code> is compared with
+          all release resource files <code>Name2.rel</code> specified in
+          <code>UpFrom</code> and <code>DownTo</code>. For each such pair, it is
+          deducted:</p>
+        <list type="bulleted">
+          <item>
+            <p>Which applications should be deleted, that is
+              applications which are listed in <code>Name.rel</code> but not
+              in <code>Name2.rel</code>.</p>
+          </item>
+          <item>
+            <p>Which applications should be added, that is applications
+              which are listed in <code>Name2.rel</code> but not in
+              <code>Name.rel</code>.</p>
+          </item>
+          <item>
+            <p>Which applications should be upgraded/downgraded, that
+              is applications listed in both <code>Name.rel</code> and
+              <code>Name2.rel</code>, but with different versions.</p>
+          </item>
+          <item>
+            <p>If the emulator needs to be restarted after upgrading or
+              downgrading, that is if the ERTS version differs between
+              <code>Name.rel</code> and <code>Name2.rel</code>.</p>
+          </item>
+        </list>
+        <p>Instructions for this are added to the <code>relup</code> script in
+          the above order. Instructions for upgrading or downgrading
+          between application versions are fetched from the relevant
+          application upgrade files <code>App.appup</code>, sorted in
+          the same order as when generating a boot script, see
+          <code>make_script/1,2</code>. High-level instructions are translated
+          into low-level instructions and the result is printed to
+          <code>relup</code>.</p>
+        <p>The optional <code>Descr</code> parameter is included as-is in
+          the <code>relup</code> script, see <code>relup(4)</code>. Defaults to
+          the empty list.</p>
+        <p>All the files are searched for in the code path. It is
+          assumed that the <code>.app</code> and <code>.appup</code> file for an
+          application is located in the same directory.</p>
+        <p>If the option <code>{path,[Dir]}</code> is provided, this path is
+          appended to the current path. The wildcard <code>*</code> is
+          expanded to all matching directories.
+          Example: <code>lib/*/ebin</code>.</p>
+        <p>If the <code>restart_emulator</code> option is supplied, a
+          low-level instruction to restart the emulator is appended to
+          the relup scripts. This ensures that a complete reboot of
+          the system is done when the system is upgraded or downgraded.</p>
+	<p>If an upgrade includes a change from an emulator earlier
+	  than OTP R15 to OTP R15 or later, the warning
+	  <code>pre_R15_emulator_upgrade</code> is issued. See <a href="../doc/design_principles/appup_cookbook.html" class="seealso">Design
+	  Principles</a> for more information about this.</p>
+        <p>By default, errors and warnings are printed to tty and
+          the function returns <code>ok</code> or <code>error</code>. If the option
+          <code>silent</code> is provided, the function instead returns
+          <code>{ok,Relup,Module,Warnings}</code> where <code>Relup</code> is
+          the release upgrade script, or it returns
+          <code>{error,Module,Error}</code>. Warnings and errors can be
+          converted to strings by calling
+          <code>Module:format_warning(Warnings)</code> or
+          <code>Module:format_error(Error)</code>.</p>
+        <p>If the option <code>noexec</code> is provided, the function returns
+          the same values as for <code>silent</code> but no <code>relup</code> file
+          is created.</p>
+	<p>If the option <code>warnings_as_errors</code> is provided, warnings
+	   are treated as errors.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="make_script/1">make_script(Name) -&gt; Result</h3>
+      <h3 id="make_script/2">make_script(Name, [Opt]) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Name = string()</code></li>
+        <li><code>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref |
+	  {exref,[App]}] | silent | {outdir,Dir} | no_warn_sasl |
+	  warnings_as_errors</code></li>
+        <li><code>&nbsp;Dir = string()</code></li>
+        <li><code>&nbsp;Var = {VarName,Prefix}</code></li>
+        <li><code>&nbsp;&nbsp;VarName = Prefix = string()</code></li>
+        <li><code>&nbsp;App = atom()</code></li>
+        <li><code>Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</code></li>
+        <li><code>&nbsp;Module = atom()</code></li>
+        <li><code>&nbsp;Warnings = Error = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Generates a boot script <code>Name.script</code> and its binary
+          version, the boot file <code>Name.boot</code>. The boot file
+          specifies which code should be loaded and which applications
+          should be started when the Erlang runtime system is started.
+          See <code>script(4)</code>.</p>
+        <p>The release resource file <code>Name.rel</code> is read to find
+          out which applications are included in the release. Then
+          the relevant application resource files <code>App.app</code> are
+          read to find out which modules should be loaded and if and
+          how the application should be started. (Keys <code>modules</code>
+          and <code>mod</code>, see <code>app(4)</code>).</p>
+        <p>By default, the boot script and boot file are placed in
+          the same directory as <code>Name.rel</code>. That is, in the current
+          working directory unless <code>Name</code> contains a path. If
+          the option <code>{outdir,Dir}</code> is provided, they are placed
+          in <code>Dir</code> instead.</p>
+        <p>The correctness of each application is checked:</p>
+        <list type="bulleted">
+          <item>
+            <p>The version of an application specified in
+              the <code>.rel</code> file should be the same as the version
+              specified in the <code>.app</code> file.</p>
+          </item>
+          <item>
+            <p>There should be no undefined applications, that is,
+              dependencies to applications which are not included in
+              the release. (Key <code>applications</code> in <code>.app</code>
+              file).</p>
+          </item>
+          <item>
+            <p>There should be no circular dependencies among
+              the applications.</p>
+          </item>
+          <item>
+            <p>There should be no duplicated modules, that is, modules with
+              the same name but belonging to different applications.</p>
+          </item>
+          <item>
+            <p>If the <code>src_tests</code> option is specified, a
+              warning is issued if the source code for a module is
+              missing or newer than the object code.</p>
+          </item>
+        </list>
+        <p>The applications are sorted according to the dependencies
+          between the applications. Where there are no dependencies,
+          the order in the <code>.rel</code> file is kept.</p>
+	<p>If <code>sasl</code> is not included as an application in
+	  the <code>.rel</code> file, a warning is emitted because such a
+	  release can not be used in an upgrade. To turn off this
+	  warning, add the option <code>no_warn_sasl</code>.</p>
+        <p>All files are searched for in the current path. It is
+          assumed that the <code>.app</code> and <code>.beam</code> files for an
+          application is located in the same directory. The <code>.erl</code>
+          files are also assumed to be located in this directory, unless
+          it is an <code>ebin</code> directory in which case they may be
+          located in the corresponding <code>src</code> directory.</p>
+        <p>If the option <code>{path,[Dir]}</code> is provided, this path is
+          appended to the current path. A directory in the path can be
+          given with a wildcard <code>*</code>, this is expanded to all
+          matching directories. Example: <code>"lib/*/ebin"</code>.</p>
+        <p>In the generated boot script all application directories are
+          structured as <code>App-Vsn/ebin</code> and assumed to be located
+          in <code>$ROOT/lib</code>, where <code>$ROOT</code> is the root directory
+          of the installed release. If the <code>local</code> option is
+          supplied, the actual directories where the applications were
+          found are used instead. This is a useful way to test a
+          generated boot script locally.</p>
+        <p>The <code>variables</code> option can be used to specify an
+          installation directory other than <code>$ROOT/lib</code> for some of
+          the applications. If a variable <code>{VarName,Prefix}</code> is
+          specified and an application is found in a directory
+          <code>Prefix/Rest/App[-Vsn]/ebin</code>, this application will get
+          the path <code>VarName/Rest/App-Vsn/ebin</code> in the boot script.
+          If an application is found in a directory <code>Prefix/Rest</code>,
+          the path will be <code>VarName/Rest/App-Vsn/ebin</code>. When
+          starting Erlang, all variables <code>VarName</code> are given
+          values using the <code>boot_var</code> command line flag.</p>
+        <p>Example: If the option <code>{variables,[{"TEST","lib"}]}</code> is
+          supplied, and <code>myapp.app</code> is found in
+          <code>lib/myapp/ebin</code>, then the path to this application in
+          the boot script will be <code>"$TEST/myapp-1/ebin"</code>. If
+          <code>myapp.app</code> is found in <code>lib/test</code>, then the path
+          will be <code>$TEST/test/myapp-1/ebin</code>.</p>
+        <p>The checks performed before the boot script is generated can
+          be extended with some cross reference checks by specifying
+          the <code>exref</code> option. These checks are performed with
+          the Xref tool. All applications, or the applications specified
+          with <code>{exref,[App]}</code>, are checked by Xref and
+          warnings are generated for calls to undefined functions.</p>
+        <p>By default, errors and warnings are printed to tty and
+          the function returns <code>ok</code> or <code>error</code>. If the option
+          <code>silent</code> is provided, the function instead returns
+          <code>{ok,Module,Warnings}</code> or <code>{error,Module,Error}</code>.
+          Warnings and errors can be converted to strings by calling
+          <code>Module:format_warning(Warnings)</code> or
+          <code>Module:format_error(Error)</code>.</p>
+	<p>If the option <code>warnings_as_errors</code> is provided, warnings
+	   are treated as errors.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="make_tar/1">make_tar(Name) -&gt; Result</h3>
+      <h3 id="make_tar/2">make_tar(Name, [Opt]) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Name = string()</code></li>
+        <li><code>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir}</code></li>
+        <li><code>&nbsp;Dir = string()</code></li>
+        <li><code>&nbsp;IncDir = src | include | atom()</code></li>
+        <li><code>&nbsp;Var = {VarName,PreFix}</code></li>
+        <li><code>&nbsp;&nbsp;VarName = Prefix = string()</code></li>
+        <li><code>&nbsp;VarTar = include | ownfile | omit</code></li>
+        <li><code>&nbsp;Machine = atom()</code></li>
+        <li><code>&nbsp;App = atom()</code></li>
+        <li><code>Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</code></li>
+        <li><code>&nbsp;Module = atom()</code></li>
+        <li><code>&nbsp;Warning = Error = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a release package file <code>Name.tar.gz</code>. file.
+          This file must be uncompressed and unpacked on the target
+          system using the <code>release_handler</code>, before the new
+          release can be installed.</p>
+        <p>The release resource file <code>Name.rel</code> is read to find out
+          which applications are included in the release. Then
+          the relevant application resource files <code>App.app</code> are
+          read to find out the version and modules of each application.
+          (Keys <code>vsn</code> and <code>modules</code>, see <code>app(4)</code>).</p>
+        <p>By default, the release package file is placed in the same
+          directory as <code>Name.rel</code>. That is, in the current working
+          directory unless <code>Name</code> contains a path. If the option
+          <code>{outdir,Dir}</code> is provided, it is placed in <code>Dir</code>
+          instead.</p>
+        <p>By default, the release package contains the directories
+          <code>lib/App-Vsn/ebin</code> and <code>lib/App-Vsn/priv</code> for each
+          included application. If more directories, the option
+          <code>dirs</code> is supplied. Example:
+          <code>{dirs,[src,examples]}</code>.</p>
+        <p>All these files are searched for in the current path. If
+          the option <code>{path,[Dir]}</code> is provided, this path is
+          appended to the current path. The wildcard <code>*</code> is
+          expanded to all matching directories.
+          Example: <code>"lib/*/ebin"</code>.</p>
+        <p>The <code>variables</code> option can be used to specify an
+          installation directory other than <code>lib</code> for some of
+          the applications. If a variable <code>{VarName,Prefix}</code> is
+          specified and an application is found in a directory
+          <code>Prefix/Rest/App[-Vsn]/ebin</code>, this application will be
+          packed into a separate <code>VarName.tar.gz</code> file as
+          <code>Rest/App-Vsn/ebin</code>.</p>
+        <p>Example: If the option <code>{variables,[{"TEST","lib"}]}</code> is
+          supplied, and <code>myapp.app</code> is found in
+          <code>lib/myapp-1/ebin</code>, the the application <code>myapp</code> is
+          included in <code>TEST.tar.gz</code>:</p>
+        <pre class="sh_erlang">
+% <code>tar tf TEST.tar</code>
+myapp-1/ebin/myapp.app
+...
+        </pre>
+        <p>The <code>{var_tar,VarTar}</code> option can be used to specify if
+          and where a separate package should be stored. In this option,
+          <code>VarTar</code> is:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>include</code>. Each separate (variable) package is
+              included in the main <code>ReleaseName.tar.gz</code> file. This
+              is the default.</p>
+          </item>
+          <item>
+            <p><code>ownfile</code>. Each separate (variable) package is
+              generated as separate files in the same directory as
+              the <code>ReleaseName.tar.gz</code> file.</p>
+          </item>
+          <item>
+            <p><code>omit</code>. No separate (variable) packages are
+              generated and applications which are found underneath a
+              variable directory are ignored.</p>
+          </item>
+        </list>
+        <p>A directory called <code>releases</code> is also included in
+          the release package, containing <code>Name.rel</code> and a
+          subdirectory called <code>RelVsn</code>. <code>RelVsn</code> is
+          the release version as specified in <code>Name.rel</code>.</p>
+        <p><code>releases/RelVsn</code> contains the boot script
+          <code>Name.boot</code> renamed to <code>start.boot</code> and, if found,
+          the files <code>relup</code> and <code>sys.config</code>. These files
+          are searched for in the same directory as <code>Name.rel</code>,
+          in the current working directory, and in any directories
+          specified using the <code>path</code> option.</p>
+        <p>If the release package should contain a new Erlang runtime
+          system, the <code>bin</code> directory of the specified runtime
+          system <code>{erts,Dir}</code> is copied to <code>erts-ErtsVsn/bin</code>.</p>
+        <p>All checks performed with the <code>make_script</code> function
+          are performed before the release package is created. The
+          <code>src_tests</code> and <code>exref</code> options are also
+          valid here.</p>
+        <p>The return value and the handling of errors and warnings
+          are the same as described for <code>make_script</code> above.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="script2boot/1">script2boot(File) -&gt; ok | error</h3>
+      
+      <ul class="type">
+        <li><code>File = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>The Erlang runtime system requires that the contents of
+          the script used to boot the system is a binary Erlang term.
+          This function transforms the <code>File.script</code> boot script
+          to a binary term which is stored in the file <code>File.boot</code>.</p>
+        <p>A boot script generated using the <code>make_script</code>
+          function is already transformed to the binary form.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p>app(4), appup(4), erl(1), rel(4), release_handler(3), relup(4),
+      script(4)</p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#make_relup/3">make_relup/3</a></li><li><a href="#make_relup/4">make_relup/4</a></li><li><a href="#make_script/1">make_script/1</a></li><li><a href="#make_script/2">make_script/2</a></li><li><a href="#make_tar/1">make_tar/1</a></li><li><a href="#make_tar/2">make_tar/2</a></li><li><a href="#script2boot/1">script2boot/1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

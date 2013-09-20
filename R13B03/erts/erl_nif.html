@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <title>erl_nif - R13B03 - erldocs.com (Erlang Documentation)</title>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  
+  <body>
+
+    <div id="sidebar">
+      <input type="text" value="Loading..." id="search" autocomplete="off" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      
+  
+  <h1>erl_nif</h1>
+  <libsummary>API functions for an Erlang NIF library</libsummary>
+  <div class="description">
+     <div class="warning"><h2>Warning!</h2><p>The NIF concept is introduced in R13B03 as an
+	EXPERIMENTAL feature. The interfaces may be changed in any way
+	in coming releases. The API introduced in this release is very
+	sparse and contains only the most basic functions to read and
+	write Erlang terms.
+	</p></div>
+
+    <p>A NIF library contains native implementation of some functions
+    of an erlang module. The native implemented functions (NIFs) are
+    called like any other functions without any difference to the
+    caller. Each NIF must also have an implementation in Erlang that
+    will be invoked if the function is called before the NIF library
+    has been successfully loaded. A typical such stub implementation
+    is to throw an exception. But it can also be used as a fallback
+    implementation if the NIF library is not implemented for some
+    architecture.</p> 
+    <p>A minimal example of a NIF library can look like this:</p>
+      <p  />
+      <pre class="sh_erlang">
+/* niftest.c */
+#include "erl_nif.h"
+
+static ERL_NIF_TERM hello(ErlNifEnv* env)
+{
+    return enif_make_string(env, "Hello world!");
+}
+
+static ErlNifFunc nif_funcs[] =
+{
+    {"hello", 0, hello}
+};
+
+ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)
+</pre>
+
+    <p>and the erlang module would have to look something like
+    this:</p>
+      <p  />
+      <pre class="sh_erlang">
+-module(niftest).
+
+-export([init/0, hello/0]).
+
+init() -&gt;
+      erlang:load_nif("./niftest", 0).
+
+hello() -&gt;
+      "NIF library not loaded".
+</pre>
+    <p>and compile and test something like this (on Linux):</p>
+      <p  />
+      <pre class="sh_erlang">
+$&gt; gcc -fPIC -shared -o niftest.so niftest.c -I $ERL_ROOT/usr/include/
+$&gt; erl
+
+1&gt; c(niftest).
+{ok,niftest}
+2&gt; niftest:hello().
+"NIF library not loaded"
+3&gt; niftest:init().
+ok
+4&gt; niftest:hello().
+"Hello world!"
+</pre>
+
+     <p>A better solution for a real module is to take advantage of
+     the new attribute <code>on_load</code> to automatically load the NIF
+     library when the module is loaded.</p>
+     <p>A loaded NIF library is tied to the Erlang module code version
+     that loaded it. If the module is upgraded with a new version, the
+     new code will have to load its own NIF library (or maybe choose not
+     to). The new code version can however choose to load the exact
+     same NIF library as the old code if it wants to. Sharing the same
+     dynamic library will mean that static data defined by the library
+     will be shared as well. To avoid unintentionally shared static
+     data, each Erlang module code can keep its own private data. This
+     global private data can be set when the NIF library is loaded and
+     then retrieved by calling <a href="erl_nif.html#enif_get_data" class="seealso">enif_get_data()</a>.</p>
+    <p>There is currently no way to explicitly unload a NIF
+     library. A library will be automatically unloaded when the module
+     code that it belongs to is purged by the code server. A NIF
+     library will can also be unloaded by replacing it with another
+     version of the library by a second call to
+     <code>erlang:load_nif/2</code> from the same module code.</p> 
+  </div>
+
+  <div class="section">
+    <h4>INITIALIZATION</h4>
+    <dl>
+      <dt><span id="ERL_NIF_INIT"> </span>ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, reload, upgrade, unload)</dt>
+      <dd><p>This is the magic macro to initialize a NIF library. It
+      should be evaluated in global file scope.</p>
+      <p><code>MODULE</code> is the name of the Erlang module as an
+      identifier without string quotations. It will be stringified by
+      the macro.</p>
+      <p><code>funcs</code> is a static array of function descriptors for
+      all the implemented NIFs in this library.</p>
+      <p><code>load</code>, <code>reload</code>, <code>upgrade</code> and <code>unload</code>
+      are pointers to functions. One of <code>load</code>, <code>reload</code> or
+      <code>upgrade</code> will be called to initialize the library.
+      <code>unload</code> is called to release the library. They are all
+      described individually below.</p>
+      </dd>
+
+      <dt><span id="load"> </span>int (*load)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</dt>
+       <dd><p><code>load</code> is called when the NIF library is loaded
+        and there is no previously loaded library for this module.</p>
+        <p><code>*priv_data</code> can be set to point to some private data
+           that the library needs in able to keep a state between NIF 
+           calls. <code>enif_get_data()</code> will return this pointer.</p> 
+        <p><code>load_info</code> is the second argument to <a href="../erlang#erlang/load_nif-2.html" class="seealso">erlang:load_nif/2</a>.</p>
+        <p>The library will fail to load if <code>load</code> returns
+           anything other than 0. <code>load</code> can be NULL in case no
+           initialization is needed.</p> 
+       </dd>
+
+      <dt><span id="reload"> </span>int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</dt>
+       <dd><p><code>reload</code> is called when the NIF library is loaded
+        and there is already a previously loaded library for this
+        module code.</p>
+        <p>Works the same as <code>load</code>. The only difference is that
+        <code>*priv_data</code> already contains the value set by the
+        previous call to <code>load</code> or <code>reload</code>.</p>
+        <p>The library will fail to load if <code>reload</code> returns
+           anything other than 0 or if <code>reload</code> is NULL.</p> 
+      </dd>
+
+      <dt><span id="upgrade"> </span>int (*upgrade)(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</dt>
+       <dd><p><code>upgrade</code> is called when the NIF library is loaded
+        and there is no previously loaded library for this module
+        code, BUT there is old code of this module with a
+        loaded NIF library.</p>
+        <p>Works the same as <code>load</code>. The only difference is that
+        <code>*old_priv_data</code> already contains the value set by the
+         last call to <code>load</code> or <code>reload</code> for the old module
+         code. It is allowed to write to both *priv_data and
+         *old_priv_data.</p> 
+        <p>The library will fail to load if <code>upgrade</code> returns
+           anything other than 0 or if <code>upgrade</code> is NULL.</p>
+      </dd>
+
+      <dt><span id="unload"> </span>void (*unload)(ErlNifEnv* env, void* priv_data)</dt>
+       <dd><p><code>unload</code> is called when the module code that
+       the NIF library belongs to is purged as old. New code
+       of the same module may or may not exist.</p>
+      </dd>
+
+
+    </dl>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+
+    <dl>
+     <dt><span id="ErlDrvEnv"> </span>ErlDrvEnv</dt>
+      <dd>
+        <p><code>ErlNifEnv</code> contains information about the context in
+          which a NIF call is made. This pointer should not be
+          dereferenced in any way, but only passed on to API
+          functions. An <code>ErlNifEnv</code> pointer is only valid until
+          the function, where is what supplied as argument,
+          returns. There is thus useless and dangerous to store <code>ErlNifEnv</code>
+          pointers in between NIF calls.</p>
+      </dd>
+    <dt><span id="ErlNifFunc"> </span>ErlNifFunc</dt>
+     <dd>
+      <p  />
+      <pre class="sh_erlang">
+typedef struct {
+    const char* name;
+    unsigned arity;
+    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, ...);
+} ErlNifFunc;
+</pre>
+        <p>Describes a NIF by its name, arity and implementation.
+        <code>fptr</code> is a pointer to the function that implements the
+        NIF. The number of arguments must match the arity. A NIF of
+        arity 2 will thus look like:</p> 
+      <p  />
+      <pre class="sh_erlang">
+ERL_NIF_TERM my_nif(ErlNifEnv* env, ERL_NIF_TERM arg1, ERL_NIF_TERM arg2)
+{
+    /* ... */
+}
+</pre>
+        <p>The maximum allowed arity for a NIF is 3 in current implementation.</p>
+      </dd>
+    <dt><span id="ErlNifBinary"> </span>ErlNifBinary</dt>
+     <dd>
+      <p  />
+      <pre class="sh_erlang">
+typedef struct {
+    unsigned size;
+    unsigned char* data;
+} ErlNifBinary;
+</pre>
+        <p><code>ErlNifBinary</code> contains transient information about an
+          inspected binary term. <code>data</code> is a pointer to a buffer
+          of <code>size</code> bytes with the raw content of the binary.</p>
+      </dd>
+      <dt><span id="ERL_NIF_TERM"> </span>ERL_NIF_TERM</dt>
+       <dd>
+        <p>Variables of type <code>ERL_NIF_TERM</code> can refere to any
+        Erlang term. This is an opaque type and values of it can only
+        by used either as arguments to API functions or as return
+        values from NIFs. A variable of type <code>ERL_NIF_TERM</code> is
+        only valid until the NIF call, where it was obtained,
+        returns.</p>
+      </dd>
+    </dl>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      
+      <div class="description"><p>Returns the pointer to the private data that was set by <code>load</code>, <code>reload</code> or <code>upgrade</code>.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Allocate memory of <code>size</code> bytes.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Free memory allocated by <code>enif_alloc</code>.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Return true if <code>term</code> is a binary</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Initialize the structure pointed to by <code>bin</code> with
+      transient information about the binary term
+      <code>bin_term</code>. Return false if <code>bin_term</code> is not a binary.</p></div> 
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Allocate a new binary of size of <code>size</code>
+      bytes. Initialize the structure pointed to by <code>bin</code> to
+      refer to the allocated binary.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Release a binary obtained from <code>enif_alloc_binary</code> or <code>enif_inspect_binary</code>.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Set <code>*ip</code> to the integer value of
+      <code>term</code> or return false if <code>term</code> is not an integer or is
+      outside the bounds of type <code>int</code></p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Set <code>*ip</code> to the unsigned long integer value of
+      <code>term</code> or return false if <code>term</code> is not an unsigned
+      integer or is outside the bounds of type <code>unsigned long</code></p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Set <code>*head</code> and <code>*tail</code> from
+      <code>list</code> or return false if <code>list</code> is not a non-empty
+      list.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Make a binary term from <code>bin</code>. Will also release
+      the binary.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Make a badarg exception to be returned from a NIF.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create an integer term.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create an integer term from an <code>unsigned long int</code>.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create an atom term from the C-string <code>name</code>. Atom
+      terms may be saved and used between NIF calls.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create a tuple term of arity <code>cnt</code>. Expects
+      <code>cnt</code> number of arguments (after <code>cnt</code>) of type ERL_NIF_TERM as the
+      elements of the tuple.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create an ordinary list term of length <code>cnt</code>. Expects
+      <code>cnt</code> number of arguments (after <code>cnt</code>) of type ERL_NIF_TERM as the
+      elements of the list. An empty list is returned if <code>cnt</code> is 0.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Create a list cell <code>[head | tail]</code>.</p></div>
+    </div>
+    <div class="function">
+      
+      <div class="description"><p>Creates a list containing the characters of the
+      C-string <code>string</code>.</p></div>
+    </div>
+  </div>
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><a href="../erlang#erlang/load_nif-2.html" class="seealso">load_nif(3)</a></p>
+  </div>
+
+      <ul id="funs" />
+    </div>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+      
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

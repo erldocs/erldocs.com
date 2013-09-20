@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>diameter (diameter) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+
+<h1>diameter</h1>
+<h2 class="modsummary">Main API of the diameter application.</h2>
+
+<div class="description">
+<p>
+This module provides the interface with which a user
+creates a service that sends and receives messages using the
+Diameter protocol as defined in RFC 3588.</p>
+
+<p>
+Basic usage consists of creating a representation of a
+locally implemented Diameter peer and its capabilities with <a href="#start_service" class="seealso">start_service/2</a>, adding transport
+capability using <a href="#add_transport" class="seealso">add_transport/2</a> and sending Diameter
+requests and receiving Diameter answers with <a href="#call" class="seealso">call/4</a>.
+Incoming Diameter requests are communicated as callbacks to a
+<a href="diameter_app.html" class="seealso">diameter_app(3)</a> callback modules as
+specified in the service configuration.</p>
+
+<p>
+Beware the difference between <em>diameter application</em> and
+<em>Diameter application</em>.
+The former refers to the Erlang application named diameter whose main
+api is defined here, the latter to an application of the Diameter
+protocol in the sense of RFC 3588.
+More generally, capitalized Diameter refers to the RFC
+and diameter to this implementation.</p>
+
+<p>
+The diameter application must be started before calling functions in
+this module.</p>
+
+</div>
+
+<div class="section">
+<h4>DATA TYPES</h4>
+
+<taglist>
+
+<dt><code>Address()</code></dt>
+<dt><code>DiameterIdentity()</code></dt>
+<dt><code>Time()</code></dt>
+<dt><code>Unsigned32()</code></dt>
+<dt><code>UTF8String()</code></dt>
+<item>
+<p>
+Types corresponding to RFC 3588 AVP Data Formats.
+Defined in <a href="diameter_dict.html" class="seealso">diameter_dict(4)</a>.</p>
+
+<span id="application_alias"> </span>
+</item>
+
+<dt><code>application_alias() = term()</code></dt>
+<item>
+<p>
+A name identifying a Diameter application in
+service configuration passed to <a href="#start_service" class="seealso">start_service/2</a> and passed to
+<a href="#call" class="seealso">call/4</a> when sending requests
+belonging to the application.</p>
+
+<span id="application_module"> </span>
+</item>
+
+<dt><code>application_module() = Mod
+                             | [Mod | ExtraArgs]
+                             | #diameter_callback{}</code></dt>
+<item>
+<code>
+Mod = atom()
+ExtraArgs = list()
+</code>
+
+<p>
+A module implementing the callback interface defined in <a href="diameter_app.html" class="seealso">diameter_app(3)</a>, along with any
+extra arguments to be appended to those documented for the interface.
+Any extra arguments are appended to the documented list of arguments for
+each function.
+Note that additional arguments specific to an outgoing request be
+specified to <a href="#call" class="seealso">call/4</a>, in which case
+the call-specific arguments are appended to any specified with the
+callback module.</p>
+
+<p>
+Specifying a <code>#diameter_callback{}</code> record allows individual
+functions to be configured in place of the usual <a href="diameter_app.html" class="seealso">diameter_app(3)</a> callbacks, with
+default implementations provided by module <code>diameter_callback</code>
+unless otherwise specified.
+See that module for details.</p>
+
+<span id="application_opt"> </span>
+</item>
+
+<dt><code>application_opt()</code></dt>
+<item>
+
+<p>
+Options defining a Diameter application as configured in an
+<code>application</code> option passed to
+<a href="#start_service" class="seealso">start_service/2</a>.</p>
+
+<taglist>
+
+<dt><code>{alias, application_alias()}</code></dt>
+<item>
+<p>
+An unique identifier for the application in the scope of the
+service.
+Optional, defaults to the value of the <code>dictionary</code> option.</p>
+</item>
+
+<dt><code>{dictionary, atom()}</code></dt>
+<item>
+<p>
+The name of an encode/decode module for the Diameter
+messages defined by the application.
+These modules are generated from a specification file whose format is
+documented in <a href="diameter_dict.html" class="seealso">diameter_dict(4)</a>.</p>
+</item>
+
+<dt><code>{module, application_module()}</code></dt>
+<item>
+<p>
+A callback module with which messages of the Diameter application are
+handled.
+See <a href="diameter_app.html" class="seealso">diameter_app(3)</a> for
+information on the required interface and semantics.</p>
+</item>
+
+<dt><code>{state, term()}</code></dt>
+<item>
+<p>
+The initial callback state.
+Defaults to the value of the <code>alias</code> option if unspecified.
+The prevailing state is passed to certain
+<a href="diameter_app.html" class="seealso">diameter_app(3)</a>
+callbacks, which can then return a new state.</p>
+</item>
+
+<dt><code>{call_mutates_state, true|false}</code></dt>
+<item>
+<p>
+Specifies whether or not the <a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+application callback (following from a call to
+<a href="#call" class="seealso">call/4</a>)
+can modifiy state,
+Defaults to <code>false</code> if unspecified.</p>
+
+<p>
+Note that <a href="diameter_app.html#pick_peer" class="seealso">pick_peer</a> callbacks are
+serialized when these are allowed to modify state, which is a
+potential performance bottleneck.
+A simple Diameter client may suffer no ill effects from using mutable
+state but a server or agent that responds to incoming request but
+sending its own requests should probably avoid it.</p>
+</item>
+
+<dt><code>{answer_errors, callback|report|discard}</code></dt>
+<item>
+<p>
+Determines the manner in which incoming answer messages containing
+decode errors are handled.
+If <code>callback</code> then errors result in a <a href="diameter_app.html#handle_answer" class="seealso">handle_answer/4</a>
+callback in the same fashion as for <a href="diameter_app.html#handle_request" class="seealso">handle_request/3</a>, in the
+<code>errors</code> field of the <code>diameter_packet</code> record passed into
+the callback.
+If <code>report</code> then an answer containing errors is discarded
+without a callback and a warning report is written to the log.
+If <code>discard</code> then an answer containing errors is silently
+discarded without a callback.
+In both the <code>report</code> and <code>discard</code> cases the return value
+for the <a href="#call" class="seealso">call/4</a> invocation in
+question is as if a callback had taken place and returned
+<code>{error, failure}</code>.</p>
+
+<p>
+Defaults to <code>report</code> if unspecified.</p>
+</item>
+
+</taglist>
+
+<span id="call_opt"> </span>
+</item>
+
+<dt><code>call_opt()</code></dt>
+<item>
+
+<p>
+Options available to <a href="#call" class="seealso">call/4</a> when
+sending an outgoing Diameter request.</p>
+
+<taglist>
+
+<dt><code>{extra, list()}</code></dt>
+<item>
+<p>
+Extra arguments to append to callbacks to the callback
+module in question.
+These are appended to any extra arguments configured with the callback
+itself.
+Multiple options append to the argument list.</p>
+</item>
+
+<dt><code>{filter, peer_filter()}</code></dt>
+<item>
+<p>
+A filter to apply to the list of available peers before passing them to
+the <a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+callback for the application in question.
+Multiple options are equivalent a single <code>all</code> filter on the
+corresponding list of filters.
+Defaults to <code>none</code>.</p>
+</item>
+
+<dt><code>{timeout, Unsigned32()}</code></dt>
+<item>
+<p>
+The number of milliseconds after which the request should
+timeout.
+Defaults to 5000.</p>
+</item>
+
+<dt><code>detach</code></dt>
+<item>
+<p>
+Causes <a href="#call" class="seealso">call/4</a> to return <code>ok</code> as
+soon as the request in
+question has been encoded instead of waiting for and returning
+the result from a subsequent
+<a href="diameter_app.html#handle_answer" class="seealso">handle_answer/4</a>
+or <a href="diameter_app.html#handle_error" class="seealso">handle_error/4</a>
+callback.</p>
+</item>
+
+</taglist>
+
+<p>
+An invalid option will cause <a href="#call" class="seealso">call/4</a>
+to fail.</p>
+
+<span id="capability"> </span>
+</item>
+
+<dt><code>capability()</code></dt>
+<item>
+
+<p>
+AVP values used in outgoing CER/CEA messages during capabilities exchange.
+Can be configured both on a service and a transport, the latter taking
+precedence over the former.</p>
+
+<taglist>
+
+<dt><code>{'Origin-Host', DiameterIdentity()}</code></dt>
+<item>
+<p>
+Value of the Origin-Host AVP in outgoing messages.</p>
+</item>
+
+<dt><code>{'Origin-Realm', DiameterIdentity()}</code></dt>
+<item>
+<p>
+Value of the Origin-Realm AVP in outgoing messages.</p>
+</item>
+
+<dt><code>{'Host-IP-Address', [Address()]}</code></dt>
+<item>
+<p>
+Values of Host-IP-Address AVPs.
+Optional.</p>
+
+<p>
+The list of addresses is available to the start function of a
+transport module, which either uses them as is or returns a new list
+(typically as configured as <code>transport_config()</code> on the
+transport module in question) in order for the correct list of
+addresses to be sent in capabilities exchange messages.</p>
+</item>
+
+<dt><code>{'Vendor-Id', Unsigned32()}</code></dt>
+<item>
+<p>
+Value of the Vendor-Id AVP sent in an outgoing capabilities
+exchange message.</p>
+</item>
+
+<dt><code>{'Product-Name', UTF8String()}</code></dt>
+<item>
+<p>
+Value of the Product-Name AVP sent in an outgoing capabilities
+exchange message.</p>
+</item>
+
+<dt><code>{'Origin-State-Id', Unsigned32()}</code></dt>
+<item>
+<p>
+Value of Origin-State-Id to be included in outgoing messages sent by
+diameter itself.
+In particular, the AVP will be included in CER/CEA and DWR/DWA messages.
+Optional.</p>
+
+<p>
+Setting a value of <code>0</code> (zero) is equivalent to not setting a
+value as documented in RFC 3588.
+The function <a href="#origin_state_id" class="seealso">origin_state_id/0</a>
+can be used as to retrieve a value that is set when the diameter
+application is started.</p>
+</item>
+
+<dt><code>{'Supported-Vendor-Id', [Unsigned32()]}</code></dt>
+<item>
+<p>
+Values of Supported-Vendor-Id AVPs sent in an outgoing
+capabilities exchange message.
+Optional, defaults to the empty list.</p>
+</item>
+
+<dt><code>{'Auth-Application-Id', [Unsigned32()]}</code></dt>
+<item>
+<p>
+Values of Auth-Application-Id AVPs sent in an outgoing
+capabilities exchange message.
+Optional, defaults to the empty list.</p>
+</item>
+
+<dt><code>{'Inband-Security-Id', [Unsigned32()]}</code></dt>
+<item>
+<p>
+Values of Inband-Security-Id AVPs sent in an outgoing
+capabilities exchange message.
+Optional, defaults to the empty list, which is equivalent to a
+list containing only 0 (= NO_INBAND_SECURITY).</p>
+
+<p>
+If 1 (= TLS) is specified then TLS is selected if the CER/CEA received
+from the peer offers it.</p>
+</item>
+
+<dt><code>{'Acct-Application-Id', [Unsigned32()]}</code></dt>
+<item>
+<p>
+Values of Acct-Application-Id AVPs sent in an outgoing
+capabilities exchange message.
+Optional, defaults to the empty list.</p>
+</item>
+
+<dt><code>{'Vendor-Specific-Application-Id', [Grouped()]}</code></dt>
+<item>
+<p>
+Values of Vendor-Specific-Application-Id AVPs sent in
+an outgoing capabilities exchange message.
+Optional, defaults to the empty list.</p>
+</item>
+
+<dt><code>{'Firmware-Revision', Unsigned32()}</code></dt>
+<item>
+<p>
+Value of the Firmware-Revision AVP sent in an outgoing capabilities
+exchange message.
+Optional.</p>
+</item>
+
+</taglist>
+
+<p>
+Note that each tuple communicates one or more AVP values.
+It is an error to specify duplicate tuples.</p>
+
+<span id="evaluable"> </span>
+</item>
+
+<dt><code>evaluable() = {M,F,A} | fun() | [evaluable() | A]</code></dt>
+<item>
+<p>
+An expression that can be evaluated as a function in the following
+sense.</p>
+
+<code>
+eval([{M,F,A} | T]) -&gt;
+    apply(M, F, T ++ A);
+eval([[F|A] | T]) -&gt;
+    eval([F | T ++ A]);
+eval([F|A]) -&gt;
+    apply(F, A);
+eval(F) -&gt;
+    eval([F]).
+</code>
+
+<p>
+Applying an evaluable() <code>E</code> to an argument list <code>A</code>
+is meant in the sense of <code>eval([E|A])</code>.</p>
+
+<p>
+Beware of using local funs (that is, fun expressions not of the
+form <code>fun Module:Name/Arity</code>) in situations in which the fun is
+not short-lived and code is to be upgraded at runtime since any
+processes retaining such a fun will have a reference to old code.</p>
+
+<span id="peer_filter"> </span>
+</item>
+
+<dt><code>peer_filter() = term()</code></dt>
+<item>
+<p>
+A filter passed to <a href="#call" class="seealso">call/4</a>
+in order to select candidate peers for a 
+<a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+callback.
+Has one of the following types.</p>
+
+<taglist>
+
+<dt><code>none</code></dt>
+<item>
+<p>
+Matches any peer.
+This is a convenience that provides a filter equivalent to no
+filter at all.</p>
+</item>
+
+<dt><code>host</code></dt>
+<item>
+<p>
+Matches only those peers whose <code>Origin-Host</code> has the same value
+as <code>Destination-Host</code> in the outgoing request in question,
+or any peer if the request does not contain
+a <code>Destination-Host</code> AVP.</p>
+</item>
+
+<dt><code>realm</code></dt>
+<item>
+<p>
+Matches only those peers whose <code>Origin-Realm</code> has the same value
+as <code>Destination-Realm</code> in the outgoing request in question,
+or any peer if the request does not contain
+a <code>Destination-Realm</code> AVP.</p>
+</item>
+
+<dt><code>{host, any|DiameterIdentity()}</code></dt>
+<item>
+<p>
+Matches only those peers whose <code>Origin-Host</code> has the
+specified value, or all peers if the atom <code>any</code>.</p>
+</item>
+
+<dt><code>{realm, any|DiameterIdentity()</code></dt>
+<item>
+<p>
+Matches only those peers whose <code>Origin-Realm</code> has the
+value, or all peers if the atom <code>any</code>.</p>
+</item>
+
+<dt><code>{eval, evaluable()}</code></dt>
+<item>
+<p>
+Matches only those peers for which the specified evaluable() returns
+<code>true</code> on the connection's <code>diameter_caps</code> record.
+Any other return value or exception is equivalent to <code>false</code>.</p>
+</item>
+
+<dt><code>{neg, peer_filter()}</code></dt>
+<item>
+<p>
+Matches only those peers not matched by the specified filter.</p>
+</item>
+
+<dt><code>{all, [peer_filter()]}</code></dt>
+<item>
+<p>
+Matches only those peers matched by each filter of the specified list.</p>
+</item>
+
+<dt><code>{any, [peer_filter()]}</code></dt>
+<item>
+<p>
+Matches only those peers matched by at least one filter of the
+specified list.</p>
+</item>
+
+</taglist>
+
+<p>
+Note that the <code>host</code> and <code>realm</code> filters examine the
+outgoing request as passed to <a href="#call" class="seealso">call/4</a>,
+assuming that this is a record- or list-valued message() as documented
+in <a href="diameter_app.html" class="seealso">diameter_app(3)</a>, and that
+the message contains at most one of each AVP.
+If this is not the case then the <code>{host|realm, DiameterIdentity()}</code>
+filters must be used to achieve the desired result.
+Note also that an empty host/realm (which should not be typical)
+is equivalent to an unspecified one for the purposes of filtering.</p>
+
+<p>
+An invalid filter is equivalent to <code>{any, []}</code>, a filter
+that matches no peer.</p>
+
+<span id="service_event"> </span>
+</item>
+
+<dt><code>service_event() = #diameter_event{}</code></dt>
+<item>
+<p>
+Event message sent to processes that have subscribed using <a href="#subscribe" class="seealso">subscribe/1</a>.</p>
+
+<p>
+The <code>info</code> field of the event record can be one of the
+following.</p>
+
+<taglist>
+
+<dt><code>{up, Ref, Peer, Config, Pkt}</code></dt>
+<dt><code>{up, Ref, Peer, Config}</code></dt>
+<dt><code>{down, Ref, Peer, Config}</code></dt>
+<item>
+<code>
+Ref    = transport_ref()
+Peer   = diameter_app:peer()
+Config = {connect|listen, [transport_opt()]}
+Pkt    = #diameter_packet{}
+</code>
+
+<p>
+The RFC 3539 watchdog state machine has
+transitioned into (<code>up</code>) or out of (<code>down</code>) the open
+state.
+If a <code>diameter_packet</code> record is present in an <code>up</code> tuple
+then there has been an exchange of capabilities exchange messages and
+the record contains the received CER or CEA, otherwise the
+connection has reestablished without the loss or transport
+connectivity.</p>
+
+<p>
+Note that a single up/down event for a given peer corresponds to
+as many <a href="diameter_app.html#peer_up" class="seealso">peer_up/peer_down</a>
+callbacks as there are Diameter applications shared by the peer,
+as determined during capablilities exchange.
+That is, the event communicates connectivity with the
+peer as a whole while the callbacks communicate connectivity with
+respect to individual Diameter applications.</p>
+</item>
+
+<dt><code>{reconnect, Ref, Opts}</code></dt>
+<item>
+<code>
+Ref  = transport_ref()
+Opts = [transport_opt()]
+</code>
+
+<p>
+A connecting transport is attempting to establish/reestablish a
+transport connection with a peer following <code>reconnect_timer</code> or
+<code>watchdog_timer</code> expiry.</p>
+</item>
+
+<dt><code>{closed, Ref, Reason, Config}</code></dt>
+<item>
+<code>
+Ref = transport_ref()
+Config = {connect|listen, [transport_opt()]}
+</code>
+
+<p>
+Capabilities exchange has failed. <code>Reason</code> can be one of
+the following.</p>
+
+<taglist>
+
+<dt><code>{'CER', Result, Caps, Pkt}</code></dt>
+<item>
+<code>
+Result = ResultCode | {capabilities_cb, CB, ResultCode|discard}
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+ResultCode = integer()
+CB = evaluable()
+</code>
+
+<p>
+An incoming CER has been answered with the indicated result code or
+discarded.
+The capabilities record contains pairs of values for the the local
+node and remote peer.
+The packet record contains the CER in question.
+In the case of rejection by a capabilities callback, the tuple
+indicates the rejecting callback.</p>
+</item>
+
+<dt><code>{'CER', Caps, {ResultCode, Pkt}}</code></dt>
+<item>
+<code>
+ResultCode = integer()
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+</code>
+
+<p>
+An incoming CER contained errors and has been answered with the
+indicated result code.
+The capabilities record contains only values for the the local
+node.
+The packet record contains the CER in question.</p>
+</item>
+
+<dt><code>{'CEA', Result, Caps, Pkt}</code></dt>
+<item>
+<code>
+Result = integer() | atom() | {capabilities_cb, CB, ResultCode|discard}
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+ResultCode = integer()
+</code>
+
+<p>
+An incoming CEA has been rejected for the indicated reason.
+An integer-valued <code>Result</code> indicates the result code sent
+by the peer.
+The capabilities record contains pairs of values for the the local
+node and remote peer.
+The packet record contains the CEA in question.
+In the case of rejection by a capabilities callback, the tuple
+indicates the rejecting callback.</p>
+</item>
+
+<dt><code>{'CEA', Caps, Pkt}</code></dt>
+<item>
+<code>
+Caps = #diameter_caps{}
+Pkt  = #diameter_packet{}
+</code>
+
+<p>
+An incoming CER contained errors and has been rejected.
+The capabilities record contains only values for the the local node.
+The packet record contains the CEA in question.</p>
+</item>
+
+</taglist>
+</item>
+
+</taglist>
+
+<p>
+For forward compatibility, a subscriber should be prepared to receive
+info fields of forms other than the above.</p>
+
+<span id="service_name"> </span>
+</item>
+
+<dt><code>service_name() = term()</code></dt>
+<item>
+<p>
+The name of a service as passed to <a href="#start_service" class="seealso">start_service/2</a> and with which the
+service is identified.
+There can be at most one service with a given name on a given node.
+Note that <code>erlang:make_ref/0</code> can be used to generate a service name
+that is somewhat unique.</p>
+
+<span id="service_opt"> </span>
+</item>
+
+<dt><code>service_opt()</code></dt>
+<item>
+<p>
+Options accepted by <a href="#start_service" class="seealso">start_service/2</a>.
+Can be any <code>capability()</code> tuple as
+well as the following.</p>
+
+<taglist>
+
+<dt><code>{application, [application_opt()]}</code></dt>
+<item>
+<p>
+Defines a Diameter application supported by the service.</p>
+
+<p>
+A service must define one application for each Diameter application it
+intends to support.
+For an outgoing Diameter request, the application is specified by
+passing the desired application's <code>application_alias()</code> to
+<a href="#call" class="seealso">call/4</a>, while for an
+incoming request the application identifier in the message
+header determines the application (and callback module), the
+application identifier being specified in the <a href="diameter_dict.html" class="seealso">dictionary</a> file defining the
+application.</p>
+</item>
+
+</taglist>
+
+<span id="transport_opt"> </span>
+</item>
+
+<dt><code>transport_opt()</code></dt>
+<item>
+<p>
+Options accepted by <a href="#add_transport" class="seealso">add_transport/2</a>.</p>
+
+<taglist>
+<dt><code>{transport_module, atom()}</code></dt>
+<item>
+<p>
+A module implementing a transport process as defined in <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.
+Defaults to <code>diameter_tcp</code> if unspecified.</p>
+
+<p>
+The interface required of a transport module is documented in <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.</p>
+</item>
+
+<dt><code>{transport_config, term()}</code></dt>
+<item>
+<p>
+A term passed as the third argument to the <a href="diameter_transport.html#start" class="seealso">start/3</a> function of
+the relevant <code>transport_module</code> in order to start a transport process.
+Defaults to the empty list if unspecified.</p>
+</item>
+
+<dt><code>{applications, [application_alias()]}</code></dt>
+<item>
+<p>
+The list of Diameter applications to which usage of the transport
+should be restricted.
+Defaults to all applications configured on the service
+in question.</p>
+</item>
+
+<dt><code>{capabilities, [capability()]}</code></dt>
+<item>
+<p>
+AVP's used to construct outgoing CER/CEA messages.
+Any AVP specified takes precedence over a corresponding value specified
+for the service in question.</p>
+
+<p>
+Specifying a capability as a transport option
+may be particularly appropriate for Inband-Security-Id in case
+TLS is desired over TCP as implemented by
+<a href="diameter_tcp.html" class="seealso">diameter_tcp(3)</a> but
+not over SCTP as implemented by
+<a href="diameter_sctp.html" class="seealso">diameter_sctp(3)</a>.</p>
+</item>
+
+<dt><code>{capabilities_cb, evaluable()}</code></dt>
+<item>
+<p>
+A callback invoked upon reception of CER/CEA during capabilities
+exchange in order to ask whether or not the connection should
+be accepted.
+Applied to the transport reference (as returned by <a href="#add_transport" class="seealso">add_transport/2</a>) and
+<code>diameter_caps</code> record of the connection.
+Returning <code>ok</code> accepts the connection.
+Returning <code>integer()</code> causes an incoming
+CER to be answered with the specified Result-Code.
+Returning <code>discard</code> causes an incoming CER to
+be discarded.
+Returning <code>unknown</code> is equivalent to returning <code>3010</code>,
+DIAMETER_UNKNOWN_PEER.
+Returning anything but <code>ok</code> or a 2xxx series result
+code causes the transport connection to be broken.</p>
+
+<p>
+Multiple <code>capabilities_cb</code> options can be specified, in which
+case the corresponding callbacks are applied until either all return
+<code>ok</code> or one does not.</p>
+</item>
+
+<dt><code>{watchdog_timer, TwInit}</code></dt>
+<item>
+<code>
+TwInit = Unsigned32()
+       | {M,F,A}
+</code>
+
+<p>
+The RFC 3539 watchdog timer.
+An integer value is interpreted as the RFC's TwInit in milliseconds,
+a jitter of ± 2 seconds being added at each rearming of the
+timer to compute the RFC's Tw.
+An MFA is expected to return the RFC's Tw directly, with jitter
+applied, allowing the jitter calculation to be performed by
+the callback.</p>
+
+<p>
+An integer value must be at least 6000 as required by RFC 3539.
+Defaults to 30000 if unspecified.</p>
+</item>
+
+<dt><code>{reconnect_timer, Tc}</code></dt>
+<item>
+<code>
+Tc = Unsigned32()
+</code>
+
+<p>
+For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
+Note that this timer determines the frequency with which the transport
+will attempt to establish a connection with its peer only <em>before</em>
+an initial connection is established: once there is an initial
+connection it's watchdog_timer that determines the frequency of
+reconnection attempts, as required by RFC 3539.</p>
+
+<p>
+For a listening transport, the timer specifies the time after which a
+previously connected peer will be forgotten: a connection after this time is
+regarded as an initial connection rather than a reestablishment,
+causing the RFC 3539 state machine to pass to state OPEN rather than
+REOPEN.
+Note that these semantics are not goverened by the RFC and
+that a listening transport's reconnect_timer should be greater than its
+peers's Tc plus jitter.</p>
+
+<p>
+Defaults to 30000 for a connecting transport and 60000 for a listening
+transport.</p>
+</item>
+
+</taglist>
+
+<p>
+Unrecognized options are silently ignored but are returned unmodified
+by <a href="#service_info" class="seealso">service_info/2</a> and can be referred to
+in predicate functions passed to <a href="#remove_transport" class="seealso">remove_transport/2</a>.</p>
+
+</item>
+
+</taglist>
+
+</div>
+
+<span id="add_transport"> </span>
+<div class="functions"><h4>Functions</h4><hr  />
+
+<div class="function">
+<h3 id="add_transport/3">add_transport(SvcName, {connect|listen, Options})
+        -&gt; {ok, Ref} | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>Options = [transport_opt()]</code></li>
+<li><code>Ref = ref()</code></li>
+<li><code>Reason = term()</code></li>
+</ul>
+<div class="description">
+<p>
+Add transport capability to a service.</p>
+
+<p>
+The service will start a transport process(es) in order to establish a
+connection with the peer, either by connecting to the peer
+(<code>connect</code>) or by  accepting incoming connection requests
+(<code>listen</code>).
+A connecting transport establishes transport connections with at most
+one peer, an listening transport potentially with many.</p>
+
+<p>
+The diameter application takes responsibility for exchanging
+CER/CEA with the peer.
+Upon successful completion of capabilities exchange the service
+calls each relevant application module's <a href="diameter_app.html#peer_up" class="seealso">peer_up/3</a> callback
+after which the caller can exchange Diameter messages with the peer over
+the transport.
+In addition to CER/CEA, the service takes responsibility for the
+handling of DWR/DWA and required by RFC 3539 as well as for DPR/DPA.</p>
+
+<p>
+The returned reference uniquely identifies the transport within the
+scope of the service.
+Note that the function returns before a transport connection has been
+established.
+It is not an error to add a transport to a service that has not yet
+been configured: a service can be started after configuring
+transports.</p>
+
+<span id="call"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="call/4">call(SvcName, App, Request, Options) -&gt; ok | Answer | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>App = application_alias()</code></li>
+<li><code>Request = diameter_app:message() | term()</code></li>
+<li><code>Answer = term()</code></li>
+<li><code>Options = [call_opt()]</code></li>
+</ul>
+<div class="description">
+<p>
+Send a Diameter request message and possibly return the answer or error.</p>
+
+<p>
+<code>App</code> identifies the Diameter application in which the request is
+defined and callbacks to the corresponding callback module
+will follow as described below and in <a href="diameter_app.html" class="seealso">diameter_app(3)</a>.
+Unless the <code>detach</code> option has been specified to cause an earlier
+return, the call returns either when an answer message is received
+from the peer or an error occurs.
+In the case of an answer, the return value is as returned by a
+<a href="diameter_app.html#handle_answer" class="seealso">handle_answer/4</a>
+callback.
+In the case of an error, whether or not the error is returned directly
+by diameter or from a <a href="diameter_app.html#handle_error" class="seealso">handle_error/4</a>
+callback depends on whether or not the outgoing request is
+successfully encoded for transmission from the peer, the cases being
+documented below.</p>
+
+<p>
+If there are no suitable peers, or if
+<a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+rejects them by returning 'false', then <code>{error, no_connection}</code>
+is returned.
+Otherwise <a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+is followed by a
+<a href="diameter_app.html#prepare_request" class="seealso">prepare_request/3</a>
+callback, the message is encoded and sent.</p>
+
+<p>
+There are several error cases which may prevent an
+answer from being received and passed to a
+<a href="diameter_app.html#handle_answer" class="seealso">handle_answer/4</a>
+callback:</p>
+
+<list>
+
+<item>
+<p>
+If the initial encode of the outgoing request
+fails, then the request process fails and <code>{error, encode}</code>
+is returned.</p>
+</item>
+
+<item>
+<p>
+If the request is successfully encoded and sent but
+the answer times out then a
+<a href="diameter_app.html#handle_error" class="seealso">handle_error/4</a>
+callback takes place with <code>Reason = timeout</code>.</p>
+</item>
+
+<item>
+<p>
+If the request is successfully encoded and sent but the service in
+question is stopped before an answer is received then a
+<a href="diameter_app.html#handle_error" class="seealso">handle_error/4</a>
+callback takes place <code>Reason = cancel</code>.</p>
+</item>
+
+<item>
+<p>
+If the transport connection with the peer goes down after the request
+has been sent but before an answer has been received then an attempt
+is made to resend the request to an alternate peer.
+If no such peer is available, or if the subsequent
+<a href="diameter_app.html#pick_peer" class="seealso">pick_peer/4</a>
+callback rejects the candidates, then a
+<a href="diameter_app.html#handle_error" class="seealso">handle_error/4</a>
+callback takes place with <code>Reason = failover</code>.
+If a peer is selected then a
+<a href="diameter_app.html#prepare_retransmit" class="seealso">prepare_retransmit/3</a>
+callback takes place, after which the semantics are the same as
+following an initial
+<a href="diameter_app.html#prepare_request" class="seealso">
+prepare_request/3</a>
+callback.</p>
+</item>
+
+<item>
+<p>
+If an encode error takes place during
+retransmission then the request process fails and
+<code>{error, failure}</code> is returned.</p>
+</item>
+
+<item>
+<p>
+If an application callback made in processing the request fails
+(pick_peer, prepare_request, prepare_retransmit,
+handle_answer or handle_error) then either
+<code>{error, encode}</code> or <code>{error, failure}</code>
+is returned depending on whether or not there has been an
+attempt to send the request over the transport.</p>
+</item>
+
+</list>
+
+<p>
+Note that <code>{error, encode}</code> is the only return value which
+guarantees that the request has <em>not</em> been sent over the
+transport.</p>
+
+<span id="origin_state_id"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="origin_state_id/0">origin_state_id() -&gt; Unsigned32()</h3>
+
+<div class="description">
+<p>
+Return a reasonable value for use as Origin-State-Id in
+outgoing messages.</p>
+
+<p>
+The value returned is the number of seconds since 19680120T031408Z,
+the first value that can be encoded as a Diameter Time(),
+at the time the diameter application was started.</p>
+
+<span id="remove_transport"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="remove_transport/2">remove_transport(SvcName, Pred) -&gt; ok</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>Pred = Fun | MFA | ref() | list() | true | false</code></li>
+<li> </li>
+<li><code>Fun = fun((reference(), connect|listen, list()) -&gt; boolean())</code></li>
+<li><code>&nbsp;&nbsp;&nbsp; | fun((reference(), list()) -&gt; boolean())</code></li>
+<li><code>&nbsp;&nbsp;&nbsp; | fun((list()) -&gt; boolean())</code></li>
+<li><code>MFA = {atom(), atom(), list()}</code></li>
+</ul>
+<div class="description">
+<p>
+Remove previously added transports.</p>
+
+<p>
+<code>Pred</code> determines which transports to remove.
+An arity-3-valued <code>Pred</code> removes all transports for which
+<code>Pred(Ref, Type, Opts)</code> returns <code>true</code>, where <code>Type</code> and
+<code>Opts</code> are as passed to <a href="#add_transport" class="seealso">add_transport/2</a> and <code>Ref</code> is
+as returned by the corresponding call.
+The remaining forms are equivalent to an arity-3 fun as follows.</p>
+
+<code>
+Pred = fun(reference(), list()):  fun(Ref, _, Opts) -&gt; Pred(Ref, Opts) end
+Pred = fun(list()):               fun(_, _, Opts) -&gt; Pred(Opts) end
+Pred = reference():               fun(Ref, _, _)  -&gt; Pred == Ref end
+Pred = list():                    fun(_, _, Opts) -&gt; [] == Pred -- Opts end
+Pred = true:                      fun(_, _, _) -&gt; true end
+Pred = false:                     fun(_, _, _) -&gt; false end
+Pred = {M,F,A}:  fun(Ref, Type, Opts) -&gt; apply(M, F, [Ref, Type, Opts | A]) end
+</code>
+
+<p>
+Removing a transport causes all associated transport connections to
+be broken.
+A base application DPR message with
+Disconnect-Cause <code>DO_NOT_WANT_TO_TALK_TO_YOU</code> will be sent
+to each connected peer before disassociating the transport configuration
+from the service and terminating the transport upon reception of
+DPA or timeout.</p>
+
+<span id="service_info"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="service_info/2">service_info(SvcName, Item) -&gt; Value</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>Value = term()</code></li>
+</ul>
+<div class="description">
+<p>
+Return information about a started service.</p>
+
+<span id="services"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="services/0">services() -&gt; [SvcName]</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+</ul>
+<div class="description">
+<p>
+Return the list of started services.</p>
+
+<span id="session_id"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="session_id/1">session_id(Ident) -&gt; OctetString()</h3>
+
+<ul class="type">
+<li><code>Ident = DiameterIdentity()</code></li>
+</ul>
+<div class="description">
+<p>
+Return a value for a Session-Id AVP.</p>
+
+<p>
+The value has the form required by section 8.8 of RFC 3588.
+Ident should be the Origin-Host of the peer from which
+the message containing the returned value will be sent.</p>
+
+<span id="start"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="start/0">start() -&gt; ok | {error, Reason}</h3>
+
+<div class="description">
+<p>
+Start the diameter application.</p>
+
+<p>
+The diameter application must be started before starting a service.
+In a production system this will typically be accomplished by a boot
+file, not by calling <code>start/0</code> explicitly.</p>
+
+<span id="start_service"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="start_service/2">start_service(SvcName, Options) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>Options = [service_opt()]</code></li>
+<li><code>Reason  = term()</code></li>
+</ul>
+<div class="description">
+<p>
+Start a diameter service.</p>
+
+<p>
+A service defines a locally-implemented Diameter peer, specifying the
+capabilities of the peer to be used during capabilities exchange and
+the Diameter applications that it supports.
+Transports are added to a service using <a href="#add_transport" class="seealso">add_transport/2</a>.</p>
+
+<span id="stop_service"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="stop/0">stop() -&gt; ok | {error, Reason}</h3>
+
+<div class="description">
+<p>
+Stop the diameter application.</p>
+
+<p>
+</p>
+
+<span id="stop_service"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="stop_service/1">stop_service(SvcName) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+<li><code>Reason = term()</code></li>
+</ul>
+<div class="description">
+<p>
+Stop a diameter service.</p>
+
+<span id="subscribe"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="subscribe/1">subscribe(SvcName) -&gt; true</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+</ul>
+<div class="description">
+<p>
+Subscribe to <code>service_event()</code> messages from a service.</p>
+
+<p>
+It is not an error to subscribe to events from a service
+that does not yet exist.</p>
+
+<span id="unsubscribe"> </span>
+</div>
+</div>
+
+<div class="function">
+<h3 id="unsubscribe/1">unsubscribe(SvcName) -&gt; true</h3>
+
+<ul class="type">
+<li><code>SvcName = service_name()</code></li>
+</ul>
+<div class="description">
+<p>
+Unsubscribe to event messages from a service.</p>
+
+</div>
+</div>
+
+</div>
+
+<div class="section">
+<h4>SEE ALSO</h4>
+
+<p>
+<a href="diameter_app.html" class="seealso">diameter_app(3)</a>,
+<a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>,
+<a href="diameter_dict.html" class="seealso">diameter_dict(4)</a></p>
+
+</div>
+
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#add_transport/3">add_transport/3</a></li><li><a href="#call/4">call/4</a></li><li><a href="#origin_state_id/0">origin_state_id/0</a></li><li><a href="#remove_transport/2">remove_transport/2</a></li><li><a href="#service_info/2">service_info/2</a></li><li><a href="#services/0">services/0</a></li><li><a href="#session_id/1">session_id/1</a></li><li><a href="#start/0">start/0</a></li><li><a href="#start_service/2">start_service/2</a></li><li><a href="#stop/0">stop/0</a></li><li><a href="#stop_service/1">stop_service/1</a></li><li><a href="#subscribe/1">subscribe/1</a></li><li><a href="#unsubscribe/1">unsubscribe/1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

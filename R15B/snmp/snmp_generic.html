@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>snmp_generic (snmp) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>snmp_generic</h1>
+  <h2 class="modsummary">Generic Functions for Implementing SNMP Objects in a Database</h2>
+  <div class="description">
+    <p>The module <code>snmp_generic</code> contains generic functions for implementing tables
+      (and variables) using the SNMP built-in database or Mnesia. These
+      default functions are used if no instrumentation function is
+      provided for a managed object in a MIB. Sometimes, it might be
+      necessary to customize the behaviour of the default functions. For
+      example, in some situations a trap should be sent if a row is
+      deleted or modified, or some hardware is to be informed, when
+      information is changed.
+      </p>
+    <p>The overall structure is shown in the following figure:</p>
+    <pre class="sh_erlang">
+         +---------------+
+         |   SNMP Agent  |
+         +- - - - - - - -+
+         |      MIB      |
+         +---------------+
+                 |
+         Association file       (associates a MIB object with
+                 |               snmp_generic:table_funct
+                 |               snmp_generic:variable_func)
++--------------------------------------+
+|           snmp_generic               |  Support for get-next,
+|                                      |  RowStatus operations
++----------------------+---------------+
+|    snmpa_local_db    |    Mnesia     |  Database
++--------------+-------+---------------+
+|     dets     |  ets  | 
+| (persistent) |       | 
++--------------+-------+     </pre>
+    <p>Each function takes the argument <code>NameDb</code>, which is a
+      tuple <code>{Name, Db}</code>, to identify which database the
+      functions should use. <code>Name</code> is the symbolic name of the
+      managed object as defined in the MIB, and <code>Db</code> is either
+      <code>volatile</code>, <code>persistent</code>, or <code>mnesia</code>. If it is
+      <code>mnesia</code>, all variables are stored in the Mnesia table
+      <code>snmp_variables</code> which must be a table with two attributes
+      (not a Mnesia SNMP table). The SNMP tables are stored in Mnesia
+      tables with the same names as the SNMP tables.  All functions
+      assume that a Mnesia table exists with the correct name and
+      attributes. It is the programmer's responsibility to ensure
+      this. Specifically, if variables are stored in Mnesia, the table
+      <code>snmp_variables</code> must be created by the programmer.  The
+      record definition for this table is defined in the file
+      <code>snmp/include/snmp_types.hrl</code>.
+      </p>
+    <p>If an instrumentation function in the association file for a
+      variable <code>myVar</code> does not have a name when compiling an
+      MIB, the compiler generates an entry.
+      </p>
+    <pre class="sh_erlang">
+{myVar, {snmp_generic, variable_func, [{myVar, Db]}}.
+    </pre>
+    <p>And for a table:</p>
+    <pre class="sh_erlang">
+{myTable, {snmp_generic, table_func, [{myTable, Db]}}.
+    </pre>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <p>In the functions defined below, the following types are used:</p>
+    <pre class="sh_erlang">
+name_db() = {name(), db()} 
+name() = atom()
+db() = volatile | persistent | mnesia
+row_index() = [int()]
+columns() = [column()] | [{column(), value()}]
+column() = int()
+value() = term()
+    </pre>
+    <taglist>
+      <dt><code>row_index()</code></dt>
+      <item>
+        <p>Denotes the last part of the OID which specifies the 
+          index of the row in the table (see RFC1212, 4.1.6 for 
+          more information about INDEX).  </p>
+      </item>
+      <dt><code>columns()</code></dt>
+      <item>
+        <p>Is a list of column numbers in the case of a <code>get</code> 
+          operation, and a list of column numbers and values in the 
+          case of a <code>set</code> operation. </p>
+      </item>
+    </taglist>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="get_status_col/2">get_status_col(Name, Cols)</h3>
+      <h3 id="get_status_col/2-1">get_status_col(NameDb, Cols) -&gt; {ok, StatusVal} | false</h3>
+      
+      <ul class="type">
+        <li><code>Name = name()</code></li>
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>Cols = columns()</code></li>
+        <li><code>StatusVal = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value of the status column from <code>Cols</code>.
+          </p>
+        <p>This function can be used in instrumentation functions for
+          <code>is_set_ok</code>, <code>undo</code> or <code>set</code> to check if the
+          status column of a table is modified.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_index_types/1">get_index_types(Name)</h3>
+      
+      <ul class="type">
+        <li><code>Name = name()</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the index types of <code>Name</code></p>
+        <p>This function can be used in instrumentation functions to
+          retrieve the index types part of the table info.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table_func/2">table_func(Op1, NameDb)</h3>
+      <h3 id="table_func/4">table_func(Op2, RowIndex, Cols, NameDb) -&gt; Ret</h3>
+      
+      <ul class="type">
+        <li><code>Op1 = new | delete </code></li>
+        <li><code>Op2 = get | next | is_set_ok | set | undo</code></li>
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>RowIndex = row_index()</code></li>
+        <li><code>Cols = columns()</code></li>
+        <li><code>Ret = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This is the default instrumentation function for tables.
+          </p>
+        <list type="bulleted">
+          <item>The <code>new</code> function creates the table if it does
+           not exist, but only if the database is the SNMP internal db.</item>
+          <item>The <code>delete</code> function does not delete the table
+           from the database since unloading an MIB does not
+           necessarily mean that the table should be destroyed.</item>
+          <item>The <code>is_set_ok</code> function checks that a row which
+           is to be modified or deleted exists, and that a row which
+           is to be created does not exist.</item>
+          <item>The <code>undo</code> function does nothing.</item>
+          <item>The <code>set</code> function checks if it has enough
+           information to make the row change its status from
+          <code>notReady</code> to <code>notInService</code> (when a row has
+           been been set to <code>createAndWait</code>). If a row is set to
+          <code>createAndWait</code>, columns without a value are set to
+          <code>noinit</code>. If Mnesia is used, the set functionality is
+           handled within a transaction.</item>
+        </list>
+        <p>If it is possible for a manager to create or delete rows in
+          the table, there must be a <code>RowStatus</code> column for
+          <code>is_set_ok</code>, <code>set</code> and <code>undo</code> to work properly.
+          </p>
+        <p>The function returns according to the specification of an
+          instrumentation function.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table_get_elements/3">table_get_elements(NameDb, RowIndex, Cols) -&gt; Values</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>RowIndex = row_index()</code></li>
+        <li><code>Cols = columns()</code></li>
+        <li><code>Values = [value() | noinit]</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a list with values for all columns in <code>Cols</code>.
+          If a column is undefined, its value is <code>noinit</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table_next/2">table_next(NameDb, RestOid) -&gt; RowIndex | endOfTable</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>RestOid = [int()]</code></li>
+        <li><code>RowIndex = row_index()</code></li>
+      </ul>
+      <div class="description">
+        <p>Finds the indices of the next row in the table.  <code>RestOid</code>
+          does not have to specify an existing row.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table_row_exists/2">table_row_exists(NameDb, RowIndex) -&gt; bool()</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>RowIndex = row_index()</code></li>
+      </ul>
+      <div class="description">
+        <p>Checks if a row in a table exists.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="table_set_elements/3">table_set_elements(NameDb, RowIndex, Cols) -&gt; bool()</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>RowIndex = row_index()</code></li>
+        <li><code>Cols = columns()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets the elements in <code>Cols</code> to the row specified by
+          <code>RowIndex</code>.  No checks are performed on the new values.
+          </p>
+        <p>If the Mnesia database is used, this function calls
+          <code>mnesia:write</code> to store the values.  This means that
+          this function must be called from within a transaction
+          (<code>mnesia:transaction/1</code> or <code>mnesia:dirty/1</code>).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="variable_func/2">variable_func(Op1, NameDb)</h3>
+      <h3 id="variable_func/3">variable_func(Op2, Val, NameDb) -&gt; Ret</h3>
+      
+      <ul class="type">
+        <li><code>Op1 = new | delete | get</code></li>
+        <li><code>Op2 = is_set_ok | set | undo</code></li>
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>Val = value()</code></li>
+        <li><code>Ret = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This is the default instrumentation function for variables.</p>
+        <p>The <code>new</code> function creates a new variable in the
+          database with a default value as defined in the MIB, or a zero
+          value (depending on the type).  </p>
+        <p>The <code>delete</code> function does not delete the variable from 
+          the database. </p>
+        <p>The function returns according to the specification of an 
+          instrumentation function. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="variable_get/1">variable_get(NameDb) -&gt; {value, Value} | undefined</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>Value = value()</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value of a variable.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="variable_set/2">variable_set(NameDb, NewVal) -&gt; true | false</h3>
+      
+      <ul class="type">
+        <li><code>NameDb = name_db()</code></li>
+        <li><code>NewVal = value()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets a new value to a variable.  The variable is created if
+          it does not exist.  No checks are made on the type of the
+          new value.  </p>
+        <p>Returns <code>false</code> if the <code>NameDb</code> argument
+          is incorrectly specified, otherwise <code>true</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Example</h4>
+    <p>The following example shows an implementation of a table which is
+      stored in Mnesia, but with some checks performed at set-request
+      operations.
+      </p>
+    <pre class="sh_erlang">
+myTable_func(new, NameDb) -&gt;   % pass unchanged
+  snmp_generic:table_func(new, NameDb).
+
+myTable_func(delete, NameDb) -&gt;   % pass unchanged
+  snmp_generic:table_func(delete, NameDb).
+
+%% change row
+myTable_func(is_set_ok, RowIndex, Cols, NameDb) -&gt;
+  case snmp_generic:table_func(is_set_ok, RowIndex,
+                               Cols, NameDb) of
+    {noError, 0} -&gt; 
+      myApplication:is_set_ok(RowIndex, Cols);
+    Err -&gt;
+      Err
+  end;
+
+myTable_func(set, RowIndex, Cols, NameDb) -&gt;
+  case snmp_generic:table_func(set, RowIndex, Cols,
+                               NameDb),
+    {noError, 0} -&gt;
+      % Now the row is updated, tell the application
+      myApplication:update(RowIndex, Cols);
+    Err -&gt;
+      Err
+  end;
+
+myTable_func(Op, RowIndex, Cols, NameDb) -&gt;   % pass unchanged
+  snmp_generic:table_func(Op, RowIndex, Cols, NameDb).
+    </pre>
+    <p>The <code>.funcs</code> file would look like:
+      </p>
+    <pre class="sh_erlang">
+{myTable, {myModule, myTable_func, [{myTable, mnesia}]}}.
+    </pre>
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#get_status_col/2">get_status_col/2</a></li><li><a href="#get_status_col/2-1">get_status_col/2-1</a></li><li><a href="#get_index_types/1">get_index_types/1</a></li><li><a href="#table_func/2">table_func/2</a></li><li><a href="#table_func/4">table_func/4</a></li><li><a href="#table_get_elements/3">table_get_elements/3</a></li><li><a href="#table_next/2">table_next/2</a></li><li><a href="#table_row_exists/2">table_row_exists/2</a></li><li><a href="#table_set_elements/3">table_set_elements/3</a></li><li><a href="#variable_func/2">variable_func/2</a></li><li><a href="#variable_func/3">variable_func/3</a></li><li><a href="#variable_get/1">variable_get/1</a></li><li><a href="#variable_set/2">variable_set/2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

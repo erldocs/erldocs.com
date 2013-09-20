@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>file_sorter (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>file_sorter</h1>
+  <h2 class="modsummary">File Sorter</h2>
+  <div class="description">
+    <p>The functions of this module sort terms on files, merge already
+      sorted files, and check files for sortedness. Chunks containing
+      binary terms are read from a sequence of files, sorted
+      internally in memory and written on temporary files, which are
+      merged producing one sorted file as output. Merging is provided
+      as an optimization; it is faster when the files are already
+      sorted, but it always works to sort instead of merge.
+      </p>
+    <p>On a file, a term is represented by a header and a binary. Two
+      options define the format of terms on files:
+      </p>
+    <list type="bulleted">
+      <item><code>{header, HeaderLength}</code>. HeaderLength determines the
+       number of bytes preceding each binary and containing the
+       length of the binary in bytes. Default is 4. The order of the
+       header bytes is defined as follows: if <code>B</code> is a binary
+       containing a header only, the size <code>Size</code> of the binary
+       is calculated as
+      <code>&lt;&lt;Size:HeaderLength/unit:8&gt;&gt; = B</code>.
+      </item>
+      <item><code>{format, Format}</code>. The format determines the
+       function that is applied to binaries in order to create the
+       terms that will be sorted. The default value is
+      <code>binary_term</code>, which is equivalent to
+      <code>fun&nbsp;binary_to_term/1</code>. The value <code>binary</code> is
+       equivalent to <code>fun(X) -&gt; X end</code>, which means that the
+       binaries will be sorted as they are. This is the fastest
+       format. If <code>Format</code> is <code>term</code>, <code>io:read/2</code> is
+       called to read terms. In that case only the default value of
+       the <code>header</code> option is allowed. The <code>format</code> option
+       also determines what is written to the sorted output file: if
+      <code>Format</code> is <code>term</code> then <code>io:format/3</code> is called
+       to write each term, otherwise the binary prefixed by a header
+       is written. Note that the binary written is the same binary
+       that was read; the results of applying the <code>Format</code>
+       function are thrown away as soon as the terms have been
+       sorted. Reading and writing terms using the <code>io</code> module
+       is very much slower than reading and writing binaries.
+      </item>
+    </list>
+    <p>Other options are:
+      </p>
+    <list type="bulleted">
+      <item><code>{order, Order}</code>. The default is to sort terms in
+       ascending order, but that can be changed by the value
+       <code>descending</code> or by giving an ordering function <code>Fun</code>.
+       An ordering function is antisymmetric, transitive and total.
+       <code>Fun(A,&nbsp;B)</code> should return <code>true</code> if <code>A</code>
+       comes before <code>B</code> in the ordering, <code>false</code> otherwise.
+       An example of a typical ordering function is less than or equal
+       to, <code>=&lt;/2</code>.
+       Using an ordering function will slow down the sort
+       considerably. The <code>keysort</code>, <code>keymerge</code> and
+       <code>keycheck</code> functions do not accept ordering functions.
+      </item>
+      <item><code>{unique, boolean()}</code>. When sorting or merging files,
+       only the first of a sequence of terms that compare equal (<code>==</code>)
+       is output if this option is set to <code>true</code>. The default
+       value is <code>false</code> which implies that all terms that
+       compare equal are output. When checking files for
+       sortedness, a check that no pair of consecutive terms
+       compares equal is done if this option is set to <code>true</code>.
+      </item>
+      <item><code>{tmpdir, TempDirectory}</code>. The directory where
+       temporary files are put can be chosen explicitly. The
+       default, implied by the value <code>""</code>, is to put temporary
+       files on the same directory as the sorted output file. If
+       output is a function (see below), the directory returned by
+      <code>file:get_cwd()</code> is used instead. The names of
+       temporary files are derived from the Erlang nodename
+       (<code>node()</code>), the process identifier of the current Erlang
+       emulator (<code>os:getpid()</code>), and a timestamp
+       (<code>erlang:now()</code>); a typical name would be
+      <code>fs_mynode@myhost_1763_1043_337000_266005.17</code>, where
+      <code>17</code> is a sequence number. Existing files will be
+       overwritten. Temporary files are deleted unless some
+       uncaught EXIT signal occurs.
+      </item>
+      <item><code>{compressed, boolean()}</code>. Temporary files and the
+       output file may be compressed. The default value
+      <code>false</code> implies that written files are not
+       compressed. Regardless of the value of the <code>compressed</code>
+       option, compressed files can always be read. Note that
+       reading and writing compressed files is significantly slower
+       than reading and writing uncompressed files.
+      </item>
+      <item><code>{size, Size}</code>. By default approximately 512*1024
+       bytes read from files are sorted internally. This option
+       should rarely be needed.
+      </item>
+      <item><code>{no_files, NoFiles}</code>. By default 16 files are
+       merged at a time. This option should rarely be needed.
+      </item>
+    </list>
+    <p>As an alternative to sorting files, a function of one argument
+      can be given as input. When called with the argument <code>read</code>
+      the function is assumed to return <code>end_of_input</code> or
+      <code>{end_of_input, Value}}</code> when there is no more input
+      (<code>Value</code> is explained below), or <code>{Objects, Fun}</code>,
+      where <code>Objects</code> is a list of binaries or terms depending on
+      the format and <code>Fun</code> is a new input function. Any other
+      value is immediately returned as value of the current call to
+      <code>sort</code> or <code>keysort</code>. Each input function will be
+      called exactly once, and should an error occur, the last
+      function is called with the argument <code>close</code>, the reply of
+      which is ignored.
+      </p>
+    <p>A function of one argument can be given as output. The results
+      of sorting or merging the input is collected in a non-empty
+      sequence of variable length lists of binaries or terms depending
+      on the format. The output function is called with one list at a
+      time, and is assumed to return a new output function. Any other
+      return value is immediately returned as value of the current
+      call to the sort or merge function. Each output function is
+      called exactly once. When some output function has been applied
+      to all of the results or an error occurs, the last function is
+      called with the argument <code>close</code>, and the reply is returned
+      as value of the current call to the sort or merge function. If a
+      function is given as input and the last input function returns
+      <code>{end_of_input, Value}</code>, the function given as output will
+      be called with the argument <code>{value, Value}</code>. This makes it
+      easy to initiate the sequence of output functions with a value
+      calculated by the input functions.
+      </p>
+    <p>As an example, consider sorting the terms on a disk log file.
+      A function that reads chunks from the disk log and returns a
+      list of binaries is used as input. The results are collected in
+      a list of terms.</p>
+    <pre class="sh_erlang">
+sort(Log) -&gt;
+    {ok, _} = disk_log:open([{name,Log}, {mode,read_only}]),
+    Input = input(Log, start),
+    Output = output([]),
+    Reply = file_sorter:sort(Input, Output, {format,term}),
+    ok = disk_log:close(Log),
+    Reply.
+
+input(Log, Cont) -&gt;
+    fun(close) -&gt;
+            ok;
+       (read) -&gt;
+            case disk_log:chunk(Log, Cont) of
+                {error, Reason} -&gt;
+                    {error, Reason};
+                {Cont2, Terms} -&gt;
+                    {Terms, input(Log, Cont2)};
+                {Cont2, Terms, _Badbytes} -&gt;
+                    {Terms, input(Log, Cont2)};
+                eof -&gt;
+                    end_of_input
+            end
+    end.
+
+output(L) -&gt;
+    fun(close) -&gt;
+            lists:append(lists:reverse(L));
+       (Terms) -&gt;
+            output([Terms | L])
+    end.    </pre>
+    <p>Further examples of functions as input and output can be found
+      at the end of the <code>file_sorter</code> module; the <code>term</code>
+      format is implemented with functions.
+      </p>
+    <p>The possible values of <code>Reason</code> returned when an error
+      occurs are:</p>
+    <list type="bulleted">
+      <item>
+        <p><code>bad_object</code>, <code>{bad_object, FileName}</code>.
+          Applying the format function failed for some binary,
+          or the key(s) could not be extracted from some term.</p>
+      </item>
+      <item>
+        <p><code>{bad_term, FileName}</code>. <code>io:read/2</code> failed
+          to read some term.</p>
+      </item>
+      <item>
+        <p><code>{file_error, FileName, file:posix()}</code>. See
+          <code>file(3)</code> for an explanation of <code>file:posix()</code>.</p>
+      </item>
+      <item>
+        <p><code>{premature_eof, FileName}</code>. End-of-file was
+          encountered inside some binary term.</p>
+      </item>
+    </list>
+  </div>
+
+  <datatypes>
+    <datatype>
+      <name name="file_name" /><br  />
+    </datatype>
+    <datatype>
+      <name name="file_names" /><br  />
+    </datatype>
+    <datatype>
+      <name name="i_command" /><br  />
+    </datatype>
+    <datatype>
+      <name name="i_reply" /><br  />
+    </datatype>
+    <datatype>
+      <name name="infun" /><br  />
+    </datatype>
+    <datatype>
+      <name name="input" /><br  />
+    </datatype>
+    <datatype>
+      <name name="input_reply" /><br  />
+    </datatype>
+    <datatype>
+      <name name="o_command" /><br  />
+    </datatype>
+    <datatype>
+      <name name="o_reply" /><br  />
+    </datatype>
+    <datatype>
+      <name name="object" /><br  />
+    </datatype>
+    <datatype>
+      <name name="outfun" /><br  />
+    </datatype>
+    <datatype>
+      <name name="output" /><br  />
+    </datatype>
+    <datatype>
+      <name name="output_reply" /><br  />
+    </datatype>
+    <datatype>
+      <name name="value" /><br  />
+    </datatype>
+    <datatype>
+      <name name="options" /><br  />
+    </datatype>
+    <datatype>
+      <name name="option" /><br  />
+    </datatype>
+    <datatype>
+      <name name="format" /><br  />
+    </datatype>
+    <datatype>
+      <name name="format_fun" /><br  />
+    </datatype>
+    <datatype>
+      <name name="header_length" /><br  />
+    </datatype>
+    <datatype>
+      <name name="key_pos" /><br  />
+    </datatype>
+    <datatype>
+      <name name="no_files" /><br  />
+    </datatype>
+    <datatype>
+      <name name="order" /><br  />
+    </datatype>
+    <datatype>
+      <name name="order_fun" /><br  />
+    </datatype>
+    <datatype>
+      <name name="size" /><br  />
+    </datatype>
+    <datatype>
+      <name name="tmp_directory" /><br  />
+    </datatype>
+    <datatype>
+      <name name="reason" /><br  />
+    </datatype>
+  </datatypes>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="sort/1">sort(FileName) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Sorts terms on files. <code>sort(FileName)</code> is equivalent
+          to <code>sort([FileName], FileName)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sort/2">sort(Input, Output) -&gt; Reply</h3>
+      <h3 id="sort/3">sort(Input, Output, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Sorts terms on files. <code>sort(Input, Output)</code> is
+          equivalent to <code>sort(Input, Output, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="keysort/2">keysort(KeyPos, FileName) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Sorts tuples on files. <code>keysort(N, FileName)</code> is
+          equivalent to <code>keysort(N, [FileName], FileName)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="keysort/3">keysort(KeyPos, Input, Output) -&gt; Reply</h3>
+      <h3 id="keysort/4">keysort(KeyPos, Input, Output, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Sorts tuples on files. The sort is performed on the
+          element(s) mentioned in <code><anno>KeyPos</anno></code>. If two
+          tuples compare equal (<code>==</code>) on one element, next
+          element according to <code><anno>KeyPos</anno></code>
+          is compared. The sort is stable.</p>
+        <p><code>keysort(N, Input, Output)</code> is equivalent to
+          <code>keysort(N, Input, Output, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="merge/2">merge(FileNames, Output) -&gt; Reply</h3>
+      <h3 id="merge/3">merge(FileNames, Output, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Merges terms on files. Each input file is assumed to be
+          sorted.</p>
+        <p><code>merge(FileNames, Output)</code> is equivalent to
+          <code>merge(FileNames, Output, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="keymerge/3">keymerge(KeyPos, FileNames, Output) -&gt; Reply</h3>
+      <h3 id="keymerge/4">keymerge(KeyPos, FileNames, Output, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Merges tuples on files. Each input file is assumed to be
+          sorted on key(s).</p>
+        <p><code>keymerge(KeyPos, FileNames, Output)</code> is equivalent
+          to <code>keymerge(KeyPos, FileNames, Output, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="check/1">check(FileName) -&gt; Reply</h3>
+      <h3 id="check/2">check(FileNames, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Checks files for sortedness. If a file is not sorted, the
+          first out-of-order element is returned. The first term on a
+          file has position 1.</p>
+        <p><code>check(FileName)</code> is equivalent to
+          <code>check([FileName], [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="keycheck/2">keycheck(KeyPos, FileName) -&gt; Reply</h3>
+      <h3 id="keycheck/3">keycheck(KeyPos, FileNames, Options) -&gt; Reply</h3>
+      
+      <div class="description">
+        <p>Checks files for sortedness. If a file is not sorted, the
+          first out-of-order element is returned. The first term on a
+          file has position 1.</p>
+        <p><code>keycheck(KeyPos, FileName)</code> is equivalent
+          to <code>keycheck(KeyPos, [FileName], [])</code>.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#sort">sort</a></li><li><a href="#sort-1">sort-1</a></li><li><a href="#sort-2">sort-2</a></li><li><a href="#keysort">keysort</a></li><li><a href="#keysort-1">keysort-1</a></li><li><a href="#keysort-2">keysort-2</a></li><li><a href="#merge">merge</a></li><li><a href="#merge-1">merge-1</a></li><li><a href="#keymerge">keymerge</a></li><li><a href="#keymerge-1">keymerge-1</a></li><li><a href="#check">check</a></li><li><a href="#check-1">check-1</a></li><li><a href="#keycheck">keycheck</a></li><li><a href="#keycheck-1">keycheck-1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

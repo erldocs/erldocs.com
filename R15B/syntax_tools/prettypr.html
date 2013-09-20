@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>prettypr (syntax_tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+<h1>prettypr</h1>
+<h2 class="modsummary">A generic pretty printer library.</h2>
+<div class="description">
+<p>A generic pretty printer library. This module uses a  
+strict-style context passing implementation of John Hughes algorithm,  
+described in "The design of a Pretty-printing Library". The  
+paragraph-style formatting, empty documents, floating documents, and  
+null strings are my own additions to the algorithm.</p>
+ 
+  <p>To get started, you should read about the <a href="#type-document" class="seealso">document()</a> data
+  type; the main constructor functions: <a href="#text-1" class="seealso">text/1</a>, <a href="#above-2" class="seealso">above/2</a>, <a href="#beside-2" class="seealso">beside/2</a>, <a href="#nest-2" class="seealso">nest/2</a>, <a href="#sep-1" class="seealso">sep/1</a>, and <a href="#par-2" class="seealso">par/2</a>; and the main layout function <a href="#format-3" class="seealso">format/3</a>.</p>
+ 
+  <p>If you simply want to format a paragraph of plain text, you probably
+  want to use the <a href="#text_par-2" class="seealso">text_par/2</a> function, as in the following
+  example:
+  </p><pre class="sh_erlang">  prettypr:format(prettypr:text_par("Lorem ipsum dolor sit amet"), 20)</pre></div>
+<div class="section"><h4>DATA TYPES</h4><span id="types"> </span>
+
+<taglist>
+<dt><code>document()</code></dt>
+<item><span id="type-document"> </span>
+<p>An abstract character-based "document" representing  
+a number of possible layouts, which can be processed to produce a  
+single concrete layout. A concrete layout can then be rendered as a  
+sequence of characters containing linebreaks, which can be passed to  
+a printer or terminal that uses a fixed-width font.</p>
+ 
+  <p>For example, a document <code>sep([text("foo"), text("bar")])</code>
+  represents the two layouts
+  </p><pre class="sh_erlang">     foo bar</pre><p>
+  and
+  </p><pre class="sh_erlang">     foo
+     bar</pre>
+ 
+  <p>Which layout is chosen depends on the available horizontal space.
+  When processing a document, the main parameters are the <em>paper
+  width</em> and the <em>line width</em> (also known as the "ribbon  
+width"). In the resulting layout, no text should be printed beyond  
+the paper width (which by default is 80 characters) as long as it can  
+be avoided, and each single line of text (its indentation not  
+counted, hence "ribbon") should preferably be no wider than the  
+specified line width (which by default is 65).</p>
+ 
+  <p>Documents can be joined into a single new document using the
+  constructor functions of this module. Note that the new document
+  often represents a larger number of possible layouts than just the
+  sum of the components.</p>
+</item>
+</taglist></div>
+<div class="functions"><h4>Functions</h4><hr  />
+<div class="function">
+<h3 id="text/1">text(Characters::string()) -&gt; document()</h3>
+
+
+<div class="description"><span id="text-1"> </span>
+
+<p>Yields a document representing a fixed, unbreakable sequence of
+  characters. The string should contain only <em>printable</em>
+  characters (tabs allowed but not recommended), and <em>not</em>
+  newline, line feed, vertical tab, etc. A tab character (<code>\t</code>) is
+  interpreted as padding of 1-8 space characters to the next column of
+  8 characters <em>within the string</em>.
+ </p>
+<p><em>See also:</em> <a href="#empty-0" class="seealso">empty/0</a>, <a href="#null_text-1" class="seealso">null_text/1</a>, <a href="#text_par-2" class="seealso">text_par/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="null_text/1">null_text(Characters::string()) -&gt; document()</h3>
+
+
+<div class="description"><span id="null_text-1"> </span>
+
+<p>Similar to <a href="#text-1" class="seealso">text/1</a>, but the result is treated as having  
+zero width. This is regardless of the actual length of the string.  
+Null text is typically used for markup, which is supposed to have no  
+effect on the actual layout.</p>
+ 
+  <p>The standard example is when formatting source code as HTML to be
+  placed within <code>&lt;pre&gt;...&lt;/pre&gt;</code> markup, and using e.g. <code>&lt;i&gt;</code> and <code>&lt;b&gt;</code>
+  to make parts of the source code stand out. In this case, the markup
+  does not add to the width of the text when viewed in an HTML browser,
+  so the layout engine should simply pretend that the markup has zero
+  width.
+ </p>
+<p><em>See also:</em> <a href="#empty-0" class="seealso">empty/0</a>, <a href="#text-1" class="seealso">text/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="text_par/1">text_par(Text::string()) -&gt; document()</h3>
+
+
+<div class="description"><span id="text_par-1"> </span>
+<p>Equivalent to <a href="#text_par-2" class="seealso">text_par(Text, 0)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="text_par/1-1">text_par(Text::string(), Indentation::integer()) -&gt; document()</h3>
+
+
+<div class="description"><span id="text_par-2"> </span>
+
+<p>Yields a document representing paragraph-formatted plain text.
+  The optional <code>Indentation</code> parameter specifies the extra indentation
+  of the first line of the paragraph. For example, <code>text_par("Lorem
+  ipsum dolor sit amet", N)</code> could represent
+  </p><pre class="sh_erlang">     Lorem ipsum dolor
+     sit amet</pre><p>
+  if <code>N</code> = 0, or
+  </p><pre class="sh_erlang">       Lorem ipsum
+     dolor sit amet</pre><p>
+  if <code>N</code> = 2, or
+  </p><pre class="sh_erlang">     Lorem ipsum dolor
+       sit amet</pre><p>
+  if <code>N</code> = -2.</p>
+ 
+  <p>(The sign of the indentation is thus reversed compared to the <a href="#par-2" class="seealso">par/2</a> function, and the behaviour varies slightly depending on the  
+sign in order to match the expected layout of a paragraph of text.)</p>
+ 
+  <p>Note that this is just a utility function, which does all the work of
+  splitting the given string into words separated by whitespace and
+  setting up a <a href="#par-2" class="seealso">par</a> with the proper indentation,
+  containing a list of <a href="#text-1" class="seealso">text</a> elements.
+ </p>
+<p><em>See also:</em> <a href="#par-2" class="seealso">par/2</a>, <a href="#text-1" class="seealso">text/1</a>, <a href="#text_par-1" class="seealso">text_par/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="empty/0">empty() -&gt; document()</h3>
+
+
+<div class="description"><span id="empty-0"> </span>
+
+<p>Yields the empty document, which has neither height nor width.
+  (<code>empty</code> is thus different from an empty <a href="#text-1" class="seealso">text</a>  
+string, which has zero width but height 1.)</p>
+ 
+  <p>Empty documents are occasionally useful; in particular, they have the
+  property that <code>above(X, empty())</code> will force a new line after <code>X</code>
+  without leaving an empty line below it; since this is a common idiom,
+  the utility function <a href="#break-1" class="seealso">break/1</a> will place a given document in
+  such a context.
+ </p>
+<p><em>See also:</em> <a href="#text-1" class="seealso">text/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="break/1">break(D::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="break-1"> </span>
+
+<p>Forces a line break at the end of the given document. This is a
+  utility function; see <a href="#empty-0" class="seealso">empty/0</a> for details.</p>
+</div></div>
+<div class="function">
+<h3 id="nest/1">nest(N::integer(), D::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="nest-2"> </span>
+
+<p>Indents a document a number of character positions to the right.
+  Note that <code>N</code> may be negative, shifting the text to the left, or
+  zero, in which case <code>D</code> is returned unchanged.</p>
+</div></div>
+<div class="function">
+<h3 id="beside/1">beside(D1::document(), D2::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="beside-2"> </span>
+
+<p>Concatenates documents horizontally. Returns a document
+  representing the concatenation of the documents <code>D1</code> and <code>D2</code> such
+  that the last character of <code>D1</code> is horizontally adjacent to the first
+  character of <code>D2</code>, in all possible layouts. (Note: any indentation of
+  <code>D2</code> is lost.)</p>
+ 
+  <p>Examples:
+  </p><pre class="sh_erlang">     ab  cd  =&gt;  abcd
+ 
+     ab  ef      ab
+     cd  gh  =&gt;  cdef
+                   gh</pre>
+</div></div>
+<div class="function">
+<h3 id="above/1">above(D1::document(), D2::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="above-2"> </span>
+
+<p>Concatenates documents vertically. Returns a document
+  representing the concatenation of the documents <code>D1</code> and <code>D2</code> such
+  that the first line of <code>D2</code> follows directly below the last line of
+  <code>D1</code>, and the first character of <code>D2</code> is in the same horizontal
+  column as the first character of <code>D1</code>, in all possible layouts.</p>
+ 
+  <p>Examples:
+  </p><pre class="sh_erlang">     ab  cd  =&gt;  ab
+                 cd
+ 
+                    abc
+     abc   fgh  =&gt;   de
+      de    ij      fgh
+                     ij</pre>
+</div></div>
+<div class="function">
+<h3 id="sep/1">sep(Docs::[document()]) -&gt; document()</h3>
+
+
+<div class="description"><span id="sep-1"> </span>
+
+<p>Arranges documents horizontally or vertically, separated by
+  whitespace. Returns a document representing two alternative layouts
+  of the (nonempty) sequence <code>Docs</code> of documents, such that either all
+  elements in <code>Docs</code> are concatenated horizontally, and separated by a  
+space character, or all elements are concatenated vertically (without  
+extra separation).</p>
+ 
+  <p>Note: If some document in <code>Docs</code> contains a line break, the vertical  
+layout will always be selected.</p>
+ 
+  <p>Examples:
+  </p><pre class="sh_erlang">                                  ab
+     ab  cd  ef  =&gt;  ab cd ef  |  cd
+                                  ef
+ 
+     ab           ab
+     cd  ef  =&gt;   cd
+                  ef</pre><p>
+ </p>
+<p><em>See also:</em> <a href="#par-2" class="seealso">par/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="par/1">par(Docs::[document()]) -&gt; document()</h3>
+
+
+<div class="description"><span id="par-1"> </span>
+<p>Equivalent to <a href="#par-2" class="seealso">par(Ds, 0)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="par/1-1">par(Docs::[document()], Offset::integer()) -&gt; document()</h3>
+
+
+<div class="description"><span id="par-2"> </span>
+
+<p>Arranges documents in a paragraph-like layout. Returns a
+  document representing all possible left-aligned paragraph-like
+  layouts of the (nonempty) sequence <code>Docs</code> of documents. Elements in
+  <code>Docs</code> are separated horizontally by a single space character and
+  vertically with a single line break. All lines following the first
+  (if any) are indented to the same left column, whose indentation is
+  specified by the optional <code>Offset</code> parameter relative to the position
+  of the first element in <code>Docs</code>. For example, with an offset of -4,  
+the following layout can be produced, for a list of documents  
+representing the numbers 0 to 15:</p>
+ 
+  <pre class="sh_erlang">         0 1 2 3
+     4 5 6 7 8 9
+     10 11 12 13
+     14 15</pre><p>
+  or with an offset of +2:
+  </p><pre class="sh_erlang">     0 1 2 3 4 5 6
+       7 8 9 10 11
+       12 13 14 15</pre>
+ 
+  <p>The utility function <a href="#text_par-2" class="seealso">text_par/2</a> can be used to easily
+  transform a string of text into a <code>par</code> representation by splitting  
+it into words.</p>
+ 
+  <p>Note that whenever a document in <code>Docs</code> contains a line break, it
+  will be placed on a separate line. Thus, neither a layout such as
+  </p><pre class="sh_erlang">     ab cd
+        ef</pre><p>
+  nor
+  </p><pre class="sh_erlang">     ab
+     cd ef</pre><p>
+  will be generated. However, a useful idiom for making the former
+  variant possible (when wanted) is <code>beside(par([D1, text("")], N),
+  D2)</code> for two documents <code>D1</code> and <code>D2</code>. This will break the line
+  between <code>D1</code> and <code>D2</code> if <code>D1</code> contains a line break (or if otherwise
+  necessary), and optionally further indent <code>D2</code> by <code>N</code> character
+  positions. The utility function <a href="#follow-3" class="seealso">follow/3</a> creates this context
+  for two documents <code>D1</code> and <code>D2</code>, and an optional integer <code>N</code>.
+ </p>
+<p><em>See also:</em> <a href="#par-1" class="seealso">par/1</a>, <a href="#text_par-2" class="seealso">text_par/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="follow/1">follow(D1::document(), D2::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="follow-2"> </span>
+<p>Equivalent to <a href="#follow-3" class="seealso">follow(D1, D2, 0)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="follow/1-1">follow(D1::document(), D2::document(), Offset::integer()) -&gt; document()</h3>
+
+
+<div class="description"><span id="follow-3"> </span>
+
+<p>Separates two documents by either a single space, or a line
+  break and intentation. In other words, one of the layouts
+  </p><pre class="sh_erlang">     abc def</pre><p>
+  or
+  </p><pre class="sh_erlang">     abc
+      def</pre><p>  
+will be generated, using the optional offset in the latter case. This  
+is often useful for typesetting programming language constructs.</p>
+ 
+  <p>This is a utility function; see <a href="#par-2" class="seealso">par/2</a> for further details.
+ </p>
+<p><em>See also:</em> <a href="#follow-2" class="seealso">follow/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="floating/1">floating(D::document()) -&gt; document()</h3>
+
+
+<div class="description"><span id="floating-1"> </span>
+<p>Equivalent to <a href="#floating-3" class="seealso">floating(D, 0, 0)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="floating/1-1">floating(D::document(), Hp::integer(), Vp::integer()) -&gt; document()</h3>
+
+
+<div class="description"><span id="floating-3"> </span>
+
+<p>Creates a "floating" document. The result represents the same
+  set of layouts as <code>D</code>; however, a floating document may be moved
+  relative to other floating documents immediately beside or above it,
+  according to their relative horizontal and vertical priorities. These
+  priorities are set with the <code>Hp</code> and <code>Vp</code> parameters; if omitted,  
+both default to zero.</p>
+ 
+  <p>Notes: Floating documents appear to work well, but are currently less
+  general than you might wish, losing effect when embedded in certain
+  contexts. It is possible to nest floating-operators (even with
+  different priorities), but the effects may be difficult to predict.
+  In any case, note that the way the algorithm reorders floating
+  documents amounts to a "bubblesort", so don't expect it to be able to
+  sort large sequences of floating documents quickly.</p>
+</div></div>
+<div class="function">
+<h3 id="format/1">format(D::document()) -&gt; string()</h3>
+
+
+<div class="description"><span id="format-1"> </span>
+<p>Equivalent to <a href="#format-2" class="seealso">format(D, 80)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="format/1-1">format(D::document(), PaperWidth::integer()) -&gt; string()</h3>
+
+
+<div class="description"><span id="format-2"> </span>
+<p>Equivalent to <a href="#format-3" class="seealso">format(D, PaperWidth, 65)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="format/1-2">format(D::document(), PaperWidth::integer(), LineWidth::integer()) -&gt; string()</h3>
+
+
+<div class="description"><span id="format-3"> </span>
+
+<p>Computes a layout for a document and returns the corresponding
+  text. See <a href="#type-document" class="seealso">document()</a> for further information. Throws
+  <code>no_layout</code> if no layout could be selected.</p>
+ 
+  <p><code>PaperWidth</code> specifies the total width (in character positions) of
+  the field for which the text is to be laid out. <code>LineWidth</code> specifies
+  the desired maximum width (in number of characters) of the text
+  printed on any single line, disregarding leading and trailing white
+  space. These parameters need to be properly balanced in order to
+  produce good layouts. By default, <code>PaperWidth</code> is 80 and <code>LineWidth</code>
+  is 65.
+ </p>
+<p><em>See also:</em> <a href="#best-3" class="seealso">best/3</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="best/1">best(D::document(), PaperWidth::integer(), LineWidth::integer()) -&gt; empty | document()</h3>
+
+
+<div class="description"><span id="best-3"> </span>
+
+<p>Selects a "best" layout for a document, creating a corresponding
+  fixed-layout document. If no layout could be produced, the atom
+  <code>empty</code> is returned instead. For details about <code>PaperWidth</code> and
+  <code>LineWidth</code>, see <a href="#format-3" class="seealso">format/3</a>. The function is idempotent.</p>
+ 
+  <p>One possible use of this function is to compute a fixed layout for a
+  document, which can then be included as part of a larger document.
+  For example:
+  </p><pre class="sh_erlang">     above(text("Example:"), nest(8, best(D, W - 12, L - 6)))</pre><p>
+  will format <code>D</code> as a displayed-text example indented by 8, whose
+  right margin is indented by 4 relative to the paper width <code>W</code> of the
+  surrounding document, and whose maximum individual line length is
+  shorter by 6 than the line length <code>L</code> of the surrounding document.</p>
+ 
+ <p>This function is used by the <a href="#format-3" class="seealso">format/3</a> function to prepare a
+  document before being laid out as text.</p>
+</div></div></div>
+
+<authors>
+
+<aname>Richard Carlsson</aname>
+<email>richardc@it.uu.se</email></authors>
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#text/1">text/1</a></li><li><a href="#null_text/1">null_text/1</a></li><li><a href="#text_par/1">text_par/1</a></li><li><a href="#text_par/1-1">text_par/1-1</a></li><li><a href="#empty/0">empty/0</a></li><li><a href="#break/1">break/1</a></li><li><a href="#nest/1">nest/1</a></li><li><a href="#beside/1">beside/1</a></li><li><a href="#above/1">above/1</a></li><li><a href="#sep/1">sep/1</a></li><li><a href="#par/1">par/1</a></li><li><a href="#par/1-1">par/1-1</a></li><li><a href="#follow/1">follow/1</a></li><li><a href="#follow/1-1">follow/1-1</a></li><li><a href="#floating/1">floating/1</a></li><li><a href="#floating/1-1">floating/1-1</a></li><li><a href="#format/1">format/1</a></li><li><a href="#format/1-1">format/1-1</a></li><li><a href="#format/1-2">format/1-2</a></li><li><a href="#best/1">best/1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

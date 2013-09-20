@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>tftp (inets) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>tftp</h1>
+  <h2 class="modsummary">Trivial FTP</h2>
+  <div class="description">
+    <p>This is a complete implementation of the following IETF standards:</p>
+    <list type="bulleted">
+      <item>RFC 1350, The TFTP Protocol (revision 2).</item>
+      <item>RFC 2347, TFTP Option Extension.</item>
+      <item>RFC 2348, TFTP Blocksize Option.</item>
+      <item>RFC 2349, TFTP Timeout Interval and Transfer Size Options.</item>
+    </list>
+    <p>The only feature that not is implemented in this release is
+      the "netascii" transfer mode.</p>
+    <p>The <a href="#start/1" class="seealso">start/1</a> function starts
+      a daemon process which listens for UDP packets on a port. When it
+      receives a request for read or write it spawns a temporary server
+      process which handles the actual transfer of the file.</p>
+    <p>On the client side
+      the <a href="#read_file/3" class="seealso">read_file/3</a>
+      and <a href="#write_file/3" class="seealso">write_file/3</a>
+      functions spawns a temporary client process which establishes
+      contact with a TFTP daemon and performs the actual transfer of
+      the file.</p>
+    <p><code>tftp</code> uses a callback module to handle the actual file
+      transfer. Two such callback modules are provided,
+      <code>tftp_binary</code> and <code>tftp_file</code>. See
+      <a href="#read_file/3" class="seealso">read_file/3</a> and
+      <a href="#write_file/3" class="seealso">write_file/3</a> for
+      more information about these. The user can also implement own
+      callback modules, see <a href="#tftp_callback" class="seealso">CALLBACK FUNCTIONS</a> below. A callback module provided by
+      the user is registered using the <code>callback</code> option, see
+      <a href="#options" class="seealso">DATA TYPES</a> below.</p>
+  </div>
+  
+ <div class="section">
+    <h4>TFTP SERVER SERVICE START/STOP </h4>
+    
+    <p>A TFTP server can be configured to start statically when starting
+      the Inets application. Alternatively it can be started dynamically
+      (when Inets already is started) by calling the Inets application API
+      <code>inets:start(tftpd, ServiceConfig)</code>, or
+      <code>inets:start(tftpd, ServiceConfig, How)</code>,
+      see <a href="inets.html" class="seealso">inets(3)</a> for details.
+      The <code>ServiceConfig</code> for TFTP is described below in
+      the <a href="#options" class="seealso">COMMON DATA TYPES</a>
+      section.</p>
+    
+    <p>The TFTP server can be stopped using <code>inets:stop(tftpd, Pid)</code>,
+      see <a href="inets.html" class="seealso">inets(3)</a> for details.</p>
+
+    <p>The TPFT client is of such a temporary nature that it is not
+      handled as a service in the Inets service framework.</p>
+    
+  </div>
+  
+  <div class="section">
+    <span id="options"> </span>
+    <h4>COMMON DATA TYPES</h4>
+    <pre class="sh_erlang">
+      ServiceConfig = Options
+      Options = [option()]
+      option() -- see below
+    </pre>
+    <p>Most of the options are common for both the client and the server
+      side, but some of them differs a little. Here are the available
+      options:</p>
+    <taglist>
+      <dt><code>{debug, Level}</code></dt>
+      <item>
+        <p><code>Level = none | error | warning | brief | normal | verbose | all</code></p>
+        <p>Controls the level of debug printouts. The default is
+          <code>none</code>.</p>
+      </item>
+      <dt><code>{host, Host}</code></dt>
+      <item>
+        <p><code>Host = hostname()</code> see
+          <a href="../kernel/inet.html" class="seealso">inet(3)</a></p>
+        <p>The name or IP address of the host where the TFTP daemon
+          resides. This option is only used by the client.</p>
+      </item>
+      <dt><code>{port, Port}</code></dt>
+      <item>
+        <p><code>Port = int()</code></p>
+        <p>The TFTP port where the daemon listens. It defaults to
+          the standardized number 69. On the server side it may
+          sometimes make sense to set it to 0, which means that
+          the daemon just will pick a free port (which one is
+          returned by the <code>info/1</code> function).</p>
+        <p>If a socket has somehow already has been connected, the
+          {udp, [{fd, integer()}]} option can be used to pass the
+          open file descriptor to gen_udp. This can be automated
+          a bit by using a command line argument stating the
+          prebound file descriptor number. For example, if the
+          Port is 69 and the file descriptor 22 has been opened by
+          setuid_socket_wrap. Then the command line argument
+          "-tftpd_69 22" will trigger the prebound file
+          descriptor 22 to be used instead of opening port 69.
+          The UDP option {udp, [{fd, 22}]} automatically be added.
+          See init:get_argument/ about command line arguments and
+          gen_udp:open/2 about UDP options.</p>
+      </item>
+      <dt><code>{port_policy, Policy}</code></dt>
+      <item>
+        <p><code>Policy = random | Port | {range, MinPort, MaxPort}</code>          <br  />
+<code>Port = MinPort = MaxPort = int()</code></p>
+        <p>Policy for the selection of the temporary port which is used
+          by the server/client during the file transfer. It defaults to
+          <code>random</code> which is the standardized policy. With this
+          policy a randomized free port used. A single port or a range
+          of ports can be useful if the protocol should pass through a
+          firewall.</p>
+      </item>
+      <dt><code>{udp, Options}</code></dt>
+      <item>
+        <p><code>Options = [Opt]</code> see
+          <a href="../kernel/gen_udp.html#open/1" class="seealso">gen_udp:open/2</a></p>
+      </item>
+      <dt><code>{use_tsize, Bool}</code></dt>
+      <item>
+        <p><code>Bool = bool()</code></p>
+        <p>Flag for automated usage of the <code>tsize</code> option. With
+          this set to true, the <code>write_file/3</code> client will
+          determine the filesize and send it to the server as
+          the standardized <code>tsize</code> option. A <code>read_file/3</code>
+          client will just acquire filesize from the server by sending
+          a zero <code>tsize</code>.</p>
+      </item>
+      <dt><code>{max_tsize, MaxTsize}</code></dt>
+      <item>
+        <p><code>MaxTsize = int() | infinity</code></p>
+        <p>Threshold for the maximal filesize in bytes. The transfer
+          will be aborted if the limit is exceeded. It defaults to
+          <code>infinity</code>.</p>
+      </item>
+      <dt><code>{max_conn, MaxConn}</code></dt>
+      <item>
+        <p><code>MaxConn = int() | infinity</code></p>
+        <p>Threshold for the maximal number of active connections.
+          The daemon will reject the setup of new connections if
+          the limit is exceeded. It defaults to <code>infinity</code>.</p>
+      </item>
+      <dt><code>{TftpKey, TftpVal}</code></dt>
+      <item>
+        <p><code>TftpKey = string()</code>          <br  />
+<code>TftpVal = string()</code></p>
+        <p>The name and value of a TFTP option.</p>
+      </item>
+      <dt><code>{reject, Feature}</code></dt>
+      <item>
+        <p><code>Feature = Mode | TftpKey</code>          <br  />
+<code>&nbsp;Mode = read | write</code>          <br  />
+<code>&nbsp;TftpKey = string()</code></p>
+        <p>Control which features that should be rejected. This is
+          mostly useful for the server as it may restrict usage of
+          certain TFTP options or read/write access.</p>
+      </item>
+      <dt><code>{callback, {RegExp, Module, State}}</code></dt>
+      <item>
+        <p><code>RegExp = string()</code>          <br  />
+<code>Module = atom()</code>          <br  />
+<code>State  = term()</code></p>
+        <p>Registration of a callback module. When a file is to be
+          transferred, its local filename will be matched to the regular
+          expressions of the registered callbacks. The first matching
+          callback will be used the during the transfer. See
+          <a href="#read_file/3" class="seealso">read_file/3</a> and
+          <a href="#write_file/3" class="seealso">write_file/3</a>.
+          </p>
+        <p>The callback module must implement the <code>tftp</code> behavior,
+          <a href="#tftp_callback" class="seealso">CALLBACK FUNCTIONS</a>.</p>
+      </item>
+
+   <dt><code>{logger, Module}</code></dt>
+      <item>
+        <p><code>Module = module()()</code></p>
+
+        <p>Callback module for customized logging of error, warning and
+	  info messages. &gt;The callback module must implement the
+	  <code>tftp_logger</code> behavior,
+          <a href="#tftp_logger" class="seealso">LOGGER FUNCTIONS</a>.
+          The default module is <code>tftp_logger</code>.</p>
+      </item>
+
+      <dt><code>{max_retries, MaxRetries}</code></dt>
+      <item>
+        <p><code>MaxRetries = int()</code></p>
+
+        <p>Threshold for the maximal number of retries. By default
+	  the server/client will try to resend a message up to
+	  <code>5</code> times when the timeout expires.</p>
+      </item>
+    </taglist>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="start/1">start(Options) -&gt; {ok, Pid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options = [option()]</code></li>
+        <li><code>Pid = pid()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Starts a daemon process which listens for udp packets on a
+          port. When it receives a request for read or write it spawns
+          a temporary server process which handles the actual transfer
+          of the (virtual) file.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_file/3">read_file(RemoteFilename, LocalFilename, Options) -&gt; {ok, LastCallbackState} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>RemoteFilename = string()</code></li>
+        <li><code>LocalFilename = binary | string()</code></li>
+        <li><code>Options = [option()]</code></li>
+        <li><code>LastCallbackState = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Reads a (virtual) file <code>RemoteFilename</code> from a TFTP
+          server.</p>
+        <p>If <code>LocalFilename</code> is the atom <code>binary</code>,
+          <code>tftp_binary</code> is used as callback module. It concatenates
+          all transferred blocks and returns them as one single binary
+          in <code>LastCallbackState</code>.</p>
+        <p>If <code>LocalFilename</code> is a string and there are no
+          registered callback modules, <code>tftp_file</code> is used as
+          callback module. It writes each transferred block to the file
+          named <code>LocalFilename</code> and returns the number of
+          transferred bytes in <code>LastCallbackState</code>.</p>
+        <p>If <code>LocalFilename</code> is a string and there are registered
+          callback modules, <code>LocalFilename</code> is tested against
+          the regexps of these and the callback module corresponding to
+          the first match is used, or an error tuple is returned if no
+          matching regexp is found.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write_file/3">write_file(RemoteFilename, LocalFilename, Options) -&gt; {ok, LastCallbackState} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>RemoteFilename = string()</code></li>
+        <li><code>LocalFilename = binary() | string()</code></li>
+        <li><code>Options = [option()]</code></li>
+        <li><code>LastCallbackState = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Writes a (virtual) file <code>RemoteFilename</code> to a TFTP
+          server.</p>
+        <p>If <code>LocalFilename</code> is a binary, <code>tftp_binary</code> is
+          used as callback module. The binary is transferred block by
+          block and the number of transferred bytes is returned in
+          <code>LastCallbackState</code>.</p>
+        <p>If <code>LocalFilename</code> is a string and there are no
+          registered callback modules, <code>tftp_file</code> is used as
+          callback module. It reads the file named <code>LocalFilename</code>
+          block by block and returns the number of transferred bytes
+          in <code>LastCallbackState</code>.</p>
+        <p>If <code>LocalFilename</code> is a string and there are registered
+          callback modules, <code>LocalFilename</code> is tested against
+          the regexps of these and the callback module corresponding to
+          the first match is used, or an error tuple is returned if no
+          matching regexp is found.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/1">info(daemons) -&gt; [{Pid, Options}]</h3>
+      
+      <ul class="type">
+        <li><code>Pid = [pid()()]</code></li>
+        <li><code>Options = [option()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns info about all TFTP daemon processes.
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/1-1">info(servers) -&gt; [{Pid, Options}]</h3>
+      
+      <ul class="type">
+        <li><code>Pid = [pid()()]</code></li>
+        <li><code>Options = [option()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns info about all TFTP server processes.
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/1-2">info(Pid) -&gt; {ok, Options} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options = [option()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns info about a TFTP daemon, server or client process.</p>
+      </div>
+    </div>
+
+   <div class="function">
+      <h3 id="change_config/2">change_config(daemons, Options) -&gt; [{Pid, Result}]</h3>
+      
+      <ul class="type">
+        <li><code>Options = [option()]</code></li>
+        <li><code>Pid = pid()</code></li>
+        <li><code>Result = ok | {error, Reason}</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes config for all TFTP daemon processes
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="change_config/2-1">change_config(servers, Options) -&gt; [{Pid, Result}]</h3>
+      
+      <ul class="type">
+        <li><code>Options = [option()]</code></li>
+        <li><code>Pid = pid()</code></li>
+        <li><code>Result = ok | {error, Reason}</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes config for all TFTP server processes
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="change_config/2-2">change_config(Pid, Options) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+        <li><code>Options = [option()]</code></li>
+        <li><code>Result = ok | {error, Reason}</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes config for a TFTP daemon, server or client process</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start/0">start() -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Starts the Inets application.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="tftp_callback"> </span>
+    <h4>CALLBACK FUNCTIONS</h4>
+    <p>A <code>tftp</code> callback module should be implemented as a
+      <code>tftp</code> behavior and export the functions listed below.</p>
+    <p>On the server side the callback interaction starts with a call to
+      <code>open/5</code> with the registered initial callback state.
+      <code>open/5</code> is expected to open the (virtual) file. Then either
+      the <code>read/1</code> or <code>write/2</code> functions are invoked
+      repeatedly, once per transferred block. At each function call
+      the state returned from the previous call is obtained. When
+      the last block has been encountered the <code>read/1</code> or
+      <code>write/2</code> functions is expected to close the (virtual) file
+      and return its last state. The <code>abort/3</code> function is only
+      used in error situations. <code>prepare/5</code> is not used on
+      the server side.</p>
+    <p>On the client side the callback interaction is the same, but it
+      starts and ends a bit differently. It starts with a call to
+      <code>prepare/5</code> with the same arguments as <code>open/5</code> takes.
+      <code>prepare/5</code> is expected to validate the TFTP options,
+      suggested by the user and return the subset of them that it
+      accepts. Then the options is sent to the server which will perform
+      the same TFTP option negotiation procedure. The options that are
+      accepted by the server are forwarded to the <code>open/5</code> function
+      on the client side. On the client side the <code>open/5</code> function
+      must accept all option as is or reject the transfer. Then
+      the callback interaction follows the same pattern as described
+      above for the server side. When the last block is encountered in
+      <code>read/1</code> or <code>write/2</code> the returned state is forwarded to
+      the user and returned from <code>read_file</code>/3 or
+      <code>write_file/3</code>.</p>
+
+    <p> If a callback (which performs the file access
+    in the TFTP server) takes too long time (more than
+    the double TFTP timeout), the server will abort the
+    connection and send an error reply to the client.
+    This implies that the server will release resources
+    attached to the connection faster than before. The
+    server simply assumes that the client has given
+    up.</p>
+
+    <p>If the TFTP server receives yet another request from
+    the same client (same host and port) while it
+    already has an active connection to the client, it
+    will simply ignore the new request if the request is
+    equal with the first one (same filename and options).
+    This implies that the (new) client will be served
+    by the already ongoing connection on the server
+    side. By not setting up yet another connection, in
+    parallel with the ongoing one, the server will
+    consumer lesser resources.
+    </p>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="prepare/6">prepare(Peer, Access, Filename, Mode, SuggestedOptions, InitialState) -&gt; {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</h3>
+      
+      <ul class="type">
+        <li><code>Peer = {PeerType, PeerHost, PeerPort}</code></li>
+        <li><code>PeerType = inet | inet6</code></li>
+        <li><code>PeerHost = ip_address()</code></li>
+        <li><code>PeerPort = integer()</code></li>
+        <li><code>Access = read | write</code></li>
+        <li><code>Filename = string()</code></li>
+        <li><code>Mode = string()</code></li>
+        <li><code>SuggestedOptions = AcceptedOptions = [{Key, Value}]</code></li>
+        <li><code>&nbsp;Key = Value = string()</code></li>
+        <li><code>InitialState = [] | [{root_dir, string()}]</code></li>
+        <li><code>NewState = term()</code></li>
+        <li><code>Code = undef | enoent | eacces | enospc</code></li>
+        <li><code>&nbsp;&nbsp;| badop | eexist | baduser | badopt</code></li>
+        <li><code>&nbsp;&nbsp;| int()</code></li>
+        <li><code>Text = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Prepares to open a file on the client side.</p>
+        <p>No new options may be added, but the ones that are present in
+          <code>SuggestedOptions</code> may be omitted or replaced with new
+          values in <code>AcceptedOptions</code>.</p>
+        <p>Will be followed by a call to <code>open/4</code> before any
+          read/write access is performed. <code>AcceptedOptions</code> is
+          sent to the server which replies with those options that it
+          accepts. These will be forwarded to <code>open/4</code> as
+          <code>SuggestedOptions</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="open/6">open(Peer, Access, Filename, Mode, SuggestedOptions, State) -&gt; {ok, AcceptedOptions, NewState} | {error, {Code, Text}}</h3>
+      
+      <ul class="type">
+        <li><code>Peer = {PeerType, PeerHost, PeerPort}</code></li>
+        <li><code>PeerType = inet | inet6</code></li>
+        <li><code>PeerHost = ip_address()</code></li>
+        <li><code>PeerPort = integer()</code></li>
+        <li><code>Access = read | write</code></li>
+        <li><code>Filename = string()</code></li>
+        <li><code>Mode = string()</code></li>
+        <li><code>SuggestedOptions = AcceptedOptions = [{Key, Value}]</code></li>
+        <li><code>&nbsp;Key = Value = string()</code></li>
+        <li><code>State = InitialState | term()</code></li>
+        <li><code>&nbsp;InitialState = [] | [{root_dir, string()}]</code></li>
+        <li><code>NewState = term()</code></li>
+        <li><code>Code = undef | enoent | eacces | enospc</code></li>
+        <li><code>&nbsp;&nbsp;| badop | eexist | baduser | badopt</code></li>
+        <li><code>&nbsp;&nbsp;| int()</code></li>
+        <li><code>Text = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Opens a file for read or write access.</p>
+        <p>On the client side where the <code>open/5</code> call has been
+          preceded by a call to <code>prepare/5</code>, all options must be
+          accepted or rejected.</p>
+        <p>On the server side, where there is no preceding
+          <code>prepare/5</code> call, no new options may be added, but
+          the ones that are present in <code>SuggestedOptions</code> may be
+          omitted or replaced with new values in <code>AcceptedOptions</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read/1">read(State) -&gt; {more, Bin, NewState} | {last, Bin, FileSize} | {error, {Code, Text}}</h3>
+      
+      <ul class="type">
+        <li><code>State = NewState = term()</code></li>
+        <li><code>Bin = binary()</code></li>
+        <li><code>FileSize = int()</code></li>
+        <li><code>Code = undef | enoent | eacces | enospc</code></li>
+        <li><code>&nbsp;&nbsp;| badop | eexist | baduser | badopt</code></li>
+        <li><code>&nbsp;&nbsp;| int()</code></li>
+        <li><code>Text = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Read a chunk from the file.</p>
+        <p>The callback function is expected to close
+          the file when the last file chunk is
+          encountered. When an error is encountered
+          the callback function is expected to clean
+          up after the aborted file transfer, such as
+          closing open file descriptors etc. In both
+          cases there will be no more calls to any of
+          the callback functions.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write/2">write(Bin, State) -&gt; {more, NewState} | {last, FileSize} | {error, {Code, Text}}</h3>
+      
+      <ul class="type">
+        <li><code>Bin = binary()</code></li>
+        <li><code>State = NewState = term()</code></li>
+        <li><code>FileSize = int()</code></li>
+        <li><code>Code = undef | enoent | eacces | enospc</code></li>
+        <li><code>&nbsp;&nbsp;| badop | eexist | baduser | badopt</code></li>
+        <li><code>&nbsp;&nbsp;| int()</code></li>
+        <li><code>Text = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Write a chunk to the file.</p>
+        <p>The callback function is expected to close
+          the file when the last file chunk is
+          encountered. When an error is encountered
+          the callback function is expected to clean
+          up after the aborted file transfer, such as
+          closing open file descriptors etc. In both
+          cases there will be no more calls to any of
+          the callback functions.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="abort/3">abort(Code, Text, State) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Code = undef | enoent | eacces | enospc</code></li>
+        <li><code>&nbsp;&nbsp;| badop | eexist | baduser | badopt</code></li>
+        <li><code>&nbsp;&nbsp;| int()</code></li>
+        <li><code>Text = string()</code></li>
+        <li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Invoked when the file transfer is aborted.</p>
+        <p>The callback function is expected to clean
+          up its used resources after the aborted file
+          transfer, such as closing open file
+          descriptors etc. The function will not be
+          invoked if any of the other callback
+          functions returns an error, as it is
+          expected that they already have cleaned up
+          the necessary resources. It will however be
+          invoked if the functions fails (crashes).</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <span id="tftp_logger"> </span>
+    <h4>LOGGER FUNCTIONS</h4>
+    
+    <p>A <code>tftp_logger</code> callback module should be implemented as a
+      <code>tftp_logger</code> behavior and export the functions listed below.</p>
+    </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="error_msg/2">error_msg(Format, Data) -&gt; ok | exit(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>Format = string()</code></li>
+        <li><code>Data = [term()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Log an error message. See <code>error_logger:error_msg/2 for details.</code> </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="warning_msg/2">warning_msg(Format, Data) -&gt; ok | exit(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>Format = string()</code></li>
+        <li><code>Data = [term()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Log a warning message. See <code>error_logger:warning_msg/2 for details.</code> </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info_msg/2">info_msg(Format, Data) -&gt; ok | exit(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>Format = string()</code></li>
+        <li><code>Data = [term()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Log an info message. See <code>error_logger:info_msg/2 for details.</code> </p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#start/1">start/1</a></li><li><a href="#read_file/3">read_file/3</a></li><li><a href="#write_file/3">write_file/3</a></li><li><a href="#info/1">info/1</a></li><li><a href="#info/1-1">info/1-1</a></li><li><a href="#info/1-2">info/1-2</a></li><li><a href="#change_config/2">change_config/2</a></li><li><a href="#change_config/2-1">change_config/2-1</a></li><li><a href="#change_config/2-2">change_config/2-2</a></li><li><a href="#start/0">start/0</a></li><li><a href="#prepare/6">prepare/6</a></li><li><a href="#open/6">open/6</a></li><li><a href="#read/1">read/1</a></li><li><a href="#write/2">write/2</a></li><li><a href="#abort/3">abort/3</a></li><li><a href="#error_msg/2">error_msg/2</a></li><li><a href="#warning_msg/2">warning_msg/2</a></li><li><a href="#info_msg/2">info_msg/2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

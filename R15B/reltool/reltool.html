@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>reltool (reltool) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>reltool</h1>
+  <h2 class="modsummary">Main API of the Reltool application</h2>
+  <div class="description">
+    <p>This is an interface module for the Reltool application.</p>
+
+    <p><em>Reltool</em> is a release management tool. It analyses a
+    given Erlang/OTP installation and determines various dependencies
+    between applications. The <code>graphical</code> frontend depicts the
+    dependencies and enables interactive customization of a target
+    system. The backend provides a <code>batch</code> interface for
+    generation of customized target systems.</p>
+
+    <p>The tool uses an installed Erlang/OTP system as input.
+    <code>root_dir</code> is the root directory of the analysed system and
+    it defaults to the system executing <code>reltool</code>. Applications
+    may also be located outside <code>root_dir</code>. <code>lib_dirs</code>
+    defines library directories where additional applications
+    may reside and it defaults to the directories
+    listed by the operating system environment variable
+    <code>ERL_LIBS</code>. See the module <code>code</code> for more info.
+    Finally single modules and entire applications may be read from
+    Escripts.</p>
+
+    <p>Some configuration parameters control the behavior of Reltool
+    on system (<code>sys</code>) level. Others provide control on
+    application (<code>app</code>) level and yet others are on module
+    (<code>mod</code>) level. Module level parameters override application
+    level parameters and application level parameters override system
+    level parameters. Escript <code>escript</code> level parameters
+    override system level parameters.</p>
+
+    <p>The following top level <code>options</code> are supported:</p>
+
+    <taglist>
+
+      <dt><code>config</code></dt>
+      <item>
+        <p>This is the main option and it controls the configuration
+           of <code>reltool</code>.  It can either be a <code>sys</code> tuple or
+           a name of a <code>file</code> containing a sys tuple.</p>
+      </item>
+
+      <dt><code>trap_exit</code></dt>
+      <item>
+        <p>This option controls the error handling behavior of
+           <code>reltool</code>.  By default the window processes traps
+           exit, but this behavior can altered by setting
+           <code>trap_exit</code> to <code>false</code>.</p>
+      </item>
+
+      <dt><code>wx_debug</code></dt>
+      <item>
+        <p>This option controls the debug level of <code>wx</code>. As its
+           name indicates it is only useful for debugging. See
+           <code>wx:debug/1</code> for more info.</p>
+      </item>
+
+    </taglist>
+
+    <p>Besides the already mentioned source parameters <code>root_dir</code>
+    and <code>lib_dirs</code>, the following system (<code>sys</code>) level
+    options are supported:</p>
+
+    <taglist>
+
+      <dt><code>erts</code></dt>
+      <item>
+        <p>Erts specific configuration. See application level options
+        below.</p>
+      </item>
+
+      <dt><code>escript</code></dt>
+      <item>
+        <p>Escript specific configuration. An escript has a mandatory
+        file name and escript level options that are described
+        below.</p>
+      </item>
+
+      <dt><code>app</code></dt>
+      <item>
+        <p>Application specific configuration. An application has a
+        mandatory name and application level options that are
+        described below.</p>
+      </item>
+
+      <dt><code>mod_cond</code></dt>
+      <item>
+        <p>This parameter controls the module inclusion policy. It
+        defaults to <code>all</code> which means that if an application is
+        included (either explicitly or implicitly) all modules in that
+        application will be included. This implies that both modules
+        that exist in the <code>ebin</code> directory of the application,
+        as well as modules that are named in the <code>app</code> file will
+        be included. If the parameter is set to <code>ebin</code>, both
+        modules in the <code>ebin</code> directory and derived modules are
+        included. If the parameter is set to <code>app</code>, both modules
+        in the <code>app</code> file and derived modules are included.
+        <code>derived</code> means that only modules that are used by other
+        included modules are included. The <code>mod_cond</code> setting on
+        system level is used as default for all applications.</p>
+      </item>
+
+      <dt><code>incl_cond</code></dt>
+      <item>
+        <p>This parameter controls the application and escript
+        inclusion policy. It defaults to <code>derived</code> which means
+        that the applications that do not have any explicit
+        <code>incl_cond</code> setting, will only be included if any other
+        (explicitly or implicitly included) application uses it. The
+        value <code>include</code> implies that all applications and
+        escripts that do not have any explicit <code>incl_cond</code>
+        setting will be included. <code>exclude</code> implies that all
+        applications and escripts) that do not have any explicit
+        <code>incl_cond</code> setting will be excluded.</p>
+      </item>
+
+      <dt><code>boot_rel</code></dt>
+      <item>
+        <p>A target system may have several releases but the one given
+        as <code>boot_rel</code> will be used as default when the system is
+        booting up.</p>
+      </item>
+
+      <dt><code>rel</code></dt>
+      <item>
+        <p>Release specific configuration. Each release maps to a
+        <code>rel</code>, <code>script</code> and <code>boot</code> file. See the
+        module <code>systools</code> for more info about the details. Each
+        release has a name, a version and a set of applications with a
+        few release specific parameters such as type and included
+        applications.</p>
+      </item>
+
+      <dt><code>relocatable</code></dt>
+      <item>
+        <p>This parameter controls whether the <code>erl</code> executable
+        in the target system should automatically determine where it
+        is installed or if it should use a hardcoded path to the
+        installation. In the latter case the target system must be
+        installed with <code>reltool:install/2</code> before it can be
+        used. If the system is relocatable, the file tree containing
+        the target system can be moved to another location without
+        re-installation. The default is <code>true</code>.</p>
+      </item>
+
+      <dt><code>profile</code></dt>
+      <item>
+        <p>The creation of the specification for a target system is
+        performed in two steps. In the first step a complete
+        specification is generated. It will likely contain much more
+        files than you are interested in in your customized target
+        system. In the second step the specification will be filtered
+        according to your filters. There you have the ability to
+        specify filters per application as well as system wide
+        filters. You can also select a <code>profile</code> for your
+        system. Depending on the <code>profile</code>, different default
+        filters will be used. There are three different profiles to
+        choose from: <code>development</code>, <code>embedded</code> and
+        <code>standalone</code>. <code>development</code> is default. The
+        parameters that are affected by the <code>profile</code> are:
+        <code>incl_sys_filters</code>, <code>excl_sys_filters</code>,
+        <code>incl_app_filters</code> and <code>excl_app_filters</code>.</p>
+      </item>
+
+      <dt><code>app_file</code></dt>
+      <item>
+        <p>This parameter controls the default handling of the
+        <code>app</code> files when a target system is generated. It
+        defaults to <code>keep</code> which means that <code>app</code> files are
+        copied to the target system and their contents are kept as
+        they are. <code>strip</code> means that a new <code>app</code> file is
+        generated from the contents of the original <code>app</code> file
+        where the non included modules are removed from the
+        file. <code>all</code> does also imply that a new <code>app</code> file is
+        generated from the contents of the original <code>app</code> file,
+        with the difference that all included modules are added to the
+        file. If the application does not have any <code>app</code> file a
+        file will be created for <code>all</code> but not for <code>keep</code>
+        and <code>strip</code>.</p>
+      </item>
+
+      <dt><code>debug_info</code></dt>
+      <item>
+        <p>The <code>debug_info</code> parameter controls whether the debug
+        information in the beam file should be kept (<code>keep</code>) or
+        stripped <code>strip</code> when the file is copied to the target
+        system.</p>
+      </item>
+
+      <dt><code>incl_sys_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which files in the system
+        should be included. Each file in the target system must match
+        at least one of the listed regular expressions in order to be
+        included. Further the files may not match any filter in
+        <code>excl_sys_filters</code> in order to be included. Which
+        application files should be included is controlled with
+        the parameters <code>incl_app_filters</code> and
+        <code>excl_app_filters</code>. This parameter defaults to
+        <code>[".*"]</code>.</p>
+      </item>
+
+      <dt><code>excl_sys_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which files in the system should
+        not be included in the target system. In order to be
+        included, a file must match some filter in
+        <code>incl_sys_filters</code> but not any filter in
+        <code>excl_sys_filters</code>. This parameter defaults to
+        <code>[]</code>.</p>
+      </item>
+      <dt><code>incl_app_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which application specific files
+        that should be included. Each file in the application must
+        match at least one of the listed regular expressions in order
+        to be included.  Further the files may not match any filter in
+        <code>excl_app_filters</code> in order to be included. This
+        parameter defaults to <code>[".*"]</code>.</p>
+      </item>
+
+      <dt><code>excl_app_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which application specific files
+        should not be included in the target system. In order to
+        be included, a file must match some filter in
+        <code>incl_app_filters</code> but not any filter in
+        <code>excl_app_filters</code>. This parameter defaults to
+        <code>[]</code>.</p>
+      </item>
+
+      <dt><code>incl_archive_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which top level directories in an
+        application should be included in an archive file (as
+        opposed to being included as a regular directory outside the
+        archive). Each top directory in the application must match at
+        least one of the listed regular expressions in order to be
+        included. Further the files may not match any filter in
+        <code>excl_app_filters</code> in order to be included. This
+        parameter defaults to <code>[".*"]</code>.</p>
+      </item>
+
+       <dt><code>excl_archive_filters</code></dt>
+      <item>
+        <p>This parameter normally contains a list of regular
+        expressions that controls which top level directories in an
+        application should not be included in an archive file. In
+        order to be included in the application archive, a top
+        directory must match some filter in <code>incl_archive_filters</code>
+        but not any filter in <code>excl_archive_filters</code>. This
+        parameter defaults to <code>["^include$","^priv$"]</code>.</p>
+      </item>
+
+      <dt><code>archive_opts</code></dt>
+      <item>
+        <p>This parameter contains a list of options that are given to
+        <code>zip:create/3</code> when application specific files are
+        packaged into an archive. Only a subset of the options are
+        supported. The most useful options in this context are the ones
+        that control which types of files should be compressed. This
+        parameter defaults to <code>[]</code>.</p>
+      </item>
+
+    </taglist>
+
+    <p>On application (<code>escript</code>) level, the following options are
+    supported:</p>
+
+   <taglist>
+      <dt><code>incl_cond</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+    </taglist>
+
+    <p>On application (<code>app</code>) level, the following options are
+       supported:</p>
+
+   <taglist>
+      <dt><code>vsn</code></dt>
+      <item>
+        <p>The version of the application. In an installed system there may
+        exist several versions of an application. The <code>vsn</code> parameter
+        controls which version of the application will be chosen. If it
+        is omitted, the latest version will be chosen.</p>
+      </item>
+      <dt><code>mod</code></dt>
+      <item>
+        <p>Module specific configuration. A module has a mandatory
+        name and module level options that are described below.</p>
+      </item>
+      <dt><code>mod_cond</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+      <dt><code>incl_cond</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+      <dt><code>app_file</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+      <dt><code>debug_info</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+      <dt><code>incl_app_filters</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+      <dt><code>excl_app_filters</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+
+      <dt><code>incl_archive_filters</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+
+       <dt><code>excl_archive_filters</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+
+     <dt><code>archive_opts</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+    </taglist>
+
+     <p>On module (<code>mod</code>) level, the following options are
+       supported:</p>
+
+   <taglist>
+      <dt><code>incl_cond</code></dt>
+      <item>
+        <p>This parameter controls whether the module is included or not. By
+        default the <code>mod_incl</code> parameter on application and system level
+        will be used to control whether the module is included or not. The
+        value of <code>incl_cond</code> overrides the module inclusion policy.
+        <code>include</code> implies that the module is included, while
+        <code>exclude</code> implies that the module is not included.
+        <code>derived</code> implies that the module is included if it is used
+        by any other included module.</p>
+      </item>
+      <dt><code>debug_info</code></dt>
+      <item>
+        <p>The value of this parameter overrides the parameter with
+        the same name on application level.</p>
+      </item>
+    </taglist>
+
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <pre class="sh_erlang">
+options()           = [option()]
+option()            = {config, config() | file()}
+                    | {trap_exit, bool()}
+                    | {wx_debug, term()} 
+config()            = {sys, [sys()]}
+sys()               = {root_dir, root_dir()}
+                    | {lib_dirs, [lib_dir()]}
+                    | {profile, profile()}
+                    | {erts, app()}
+                    | {escript, escript_file(), [escript()]}
+                    | {app, app_name(), [app()]}
+                    | {mod_cond, mod_cond()} 
+                    | {incl_cond, incl_cond()}
+                    | {boot_rel, boot_rel()}
+                    | {rel, rel_name(), rel_vsn(), [rel_app()]}
+                    | {relocatable, relocatable()}
+                    | {app_file, app_file()}
+                    | {debug_info, debug_info()}
+                    | {incl_sys_filters, incl_sys_filters()}
+                    | {excl_sys_filters, excl_sys_filters()}
+                    | {incl_app_filters, incl_app_filters()}
+                    | {excl_app_filters, excl_app_filters()}
+                    | {incl_archive_filters, incl_archive_filters()}
+                    | {excl_archive_filters, excl_archive_filters()}
+                    | {archive_opts, [archive_opt()]}
+app()               = {vsn, app_vsn()}
+                    | {mod, mod_name(), mod()}
+                    | {mod_cond, mod_cond()}
+                    | {incl_cond, incl_cond()}
+                    | {debug_info, debug_info()}
+                    | {app_file, app_file()}
+                    | {incl_sys_filters, incl_sys_filters()}
+                    | {excl_sys_filters, excl_sys_filters()}
+                    | {incl_app_filters, incl_app_filters()}
+                    | {excl_app_filters, excl_app_filters()}
+                    | {incl_archive_filters, incl_archive_filters()}
+                    | {excl_archive_filters, excl_archive_filters()}
+                    | {archive_opts, [archive_opt()]}
+mod()               = {vsn, app_vsn()}
+                    | {incl_cond, incl_cond()}
+                    | {debug_info, debug_info()}
+rel_app()           = app_name()
+                    | {app_name(), app_type()} 
+                    | {app_name(), [incl_app()]}
+                    | {app_name(), app_type(), [incl_app()]}
+app_name()          = atom()
+app_type()          = permanent | transient | temporary | load | none
+app_vsn()           = string()
+archive_opt         = zip_create_opt()
+boot_rel()          = rel_name()
+app_file()          = keep | strip | all
+debug_info()        = keep | strip
+dir()               = string()
+escript()           = {incl_cond, incl_cond()}
+escript_file()      = file()
+excl_app_filters()  = regexps()
+excl_archive_filters() = regexps()
+excl_sys_filters()  = regexps()
+file()              = string()
+incl_app()          = app_name()
+incl_app_filters()  = regexps()
+incl_archive_filters() = regexps()
+incl_cond()         = include | exclude | derived
+incl_sys_filters()  = regexps()
+lib_dir()           = dir()
+mod_cond()          = all | app | ebin | derived | none
+mod_name()          = atom()
+profile()           = development | embedded | standalone
+re_regexp()         = string()
+reason()            = string()
+regexps()           = [re_regexp()]
+                    | {add, [re_regexp()]}
+                    | {del, [re_regexp()]}
+rel_file()          = term()
+rel_name()          = string()
+rel_vsn()           = string()
+relocatable         = boolean()
+root_dir()          = dir()
+script_file()       = term()
+server()            = server_pid() | options()
+server_pid()        = pid()
+target_dir()        = file()
+window_pid()        = pid()
+base_dir()          = dir()
+base_file()         = file()
+top_dir()           = file()
+top_file()          = file()
+target_spec()       = [target_spec()]
+                    | {create_dir, base_dir(), [target_spec()]}
+                    | {create_dir, base_dir(), top_dir(), [target_spec()]}
+                    | {archive, base_file(), [archive_opt()], [target_spec()]}
+                    | {copy_file, base_file()}
+                    | {copy_file, base_file(), top_file()}
+                    | {write_file, base_file(), iolist()}
+                    | {strip_beam_file, base_file()}</pre>
+
+    <span id="start"> </span>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="create_target/2">create_target(Server, TargetDir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server     = server()</code></li>
+        <li><code>TargetDir  = target_dir()</code></li>
+        <li><code>Reason     = reason()</code></li>
+      </ul>
+      <div class="description"><p>Create a target system. Gives the same result as
+      <code>{ok,TargetSpec}=reltool:get_target_spec(Server)</code> and
+      <code>reltool:eval_target_spec(TargetSpec,RootDir,TargetDir)</code>.</p></div>
+    </div>
+    
+    <div class="function">
+      <h3 id="eval_target_spec/3">eval_target_spec(TargetSpec, RootDir, TargetDir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>TargetSpec = target_spec()</code></li>
+        <li><code>RootDir    = root_dir()</code></li>
+        <li><code>TargetDir  = target_dir()</code></li>
+        <li><code>Reason     = reason()</code></li>
+      </ul>
+      <div class="description"><p>Create the actual target system from a specification
+      generated by <code>reltool:get_target_spec/1</code>. The creation of
+      the specification for a target system is performed in two
+      steps. In the first step a complete specification will be
+      generated. It will likely contain much more files than you are
+      interested in in your target system. In the second step the
+      specification will be filtered according to your filters. There
+      you have the ability to specify filters per application as well
+      as system wide filters. You can also select a <code>profile</code> for
+      your system. Depending on the <code>profile</code>, different default
+      filters will be used.</p>
+
+      <p>The top directories <code>bin</code>, <code>releases</code> and
+      <code>lib</code> are treated differently from other files. All other
+      files are by default copied to the target system. The
+      <code>releases</code> directory contains generated <code>rel</code>,
+      <code>script</code>, and <code>boot</code> files. The <code>lib</code> directory
+      contains the applications. Which applications are included
+      and if they should be customized (archived, stripped from debug
+      info etc.) is specified with various configuration
+      parameters. The files in the <code>bin</code> directory are copied
+      from the <code>erts-vsn/bin</code> directory, but only those files
+      that were originally included in the <code>bin</code> directory of the
+      source system.</p>
+
+      <p>If the configuration parameter <code>relocatable</code> was set to
+      <code>true</code> there is no need to install the target system with
+      <code>reltool:install/2</code> before it can be started. In that case
+      the file tree containing the target system can be moved without
+      re-installation.</p>
+
+      <p>In most cases, the <code>RootDir</code> parameter should be set to
+      the same as the <code>root_dir</code> configuration parameter used in
+      the call to <code>reltool:get_target_spec/1</code>
+      (or <code>code:root_dir()</code> if the configuration parameter is not
+      set). In some cases it might be useful to evaluate the same
+      target specification towards different root directories. This
+      should, however, be used with great care as it requires
+      equivalent file structures under all roots.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_config/1">get_config(Server) -&gt; {ok, Config} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server  = server()</code></li>
+        <li><code>Config  = config()</code></li>
+        <li><code>Reason  = reason()</code></li>
+      </ul>
+      <div class="description"><p>Get reltool configuration. Shorthand for
+      <code>reltool:get_config(Server,false,false)</code>.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_config/3">get_config(Server, InclDefaults, InclDerived) -&gt; {ok, Config} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server        = server()</code></li>
+        <li><code>InclDefaults  = incl_defaults()</code></li>
+        <li><code>InclDerived   = incl_derived()</code></li>
+        <li><code>Config        = config()</code></li>
+        <li><code>Reason        = reason()</code></li>
+      </ul>
+      <div class="description"><p>Get reltool configuration. Normally, only the explicit
+      configuration parameters with values that differ from their
+      defaults are interesting. But the builtin default values can be
+      returned by setting <code>InclDefaults</code> to <code>true</code>. The
+      derived configuration can be returned by setting
+      <code>InclDerived</code> to <code>true</code>.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_rel/2">get_rel(Server, Relname) -&gt; {ok, RelFile} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server  = server()</code></li>
+        <li><code>RelName = rel_name()</code></li>
+        <li><code>RelFile = rel_file()</code></li>
+        <li><code>Reason  = reason()</code></li>
+      </ul>
+      <div class="description"><p>Get contents of a release file. See <code>rel(4)</code> for more
+      details.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_script/2">get_script(Server, Relname) -&gt; {ok, ScriptFile | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server     = server()</code></li>
+        <li><code>RelName    = rel_name()</code></li>
+        <li><code>ScriptFile = script_file()</code></li>
+        <li><code>Reason     = reason()</code></li>
+      </ul>
+      <div class="description"><p>Get contents of a boot script file. See <code>script(4)</code> for
+      more details.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_status/1">get_status(Server) -&gt; {ok, [Warning]} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server  = server()</code></li>
+        <li><code>Warning = string()</code></li>
+        <li><code>Reason  = reason()</code></li>
+      </ul>
+      <div class="description"><p>Get status about the configuration</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_server/1">get_server(WindowPid) -&gt; {ok, ServerPid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>WindowPid   = window_pid()</code></li>
+        <li><code>ServerPid   = server_pid()</code></li>
+        <li><code>Reason      = reason()</code></li>
+      </ul>
+      <div class="description"><p>Return the process identifier of the server process.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_target_spec/1">get_target_spec(Server) -&gt; {ok, TargetSpec} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server     = server()</code></li>
+        <li><code>TargetSpec = target_spec()</code></li>
+        <li><code>Reason     = reason()</code></li>
+      </ul>
+      <div class="description"><p>Return a specification of the target system. The actual
+      target system can be created with
+      <code>reltool:eval_target_spec/3</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="install/2">install(Server, TargetDir) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Server     = server()</code></li>
+        <li><code>TargetDir  = target_dir()</code></li>
+        <li><code>Reason     = reason()</code></li>
+      </ul>
+      <div class="description"><p>Install a created target system</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="start/0">start() -&gt; {ok, WindowPid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>WindowPid   = window_pid()</code></li>
+        <li><code>Reason      = reason()</code></li>
+      </ul>
+      <div class="description"><p>Start a main window process with default options</p></div>
+    </div>
+  
+    <div class="function">
+      <h3 id="start/1">start(Options) -&gt; {ok, WindowPid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options     = options()</code></li>
+        <li><code>WindowPid   = window_pid()</code></li>
+        <li><code>Reason      = reason()</code></li>
+      </ul>
+      <div class="description"><p>Start a main window process with options</p></div>
+    </div>
+  
+    <div class="function">
+      <h3 id="start_link/1">start_link(Options) -&gt; {ok, WindowPid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options     = options()</code></li>
+        <li><code>WindowPid   = window_pid()</code></li>
+        <li><code>Reason      = reason()</code></li>
+      </ul>
+      <div class="description"><p>Start a main window process with options. The process is linked.</p></div>
+    </div>
+  
+    <div class="function">
+      <h3 id="start_server/1">start_server(Options) -&gt; {ok, ServerPid} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options     = options()</code></li>
+        <li><code>ServerPid   = server_pid()</code></li>
+        <li><code>Reason      = reason()</code></li>
+      </ul>
+      <div class="description"><p>Start a server process with options. The server process
+      identity can be given as an argument to several other functions in the
+      API.</p></div>
+    </div>
+
+    <div class="function">
+      <h3 id="stop/1">stop(Pid) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Pid     = server_pid() | window_pid()()</code></li>
+        <li><code>Reason  = reason()</code></li>
+      </ul>
+      <div class="description"><p>Stop a server or window process</p></div>
+    </div>
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#create_target/2">create_target/2</a></li><li><a href="#eval_target_spec/3">eval_target_spec/3</a></li><li><a href="#get_config/1">get_config/1</a></li><li><a href="#get_config/3">get_config/3</a></li><li><a href="#get_rel/2">get_rel/2</a></li><li><a href="#get_script/2">get_script/2</a></li><li><a href="#get_status/1">get_status/1</a></li><li><a href="#get_server/1">get_server/1</a></li><li><a href="#get_target_spec/1">get_target_spec/1</a></li><li><a href="#install/2">install/2</a></li><li><a href="#start/0">start/0</a></li><li><a href="#start/1">start/1</a></li><li><a href="#start_link/1">start_link/1</a></li><li><a href="#start_server/1">start_server/1</a></li><li><a href="#stop/1">stop/1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

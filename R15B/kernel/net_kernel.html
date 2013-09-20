@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>net_kernel (kernel) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>net_kernel</h1>
+  <h2 class="modsummary">Erlang Networking Kernel</h2>
+  <div class="description">
+    <p>The net kernel is a system process, registered as
+      <code>net_kernel</code>, which must be running for distributed Erlang
+      to work. The purpose of this process is to implement parts of
+      the BIFs <code>spawn/4</code> and <code>spawn_link/4</code>, and to provide 
+      monitoring of the network.</p>
+    <p>An Erlang node is started using the command line flag
+      <code>-name</code> or <code>-sname</code>:</p>
+<pre class="sh_erlang">$ <code>erl -sname foobar</code></pre>
+    <p>It is also possible to call <code>net_kernel:start([foobar])</code>
+      directly from the normal Erlang shell prompt:</p>
+<pre class="sh_erlang">1&gt; <code>net_kernel:start([foobar, shortnames]).</code>
+{ok,&lt;0.64.0&gt;}
+(foobar@gringotts)2&gt;</pre>
+    <p>If the node is started with the command line flag <code>-sname</code>,
+      the node name will be <code>foobar@Host</code>, where <code>Host</code> is
+      the short name of the host (not the fully qualified domain name).
+      If started with the <code>-name</code> flag, <code>Host</code> is the fully
+      qualified domain name. See <code>erl(1)</code>.</p>
+    <p>Normally, connections are established automatically when
+      another node is referenced. This functionality can be disabled
+      by setting the Kernel configuration parameter
+      <code>dist_auto_connect</code> to <code>false</code>, see
+      <a href="kernel_app.html" class="seealso">kernel(6)</a>. In this case,
+      connections must be established explicitly by calling
+      <code>net_kernel:connect_node/1</code>.</p>
+    <p>Which nodes are allowed to communicate with each other is handled
+      by the magic cookie system, see
+      <a href="../doc/reference_manual/distributed.html" class="seealso">Distributed Erlang</a> in the Erlang Reference Manual.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="allow/1">allow(Nodes) -&gt; ok | error</h3>
+      
+      <div class="description">
+        <p>Limits access to the specified set of nodes. Any access
+          attempts made from (or to) nodes not in <code><anno>Nodes</anno></code> will be
+          rejected.</p>
+        <p>Returns <code>error</code> if any element in <code><anno>Nodes</anno></code> is not
+          an atom.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="connect_node/1">connect_node(Node) -&gt; boolean() | ignored</h3>
+      
+      <div class="description">
+        <p>Establishes a connection to <code><anno>Node</anno></code>. Returns <code>true</code>
+          if successful, <code>false</code> if not, and <code>ignored</code> if
+          the local node is not alive.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="monitor_nodes/1">monitor_nodes(Flag) -&gt; ok | Error</h3>
+      <h3 id="monitor_nodes/2">monitor_nodes(Flag, Options) -&gt; ok | Error</h3>
+      
+      <div class="description">
+        <p>The calling process subscribes or unsubscribes to node
+          status change messages. A <code>nodeup</code> message is delivered
+          to all subscribing process when a new node is connected, and
+          a <code>nodedown</code> message is delivered when a node is
+          disconnected.</p>
+        <p>If <code><anno>Flag</anno></code> is <code>true</code>, a new subscription is started.
+          If <code><anno>Flag</anno></code> is <code>false</code>, all previous subscriptions --
+          started with the same <code><anno>Options</anno></code> -- are stopped. Two
+          option lists are considered the same if they contain the same
+          set of options.</p>
+        <p>As of <code>kernel</code> version 2.11.4, and <code>erts</code> version
+          5.5.4, the following is guaranteed:</p>
+        <list type="bulleted">
+          <item><code>nodeup</code> messages will be delivered before delivery
+           of any message from the remote node passed through the
+           newly established connection.</item>
+          <item><code>nodedown</code> messages will not be delivered until all
+           messages from the remote node that have been passed
+           through the connection have been delivered.</item>
+        </list>
+        <p>Note, that this is <em>not</em> guaranteed for <code>kernel</code>
+          versions before 2.11.4.</p>
+        <p>As of <code>kernel</code> version 2.11.4 subscriptions can also be
+          made before the <code>net_kernel</code> server has been started,
+          i.e., <code>net_kernel:monitor_nodes/[1,2]</code> does not return
+          <code>ignored</code>.</p>
+        <p>As of <code>kernel</code> version 2.13, and <code>erts</code> version
+          5.7, the following is guaranteed:</p>
+        <list type="bulleted">
+          <item><code>nodeup</code> messages will be delivered after the
+	  corresponding node appears in results from
+	  <code>erlang:nodes/X</code>.</item>
+          <item><code>nodedown</code> messages will be delivered after the
+	  corresponding node has disappeared in results from
+	  <code>erlang:nodes/X</code>.</item>
+        </list>
+        <p>Note, that this is <em>not</em> guaranteed for <code>kernel</code>
+          versions before 2.13.</p>
+        <p>The format of the node status change messages depends on
+          <code><anno>Options</anno></code>. If <code><anno>Options</anno></code> is [], which is the default,
+          the format is:</p>
+        <pre class="sh_erlang">
+{nodeup, Node} | {nodedown, Node}
+  Node = node()</pre>
+        <p>If <code><anno>Options</anno> /= []</code>, the format is:</p>
+        <pre class="sh_erlang">
+{nodeup, Node, InfoList} | {nodedown, Node, InfoList}
+  Node = node()
+  InfoList = [{Tag, Val}]</pre>
+        <p><code>InfoList</code> is a list of tuples. Its contents depends on
+          <code><anno>Options</anno></code>, see below.</p>
+        <p>Also, when <code>OptionList == []</code> only visible nodes, that
+          is, nodes that appear in the result of
+          <a href="../erts/erlang.html#nodes/0" class="seealso">nodes/0</a>, are
+          monitored.</p>
+        <p><code><anno>Option</anno></code> can be any of the following:</p>
+        <taglist>
+          <dt><code>{node_type, NodeType}</code></dt>
+          <item>
+            <p>Currently valid values for <code>NodeType</code> are:</p>
+            <taglist>
+              <dt><code>visible</code></dt>
+              <item>Subscribe to node status change messages for visible
+               nodes only. The tuple <code>{node_type, visible}</code> is
+               included in <code>InfoList</code>.</item>
+              <dt><code>hidden</code></dt>
+              <item>Subscribe to node status change messages for hidden
+               nodes only. The tuple <code>{node_type, hidden}</code> is
+               included in <code>InfoList</code>.</item>
+              <dt><code>all</code></dt>
+              <item>Subscribe to node status change messages for both
+               visible and hidden nodes. The tuple
+              <code>{node_type, visible | hidden}</code> is included in
+              <code>InfoList</code>.</item>
+            </taglist>
+          </item>
+          <dt><code>nodedown_reason</code></dt>
+          <item>
+            <p>The tuple <code>{nodedown_reason, Reason}</code> is included in
+              <code>InfoList</code> in <code>nodedown</code> messages. <code>Reason</code>
+              can be:</p>
+            <taglist>
+              <dt><code>connection_setup_failed</code></dt>
+              <item>The connection setup failed (after <code>nodeup</code>
+               messages had been sent).</item>
+              <dt><code>no_network</code></dt>
+              <item>No network available.</item>
+              <dt><code>net_kernel_terminated</code></dt>
+              <item>The <code>net_kernel</code> process terminated.</item>
+              <dt><code>shutdown</code></dt>
+              <item>Unspecified connection shutdown.</item>
+              <dt><code>connection_closed</code></dt>
+              <item>The connection was closed.</item>
+              <dt><code>disconnect</code></dt>
+              <item>The connection was disconnected (forced from the
+               current node).</item>
+              <dt><code>net_tick_timeout</code></dt>
+              <item>Net tick timeout.</item>
+              <dt><code>send_net_tick_failed</code></dt>
+              <item>Failed to send net tick over the connection.</item>
+              <dt><code>get_status_failed</code></dt>
+              <item>Status information retrieval from the <code>Port</code>
+               holding the connection failed.</item>
+            </taglist>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_net_ticktime/0">get_net_ticktime() -&gt; Res</h3>
+      
+      <div class="description">
+        <p>Gets <code>net_ticktime</code> (see
+          <a href="kernel_app.html" class="seealso">kernel(6)</a>).</p>
+        <p>Currently defined return values (<code><anno>Res</anno></code>):</p>
+        <taglist>
+          <dt><code><anno>NetTicktime</anno></code></dt>
+          <item>
+            <p><code>net_ticktime</code> is <code><anno>NetTicktime</anno></code> seconds.</p>
+          </item>
+          <dt><code>{ongoing_change_to, <anno>NetTicktime</anno>}</code></dt>
+          <item>
+            <p><code>net_kernel</code> is currently changing
+              <code>net_ticktime</code> to <code><anno>NetTicktime</anno></code> seconds.</p>
+          </item>
+          <dt><code>ignored</code></dt>
+          <item>
+            <p>The local node is not alive.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="set_net_ticktime/1">set_net_ticktime(NetTicktime) -&gt; Res</h3>
+      <h3 id="set_net_ticktime/2">set_net_ticktime(NetTicktime, TransitionPeriod) -&gt; Res</h3>
+      
+      <div class="description">
+        <p>Sets <code>net_ticktime</code> (see
+          <a href="kernel_app.html" class="seealso">kernel(6)</a>) to
+          <code><anno>NetTicktime</anno></code> seconds. <code><anno>TransitionPeriod</anno></code> defaults
+          to 60.</p>
+        <p>Some definitions:</p>
+        <taglist>
+          <dt>The minimum transition traffic interval (<code>MTTI</code>)</dt>
+          <item>
+            <p><code>minimum(<anno>NetTicktime</anno>, PreviousNetTicktime)*1000 div 4</code> milliseconds.</p>
+          </item>
+          <dt>The transition period</dt>
+          <item>
+            <p>The time of the least number of consecutive <code>MTTI</code>s
+              to cover <code><anno>TransitionPeriod</anno></code> seconds following
+              the call to <code>set_net_ticktime/2</code> (i.e.
+              ((<code><anno>TransitionPeriod</anno>*1000 - 1) div MTTI + 1)*MTTI</code>
+              milliseconds).</p>
+          </item>
+        </taglist>
+        <p>If <code>&lt;anno&gt;NetTicktime&lt;/anno&gt; &lt; PreviousNetTicktime</code>, the actual
+          <code>net_ticktime</code> change will be done at the end of
+          the transition period; otherwise, at the beginning. During
+          the transition period, <code>net_kernel</code> will ensure that
+          there will be outgoing traffic on all connections at least
+          every <code>MTTI</code> millisecond.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>The <code>net_ticktime</code> changes have to be initiated on all
+            nodes in the network (with the same <code><anno>NetTicktime</anno></code>)
+            before the end of any transition period on any node;
+            otherwise, connections may erroneously be disconnected.</p>
+        </div>
+        <p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>unchanged</code></dt>
+          <item>
+            <p><code>net_ticktime</code> already had the value of
+              <code><anno>NetTicktime</anno></code> and was left unchanged.</p>
+          </item>
+          <dt><code>change_initiated</code></dt>
+          <item>
+            <p><code>net_kernel</code> has initiated the change of
+              <code>net_ticktime</code> to <code><anno>NetTicktime</anno></code> seconds.</p>
+          </item>
+          <dt><code>{ongoing_change_to, <anno>NewNetTicktime</anno>}</code></dt>
+          <item>
+            <p>The request was <em>ignored</em>; because,
+              <code>net_kernel</code> was busy changing <code>net_ticktime</code> to
+              <code><anno>NewNetTicktime</anno></code> seconds.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start/1">start([Name]) -&gt; {ok, pid()} | {error, Reason}</h3>
+      <h3 id="start/2">start([Name, NameType]) -&gt; {ok, pid()} | {error, Reason}</h3>
+      <h3 id="start/3">start([Name, NameType, Ticktime]) -&gt; {ok, pid()} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Name = atom()</code></li>
+        <li><code>NameType = shortnames | longnames</code></li>
+        <li><code>Reason = {already_started, pid()} | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Note that the argument is a list with exactly one, two or
+          three arguments. <code>NameType</code> defaults to <code>longnames</code>
+          and <code>Ticktime</code> to 15000.</p>
+        <p>Turns a non-distributed node into a distributed node by
+          starting <code>net_kernel</code> and other necessary processes.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; ok | {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Turns a distributed node into a non-distributed node. For
+          other nodes in the network, this is the same as the node
+          going down. Only possible when the net kernel was started
+          using <code>start/1</code>, otherwise returns
+          <code>{error, not_allowed}</code>. Returns <code>{error, not_found}</code>
+          if the local node is not alive.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#allow">allow</a></li><li><a href="#connect_node">connect_node</a></li><li><a href="#monitor_nodes">monitor_nodes</a></li><li><a href="#monitor_nodes-1">monitor_nodes-1</a></li><li><a href="#get_net_ticktime">get_net_ticktime</a></li><li><a href="#set_net_ticktime">set_net_ticktime</a></li><li><a href="#set_net_ticktime-1">set_net_ticktime-1</a></li><li><a href="#start/1">start/1</a></li><li><a href="#start/2">start/2</a></li><li><a href="#start/3">start/3</a></li><li><a href="#stop">stop</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ssl (ssl) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ssl</h1>
+  <h2 class="modsummary">Interface Functions for Secure Socket Layer</h2>
+  <div class="description">
+    <p>This module contains interface functions to the Secure Socket
+      Layer. 
+    </p>
+  </div>
+  
+  <div class="section">
+    <h4>SSL</h4>
+
+    <list type="bulleted">
+      <item>ssl requires the crypto and public_key applications.</item>
+      <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
+      <item>For security reasons sslv2 is not supported.</item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
+      <item>CRL and policy certificate
+            extensions are not supported yet. </item>
+    </list>
+ 
+  </div>
+  
+  <div class="section">
+    <h4>COMMON DATA TYPES</h4>
+    <p>The following data types are used in the functions below:
+    </p>
+
+    <p><code>boolean() = true | false</code></p>
+
+    <p><code>option() = socketoption() | ssloption() | transportoption()</code></p>
+
+     <p><code>socketoption() = proplists:property() - The default socket options are
+      [{mode,list},{packet, 0},{header, 0},{active, true}].
+    </code></p>
+
+    <p>For valid options
+      see <a href="../kernel/inet.html" class="seealso">inet(3) </a> and
+      <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3) </a>.
+    </p>
+    
+    <p> <code>ssloption() = {verify, verify_type()} |
+      {verify_fun, {fun(), term()}} |
+      {fail_if_no_peer_cert, boolean()}
+      {depth, integer()} |
+      {cert, der_encoded()}| {certfile, path()} |
+      {key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}} |
+      {keyfile, path()} | {password, string()} |
+      {cacerts, [der_encoded()]} | {cacertfile, path()} |
+      |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
+    </code></p>
+
+    <p><code>transportoption() = {CallbackModule, DataTag, ClosedTag}
+	- defaults to {gen_tcp, tcp, tcp_closed}. Ssl may be
+	run over any reliable transport protocol that has
+	an equivalent API to gen_tcp's.</code></p>
+    
+    <p><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CallbackModule =
+	atom()</code>
+    </p> <p><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DataTag =
+	atom() - tag used in socket data message.</code></p>
+    <p><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ClosedTag = atom() - tag used in
+    socket close message.</code></p>
+
+    <p><code>verify_type() = verify_none | verify_peer</code></p>
+    
+    <p><code>path() = string() - representing a file path.</code></p>
+
+    <p><code>der_encoded() = binary() -Asn1 DER encoded entity as an erlang binary.</code></p>
+    
+    <p><code>host() = hostname() | ipaddress()</code></p>
+        
+    <p><code>hostname() = string()</code></p>
+    
+    <p><code>
+      ip_address() = {N1,N2,N3,N4}  % IPv4
+      | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6    </code></p>
+
+    <p><code>sslsocket() - opaque to the user. </code></p>
+    
+    <p><code>protocol() = sslv3 | tlsv1 </code></p>
+    
+    <p><code>ciphers() = [ciphersuite()] | string() (according to old API)</code></p>
+    
+    <p><code>ciphersuite() =
+      {key_exchange(), cipher(), hash()}</code></p>
+    
+    <p><code>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
+    </code></p>
+
+   <p><code>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
+      | aes_128_cbc | aes_256_cbc </code></p>
+
+   <p> <code>hash() = md5 | sha
+    </code></p>
+
+  </div>
+
+  <div class="section">
+    <h4>SSL OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</h4>
+
+    <p>Options described here are options that are have the same
+    meaning in the client and the server.
+    </p>
+    
+    <taglist>
+
+      <dt>{cert, der_encoded()}</dt>
+      <item> The DER encoded users certificate. If this option
+      is supplied it will override the certfile option.</item>
+      
+      <dt>{certfile, path()}</dt>
+      <item>Path to a file containing the user's certificate.</item>
+      
+      <dt>{key, {'RSAPrivateKey'| 'DSAPrivateKey' | 'PrivateKeyInfo', der_encoded()}}</dt>
+      <item> The DER encoded users private key. If this option
+      is supplied it will override the keyfile option.</item>
+      
+      <dt>{keyfile, path()}</dt>
+      <item>Path to file containing user's
+      private PEM encoded key. As PEM-files may contain several
+      entries this option defaults to the same file as given by
+      certfile option.</item>
+
+      <dt>{password, string()}</dt>
+      <item>String containing the user's password.
+	Only used if the private keyfile is password protected.
+      </item>
+
+      <dt>{cacerts, [der_encoded()]}</dt>
+      <item> The DER encoded trusted certificates. If this option
+      is supplied it will override the cacertfile option.</item>
+
+      <dt>{cacertfile, path()}</dt>
+      <item>Path to file containing PEM encoded
+      CA certificates (trusted certificates used for verifying a peer
+      certificate). May be omitted if you do not want to verify
+      the peer.</item>
+
+      <dt>{ciphers, ciphers()}</dt>
+      <item>The cipher suites that should be supported. The function
+      <code>cipher_suites/0</code> can be used to find all available
+      ciphers. Additionally some anonymous cipher suites ({dh_anon,
+      rc4_128, md5}, {dh_anon, des_cbc, sha}, {dh_anon,
+      '3des_ede_cbc', sha}, {dh_anon, aes_128_cbc, sha}, {dh_anon,
+      aes_256_cbc, sha}) are supported for testing purposes and will
+      only work if explicitly enabled by this option and they are supported/enabled
+      by the peer also.
+      </item>
+
+      <dt>{ssl_imp, new | old}</dt>
+      <item>No longer has any meaning as the old implementation has
+      been removed, it will be ignored.
+      </item>
+
+      <dt>{secure_renegotiate, boolean()}</dt>
+      <item>Specifies if to reject renegotiation attempt that does
+      not live up to RFC 5746. By default secure_renegotiate is
+      set to false i.e. secure renegotiation will be used if possible
+      but it will fallback to unsecure renegotiation if the peer
+      does not support RFC 5746.
+      </item>
+
+      <dt>{depth, integer()}</dt>
+      <item>Specifies the maximum
+      verification depth, i.e. how far in a chain of certificates the
+      verification process can proceed before the verification is
+      considered to fail. Peer certificate = 0, CA certificate = 1,
+      higher level CA certificate = 2, etc.  The value 2 thus means
+      that a chain can at most contain peer cert, CA cert, next CA
+      cert, and an additional CA cert. The default value is 1.
+      </item>
+
+      <dt>{verify_fun, {Verifyfun :: fun(), InitialUserState :: term()}}</dt>
+      <item>
+	<p>The verification fun should be defined as:</p>
+
+	<code>
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+	     {extension, #'Extension'{}}, InitialUserState :: term()) -&gt;
+	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+	</code>
+
+	<p>The verify fun will be called during the X509-path
+	validation when an error or an extension unknown to the ssl
+	application is encountered. Additionally it will be called
+	when a certificate is considered valid by the path validation
+	to allow access to each certificate in the path to the user
+	application. Note that it will differentiate between the
+	peer certificate and CA certificates by using valid_peer or
+	valid as the second argument to the verify fun.  See <a href="../public_key/cert_records.html" class="seealso">the public_key User's
+	Guide</a> for definition of #'OTPCertificate'{} and
+	#'Extension'{}.</p>
+
+	<p>If the verify callback fun returns {fail, Reason}, the
+	verification process is immediately stopped and an alert is
+	sent to the peer and the TLS/SSL handshake is terminated. If
+	the verify callback fun returns {valid, UserState}, the
+	verification process is continued.  If the verify callback fun
+	always returns {valid, UserState}, the TLS/SSL handshake will
+	not be terminated with respect to verification failures and
+	the connection will be established. If called with an
+	extension unknown to the user application the return value
+	{unknown, UserState} should be used.</p>
+
+	<p>The default verify_fun option in verify_peer mode:</p>
+
+      <code>
+{fun(_,{bad_cert, _} = Reason, _) -&gt;
+	 {fail, Reason};
+    (_,{extension, _}, UserState) -&gt;
+	 {unknown, UserState};
+    (_, valid, UserState) -&gt;
+	 {valid, UserState};
+    (_, valid_peer, UserState) -&gt;
+         {valid, UserState}
+ end, []}
+      </code>
+
+      <p>The default verify_fun option in verify_none mode:</p>
+
+       <code>
+{fun(_,{bad_cert, _}, UserState) -&gt;
+	 {valid, UserState};
+    (_,{extension, _}, UserState) -&gt;
+	 {unknown, UserState};
+    (_, valid, UserState) -&gt;
+	 {valid, UserState};
+    (_, valid_peer, UserState) -&gt;
+         {valid, UserState}
+ end, []}
+      </code>
+
+<p>Possible path validation errors: </p>
+
+<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
+      </item>
+
+      <dt>{hibernate_after, integer()|undefined}</dt>
+      <item>When an integer-value is specified, the <code>ssl_connection</code>
+            will go into hibernation after the specified number of milliseconds
+            of inactivity, thus reducing its memory footprint. When
+            <code>undefined</code> is specified (this is the default), the process
+            will never go into hibernation.
+      </item>
+    </taglist>
+
+  </div>
+
+   <div class="section">
+    <h4>SSL OPTION DESCRIPTIONS - CLIENT SIDE</h4>
+
+    <p>Options described here are client specific or has a slightly different
+    meaning in the client than in the server.</p>
+
+    <taglist>
+      <dt>{verify, verify_type()}</dt>
+      <item> In verify_none mode the default behavior will be to
+      allow all x509-path validation errors. See also the verify_fun
+      option.
+      </item>
+      <dt>{reuse_sessions, boolean()}</dt>
+      <item>Specifies if client should try to reuse sessions
+      when possible.
+      </item>
+
+    </taglist>
+  </div>
+
+  <div class="section">
+    <h4>SSL OPTION DESCRIPTIONS - SERVER SIDE</h4>
+
+    <p>Options described here are server specific or has a slightly different
+    meaning in the server than in the client.</p>
+
+    <taglist>
+
+      <dt>{dh, der_encoded()}</dt>
+      <item>The DER encoded Diffie Hellman parameters. If this option
+      is supplied it will override the dhfile option.
+      </item>
+
+      <dt>{dhfile, path()}</dt>
+      <item>Path to file containing PEM encoded Diffie Hellman parameters,
+      for the server to use if a cipher suite using Diffie Hellman key exchange
+      is negotiated. If not specified default parameters will be used.
+      </item>
+
+      <dt>{verify, verify_type()}</dt>
+      <item>Servers only do the x509-path validation in verify_peer
+      mode, as it then will send a certificate request to the client
+      (this message is not sent if the verify option is verify_none)
+      and you may then also want to specify the option
+      fail_if_no_peer_cert.
+      </item>
+
+      <dt>{fail_if_no_peer_cert, boolean()}</dt>
+      <item>Used together with {verify, verify_peer} by an ssl server.
+      If set to true, the server will fail if the client does not have
+      a certificate to send, i.e. sends a empty certificate, if set to
+      false it will only fail if the client sends an invalid
+      certificate (an empty certificate is considered valid).
+      </item>
+
+      <dt>{reuse_sessions, boolean()}</dt>
+      <item>Specifies if the server should agree to reuse sessions
+      when the clients request to do so. See also the reuse_session
+      option.
+      </item>
+
+      <dt>{reuse_session, fun(SuggestedSessionId,
+      PeerCert, Compression, CipherSuite) -&gt; boolean()}</dt>
+      <item>Enables the ssl server to have a local policy
+      for deciding if a session should be reused or not,
+      only meaningful if <code>reuse_sessions</code> is set to true.
+      SuggestedSessionId is a binary(),  PeerCert is a DER encoded
+      certificate, Compression is an enumeration integer
+      and CipherSuite is of type ciphersuite().
+      </item>
+
+    </taglist>
+  </div>
+  
+  <div class="section">
+    <h4>General</h4>
+      
+    <p>When an ssl socket is in active mode (the default), data from the
+      socket is delivered to the owner of the socket in the form of
+      messages:
+    </p>
+    <list type="bulleted">
+      <item>{ssl, Socket, Data}
+      </item>
+      <item>{ssl_closed, Socket}
+      </item>
+      <item>
+        {ssl_error, Socket, Reason}
+      </item>
+    </list>
+    
+    <p>A <code>Timeout</code> argument specifies a timeout in milliseconds. The 
+      default value for a <code>Timeout</code> argument is <code>infinity</code>.
+    </p>
+  </div>
+  
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="cipher_suites/0">cipher_suites() -&gt;</h3>
+      <h3 id="cipher_suites/1">cipher_suites(Type) -&gt; ciphers()</h3>
+      
+      <ul class="type">
+        <li><code>Type = erlang | openssl</code></li>
+
+      </ul>
+      <div class="description"><p>Returns a list of supported cipher suites.
+	cipher_suites() is equivalent to cipher_suites(erlang).
+	Type openssl is provided for backwards compatibility with
+	old ssl that used openssl.
+	</p>
+    </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="connect/2">connect(Socket, SslOptions) -&gt; </h3>
+      <h3 id="connect/3">connect(Socket, SslOptions, Timeout) -&gt; {ok, SslSocket}
+	| {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = socket()</code></li>
+        <li><code>SslOptions = [ssloption()]</code></li>
+	<li><code>Timeout = integer() | infinity</code></li>
+	<li><code>SslSocket = sslsocket()</code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description"> <p>Upgrades a gen_tcp, or equivalent,
+	  connected socket to an ssl socket i.e. performs the
+	  client-side ssl handshake.</p>
+    </div>
+    </div>
+
+    <div class="function">
+      <h3 id="connect/3-1">connect(Host, Port, Options) -&gt;</h3>
+      <h3 id="connect/4">connect(Host, Port, Options, Timeout) -&gt;
+	  {ok, SslSocket} | {error, Reason}</h3>
+      
+      <ul class="type">
+	  <li><code>Host = host()</code></li>
+	  <li><code>Port = integer()</code></li>
+	  <li><code>Options = [option()]</code></li>
+	  <li><code>Timeout = integer() | infinity</code></li>
+	  <li><code>SslSocket = sslsocket()</code></li>
+	  <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description"> <p>Opens an ssl connection to Host, Port.</p> </div>
+    </div>
+
+    <div class="function">
+      <h3 id="close/1">close(SslSocket) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+	  <li><code>SslSocket = sslsocket()</code></li>
+	  <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description"><p>Close an ssl connection.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="controlling_process/2">controlling_process(SslSocket, NewOwner) -&gt;
+	ok | {error, Reason}</h3>
+      
+	
+      
+	<ul class="type">
+	  <li><code>SslSocket = sslsocket()</code></li>
+	  <li><code>NewOwner = pid()</code></li>
+	  <li><code>Reason = term()</code></li>
+	</ul>
+	<div class="description"><p>Assigns a new controlling process to the ssl-socket. A
+      controlling process is the owner of an ssl-socket, and receives
+      all messages from the socket.</p>
+      </div>
+    </div>
+
+    <div class="function">
+	<h3 id="connection_info/1">connection_info(SslSocket) -&gt;
+	  {ok, {ProtocolVersion, CipherSuite}} |  {error, Reason} </h3>
+      
+      <ul class="type">
+        <li><code>CipherSuite = ciphersuite()</code></li>
+        <li><code>ProtocolVersion = protocol()</code></li>
+      </ul>
+      <div class="description"><p>Returns the negotiated protocol version and cipher suite.</p> 
+      </div>
+    </div>
+
+     <div class="function">
+      <h3 id="format_error/1">format_error(Reason) -&gt; string()</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Presents the error returned by an ssl function as a printable string.</p>
+      </div>
+    </div>
+   
+    <div class="function">
+      <h3 id="getopts/2">getopts(Socket, OptionNames) -&gt;
+	{ok, [socketoption()]} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Socket = sslsocket()</code></li>
+	<li><code>OptionNames = [atom()]</code></li>
+      </ul>
+      <div class="description">
+	<p>Get the value of the specified socket options.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="listen/2">listen(Port, Options) -&gt;
+	{ok, ListenSocket} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Port = integer()</code></li>
+	<li><code>Options = options()</code></li>
+	<li><code>ListenSocket = sslsocket()</code></li>
+      </ul>
+      <div class="description">
+	<p>Creates an ssl listen socket.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="peercert/1">peercert(Socket) -&gt; {ok, Cert} | {error, Reason}</h3>
+      
+     <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Cert = binary()</code></li>
+      </ul>
+      <div class="description">
+        <p>The peer certificate is returned as a DER encoded binary.
+	  The certificate can be decoded with <code>public_key:pkix_decode_cert/2</code>.
+        </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="peername/1">peername(Socket) -&gt; {ok, {Address, Port}} |
+	{error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Address = ipaddress()</code></li>
+        <li><code>Port = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the address and port number of the peer.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="recv/2">recv(Socket, Length) -&gt; </h3>
+      <h3 id="recv/3">recv(Socket, Length, Timeout) -&gt; {ok, Data} | {error,
+	Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Length = integer()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Data = [char()] | binary()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function receives a packet from a socket in passive
+          mode. A closed socket is indicated by a return value
+          <code>{error, closed}</code>.</p>
+        <p>The <code>Length</code> argument is only meaningful when
+          the socket is in <code>raw</code> mode and denotes the number of
+          bytes to read. If <code>Length</code> = 0, all available bytes are
+          returned. If <code>Length</code> &gt; 0, exactly <code>Length</code>
+          bytes are returned, or an error; possibly discarding less
+          than <code>Length</code> bytes of data when the socket gets closed
+          from the other side.</p>
+        <p>The optional <code>Timeout</code> parameter specifies a timeout in
+          milliseconds. The default value is <code>infinity</code>.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="renegotiate/1">renegotiate(Socket) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Socket = sslsocket()</code></li>
+      </ul>
+      <div class="description"><p>Initiates a new handshake. A notable return value is
+      <code>{error, renegotiation_rejected}</code> indicating that the peer
+      refused to go through with the renegotiation but the connection
+      is still active using the previously negotiated session.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="send/2">send(Socket, Data) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Data = iodata()</code></li>
+      </ul>
+      <div class="description">
+        <p>Writes <code>Data</code> to <code>Socket</code>. </p>
+        <p>A notable return value is <code>{error, closed}</code> indicating that
+          the socket is closed.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="setopts/2">setopts(Socket, Options) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Options = [socketoption]()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets options according to <code>Options</code> for the socket 
+          <code>Socket</code>. </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="shutdown/2">shutdown(Socket, How) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>How = read | write | read_write</code></li>
+        <li><code>Reason = reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Immediately close a socket in one or two directions.</p>
+        <p><code>How == write</code> means closing the socket for writing,
+          reading from it is still possible.</p>
+        <p>To be able to handle that the peer has done a shutdown on
+          the write side, the <code>{exit_on_close, false}</code> option
+          is useful.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="ssl_accept/1">ssl_accept(ListenSocket) -&gt; </h3>
+      <h3 id="ssl_accept/2">ssl_accept(ListenSocket, Timeout) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>ListenSocket = sslsocket()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>The <code>ssl_accept</code> function establish the SSL connection
+          on the server side. It should be called directly after
+          <code>transport_accept</code>, in the spawned server-loop.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="ssl_accept/2-1">ssl_accept(ListenSocket, SslOptions) -&gt; </h3>
+      <h3 id="ssl_accept/3">ssl_accept(ListenSocket, SslOptions, Timeout) -&gt; {ok, Socket} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>ListenSocket = socket()</code></li>
+	<li><code>SslOptions = ssloptions()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p> Upgrades a gen_tcp, or
+	  equivalent, socket to an ssl socket i.e. performs the
+	ssl server-side handshake.</p>
+	<div class="warning"><h2>Warning!</h2><p>Note that the listen socket should be in {active, false} mode
+	before telling the client that the server is ready to upgrade
+	and calling this function, otherwise the upgrade may
+	or may not succeed depending on timing.</p></div>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="sockname/1">sockname(Socket) -&gt; {ok, {Address, Port}} |
+	{error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Address = ipaddress()</code></li>
+        <li><code>Port = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the local address and port number of the socket
+          <code>Socket</code>.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="start/0">start() -&gt; </h3>
+      <h3 id="start/1">start(Type) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Type =  permanent | transient | temporary</code></li>
+      </ul>
+      <div class="description">
+        <p>Starts the Ssl application. Default type
+          is temporary.
+          <a href="../kernel/application.html" class="seealso">application(3)</a></p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; ok </h3>
+      
+      <div class="description">
+        <p>Stops the Ssl application.
+          <a href="../kernel/application.html" class="seealso">application(3)</a></p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="transport_accept/1">transport_accept(Socket) -&gt;</h3>
+      <h3 id="transport_accept/2">transport_accept(Socket, Timeout) -&gt;
+	{ok, NewSocket} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = NewSocket = sslsocket()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Reason = reason()</code></li>
+      </ul>
+      <div class="description">
+        <p>Accepts an incoming connection request on a listen socket.
+          <code>ListenSocket</code> must be a socket returned from
+          <code>listen/2</code>.  The socket returned should be passed to
+          <code>ssl_accept</code> to complete ssl handshaking and
+          establishing the connection.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>The socket returned can only be used with <code>ssl_accept</code>,
+            no traffic can be sent or received before that call.</p>
+        </div>
+        <p>The accepted socket inherits the options set for
+          <code>ListenSocket</code> in <code>listen/2</code>.</p>
+	<p>The default
+          value for <code>Timeout</code> is <code>infinity</code>. If
+          <code>Timeout</code> is specified, and no connection is accepted
+          within the given time, <code>{error, timeout}</code> is
+          returned.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="versions/0">versions() -&gt;
+	[{SslAppVer, SupportedSslVer, AvailableSslVsn}]</h3>
+      
+      <ul class="type">
+	<li><code>SslAppVer = string()</code></li>
+      	<li><code>SupportedSslVer = [protocol()]</code></li>
+      	<li><code>AvailableSslVsn = [protocol()]</code></li>
+      </ul>
+      <div class="description">
+	<p>
+	  Returns version information relevant for the
+	  ssl application.</p>
+      </div>
+    </div>
+  </div> 
+      
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><a href="../kernel/inet.html" class="seealso">inet(3) </a> and 
+      <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3) </a>
+    </p>
+  </div>
+
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#cipher_suites/0">cipher_suites/0</a></li><li><a href="#cipher_suites/1">cipher_suites/1</a></li><li><a href="#connect/2">connect/2</a></li><li><a href="#connect/3">connect/3</a></li><li><a href="#connect/3-1">connect/3-1</a></li><li><a href="#connect/4">connect/4</a></li><li><a href="#close/1">close/1</a></li><li><a href="#controlling_process/2">controlling_process/2</a></li><li><a href="#connection_info/1">connection_info/1</a></li><li><a href="#format_error/1">format_error/1</a></li><li><a href="#getopts/2">getopts/2</a></li><li><a href="#listen/2">listen/2</a></li><li><a href="#peercert/1">peercert/1</a></li><li><a href="#peername/1">peername/1</a></li><li><a href="#recv/2">recv/2</a></li><li><a href="#recv/3">recv/3</a></li><li><a href="#renegotiate/1">renegotiate/1</a></li><li><a href="#send/2">send/2</a></li><li><a href="#setopts/2">setopts/2</a></li><li><a href="#shutdown/2">shutdown/2</a></li><li><a href="#ssl_accept/1">ssl_accept/1</a></li><li><a href="#ssl_accept/2">ssl_accept/2</a></li><li><a href="#ssl_accept/2-1">ssl_accept/2-1</a></li><li><a href="#ssl_accept/3">ssl_accept/3</a></li><li><a href="#sockname/1">sockname/1</a></li><li><a href="#start/0">start/0</a></li><li><a href="#start/1">start/1</a></li><li><a href="#stop/0">stop/0</a></li><li><a href="#transport_accept/1">transport_accept/1</a></li><li><a href="#transport_accept/2">transport_accept/2</a></li><li><a href="#versions/0">versions/0</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+
