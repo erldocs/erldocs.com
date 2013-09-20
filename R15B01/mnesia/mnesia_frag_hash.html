@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>mnesia_frag_hash (mnesia) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>mnesia_frag_hash</h1>
+  <h2 class="modsummary">Defines mnesia_frag_hash callback behaviour</h2>
+  <div class="description">
+    <p>The module <code>mnesia_frag_hash</code> defines a callback
+      behaviour for user defined hash functions of fragmented tables.</p>
+    <p>Which module that is selected to implement the <code>mnesia_frag_hash</code>
+      behaviour for a particular fragmented table is specified together
+      with the other <code>frag_properties</code>. The <code>hash_module</code> defines
+      the module name. The <code>hash_state</code> defines the initial hash state.</p>
+    <p>It implements dynamic hashing which is a kind of hashing
+      that grows nicely when new fragments are added. It is well
+      suited for scalable hash tables</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="init_state/2">init_state(Tab, State) -&gt; NewState | abort(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>Tab = atom()</code></li>
+        <li><code>State = term()</code></li>
+        <li><code>NewState = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is invoked when a fragmented table is
+          created with <code>mnesia:create_table/2</code> or when a
+          normal (un-fragmented) table is converted to be a
+          fragmented table with <code>mnesia:change_table_frag/2</code>.</p>
+        <p>Note that the <code>add_frag/2</code> function will be invoked
+          one time each for the rest of the fragments (all but number 1)
+          as a part of the table creation procedure.</p>
+        <p><code>State</code> is the initial value of the <code>hash_state</code> <code>frag_property</code>. The <code>NewState</code> will be stored as
+          <code>hash_state</code> among the other <code>frag_properties</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="add_frag/1">add_frag(State) -&gt; {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>State = term()</code></li>
+        <li><code>NewState = term()</code></li>
+        <li><code>IterFrags = [integer()]</code></li>
+        <li><code>AdditionalLockFrags = [integer()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>In order to scale well, it is a good idea ensure that the
+          records are evenly distributed over all fragments including
+          the new one.</p>
+        <p>The <code>NewState</code> will be stored as <code>hash_state</code> among the
+          other <code>frag_properties</code>. 
+          </p>
+        <p>As a part of the <code>add_frag</code> procedure, Mnesia will iterate
+          over all fragments corresponding to the <code>IterFrags</code> numbers
+          and invoke <code>key_to_frag_number(NewState,RecordKey)</code> for
+          each record. If the new fragment differs from the old
+          fragment, the record will be moved to the new fragment.</p>
+        <p>As the <code>add_frag</code> procedure is a part of a schema
+          transaction Mnesia will acquire a write locks on the
+          affected tables. That is both the fragments corresponding
+          to <code>IterFrags</code> and those corresponding to
+          <code>AdditionalLockFrags</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="del_frag/1">del_frag(State) -&gt;  {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>State = term()</code></li>
+        <li><code>NewState = term()</code></li>
+        <li><code>IterFrags = [integer()]</code></li>
+        <li><code>AdditionalLockFrags = [integer()]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>The <code>NewState</code> will be stored as <code>hash_state</code> among the
+          other <code>frag_properties</code>. 
+          </p>
+        <p>As a part of the <code>del_frag</code> procedure, Mnesia will iterate
+          over all fragments corresponding to the <code>IterFrags</code> numbers
+          and invoke <code>key_to_frag_number(NewState,RecordKey)</code> for
+          each record. If the new fragment differs from the old
+          fragment, the record will be moved to the new fragment.</p>
+        <p>Note that all records in the last fragment must be moved to
+          another fragment as the entire fragment will be deleted.</p>
+        <p>As the <code>del_frag</code> procedure is a part of a schema
+          transaction Mnesia will acquire a write locks on the
+          affected tables. That is both the fragments corresponding
+          to <code>IterFrags</code> and those corresponding to
+          <code>AdditionalLockFrags</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="key_to_frag_number/2">key_to_frag_number(State, Key) -&gt; FragNum | abort(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>FragNum = integer()()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is invoked whenever Mnesia needs to determine
+          which fragment a certain record belongs to. It is typically
+          invoked at read, write and delete.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="match_spec_to_frag_numbers/2">match_spec_to_frag_numbers(State, MatchSpec) -&gt; FragNums | abort(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>MatcSpec = ets_select_match_spec()</code></li>
+        <li><code>FragNums = [FragNum]</code></li>
+        <li><code>FragNum = integer()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is invoked whenever Mnesia needs to determine
+          which fragments that needs to be searched for a MatchSpec.
+          It is typically invoked at select and match_object.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p>mnesia(3)
+      </p>
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#init_state/2">init_state/2</a></li><li><a href="#add_frag/1">add_frag/1</a></li><li><a href="#del_frag/1">del_frag/1</a></li><li><a href="#key_to_frag_number/2">key_to_frag_number/2</a></li><li><a href="#match_spec_to_frag_numbers/2">match_spec_to_frag_numbers/2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

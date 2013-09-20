@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>fprof (tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>fprof</h1>
+  <h2 class="modsummary">A Time Profiling Tool using trace to file for minimal runtime performance impact.</h2>
+  <div class="description">
+    <p>This module is used to profile a program
+      to find out how the execution time is used.
+      Trace to file is used to minimize 
+      runtime performance impact. 
+      </p>
+    <p>The <code>fprof</code> module uses tracing to collect profiling data, 
+      hence there is no need for special compilation of any module to
+      be profiled. When it starts tracing, <code>fprof</code> will erase all 
+      previous tracing in the node and set the necessary trace flags
+      on the profiling target processes as well as local call trace on
+      all functions in all loaded modules and all modules to be loaded.
+      <code>fprof</code> erases all tracing in the node when it stops tracing.
+      </p>
+    <p><code>fprof</code> presents both <em>own time</em> i.e how much time a
+      function has used for its own execution, and 
+      <em>accumulated time</em> i.e including called functions. 
+      All presented times are
+      collected using trace timestamps. <code>fprof</code> tries to collect
+      cpu time timestamps, if the host machine OS supports it. 
+      Therefore the times may be wallclock times and OS scheduling will 
+      randomly strike all called functions in a presumably fair way.
+      </p>
+    <p>If, however, the profiling time is short, and the host machine
+      OS does not support high resolution cpu time measurements, some
+      few OS schedulings may show up as ridiculously long execution
+      times for functions doing practically nothing. An example of a
+      function more or less just composing a tuple in about 100 times
+      the normal execution time has been seen, and when the tracing
+      was repeated, the execution time became normal.
+      </p>
+    <p>Profiling is essentially done in 3 steps:</p>
+    <taglist>
+      <dt><code>1</code></dt>
+      <item>Tracing; to file, as mentioned in the previous
+       paragraph. The trace contains entries for function calls,
+       returns to function, process scheduling, other process related
+       (spawn, etc) events, and garbage collection. All trace entries
+       are timestamped.</item>
+      <dt><code>2</code></dt>
+      <item>Profiling; the trace file is read, the execution call
+       stack is simulated, and raw profile data is calculated from
+       the simulated call stack and the trace timestamps. The profile
+       data is stored in the <code>fprof</code> server state. During this
+       step the trace data may be dumped in text format to file or
+       console. </item>
+      <dt><code>3</code></dt>
+      <item>Analysing; the raw profile data is sorted, filtered and
+       dumped in text format either to file or console. The text
+       format intended to be both readable for a human reader, as
+       well as parsable with the standard erlang parsing tools.</item>
+    </taglist>
+    <p>Since <code>fprof</code> uses trace to file, the runtime performance
+      degradation is minimized, but still far from negligible,
+      especially for programs that use the filesystem heavily by
+      themselves. Where you place the trace file is also important,
+      e.g on Solaris <code>/tmp</code> is usually a good choice since it is
+      essentially a RAM disk, while any NFS (network) mounted disk is
+      a bad idea.
+      </p>
+    <p><code>fprof</code> can also skip the file step and trace to a tracer
+      process that does the profiling in runtime.
+            <span id="start"> </span>
+</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="start/0">start() -&gt; {ok, Pid} | {error, {already_started, Pid}}</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>Starts the <code>fprof</code>&nbsp;server. 
+          </p>
+        <p>Note that it seldom
+          needs to be started explicitly since it is automatically
+          started by the functions that need a running server.
+                    <span id="stop"> </span>
+</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Same as <code>stop(normal)</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/1">stop(Reason) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Stops the <code>fprof</code>&nbsp;server.
+          </p>
+        <p>The supplied <code>Reason</code> becomes the exit reason for the
+          server process. Default Any
+          <code>Reason</code> other than <code>kill</code> sends a request to the
+          server and waits for it to clean up, reply and exit. If
+          <code>Reason</code> is <code>kill</code>, the server is bluntly killed.
+          </p>
+        <p>If the <code>fprof</code>&nbsp;server is not running, this
+          function returns immediately with the same return value.
+          </p>
+        <div class="note"><h2>Note!</h2>
+          <p>When the <code>fprof</code>&nbsp;server is stopped the
+            collected raw profile data is lost.</p>
+        </div>
+        <span id="apply"> </span>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="apply/2">apply(Func, Args) -&gt; term()</h3>
+      
+      <ul class="type">
+        <li><code>Func = function() | {Module, Function}</code></li>
+        <li><code>Args = [term()]</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Function = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>apply(Func, Args, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="apply/3">apply(Module, Function, Args) -&gt; term()</h3>
+      
+      <ul class="type">
+        <li><code>Args = [term()]</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Function = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>apply({Module, Function}, Args, [])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="apply/3-1">apply(Func, Args, OptionList) -&gt; term()</h3>
+      
+      <ul class="type">
+        <li><code>Func = function() | {Module, Function}</code></li>
+        <li><code>Args = [term()]</code></li>
+        <li><code>OptionList = [Option]</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Function = atom()</code></li>
+        <li><code>Option = continue | start | {procs, PidList} | TraceStartOption</code></li>
+      </ul>
+      <div class="description">
+        <p>Calls <code>erlang:apply(Func, Args)</code> surrounded by
+          <code>trace([start, ...])</code> and
+          <code>trace(stop)</code>.
+          </p>
+        <p>Some effort is made to keep the trace clean from unnecessary
+          trace messages; tracing is started and stopped from a spawned
+          process while the <code>erlang:apply/2</code> call is made in the
+          current process, only surrounded by <code>receive</code> and
+          <code>send</code> statements towards the trace starting
+          process. The trace starting process exits when not needed
+          any more.
+          </p>
+        <p>The <code>TraceStartOption</code> is any option allowed for 
+          <code>trace/1</code>. The options 
+          <code>[start, {procs, [self() | PidList]} | OptList]</code> 
+          are given to <code>trace/1</code>, where <code>OptList</code> is 
+          <code>OptionList</code> with <code>continue</code>, <code>start</code> 
+          and <code>{procs, _}</code> options removed.
+          </p>
+        <p>The <code>continue</code> option inhibits the call to
+          <code>trace(stop)</code> and leaves it up to the caller to stop
+          tracing at a suitable time.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="apply/4">apply(Module, Function, Args, OptionList) -&gt; term()</h3>
+      
+      <ul class="type">
+        <li><code>Module = atom()</code></li>
+        <li><code>Function = atom()</code></li>
+        <li><code>Args = [term()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>apply({Module, Function}, Args, OptionList)</code>.
+          </p>
+        <p><code>OptionList</code> is an option list allowed for 
+          <code>apply/3</code>.
+                    <span id="trace"> </span>
+</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/2">trace(start, Filename) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>trace([start, {file, Filename}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/2-1">trace(verbose, Filename) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>trace([start, verbose, {file, Filename}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/2-2">trace(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>trace([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/1">trace(verbose) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>trace([start, verbose])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/1-1">trace(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>trace([OptionName])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/2-3">trace({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>trace([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="trace/1-2">trace([Option]) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Option = start | stop | {procs, PidSpec} | {procs, [PidSpec]} | verbose | {verbose, bool()} |  file | {file, Filename} | {tracer, Tracer}</code></li>
+        <li><code>PidSpec = pid() | atom()</code></li>
+        <li><code>Tracer = pid() | port()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Starts or stops tracing.
+          </p>
+        <p><code>PidSpec</code> and <code>Tracer</code> are used in calls to
+          <code>erlang:trace(PidSpec, true, [{tracer, Tracer} | Flags])</code>, and <code>Filename</code> is used to call 
+          <code>dbg:trace_port(file, Filename)</code>. Please see the
+          appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <dt><code>stop</code></dt>
+          <item>Stops a running <code>fprof</code> trace and clears all tracing
+           from the node. Either option <code>stop</code> or <code>start</code> must be
+           specified, but not both.</item>
+          <dt><code>start</code></dt>
+          <item>Clears all tracing from the node and starts a new
+          <code>fprof</code> trace. Either option <code>start</code> or
+          <code>stop</code> must be specified, but not both.</item>
+          <dt><code>verbose</code>| <code>{verbose, bool()}</code></dt>
+          <item>The options <code>verbose</code> or <code>{verbose, true}</code>
+           adds some trace flags that <code>fprof</code> does not need, but
+           that may be interesting for general debugging
+           purposes. This option is only
+           allowed with the <code>start</code> option.</item>
+          <dt><code>cpu_time</code>| <code>{cpu_time, bool()}</code></dt>
+          <item>The options <code>cpu_time</code> or <code>{cpu_time, true&gt;</code>
+           makes the timestamps in the trace be in CPU time instead
+           of wallclock time which is the default. This option is
+           only allowed with the <code>start</code> option.</item>
+          <dt><code>{procs, PidSpec}</code>| <code>{procs, [PidSpec]}</code></dt>
+          <item>Specifies which processes that shall be traced. If
+           this option is not given, the calling process is
+           traced. All processes spawned by the traced processes are
+           also traced.
+           This option is only allowed with the <code>start</code> option.</item>
+          <dt><code>file</code>| <code>{file, Filename}</code></dt>
+          <item>Specifies the filename of the trace. 
+           If the option <code>file</code> is given, or none of these
+           options are given, the file <code>"fprof.trace"</code> is used.
+           This option is only allowed with the <code>start</code> option,
+           but not with the <code>{tracer, Tracer}</code> option.</item>
+          <dt><code>{tracer, Tracer}</code></dt>
+          <item>Specifies that trace to process or port shall be done
+           instead of trace to file.
+           This option is only allowed with the <code>start</code> option,
+           but not with the <code>{file, Filename}</code> option.</item>
+        </taglist>
+        <span id="profile"> </span>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="profile/0">profile() -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>profile([])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="profile/2">profile(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>profile([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="profile/1">profile(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>profile([OptionName])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="profile/2-1">profile({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>profile([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="profile/1-1">profile([Option]) -&gt; ok | {ok, Tracer} | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Option = file | {file, Filename} | dump | {dump, Dump} |  append | start | stop</code></li>
+        <li><code>Dump = pid() | Dumpfile | []</code></li>
+        <li><code>Tracer = pid()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Compiles a trace into raw profile data held by the 
+          <code>fprof</code>&nbsp;server.
+          </p>
+        <p><code>Dumpfile</code> is used to call <code>file:open/2</code>, 
+          and <code>Filename</code> is used to call 
+          <code>dbg:trace_port(file, Filename)</code>. Please see the
+          appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <dt><code>file</code>| <code>{file, Filename}</code></dt>
+          <item>Reads the file <code>Filename</code> and creates raw
+           profile data that is stored in RAM by the
+          <code>fprof</code>&nbsp;server. If the option <code>file</code> is
+           given, or none of these options are given, the file
+          <code>"fprof.trace"</code> is read. The call will return when
+           the whole trace has been
+           read with the return value <code>ok</code> if successful.
+           This option is not allowed with the <code>start</code> or
+          <code>stop</code> options.</item>
+          <dt><code>dump</code>| <code>{dump, Dump}</code></dt>
+          <item>Specifies the destination for the trace text dump. If
+           this option is not given, no dump is generated, if it is
+          <code>dump</code> the destination will be the
+           caller's group leader, otherwise the destination
+          <code>Dump</code> is either the pid of an I/O device or
+           a filename. And, finally, if the filename is <code>[]</code> -
+          <code>"fprof.dump"</code> is used instead.
+           This option is not allowed with the <code>stop</code> option.</item>
+          <dt><code>append</code></dt>
+          <item>Causes the trace text dump to be appended to the
+           destination file.
+           This option is only allowed with the  
+          <code>{dump, Dumpfile}</code> option.</item>
+          <dt><code>start</code></dt>
+          <item>Starts a tracer process that profiles trace data in
+           runtime. The call will return immediately with the return
+           value <code>{ok, Tracer}</code> if successful.
+           This option is not allowed with the <code>stop</code>,
+          <code>file</code> or  <code>{file, Filename}</code> options.</item>
+          <dt><code>stop</code></dt>
+          <item>Stops the tracer process that profiles trace data in
+           runtime. The return value will be value <code>ok</code> if successful.
+           This option is not allowed with the <code>start</code>,
+          <code>file</code> or <code>{file, Filename}</code> options.</item>
+        </taglist>
+        <span id="analyse"> </span>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="analyse/0">analyse() -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>analyse([])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="analyse/2">analyse(OptionName, OptionValue) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>analyse([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="analyse/1">analyse(OptionName) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as <code>analyse([OptionName])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="analyse/2-1">analyse({OptionName, OptionValue}) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionName = atom()</code></li>
+        <li><code>OptionValue = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Same as 
+          <code>analyse([{OptionName, OptionValue}])</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="analyse/1-1">analyse([Option]) -&gt; ok | {error, Reason} |  {'EXIT', ServerPid, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Option = dest | {dest, Dest} | append | {cols, Cols} |  callers | {callers, bool()} | no_callers | {sort, SortSpec} | totals | {totals, bool()} |  details | {details, bool()} | no_details</code></li>
+        <li><code>Dest = pid() | Destfile</code></li>
+        <li><code>Cols = integer() &gt;= 80</code></li>
+        <li><code>SortSpec = acc | own</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Analyses raw profile data in the
+          <code>fprof</code>&nbsp;server. If called while there is no raw
+          profile data available, <code>{error, no_profile}</code> is
+          returned. 
+          </p>
+        <p><code>Destfile</code> is used to call <code>file:open/2</code>. 
+          Please see the appropriate documentation.</p>
+        <p>Option description:</p>
+        <taglist>
+          <dt><code>dest</code>| <code>{dest, Dest}</code></dt>
+          <item>Specifies the destination for the analysis. If
+           this option is not given or it is <code>dest</code>, 
+           the destination will be the caller's group leader, 
+           otherwise the destination <code>Dest</code> is either 
+           the <code>pid()</code> of an I/O device or a filename. 
+           And, finally, if the filename is <code>[]</code> -
+          <code>"fprof.analysis"</code> is used instead.</item>
+          <dt><code>append</code></dt>
+          <item>Causes the analysis to be appended to the
+           destination file.
+           This option is only allowed with the  
+          <code>{dest, Destfile}</code> option.</item>
+          <dt><code>{cols, Cols}</code></dt>
+          <item>Specifies the number of columns in the analysis text.
+           If this option is not given the number of columns is set
+           to 80.</item>
+          <dt><code>callers</code>| <code>{callers, true}</code></dt>
+          <item>Prints callers and called information in the
+           analysis. This is the default.</item>
+          <dt><code>{callers, false}</code>| <code>no_callers</code></dt>
+          <item>Suppresses the printing of callers and called
+           information in the analysis.</item>
+          <dt><code>{sort, SortSpec}</code></dt>
+          <item>Specifies if the analysis should be sorted according
+           to the ACC column, which is the default, or the OWN
+           column. See 
+          <a href="#analysis" class="seealso">Analysis Format</a> below.</item>
+          <dt><code>totals</code>| <code>{totals, true}</code></dt>
+          <item>Includes a section containing call statistics
+           for all calls regardless of process, in the analysis.</item>
+          <dt><code>{totals, false}</code></dt>
+          <item>Supresses the totals section in the analysis, which is
+           the default.</item>
+          <dt><code>details</code>| <code>{details, true}</code></dt>
+          <item>Prints call statistics for each process in the
+           analysis. This is the default.</item>
+          <dt><code>{details, false}</code>| <code>no_details</code></dt>
+          <item>Suppresses the call statistics for each process from
+           the analysis.</item>
+        </taglist>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="analysis"> </span>
+    <h4>Analysis format</h4>
+    <p>This section describes the output format of the analyse
+      command. See <a href="#analyse" class="seealso">analyse/0</a>.
+      </p>
+    <p>The format is parsable with the standard Erlang parsing tools
+      <code>erl_scan</code> and <code>erl_parse</code>, <code>file:consult/1</code> or
+      <code>io:read/2</code>. The parse format is not explained here - it
+      should be easy for the interested to try it out. Note that some
+      flags to <code>analyse/1</code> will affect the format. 
+      </p>
+    <p>The following example was run on OTP/R8 on Solaris 8, all OTP
+      internals in this example are very version dependent.
+      </p>
+    <p>As an example, we will use the following function, that you may
+      recognise as a slightly modified benchmark function from the
+      manpage file(3):</p>
+    <pre class="sh_erlang">
+-module(foo).
+-export([create_file_slow/2]).
+
+create_file_slow(Name, N) when integer(N), N &gt;= 0 -&gt;
+    {ok, FD} = 
+        file:open(Name, [raw, write, delayed_write, binary]),
+    if N &gt; 256 -&gt;
+            ok = file:write(FD, 
+                            lists:map(fun (X) -&gt; &lt;&lt;X:32/unsigned&gt;&gt; end,
+                            lists:seq(0, 255))),
+            ok = create_file_slow(FD, 256, N);
+       true -&gt;
+            ok = create_file_slow(FD, 0, N)
+    end,
+    ok = file:close(FD).
+
+create_file_slow(FD, M, M) -&gt;
+    ok;
+create_file_slow(FD, M, N) -&gt;
+    ok = file:write(FD, &lt;&lt;M:32/unsigned&gt;&gt;),
+    create_file_slow(FD, M+1, N).</pre>
+    <p>Let us have a look at the printout after running:</p>
+    <pre class="sh_erlang">
+1&gt; <code>fprof:apply(foo, create_file_slow, [junk, 1024]).</code>
+2&gt; <code>fprof:profile().</code>
+3&gt; <code>fprof:analyse().</code></pre>
+    <p>The printout starts with:</p>
+    <pre class="sh_erlang">
+%% Analysis results:
+{  analysis_options,
+ [{callers, true},
+  {sort, acc},
+  {totals, false},
+  {details, true}]}.
+
+%                                       CNT       ACC       OWN        
+[{ totals,                             9627, 1691.119, 1659.074}].  %%%</pre>
+    <p>The CNT column shows the total number of function calls that
+      was found in the trace. In the ACC column is the total time of
+      the trace from first timestamp to last. And in the OWN
+      column is the sum of the execution time in functions found in the
+      trace, not including called functions. In this case it is very
+      close to the ACC time since the emulator had practically nothing
+      else to do than to execute our test program.
+      </p>
+    <p>All time values in the printout are in milliseconds.
+      </p>
+    <p>The printout continues:</p>
+    <pre class="sh_erlang">
+%                                       CNT       ACC       OWN        
+[{ "&lt;0.28.0&gt;",                         9627,undefined, 1659.074}].   %%</pre>
+    <p>This is the printout header of one process. The printout
+      contains only this one process since we did <code>fprof:apply/3</code>
+      which traces only the current process. Therefore the CNT and
+      OWN columns perfectly matches the totals above. The ACC column is
+      undefined since summing the ACC times of all calls in the process
+      makes no sense - you would get something like the ACC value from
+      totals above multiplied by the average depth of the call stack,
+      or something.
+      </p>
+    <p>All paragraphs up to the next process header only concerns
+      function calls within this process.
+      </p>
+    <p>Now we come to something more interesting:</p>
+    <pre class="sh_erlang">
+{[{undefined,                             0, 1691.076,    0.030}],     
+ { {fprof,apply_start_stop,4},            0, 1691.076,    0.030},     %
+ [{{foo,create_file_slow,2},              1, 1691.046,    0.103},      
+  {suspend,                               1,    0.000,    0.000}]}.    
+
+{[{{fprof,apply_start_stop,4},            1, 1691.046,    0.103}],     
+ { {foo,create_file_slow,2},              1, 1691.046,    0.103},     %
+ [{{file,close,1},                        1, 1398.873,    0.019},      
+  {{foo,create_file_slow,3},              1,  249.678,    0.029},      
+  {{file,open,2},                         1,   20.778,    0.055},      
+  {{lists,map,2},                         1,   16.590,    0.043},      
+  {{lists,seq,2},                         1,    4.708,    0.017},      
+  {{file,write,2},                        1,    0.316,    0.021}]}.    </pre>
+    <p>The printout consists of one paragraph per called function. The
+      function <em>marked</em> with '%' is the one the paragraph
+      concerns - <code>foo:create_file_slow/2</code>. Above the marked
+      function are the <em>calling</em> functions -  those that has
+      called the marked, and below are those <em>called</em> by the
+      marked function. 
+      </p>
+    <p>The paragraphs are per default sorted in decreasing order of
+      the ACC column for the marked function. The calling list and
+      called list within one paragraph are also per default sorted in
+      decreasing order of their ACC column.
+      </p>
+    <p>The columns are: CNT - the number of times the function
+      has been called, ACC - the time spent in the
+      function including called functions, and OWN - the
+      time spent in the function not including called
+      functions. 
+      </p>
+    <p>The rows for the <em>calling</em> functions contain statistics
+      for the <em>marked</em> function with the constraint that only
+      the occasions when a call was made from the <em>row's</em>
+      function to the <em>marked</em> function are accounted for.
+      </p>
+    <p>The row for the <em>marked</em> function simply contains the
+      sum of all <em>calling</em> rows.  
+      </p>
+    <p>The rows for the <em>called</em> functions contains statistics
+      for the <em>row's</em> function with the constraint that only the
+      occasions when a call was made from the <em>marked</em> to the
+      <em>row's</em> function are accounted for.
+      </p>
+    <p>So, we see that <code>foo:create_file_slow/2</code> used very little
+      time for its own execution. It spent most of its time in
+      <code>file:close/1</code>. The function <code>foo:create_file_slow/3</code>
+      that writes 3/4 of the file contents is the second biggest time
+      thief. 
+      </p>
+    <p>We also see that the call to <code>file:write/2</code> that writes
+      1/4 of the file contents takes very little time in itself. What
+      takes time is to build the data (<code>lists:seq/2</code> and
+      <code>lists:map/2</code>).
+      </p>
+    <p>The function 'undefined' that has called
+      <code>fprof:apply_start_stop/4</code> is an unknown function because that
+      call was not recorded in the trace. It was only recorded
+      that the execution returned from
+      <code>fprof:apply_start_stop/4</code> to some other function above in
+      the call stack, or that the process exited from there.
+      </p>
+    <p>Let us continue down the printout to find:</p>
+    <pre class="sh_erlang">
+{[{{foo,create_file_slow,2},              1,  249.678,    0.029},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}],     
+ { {foo,create_file_slow,3},            769,  249.678,   23.323},     %
+ [{{file,write,2},                      768,  220.314,   14.539},      
+  {suspend,                              57,    6.041,    0.000},      
+  {{foo,create_file_slow,3},            768,    0.000,   23.294}]}.    </pre>
+    <p>If you compare with the code you will see there also that
+      <code>foo:create_file_slow/3</code> was called only from
+      <code>foo:create_file_slow/2</code> and itself, and called only
+      <code>file:write/2</code>, note the number of calls to
+      <code>file:write/2</code>. But here we see that <code>suspend</code> was
+      called a few times. This is a pseudo function that indicates
+      that the process was suspended while executing in
+      <code>foo:create_file_slow/3</code>, and since there is no
+      <code>receive</code> or <code>erlang:yield/0</code> in the code, it must be
+      Erlang scheduling suspensions, or the trace file driver
+      compensating for large file write operations (these are regarded
+      as a schedule out followed by a schedule in to the same process).
+      </p>
+    <p  />
+    <p>Let us find the <code>suspend</code> entry:</p>
+    <pre class="sh_erlang">
+{[{{file,write,2},                       53,    6.281,    0.000},      
+  {{foo,create_file_slow,3},             57,    6.041,    0.000},      
+  {{prim_file,drv_command,4},            50,    4.582,    0.000},      
+  {{prim_file,drv_get_response,1},       34,    2.986,    0.000},      
+  {{lists,map,2},                        10,    2.104,    0.000},      
+  {{prim_file,write,2},                  17,    1.852,    0.000},      
+  {{erlang,port_command,2},              15,    1.713,    0.000},      
+  {{prim_file,drv_command,2},            22,    1.482,    0.000},      
+  {{prim_file,translate_response,2},     11,    1.441,    0.000},      
+  {{prim_file,'-drv_command/2-fun-0-',1},  15,    1.340,    0.000},      
+  {{lists,seq,4},                         3,    0.880,    0.000},      
+  {{foo,'-create_file_slow/2-fun-0-',1},   5,    0.523,    0.000},      
+  {{erlang,bump_reductions,1},            4,    0.503,    0.000},      
+  {{prim_file,open_int_setopts,3},        1,    0.165,    0.000},      
+  {{prim_file,i32,4},                     1,    0.109,    0.000},      
+  {{fprof,apply_start_stop,4},            1,    0.000,    0.000}],     
+ { suspend,                             299,   32.002,    0.000},     %
+ [ ]}.</pre>
+    <p>We find no particulary long suspend times, so no function seems
+      to have waited in a receive statement. Actually,
+      <code>prim_file:drv_command/4</code> contains a receive statement, but
+      in this test program, the message lies in the process receive
+      buffer when the receive statement is entered. We also see that
+      the total suspend time for the test run is small.
+      </p>
+    <p>The <code>suspend</code> pseudo function has got an OWN time of
+      zero. This is to prevent the process total OWN time from
+      including time in suspension. Whether suspend time is really ACC
+      or OWN time is more of a philosophical question.
+      </p>
+    <p>Now we look at another interesting pseudo function,
+      <code>garbage_collect</code>:</p>
+    <pre class="sh_erlang">
+{[{{prim_file,drv_command,4},            25,    0.873,    0.873},      
+  {{prim_file,write,2},                  16,    0.692,    0.692},      
+  {{lists,map,2},                         2,    0.195,    0.195}],     
+ { garbage_collect,                      43,    1.760,    1.760},     %
+ [ ]}.</pre>
+    <p>Here we see that no function distinguishes itself considerably,
+      which is very normal.
+      </p>
+    <p>The <code>garbage_collect</code> pseudo function has not got an OWN
+      time of zero like <code>suspend</code>, instead it is equal to the ACC
+      time. 
+      </p>
+    <p>Garbage collect often occurs while a process is suspended, but
+      <code>fprof</code> hides this fact by pretending that the suspended
+      function was first unsuspended and then garbage
+      collected. Otherwise the printout would show
+      <code>garbage_collect</code> being called from <code>suspend</code> but not
+      not which function that might have caused the garbage
+      collection. 
+      </p>
+    <p>Let us now get back to the test code:</p>
+    <pre class="sh_erlang">
+{[{{foo,create_file_slow,3},            768,  220.314,   14.539},      
+  {{foo,create_file_slow,2},              1,    0.316,    0.021}],     
+ { {file,write,2},                      769,  220.630,   14.560},     %
+ [{{prim_file,write,2},                 769,  199.789,   22.573},      
+  {suspend,                              53,    6.281,    0.000}]}.    </pre>
+    <p>Not unexpectedly, we see that <code>file:write/2</code> was called
+      from <code>foo:create_file_slow/3</code> and
+      <code>foo:create_file_slow/2</code>. The number of calls in each case as
+      well as the used time are also just confirms the previous results.
+      </p>
+    <p>We see that <code>file:write/2</code> only calls
+      <code>prim_file:write/2</code>, but let us refrain from digging into the
+      internals of the kernel application.
+      </p>
+    <p>But, if we nevertheless <em>do</em> dig down we find
+      the call to the linked in driver that does the file operations
+      towards the host operating system:</p>
+    <pre class="sh_erlang">
+{[{{prim_file,drv_command,4},           772, 1458.356, 1456.643}],     
+ { {erlang,port_command,2},             772, 1458.356, 1456.643},     %
+ [{suspend,                              15,    1.713,    0.000}]}.    </pre>
+    <p>This is 86 % of the total run time, and as we saw before it
+      is the close operation the absolutely biggest contributor. We
+      find a comparison ratio a little bit up in the call stack:</p>
+    <pre class="sh_erlang">
+{[{{prim_file,close,1},                   1, 1398.748,    0.024},      
+  {{prim_file,write,2},                 769,  174.672,   12.810},      
+  {{prim_file,open_int,4},                1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.147,    0.016}],     
+ { {prim_file,drv_command,2},           772, 1593.322,   12.867},     %
+ [{{prim_file,drv_command,4},           772, 1578.973,   27.265},      
+  {suspend,                              22,    1.482,    0.000}]}.    </pre>
+    <p>The time for file operations in the linked in driver
+      distributes itself as 1 % for open, 11 % for write and 87 % for
+      close. All data is probably buffered in the operating system
+      until the close.
+      </p>
+    <p>The unsleeping reader may notice that the ACC times for 
+      <code>prim_file:drv_command/2</code> and
+      <code>prim_file:drv_command/4</code> is not equal between the
+      paragraphs above, even though it is easy to believe that
+      <code>prim_file:drv_command/2</code> is just a passthrough function.
+      </p>
+    <p>The missing time can be found in the paragraph
+      for <code>prim_file:drv_command/4</code> where it is evident that not
+      only <code>prim_file:drv_command/2</code> is called but also a fun:
+      </p>
+    <pre class="sh_erlang">
+{[{{prim_file,drv_command,2},           772, 1578.973,   27.265}],     
+ { {prim_file,drv_command,4},           772, 1578.973,   27.265},     %
+ [{{erlang,port_command,2},             772, 1458.356, 1456.643},      
+  {{prim_file,'-drv_command/2-fun-0-',1}, 772,   87.897,   12.736},      
+  {suspend,                              50,    4.582,    0.000},      
+  {garbage_collect,                      25,    0.873,    0.873}]}.    </pre>
+    <p>And some more missing time can be explained by the fact that
+      <code>prim_file:open_int/4</code> both calls
+      <code>prim_file:drv_command/2</code> directly as well as through
+      <code>prim_file:open_int_setopts/3</code>, which complicates the
+      picture. 
+      </p>
+    <pre class="sh_erlang">
+{[{{prim_file,open,2},                    1,   20.309,    0.029},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}],     
+ { {prim_file,open_int,4},                2,   20.309,    0.086},     %
+ [{{prim_file,drv_command,2},             1,   19.755,    0.017},      
+  {{prim_file,open_int_setopts,3},        1,    0.360,    0.032},      
+  {{prim_file,drv_open,2},                1,    0.071,    0.030},      
+  {{erlang,list_to_binary,1},             1,    0.020,    0.020},      
+  {{prim_file,i32,1},                     1,    0.017,    0.017},      
+  {{prim_file,open_int,4},                1,    0.000,    0.057}]}.    
+.
+.
+.
+{[{{prim_file,open_int,4},                1,    0.360,    0.032},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}],     
+ { {prim_file,open_int_setopts,3},        2,    0.360,    0.048},     %
+ [{suspend,                               1,    0.165,    0.000},      
+  {{prim_file,drv_command,2},             1,    0.147,    0.016},      
+  {{prim_file,open_int_setopts,3},        1,    0.000,    0.016}]}.    </pre>
+  </div>
+
+  <div class="section">
+    <h4>Notes</h4>
+    <p>The actual supervision of execution times is in itself a
+      CPU intensive activity. A message is written on the trace file
+      for every function call that is made by the profiled code.
+      </p>
+    <p>The ACC time calculation is sometimes difficult to make
+      correct, since it is difficult to define. This happens
+      especially when a function occurs in several instances in the
+      call stack, for example by calling itself perhaps through other
+      functions and perhaps even non-tail recursively.
+      </p>
+    <p>To produce sensible results, <code>fprof</code> tries not to charge
+      any function more than once for ACC time. The instance highest
+      up (with longest duration) in the call stack is chosen.
+      </p>
+    <p>Sometimes a function may unexpectedly waste a lot (some 10 ms
+      or more depending on host machine OS) of OWN (and ACC) time, even
+      functions that does practically nothing at all. The problem may
+      be that the OS has chosen to schedule out the
+      Erlang runtime system process for a while, and if the OS does
+      not support high resolution cpu time measurements
+      <code>fprof</code> will use wallclock time for its calculations, and
+      it will appear as functions randomly burn virtual machine time.</p>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p>dbg(3), <a href="eprof.html" class="seealso">eprof</a>(3), erlang(3), 
+      io(3), 
+      <a href="fprof_chapter.html" class="seealso">Tools User's Guide</a></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#start/0">start/0</a></li><li><a href="#stop/0">stop/0</a></li><li><a href="#stop/1">stop/1</a></li><li><a href="#apply/2">apply/2</a></li><li><a href="#apply/3">apply/3</a></li><li><a href="#apply/3-1">apply/3-1</a></li><li><a href="#apply/4">apply/4</a></li><li><a href="#trace/2">trace/2</a></li><li><a href="#trace/2-1">trace/2-1</a></li><li><a href="#trace/2-2">trace/2-2</a></li><li><a href="#trace/1">trace/1</a></li><li><a href="#trace/1-1">trace/1-1</a></li><li><a href="#trace/2-3">trace/2-3</a></li><li><a href="#trace/1-2">trace/1-2</a></li><li><a href="#profile/0">profile/0</a></li><li><a href="#profile/2">profile/2</a></li><li><a href="#profile/1">profile/1</a></li><li><a href="#profile/2-1">profile/2-1</a></li><li><a href="#profile/1-1">profile/1-1</a></li><li><a href="#analyse/0">analyse/0</a></li><li><a href="#analyse/2">analyse/2</a></li><li><a href="#analyse/1">analyse/1</a></li><li><a href="#analyse/2-1">analyse/2-1</a></li><li><a href="#analyse/1-1">analyse/1-1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

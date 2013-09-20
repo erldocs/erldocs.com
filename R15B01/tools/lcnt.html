@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>lcnt (tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+    
+    <h1>lcnt</h1>
+    <h2 class="modsummary">A runtime system Lock Profiling tool.</h2>
+    <div class="description">
+	<p>The <code>lcnt</code> module is used to profile the internal ethread locks in the
+	    Erlang Runtime System. With <code>lcnt</code> enabled, Internal counters in the
+	    runtime system are updated each time a lock is taken. The counters stores
+	    information about the number of acquisition tries and the number of collisions
+	    that has occurred during the acquisition tries. The counters also record the
+	    waiting time a lock has caused for a blocked thread when a collision has occurred.
+	</p>
+	<p>
+	    The data produced by the lock counters will give an estimate on how well
+	    the runtime system will behave from a parallelizable view point for the
+	    scenarios tested. This tool was mainly developed to help erlang runtime
+	    developers iron out potential and generic bottlenecks.
+	</p>
+	<p>Locks in the emulator are named after what type of resource they protect and where
+	    in the emulator they are initialized, those are lock 'classes'. Most of those
+	    locks are also instantiated several times, and given unique identifiers, to increase
+	    locking granularity. Typically an instantiated lock protects a disjunct set of
+	    the resource, i.e ets-tables, processes or ports. In other cases it protects a
+	    specific range of a resource, e.g. <code>pix_lock</code> which protects index to process
+	    mappings, and is given a unique number within the class. A unique lock in <code>lcnt</code>
+	    is referenced by a name (class) and an identifier, <code>{Name, Id}</code>.
+	</p>
+	<p>Some locks in the system are static and protects global resources, for example
+	    <code>bif_timers</code> and the <code>run_queue</code> locks. Other locks are dynamic and not
+	    necessarily long lived, for example process locks and ets-table locks. The
+	    statistics data from short lived locks can be stored separately when the locks
+	    are deleted. This behavior is by default turned off to save memory but can be
+	    turned on via <code>lcnt:rt_opt({copy_save, true})</code>. The <code>lcnt:apply/1,2,3</code>
+	    functions enables this behavior during profiling.
+	</p>
+    </div>
+    <div class="functions"><h4>Functions</h4><hr  />
+
+	<div class="function">
+	    <h3 id="start/0">start() -&gt; {ok, Pid} | {error, {already_started, Pid}} </h3>
+	    
+	    <ul class="type">
+		<li><code>Pid = pid()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Starts the lock profiler server. The server only act as a medium for the
+		    user and performs filtering and printing of data collected by <code>lcnt:collect/1</code>.
+		</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="stop/0">stop() -&gt; ok</h3>
+	    
+	    <div class="description">
+		<p>Stops the lock profiler server.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="collect/0">collect() -&gt; ok</h3>
+	    
+	    <div class="description"><p>Same as <code>collect(node())</code>.</p></div>
+	</div>
+
+	<div class="function">
+	    <h3 id="collect/1">collect(Node) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Collects lock statistics from the runtime system. The function starts a
+		    server if it is not already started. It then populates the server with lock
+		    statistics. If the server held any lock statistics data before the collect then
+		    that data is lost.
+		</p>
+		<div class="note"><h2>Note!</h2>
+		    <p>
+			When collection occurs the runtime system transitions to a single thread,
+			blocking all other threads. No other tasks will be scheduled during this
+			operation. Depending on the size of the data this might take a long time
+			(several seconds) and cause timeouts in the system.
+		    </p>
+		</div>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="clear/0">clear() -&gt; ok</h3>
+	    
+	    <div class="description"><p>Same as <code>clear(node())</code>.</p></div>
+	</div>
+
+	<div class="function">
+	    <h3 id="clear/1">clear(Node) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Clears the internal lock statistics from the runtime system. This does not clear the
+		    data on the server only on runtime system. All counters for static locks are zeroed,
+		    all dynamic locks currently alive are zeroed and all saved locks now destroyed are removed.
+		    It also resets the duration timer.
+		</p>
+	    </div>
+	</div>
+	<div class="function">
+	    <h3 id="conflicts/0">conflicts() -&gt; ok</h3>
+	    
+	    <div class="description"><p>Same as <code>conflicts([])</code>.</p></div>
+	</div>
+	<div class="function">
+	    <h3 id="conflicts/1">conflicts([Option]) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Option     = {sort, Sort} | {reverse, bool()} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</code></li>
+		<li><code>Sort       = name | id | type | tries | colls | ratio | time | entry</code></li>
+		<li><code>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</code></li>
+		<li><code>Print      = name | id | type | entry | tries | colls | ratio | time | duration</code></li>
+		<li><code>MaxLocks   = integer() | none</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Prints a list of internal locks and its statistics.</p>
+		<p>For option description, see <a href="#inspect/2" class="seealso">lcnt:inspect/2</a>.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="locations/0">locations() -&gt; ok</h3>
+	    
+	    <div class="description">
+		<p>Same as <code>locations([])</code>.</p>
+	    </div>
+	</div>
+	<div class="function">
+	    <h3 id="locations/1">locations([Option]) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()}</code></li>
+		<li><code>Sort       = name | id | type | tries | colls | ratio | time | entry</code></li>
+		<li><code>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</code></li>
+		<li><code>Print      = name | id | type | entry | tries | colls | ratio | time | duration</code></li>
+		<li><code>MaxLocks   = integer() | none</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Prints a list of internal lock counters by source code locations.</p>
+		<p>For option description, see <a href="#inspect/2" class="seealso">lcnt:inspect/2</a>.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="inspect/1">inspect(Lock) -&gt; ok</h3>
+	    
+	    <div class="description"><p>Same as <code>inspect(Lock, [])</code>.</p></div>
+	</div>
+	<div class="function">
+	    <h3 id="inspect/2">inspect(Lock, [Option]) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Lock       = Name | {Name, Id | [Id]}</code></li>
+		<li><code>Name       = atom() | pid() | port()</code></li>
+		<li><code>Id         = atom() | integer() | pid() | port()</code></li>
+		<li><code>Option     = {sort, Sort} | {thresholds, [Thresholds]} | {print, [Print | {Print, integer()}]} | {max_locks, MaxLocks} | {combine, bool()} | {locations, bool()}</code></li>
+		<li><code>Sort       = name | id | type | tries | colls | ratio | time</code></li>
+		<li><code>Thresholds = {tries, integer()} | {colls, integer()} | {time, integer()}</code></li>
+		<li><code>Print      = name | id | type | entry | tries | colls | ratio | time | duration</code></li>
+		<li><code>MaxLocks   = integer() | none</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Prints a list of internal lock counters for a specific lock.</p>
+		<p>Lock <code>Name</code> and <code>Id</code> for ports and processes are interchangeable with the use of <code>lcnt:swap_pid_keys/0</code> and is the reason why <code>pid()</code> and <code>port()</code> options can be used in both <code>Name</code> and <code>Id</code> space. Both pids and ports are special identifiers with stripped creation and can be recreated with <a href="#pid/3" class="seealso">lcnt:pid/2,3</a> and <a href="#port/2" class="seealso">lcnt:port/1,2</a>.  </p>
+		<p>Option description:</p>
+		<taglist>
+		    <dt><code>{combine, bool()}</code></dt>
+		    <item>Combine the statistics from different instances of a lock class.
+			<br  />Default: <code>true</code>
+		    </item>
+
+		    <dt><code>{locations, bool()}</code></dt>
+		    <item>Print the statistics by source file and line numbers.
+			<br  />Default: <code>false</code>
+		    </item>
+
+		    <dt><code>{max_locks, MaxLocks}</code></dt>
+		    <item>Maximum number of locks printed or no limit with <code>none</code>.
+			<br  />Default: <code>20</code>
+		    </item>
+
+		    <dt><code>{print, PrintOptions}</code></dt>
+		    <item>Printing options:
+			<taglist>
+			    <dt><code>name</code></dt>
+			    <item>Named lock or named set of locks (classes). The same name used for initializing the lock in the VM.</item>
+
+			    <dt><code>id</code></dt>
+			    <item>Internal id for set of locks, not always unique. This could be table name for ets tables (db_tab), port id for ports, integer identifiers for allocators, etc.</item>
+
+			    <dt><code>type</code></dt>
+			    <item>Type of lock: <code>rw_mutex</code>, <code>mutex</code>, <code>spinlock</code>, <code>rw_spinlock</code> or <code>proclock</code>.</item>
+
+			    <dt><code>entry</code></dt>
+			    <item>In combination with <code>{locations, true}</code> this option prints the lock operations source file and line number entry-points along with statistics for each entry. </item>
+
+			    <dt><code>tries</code></dt>
+			    <item>Number of acquisitions of this lock.</item>
+
+			    <dt><code>colls</code></dt>
+			    <item>Number of collisions when a thread tried to acquire this lock. This is when a trylock is EBUSY, a write try on read held rw_lock, a try read on write held rw_lock, a thread tries to lock an already locked lock. (Internal states supervises this).</item>
+
+			    <dt><code>ratio</code></dt>
+			    <item>The ratio between the number of collisions and the number of tries (acquisitions) in percentage.</item>
+
+			    <dt><code>time</code></dt>
+			    <item>Accumulated waiting time for this lock. This could be greater than actual wall clock time, it is accumulated for all threads. Trylock conflicts does not accumulate time.</item>
+
+			    <dt><code>duration</code></dt>
+			    <item>Percentage of accumulated waiting time of wall clock time. This percentage can be higher than 100% since accumulated time is from all threads.</item>
+			</taglist>
+			<br  />Default: <code>[name,id,tries,colls,ratio,time,duration]</code>
+		    </item>
+
+		    <dt><code>{reverse, bool()}</code></dt>
+		    <item>Reverses the order of sorting.
+			<br  />Default: <code>false</code>
+		    </item>
+
+		    <dt><code>{sort, Sort}</code></dt>
+		    <item>Column sorting orders.
+			<br  />Default: <code>time</code>
+		    </item>
+
+		    <dt><code>{thresholds, Thresholds}</code></dt>
+		    <item>Filtering thresholds. Anything values above the threshold value are passed through.
+			<br  />Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
+		    </item>
+
+		</taglist>
+
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="information/0">information() -&gt; ok</h3>
+	    
+	    <div class="description">
+		<p>Prints lcnt server state and generic information about collected lock statistics.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="swap_pid_keys/0">swap_pid_keys() -&gt; ok</h3>
+	    
+	    <div class="description">
+		<p>Swaps places on <code>Name</code> and <code>Id</code> space for ports and processes.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="load/1">load(Filename) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Filename = filename()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Restores previously saved data to the server.</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="save/1">save(Filename) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Filename = filename()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Saves the collected data to file.</p>
+	    </div>
+	</div>
+    </div>
+
+    <div class="section">
+	<h4>Convenience functions</h4>
+	<p>The following functions are used for convenience.</p>
+    </div>
+    <div class="functions"><h4>Functions</h4><hr  />
+	<div class="function">
+	    <h3 id="apply/1">apply(Fun) -&gt; term()</h3>
+	    
+	    <div class="description">
+		<p>Same as <code>apply(Fun, [])</code>.</p>
+	    </div>
+	</div>
+	<div class="function">
+	    <h3 id="apply/2">apply(Fun, Args) -&gt; term()</h3>
+	    
+	    <ul class="type">
+		<li><code>Fun = fun()</code></li>
+		<li><code>Args = [term()]</code></li>
+	    </ul>
+	    <div class="description">
+		<p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
+		    After setup the fun is called, passing the elements in <code>Args</code> as arguments.
+		    When the fun returns the statistics are immediately collected to the server. After the
+		    collection the instrumentation is returned to its previous behavior.
+		    The result of the applied fun is returned.
+		</p>
+	    </div>
+	</div>
+	<div class="function">
+	    <h3 id="apply/3">apply(Module, Function, Args) -&gt; term()</h3>
+	    
+	    <ul class="type">
+		<li><code>Module = atom()</code></li>
+		<li><code>Function = atom()</code></li>
+		<li><code>Args = [term()]</code></li>
+	    </ul>
+	    <div class="description">
+		<p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
+		    After setup the function is called, passing the elements in <code>Args</code> as arguments.
+		    When the function returns the statistics are immediately collected to the server. After the
+		    collection the instrumentation is returned to its previous behavior.
+		    The result of the applied function is returned.
+		</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="pid/2">pid(Id, Serial) -&gt; pid()</h3>
+	    
+	    <div class="description"><p>Same as <code>pid(node(), Id, Serial)</code>.</p></div>
+	</div>
+	<div class="function">
+	    <h3 id="pid/3">pid(Node, Id, Serial) -&gt; pid()</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+		<li><code>Id = integer()</code></li>
+		<li><code>Serial = integer()</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Creates a process id with creation 0. Example:</p>
+	    </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="port/1">port(Id) -&gt; port()</h3>
+	    
+	    <div class="description"><p>Same as <code>port(node(), Id)</code>.</p></div>
+	</div>
+	<div class="function">
+	    <h3 id="port/2">port(Node, Id) -&gt; port()</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+		<li><code>Id = integer()</code></li>
+	    </ul>
+	    <div class="description"><p>Creates a port id with creation 0.</p></div>
+	</div>
+
+    </div>
+
+    <div class="section">
+	<h4>Internal runtime lock counter controllers</h4>
+	<p> The following functions control the behavior of the internal counters.  </p>
+    </div>
+
+    <div class="functions"><h4>Functions</h4><hr  />
+	<div class="function">
+	    <h3 id="rt_collect/0">rt_collect() -&gt; [lock_counter_data()]</h3>
+	    
+	    <div class="description"> <p>Same as <code>rt_collect(node())</code>.</p> </div>
+	</div>
+	<div class="function">
+	    <h3 id="rt_collect/1">rt_collect(Node) -&gt; [lock_counter_data()]</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+	    </ul>
+	    <div class="description"> <p>Returns a list of raw lock counter data.</p> </div>
+	</div>
+
+	<div class="function">
+	    <h3 id="rt_clear/0">rt_clear() -&gt; ok</h3>
+	    
+	    <div class="description"> <p>Same as <code>rt_clear(node())</code>.</p> </div>
+	</div>
+	<div class="function">
+	    <h3 id="rt_clear/1">rt_clear(Node) -&gt; ok</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+	    </ul>
+	    <div class="description"> <p>Clear the internal counters. Same as <code>lcnt:clear(Node)</code>.</p></div>
+	</div>
+
+	<div class="function">
+	    <h3 id="rt_opt/2">rt_opt({Type, bool()}) -&gt; bool()</h3>
+	    
+	    <div class="description"> <p>Same as <code>rt_opt(node(), {Type, Opt})</code>.</p> </div>
+	</div>
+	<div class="function">
+	    <h3 id="rt_opt/3">rt_opt(Node, {Type, bool()}) -&gt; bool()</h3>
+	    
+	    <ul class="type">
+		<li><code>Node = node()</code></li>
+		<li><code>Type = copy_save | process_locks</code></li>
+	    </ul>
+	    <div class="description">
+		<p>Changes the lock counter behavior and returns the previous behaviour.</p>
+		<p>Option description:</p>
+		<taglist>
+		    <dt><code>{copy_save, bool()}</code></dt>
+		    <item>Enable statistics saving from destroyed locks by copying. This might consume a lot of memory.
+			<br  />Default: <code>false</code>
+		    </item>
+
+		    <dt><code>{process_locks, bool()}</code></dt>
+		    <item>Profile process locks.
+			<br  />Default: <code>true</code>
+		    </item>
+		</taglist>
+	    </div>
+	</div>
+    </div>
+
+    <div class="section">
+	<h4>See Also</h4>
+	<p> <a href="lcnt_chapter.html" class="seealso">LCNT User's Guide</a></p>
+    </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#start/0">start/0</a></li><li><a href="#stop/0">stop/0</a></li><li><a href="#collect/0">collect/0</a></li><li><a href="#collect/1">collect/1</a></li><li><a href="#clear/0">clear/0</a></li><li><a href="#clear/1">clear/1</a></li><li><a href="#conflicts/0">conflicts/0</a></li><li><a href="#conflicts/1">conflicts/1</a></li><li><a href="#locations/0">locations/0</a></li><li><a href="#locations/1">locations/1</a></li><li><a href="#inspect/1">inspect/1</a></li><li><a href="#inspect/2">inspect/2</a></li><li><a href="#information/0">information/0</a></li><li><a href="#swap_pid_keys/0">swap_pid_keys/0</a></li><li><a href="#load/1">load/1</a></li><li><a href="#save/1">save/1</a></li><li><a href="#apply/1">apply/1</a></li><li><a href="#apply/2">apply/2</a></li><li><a href="#apply/3">apply/3</a></li><li><a href="#pid/2">pid/2</a></li><li><a href="#pid/3">pid/3</a></li><li><a href="#port/1">port/1</a></li><li><a href="#port/2">port/2</a></li><li><a href="#rt_collect/0">rt_collect/0</a></li><li><a href="#rt_collect/1">rt_collect/1</a></li><li><a href="#rt_clear/0">rt_clear/0</a></li><li><a href="#rt_clear/1">rt_clear/1</a></li><li><a href="#rt_opt/2">rt_opt/2</a></li><li><a href="#rt_opt/3">rt_opt/3</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

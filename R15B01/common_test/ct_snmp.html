@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>ct_snmp (common_test) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+<h1>ct_snmp</h1>
+<h2 class="modsummary">Common Test user interface module for the OTP snmp application.</h2>
+<div class="description">
+<p>Common Test user interface module for the OTP snmp application</p>
+  
+   <p>The purpose of this module is to make snmp configuration easier for
+   the test case writer. Many test cases can use default values for common
+   operations and then no snmp configuration files need to be supplied. When
+   it is necessary to change particular configuration parameters, a subset
+   of the relevant snmp configuration files may be passed to <code>ct_snmp</code>   
+by means of Common Test configuration files.   
+For more specialized configuration parameters, it is possible to place a   
+"simple snmp configuration file" in the test suite data directory.   
+To simplify the test suite, Common Test keeps track   
+of some of the snmp manager information. This way the test suite doesn't   
+have to handle as many input parameters as it would if it had to interface the   
+OTP snmp manager directly.</p>
+  
+   <p> The following snmp manager and agent parameters are configurable: </p>
+  
+   <pre class="sh_erlang">
+   {snmp,
+          %%% Manager config
+          [{start_manager, boolean()}    % Optional - default is true
+          {users, [{user_name(), [call_back_module(), user_data()]}]}, %% Optional
+          {usm_users, [{usm_user_name(), usm_config()}]},%% Optional - snmp v3 only
+          % managed_agents is optional
+          {managed_agents,[{agent_name(), [user_name(), agent_ip(), agent_port(), [agent_config()]]}]},
+          {max_msg_size, integer()},     % Optional - default is 484
+          {mgr_port, integer()},         % Optional - default is 5000
+          {engine _id, string()},        % Optional - default is "mgrEngine"
+  
+          %%% Agent config
+          {start_agent, boolean()},      % Optional - default is false
+          {agent_sysname, string()},     % Optional - default is "ct_test"
+          {agent_manager_ip, manager_ip()}, % Optional - default is localhost
+          {agent_vsns, list()},          % Optional - default is [v2]
+          {agent_trap_udp, integer()},   % Optional - default is 5000
+          {agent_udp, integer()},        % Optional - default is 4000
+          {agent_notify_type, atom()},   % Optional - default is trap
+          {agent_sec_type, sec_type()},  % Optional - default is none
+          {agent_passwd, string()},      % Optional - default is ""
+          {agent_engine_id, string()},   % Optional - default is "agentEngine"
+          {agent_max_msg_size, string()},% Optional - default is 484
+  
+          %% The following parameters represents the snmp configuration files
+          %% context.conf, standard.conf, community.conf, vacm.conf,
+          %% usm.conf, notify.conf, target_addr.conf and target_params.conf.
+          %% Note all values in agent.conf can be altered by the parametes
+          %% above. All these configuration files have default values set
+          %% up by the snmp application. These values can be overridden by
+          %% suppling a list of valid configuration values or a file located
+          %% in the test suites data dir that can produce a list
+          %% of valid configuration values if you apply file:consult/1 to the
+          %% file.
+          {agent_contexts, [term()] | {data_dir_file, rel_path()}}, % Optional
+          {agent_community, [term()] | {data_dir_file, rel_path()}},% Optional
+          {agent_sysinfo,  [term()] | {data_dir_file, rel_path()}}, % Optional
+          {agent_vacm, [term()] | {data_dir_file, rel_path()}},     % Optional
+          {agent_usm, [term()] | {data_dir_file, rel_path()}},      % Optional
+          {agent_notify_def, [term()] | {data_dir_file, rel_path()}},% Optional
+          {agent_target_address_def, [term()] | {data_dir_file, rel_path()}},% Optional
+          {agent_target_param_def, [term()] | {data_dir_file, rel_path()}},% Optional
+         ]}.
+   </pre>
+  
+   <p>The <code>MgrAgentConfName</code> parameter in the functions
+   should be a name you allocate in your test suite using a
+   <code>require</code> statement.
+   Example (where <code>MgrAgentConfName = snmp_mgr_agent</code>):</p>
+   <pre class="sh_erlang"> suite() -&gt; [{require, snmp_mgr_agent, snmp}].</pre>
+   <p>or</p>
+   <pre class="sh_erlang">  ct:require(snmp_mgr_agent, snmp).</pre>
+  
+   <p> Note that Usm users are needed for snmp v3 configuration and are
+   not to be confused with users.</p>
+  
+   <p> Snmp traps, inform and report messages are handled by the
+   user callback module. For more information about this see
+   the snmp application. </p>
+   <p> Note: It is recommended to use the .hrl-files created by the
+   Erlang/OTP mib-compiler to define the oids.
+   Example for the getting the erlang node name from the erlNodeTable
+   in the OTP-MIB:</p>
+   <pre class="sh_erlang">Oid = ?erlNodeEntry ++ [?erlNodeName, 1] </pre>
+  
+   <p>It is also possible to set values for snmp application configuration
+   parameters, such as <code>config</code>, <code>server</code>,
+   <code>net_if</code>, etc (see the "Configuring the application" chapter in
+   the OTP snmp User's Guide for a list of valid parameters and types). This is
+   done by defining a configuration data variable on the following form:</p>
+   <pre class="sh_erlang">
+   {snmp_app, [{manager, [snmp_app_manager_params()]},
+               {agent, [snmp_app_agent_params()]}]}.</pre>
+  
+   <p>A name for the data needs to be allocated in the suite using
+   <code>require</code> (see example above), and this name passed as
+   the <code>SnmpAppConfName</code> argument to <code>start/3</code>.
+   <code>ct_snmp</code> specifies default values for some snmp application
+   configuration parameters (such as <code>{verbosity,trace}</code> for the
+   <code>config</code> parameter). This set of defaults will be
+   merged with the parameters specified by the user, and user values
+   override <code>ct_snmp</code> defaults.</p></div>
+<div class="section"><h4>DATA TYPES</h4><span id="types"> </span>
+
+<taglist>
+<dt><code>agent_config() = {Item, Value}</code></dt>
+<item><span id="type-agent_config"> </span> </item>
+<dt><code>agent_ip() = ip()</code></dt>
+<item><span id="type-agent_ip"> </span> </item>
+<dt><code>agent_name() = atom()</code></dt>
+<item><span id="type-agent_name"> </span> </item>
+<dt><code>agent_port() = integer()</code></dt>
+<item><span id="type-agent_port"> </span> </item>
+<dt><code>call_back_module() = atom()</code></dt>
+<item><span id="type-call_back_module"> </span> </item>
+<dt><code>error_index() = integer()</code></dt>
+<item><span id="type-error_index"> </span> </item>
+<dt><code>error_status() = noError | atom()</code></dt>
+<item><span id="type-error_status"> </span> </item>
+<dt><code>ip() = string() | {integer(), integer(), integer(), integer()}</code></dt>
+<item><span id="type-ip"> </span> </item>
+<dt><code>manager_ip() = ip()</code></dt>
+<item><span id="type-manager_ip"> </span> </item>
+<dt><code>oid() = [byte()]</code></dt>
+<item><span id="type-oid"> </span> </item>
+<dt><code>oids() = [oid()]</code></dt>
+<item><span id="type-oids"> </span> </item>
+<dt><code>rel_path() = string()</code></dt>
+<item><span id="type-rel_path"> </span> </item>
+<dt><code>sec_type() = none | minimum | semi</code></dt>
+<item><span id="type-sec_type"> </span> </item>
+<dt><code>snmp_app_agent_params() = term()</code></dt>
+<item><span id="type-snmp_app_agent_params"> </span> </item>
+<dt><code>snmp_app_manager_params() = term()</code></dt>
+<item><span id="type-snmp_app_manager_params"> </span> </item>
+<dt><code>snmpreply() = {error_status(), error_index(), varbinds()}</code></dt>
+<item><span id="type-snmpreply"> </span> </item>
+<dt><code>user_data() = term()</code></dt>
+<item><span id="type-user_data"> </span> </item>
+<dt><code>user_name() = atom()</code></dt>
+<item><span id="type-user_name"> </span> </item>
+<dt><code>usm_config() = string()</code></dt>
+<item><span id="type-usm_config"> </span> </item>
+<dt><code>usm_user_name() = string()</code></dt>
+<item><span id="type-usm_user_name"> </span> </item>
+<dt><code>value_type() = o('OBJECT IDENTIFIER') | i('INTEGER') | u('Unsigned32') | g('Unsigned32') | s('OCTET STRING')</code></dt>
+<item><span id="type-value_type"> </span> </item>
+<dt><code>var_and_val() = {oid(), value_type(), value()}</code></dt>
+<item><span id="type-var_and_val"> </span> </item>
+<dt><code>varbind() = term()</code></dt>
+<item><span id="type-varbind"> </span> </item>
+<dt><code>varbinds() = [varbind()]</code></dt>
+<item><span id="type-varbinds"> </span> </item>
+<dt><code>varsandvals() = [var_and_val()]</code></dt>
+<item><span id="type-varsandvals"> </span> </item>
+</taglist></div>
+<div class="functions"><h4>Functions</h4><hr  />
+<div class="function">
+<h3 id="start/2">start(Config, MgrAgentConfName) -&gt; ok</h3>
+
+
+<div class="description"><span id="start-2"> </span>
+<p>Equivalent to <a href="#start-3" class="seealso">start(Config, MgrAgentConfName, undefined)</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="start/3">start(Config, MgrAgentConfName, SnmpAppConfName) -&gt; ok</h3>
+
+<ul class="type">
+<li><code>Config = [{Key, Value}]</code></li><li><code>Key = atom()</code></li><li><code>Value = term()</code></li><li><code>MgrAgentConfName = atom()</code></li><li><code>SnmpConfName = atom()</code></li></ul>
+<div class="description"><span id="start-3"> </span>
+
+<p>Starts an snmp manager and/or agent. In the manager case,
+   registrations of users and agents as specified by the configuration
+   <code>MgrAgentConfName</code> will be performed. When using snmp
+   v3 also so called usm users will be registered. Note that users,
+   usm_users and managed agents may also be registered at a later time
+   using ct_snmp:register_users/2, ct_snmp:register_agents/2, and
+   ct_snmp:register_usm_users/2. The agent started will be
+   called <code>snmp_master_agent</code>. Use ct_snmp:load_mibs/1 to load
+   mibs into the agent. With <code>SnmpAppConfName</code> it's possible
+   to configure the snmp application with parameters such as <code>config</code>,
+   <code>mibs</code>, <code>net_if</code>, etc. The values will be merged
+   with (and possibly override) default values set by <code>ct_snmp</code>.</p>
+</div></div>
+<div class="function">
+<h3 id="stop/1">stop(Config) -&gt; ok</h3>
+
+<ul class="type">
+<li><code>Config = [{Key, Value}]</code></li><li><code>Key = atom()</code></li><li><code>Value = term()</code></li></ul>
+<div class="description"><span id="stop-1"> </span>
+
+<p>Stops the snmp manager and/or agent removes all files created.</p>
+</div></div>
+<div class="function">
+<h3 id="get_values/3">get_values(Agent, Oids, MgrAgentConfName) -&gt; SnmpReply</h3>
+
+<ul class="type">
+<li><code>Agent = agent_name()</code></li><li><code>Oids = oids()</code></li><li><code>MgrAgentConfName = atom()</code></li><li><code>SnmpReply = snmpreply()</code></li></ul>
+<div class="description"><span id="get_values-3"> </span>
+
+<p>Issues a synchronous snmp get request.</p>
+</div></div>
+<div class="function">
+<h3 id="get_next_values/3">get_next_values(Agent, Oids, MgrAgentConfName) -&gt; SnmpReply</h3>
+
+<ul class="type">
+<li><code>Agent = agent_name()</code></li><li><code>Oids = oids()</code></li><li><code>MgrAgentConfName = atom()</code></li><li><code>SnmpReply = snmpreply()</code></li></ul>
+<div class="description"><span id="get_next_values-3"> </span>
+
+<p>Issues a synchronous snmp get next request.</p>
+</div></div>
+<div class="function">
+<h3 id="set_values/4">set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -&gt; SnmpReply</h3>
+
+<ul class="type">
+<li><code>Agent = agent_name()</code></li><li><code>Oids = oids()</code></li><li><code>MgrAgentConfName = atom()</code></li><li><code>Config = [{Key, Value}]</code></li><li><code>SnmpReply = snmpreply()</code></li></ul>
+<div class="description"><span id="set_values-4"> </span>
+
+<p>Issues a synchronous snmp set request.</p>
+</div></div>
+<div class="function">
+<h3 id="set_info/1">set_info(Config) -&gt; [{Agent, OldVarsAndVals, NewVarsAndVals}]</h3>
+
+<ul class="type">
+<li><code>Config = [{Key, Value}]</code></li><li><code>Agent = agent_name()</code></li><li><code>OldVarsAndVals = varsandvals()</code></li><li><code>NewVarsAndVals = varsandvals()</code></li></ul>
+<div class="description"><span id="set_info-1"> </span>
+
+<p>Returns a list of all successful set requests performed in
+   the test case in reverse order. The list contains the involved
+   user and agent, the value prior to the set and the new value. This
+   is intended to facilitate the clean up in the end_per_testcase
+   function i.e. the undoing of the set requests and its possible
+   side-effects.</p>
+</div></div>
+<div class="function">
+<h3 id="register_users/2">register_users(MgrAgentConfName, Users) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>Users = [user()]</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="register_users-2"> </span>
+
+<p>Register the manager entity (=user) responsible for specific agent(s).
+   Corresponds to making an entry in users.conf</p>
+</div></div>
+<div class="function">
+<h3 id="register_agents/2">register_agents(MgrAgentConfName, ManagedAgents) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>ManagedAgents = [agent()]</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="register_agents-2"> </span>
+
+<p>Explicitly instruct the manager to handle this agent.
+   Corresponds to making an entry in agents.conf</p>
+</div></div>
+<div class="function">
+<h3 id="register_usm_users/2">register_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>UsmUsers = [usm_user()]</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="register_usm_users-2"> </span>
+
+<p>Explicitly instruct the manager to handle this USM user.
+   Corresponds to making an entry in usm.conf</p>
+</div></div>
+<div class="function">
+<h3 id="unregister_users/1">unregister_users(MgrAgentConfName) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="unregister_users-1"> </span>
+
+<p>Removes information added when calling register_users/2.</p>
+</div></div>
+<div class="function">
+<h3 id="unregister_agents/1">unregister_agents(MgrAgentConfName) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="unregister_agents-1"> </span>
+
+<p> Removes information added when calling register_agents/2.</p>
+</div></div>
+<div class="function">
+<h3 id="update_usm_users/2">update_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>MgrAgentConfName = atom()</code></li><li><code>UsmUsers = usm_users()</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="update_usm_users-2"> </span>
+
+<p> Alters information added when calling register_usm_users/2.</p>
+</div></div>
+<div class="function">
+<h3 id="load_mibs/1">load_mibs(Mibs) -&gt; ok | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>Mibs = [MibName]</code></li><li><code>MibName = string()</code></li><li><code>Reason = term()</code></li></ul>
+<div class="description"><span id="load_mibs-1"> </span>
+
+<p>Load the mibs into the agent 'snmp_master_agent'.</p>
+</div></div></div>
+
+<authors>
+<aname> </aname>
+<email> </email></authors>
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#start/2">start/2</a></li><li><a href="#start/3">start/3</a></li><li><a href="#stop/1">stop/1</a></li><li><a href="#get_values/3">get_values/3</a></li><li><a href="#get_next_values/3">get_next_values/3</a></li><li><a href="#set_values/4">set_values/4</a></li><li><a href="#set_info/1">set_info/1</a></li><li><a href="#register_users/2">register_users/2</a></li><li><a href="#register_agents/2">register_agents/2</a></li><li><a href="#register_usm_users/2">register_usm_users/2</a></li><li><a href="#unregister_users/1">unregister_users/1</a></li><li><a href="#unregister_agents/1">unregister_agents/1</a></li><li><a href="#update_usm_users/2">update_usm_users/2</a></li><li><a href="#load_mibs/1">load_mibs/1</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+
