@@ -1,0 +1,3189 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<erlref>
+<header>
+<title>erl_syntax</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno>1</docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>A</rev>
+<file>erl_syntax.xml</file></header>
+<module>erl_syntax</module>
+<modulesummary>Abstract Erlang syntax trees.</modulesummary>
+<description>
+<p>Abstract Erlang syntax trees.</p>
+ 
+  <p>This module defines an abstract data type for representing Erlang
+  source code as syntax trees, in a way that is backwards compatible
+  with the data structures created by the Erlang standard library
+  parser module <c>erl_parse</c> (often referred to as "parse
+  trees", which is a bit of a misnomer). This means that all
+  <c>erl_parse</c> trees are valid abstract syntax trees, but the
+  reverse is not true: abstract syntax trees can in general not be used
+  as input to functions expecting an <c>erl_parse</c> tree.
+  However, as long as an abstract syntax tree represents a correct
+  Erlang program, the function <seealso marker="#revert-1">revert/1</seealso> should be able to
+  transform it to the corresponding <c>erl_parse</c>  
+representation.</p>
+ 
+  <p>A recommended starting point for the first-time user is the documentation
+  of the <seealso marker="#type-syntaxTree">syntaxTree()</seealso> data type, and the function <seealso marker="#type-1">type/1</seealso>.</p>
+ 
+  <p><em>NOTES:</em></p>
+ 
+  <p>This module deals with the composition and decomposition of
+  <em>syntactic</em> entities (as opposed to semantic ones); its  
+purpose is to hide all direct references to the data structures used  
+to represent these entities. With few exceptions, the functions in  
+this module perform no semantic interpretation of their inputs, and  
+in general, the user is assumed to pass type-correct arguments - if  
+this is not done, the effects are not defined.</p>
+ 
+  <p>With the exception of the <seealso marker="#type-erl_parse">erl_parse()</seealso> data structures,
+  the internal representations of abstract syntax trees are subject to
+  change without notice, and should not be documented outside this
+  module. Furthermore, we do not give any guarantees on how an abstract
+  syntax tree may or may not be represented, <em>with the following
+  exceptions</em>: no syntax tree is represented by a single atom, such
+  as <c>none</c>, by a list constructor <c>[X | Y]</c>, or
+  by the empty list <c>[]</c>. This can be relied on when writing
+  functions that operate on syntax trees.</p></description>
+<section><title>DATA TYPES</title><marker id="types"/>
+
+<taglist>
+<tag><c>encoding() = utf8 | unicode | latin1</c></tag>
+<item><marker id="type-encoding"/> </item>
+<tag><c>erl_parse() = abstract_form() (see module erl_parse) | abstract_expr() (see module erl_parse)</c></tag>
+<item><marker id="type-erl_parse"/>
+<p>  The representation built by the Erlang standard library parser
+  <c>erl_parse</c>. This is a subset of the <seealso marker="#type-syntaxTree">syntaxTree()</seealso> type.</p>
+</item>
+<tag><c>forms() = syntaxTree() | [syntaxTree()]</c></tag>
+<item><marker id="type-forms"/> </item>
+<tag><c>guard() = none | syntaxTree() | [syntaxTree()] | [[syntaxTree()]]</c></tag>
+<item><marker id="type-guard"/> </item>
+<tag><c>padding() = none | integer()</c></tag>
+<item><marker id="type-padding"/> </item>
+<tag><c>syntaxTree()</c></tag>
+<item><marker id="type-syntaxTree"/>
+<p>An abstract syntax tree. The <seealso marker="#type-erl_parse">erl_parse()</seealso>
+  "parse tree" representation is a proper subset of the <c>syntaxTree()</c>  
+representation.</p>
+ 
+  <p>Every abstract syntax tree node has a <em>type</em>, given by the
+  function <seealso marker="#type-1">type/1</seealso>. Each node also has associated
+  <em>attributes</em>; see <seealso marker="#get_attrs-1">get_attrs/1</seealso> for details. The functions
+  <seealso marker="#make_tree-2">make_tree/2</seealso> and <seealso marker="#subtrees-1">subtrees/1</seealso> are generic
+  constructor/decomposition functions for abstract syntax trees. The
+  functions <seealso marker="#abstract-1">abstract/1</seealso> and <seealso marker="#concrete-1">concrete/1</seealso> convert between
+  constant Erlang terms and their syntactic representations. The set of
+  syntax tree nodes is extensible through the <seealso marker="#tree-2">tree/2</seealso> function.</p>
+ 
+  <p>A syntax tree can be transformed to the <seealso marker="#type-erl_parse">erl_parse()</seealso>
+  representation with the <seealso marker="#revert-1">revert/1</seealso> function.</p>
+</item>
+<tag><c>syntaxTreeAttributes()</c></tag>
+<item><marker id="type-syntaxTreeAttributes"/>
+<p>This is an abstract representation of
+  syntax tree node attributes; see the function <seealso marker="#get_attrs-1">get_attrs/1</seealso>.
+ </p>
+</item>
+</taglist></section>
+<funcs>
+<func>
+<name>type(Tree::syntaxTree()) -&gt; atom()</name>
+<fsummary>Returns the type tag of Node.</fsummary>
+
+<desc><marker id="type-1"/>
+
+<p>Returns the type tag of <c>Node</c>. If <c>Node</c>
+  does not represent a syntax tree, evaluation fails with reason
+  <c>badarg</c>. Node types currently defined by this module are:</p>
+ 
+  <p>
+   
+    application
+    arity_qualifier
+    atom
+    attribute
+   <br/>
+    binary
+    binary_field
+    block_expr
+    case_expr
+   <br/>
+    catch_expr
+    char
+    class_qualifier
+    clause
+   <br/>
+    comment
+    cond_expr
+    conjunction
+    disjunction
+   <br/>
+    eof_marker
+    error_marker
+    float
+    form_list
+   <br/>
+    fun_expr
+    function
+    generator
+    if_expr
+   <br/>
+    implicit_fun
+    infix_expr
+    integer
+    list
+   <br/>
+    list_comp
+    macro
+    match_expr
+    module_qualifier
+   <br/>
+    nil
+    operator
+    parentheses
+    prefix_expr
+   <br/>
+    receive_expr
+    record_access
+   <br/>
+    record_expr
+    record_field
+    record_index_expr
+    rule
+   <br/>
+    size_qualifier
+    string
+    text
+    try_expr
+   <br/>
+    tuple
+    underscore
+    variable
+    warning_marker
+   <br/>
+  </p>
+ 
+  <p>The user may (for special purposes) create additional nodes
+  with other type tags, using the <seealso marker="#tree-2">tree/2</seealso> function.</p>
+ 
+  <p>Note: The primary constructor functions for a node type should
+  always have the same name as the node type itself.
+ </p>
+<p><em>See also:</em> <seealso marker="#application-3">application/3</seealso>, <seealso marker="#arity_qualifier-2">arity_qualifier/2</seealso>, <seealso marker="#atom-1">atom/1</seealso>, <seealso marker="#attribute-2">attribute/2</seealso>, <seealso marker="#binary-1">binary/1</seealso>, <seealso marker="#binary_field-2">binary_field/2</seealso>, <seealso marker="#block_expr-1">block_expr/1</seealso>, <seealso marker="#case_expr-2">case_expr/2</seealso>, <seealso marker="#catch_expr-1">catch_expr/1</seealso>, <seealso marker="#char-1">char/1</seealso>, <seealso marker="#class_qualifier-2">class_qualifier/2</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#cond_expr-1">cond_expr/1</seealso>, <seealso marker="#conjunction-1">conjunction/1</seealso>, <seealso marker="#disjunction-1">disjunction/1</seealso>, <seealso marker="#eof_marker-0">eof_marker/0</seealso>, <seealso marker="#error_marker-1">error_marker/1</seealso>, <seealso marker="#float-1">float/1</seealso>, <seealso marker="#form_list-1">form_list/1</seealso>, <seealso marker="#fun_expr-1">fun_expr/1</seealso>, <seealso marker="#function-2">function/2</seealso>, <seealso marker="#generator-2">generator/2</seealso>, <seealso marker="#if_expr-1">if_expr/1</seealso>, <seealso marker="#implicit_fun-2">implicit_fun/2</seealso>, <seealso marker="#infix_expr-3">infix_expr/3</seealso>, <seealso marker="#integer-1">integer/1</seealso>, <seealso marker="#list-2">list/2</seealso>, <seealso marker="#list_comp-2">list_comp/2</seealso>, <seealso marker="#macro-2">macro/2</seealso>, <seealso marker="#match_expr-2">match_expr/2</seealso>, <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>, <seealso marker="#nil-0">nil/0</seealso>, <seealso marker="#operator-1">operator/1</seealso>, <seealso marker="#parentheses-1">parentheses/1</seealso>, <seealso marker="#prefix_expr-2">prefix_expr/2</seealso>, <seealso marker="#receive_expr-3">receive_expr/3</seealso>, <seealso marker="#record_access-3">record_access/3</seealso>, <seealso marker="#record_expr-2">record_expr/2</seealso>, <seealso marker="#record_field-2">record_field/2</seealso>, <seealso marker="#record_index_expr-2">record_index_expr/2</seealso>, <seealso marker="#rule-2">rule/2</seealso>, <seealso marker="#size_qualifier-2">size_qualifier/2</seealso>, <seealso marker="#string-1">string/1</seealso>, <seealso marker="#text-1">text/1</seealso>, <seealso marker="#tree-2">tree/2</seealso>, <seealso marker="#try_expr-3">try_expr/3</seealso>, <seealso marker="#tuple-1">tuple/1</seealso>, <seealso marker="#underscore-0">underscore/0</seealso>, <seealso marker="#variable-1">variable/1</seealso>, <seealso marker="#warning_marker-1">warning_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_leaf(Node::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Returns true if Node is a leaf node,
+  otherwise false.</fsummary>
+
+<desc><marker id="is_leaf-1"/>
+
+<p>Returns <c>true</c> if <c>Node</c> is a leaf node,
+  otherwise <c>false</c>. The currently recognised leaf node  
+types are:</p>
+ 
+  <p>
+   
+    <c>atom</c>
+    <c>char</c>
+    <c>comment</c>
+    <c>eof_marker</c>
+    <c>error_marker</c>
+   <br/>
+    <c>float</c>
+    <c>integer</c>
+    <c>nil</c>
+    <c>operator</c>
+    <c>string</c>
+   <br/>
+    <c>text</c>
+    <c>underscore</c>
+    <c>variable</c>
+    <c>warning_marker</c>
+   <br/>
+  </p>
+ 
+  <p>A node of type <c>tuple</c> is a leaf node if and only if its arity is zero.</p>
+ 
+  <p>Note: not all literals are leaf nodes, and vice versa. E.g.,
+  tuples with nonzero arity and nonempty lists may be literals, but are
+  not leaf nodes. Variables, on the other hand, are leaf nodes but not
+  literals.
+ </p>
+<p><em>See also:</em> <seealso marker="#is_literal-1">is_literal/1</seealso>, <seealso marker="#type-1">type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_form(Node::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Returns true if Node is a syntax tree
+  representing a so-called "source code form", otherwise
+  false.</fsummary>
+
+<desc><marker id="is_form-1"/>
+
+<p>Returns <c>true</c> if <c>Node</c> is a syntax tree
+  representing a so-called "source code form", otherwise
+  <c>false</c>. Forms are the Erlang source code units which,  
+placed in sequence, constitute an Erlang program. Current form types  
+are:</p>
+ 
+  <p>
+   
+    <c>attribute</c>
+    <c>comment</c>
+    <c>error_marker</c>
+    <c>eof_marker</c>
+    <c>form_list</c>
+   <br/>
+    <c>function</c>
+    <c>rule</c>
+    <c>warning_marker</c>
+    <c>text</c>
+   <br/>
+  
+ </p>
+<p><em>See also:</em> <seealso marker="#attribute-2">attribute/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#eof_marker-0">eof_marker/0</seealso>, <seealso marker="#error_marker-1">error_marker/1</seealso>, <seealso marker="#form_list-1">form_list/1</seealso>, <seealso marker="#function-2">function/2</seealso>, <seealso marker="#rule-2">rule/2</seealso>, <seealso marker="#type-1">type/1</seealso>, <seealso marker="#warning_marker-1">warning_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>get_pos(Tree::syntaxTree()) -&gt; term()</name>
+<fsummary>Returns the position information associated with
+  Node.</fsummary>
+
+<desc><marker id="get_pos-1"/>
+
+<p>Returns the position information associated with
+  <c>Node</c>. This is usually a nonnegative integer (indicating
+  the source code line number), but may be any term. By default, all
+  new tree nodes have their associated position information set to the
+  integer zero.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#set_pos-2">set_pos/2</seealso>.</p>
+</desc></func>
+<func>
+<name>set_pos(Node::syntaxTree(), Pos::term()) -&gt; syntaxTree()</name>
+<fsummary>Sets the position information of Node to Pos.</fsummary>
+
+<desc><marker id="set_pos-2"/>
+
+<p>Sets the position information of <c>Node</c> to <c>Pos</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#copy_pos-2">copy_pos/2</seealso>, <seealso marker="#get_pos-1">get_pos/1</seealso>.</p>
+</desc></func>
+<func>
+<name>copy_pos(Source::syntaxTree(), Target::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Copies the position information from Source to Target.</fsummary>
+
+<desc><marker id="copy_pos-2"/>
+
+<p>Copies the position information from <c>Source</c> to <c>Target</c>.</p>
+ 
+  <p>This is equivalent to <c>set_pos(Target,
+  get_pos(Source))</c>, but potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_pos-1">get_pos/1</seealso>, <seealso marker="#set_pos-2">set_pos/2</seealso>.</p>
+</desc></func>
+<func>
+<name>get_precomments(Tree::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the associated pre-comments of a node.</fsummary>
+
+<desc><marker id="get_precomments-1"/>
+
+<p>Returns the associated pre-comments of a node. This is a
+  possibly empty list of abstract comments, in top-down textual order.
+  When the code is formatted, pre-comments are typically displayed
+  directly above the node. For example:
+  </p><pre>     % Pre-comment of function
+     foo(X) -&gt; {bar, X}.</pre><p>
+ 
+  If possible, the comment should be moved before any preceding
+  separator characters on the same line. E.g.:
+  </p><pre>     foo([X | Xs]) -&gt;
+         % Pre-comment of 'bar(X)' node
+         [bar(X) | foo(Xs)];
+     ...</pre><p>
+  (where the comment is moved before the "<c>[</c>").
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#set_precomments-2">set_precomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>set_precomments(Node::syntaxTree(), Cs::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Sets the pre-comments of Node to
+  Comments.</fsummary>
+
+<desc><marker id="set_precomments-2"/>
+
+<p>Sets the pre-comments of <c>Node</c> to
+  <c>Comments</c>. <c>Comments</c> should be a possibly
+  empty list of abstract comments, in top-down textual order.
+ </p>
+<p><em>See also:</em> <seealso marker="#add_precomments-2">add_precomments/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#copy_comments-2">copy_comments/2</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#join_comments-2">join_comments/2</seealso>, <seealso marker="#remove_comments-1">remove_comments/1</seealso>, <seealso marker="#set_postcomments-2">set_postcomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>add_precomments(Cs::[syntaxTree()], Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Appends Comments to the pre-comments of Node.</fsummary>
+
+<desc><marker id="add_precomments-2"/>
+
+<p>Appends <c>Comments</c> to the pre-comments of <c>Node</c>.</p>
+ 
+  <p>Note: This is equivalent to <c>set_precomments(Node,
+  get_precomments(Node) ++ Comments)</c>, but potentially more
+  efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#add_postcomments-2">add_postcomments/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#join_comments-2">join_comments/2</seealso>, <seealso marker="#set_precomments-2">set_precomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>get_postcomments(Tree::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the associated post-comments of a node.</fsummary>
+
+<desc><marker id="get_postcomments-1"/>
+
+<p>Returns the associated post-comments of a node. This is a
+  possibly empty list of abstract comments, in top-down textual order.
+  When the code is formatted, post-comments are typically displayed to
+  the right of and/or below the node. For example:
+  </p><pre>     {foo, X, Y}     % Post-comment of tuple</pre><p>
+ 
+  If possible, the comment should be moved past any following
+  separator characters on the same line, rather than placing the
+  separators on the following line. E.g.:
+  </p><pre>     foo([X | Xs], Y) -&gt;
+         foo(Xs, bar(X));     % Post-comment of 'bar(X)' node
+      ...</pre><p>
+  (where the comment is moved past the rightmost "<c>)</c>" and
+  the "<c>;</c>").
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#set_postcomments-2">set_postcomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>set_postcomments(Node::syntaxTree(), Cs::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Sets the post-comments of Node to
+  Comments.</fsummary>
+
+<desc><marker id="set_postcomments-2"/>
+
+<p>Sets the post-comments of <c>Node</c> to
+  <c>Comments</c>. <c>Comments</c> should be a possibly
+  empty list of abstract comments, in top-down textual order
+ </p>
+<p><em>See also:</em> <seealso marker="#add_postcomments-2">add_postcomments/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#copy_comments-2">copy_comments/2</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#join_comments-2">join_comments/2</seealso>, <seealso marker="#remove_comments-1">remove_comments/1</seealso>, <seealso marker="#set_precomments-2">set_precomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>add_postcomments(Cs::[syntaxTree()], Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Appends Comments to the post-comments of Node.</fsummary>
+
+<desc><marker id="add_postcomments-2"/>
+
+<p>Appends <c>Comments</c> to the post-comments of <c>Node</c>.</p>
+ 
+  <p>Note: This is equivalent to <c>set_postcomments(Node,
+  get_postcomments(Node) ++ Comments)</c>, but potentially more
+  efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#add_precomments-2">add_precomments/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#join_comments-2">join_comments/2</seealso>, <seealso marker="#set_postcomments-2">set_postcomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>has_comments(Tree::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Yields false if the node has no associated
+  comments, and true otherwise.</fsummary>
+
+<desc><marker id="has_comments-1"/>
+
+<p>Yields <c>false</c> if the node has no associated
+  comments, and <c>true</c> otherwise.</p>
+ 
+  <p>Note: This is equivalent to <c>(get_precomments(Node) == [])
+  and (get_postcomments(Node) == [])</c>, but potentially more
+  efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#remove_comments-1">remove_comments/1</seealso>.</p>
+</desc></func>
+<func>
+<name>remove_comments(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Clears the associated comments of Node.</fsummary>
+
+<desc><marker id="remove_comments-1"/>
+
+<p>Clears the associated comments of <c>Node</c>.</p>
+ 
+  <p>Note: This is equivalent to
+  <c>set_precomments(set_postcomments(Node, []), [])</c>, but
+  potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#set_postcomments-2">set_postcomments/2</seealso>, <seealso marker="#set_precomments-2">set_precomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>copy_comments(Source::syntaxTree(), Target::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Copies the pre- and postcomments from Source to Target.</fsummary>
+
+<desc><marker id="copy_comments-2"/>
+
+<p>Copies the pre- and postcomments from <c>Source</c> to <c>Target</c>.</p>
+ 
+  <p>Note: This is equivalent to
+  <c>set_postcomments(set_precomments(Target,
+  get_precomments(Source)), get_postcomments(Source))</c>, but
+  potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#set_postcomments-2">set_postcomments/2</seealso>, <seealso marker="#set_precomments-2">set_precomments/2</seealso>.</p>
+</desc></func>
+<func>
+<name>join_comments(Source::syntaxTree(), Target::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Appends the comments of Source to the current
+  comments of Target.</fsummary>
+
+<desc><marker id="join_comments-2"/>
+
+<p>Appends the comments of <c>Source</c> to the current
+  comments of <c>Target</c>.</p>
+ 
+  <p>Note: This is equivalent to
+  <c>add_postcomments(get_postcomments(Source),
+  add_precomments(get_precomments(Source), Target))</c>, but
+  potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#add_postcomments-2">add_postcomments/2</seealso>, <seealso marker="#add_precomments-2">add_precomments/2</seealso>, <seealso marker="#comment-2">comment/2</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>.</p>
+</desc></func>
+<func>
+<name>get_ann(Tree::syntaxTree()) -&gt; [term()]</name>
+<fsummary>Returns the list of user annotations associated with a syntax
+  tree node.</fsummary>
+
+<desc><marker id="get_ann-1"/>
+
+<p>Returns the list of user annotations associated with a syntax
+  tree node. For a newly created node, this is the empty list. The
+  annotations may be any terms.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#set_ann-2">set_ann/2</seealso>.</p>
+</desc></func>
+<func>
+<name>set_ann(Node::syntaxTree(), As::[term()]) -&gt; syntaxTree()</name>
+<fsummary>Sets the list of user annotations of Node to Annotations.</fsummary>
+
+<desc><marker id="set_ann-2"/>
+
+<p>Sets the list of user annotations of <c>Node</c> to <c>Annotations</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#add_ann-2">add_ann/2</seealso>, <seealso marker="#copy_ann-2">copy_ann/2</seealso>, <seealso marker="#get_ann-1">get_ann/1</seealso>.</p>
+</desc></func>
+<func>
+<name>add_ann(A::term(), Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Appends the term Annotation to the list of user
+  annotations of Node.</fsummary>
+
+<desc><marker id="add_ann-2"/>
+
+<p>Appends the term <c>Annotation</c> to the list of user
+  annotations of <c>Node</c>.</p>
+ 
+  <p>Note: this is equivalent to <c>set_ann(Node, [Annotation |
+  get_ann(Node)])</c>, but potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_ann-1">get_ann/1</seealso>, <seealso marker="#set_ann-2">set_ann/2</seealso>.</p>
+</desc></func>
+<func>
+<name>copy_ann(Source::syntaxTree(), Target::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Copies the list of user annotations from Source to Target.</fsummary>
+
+<desc><marker id="copy_ann-2"/>
+
+<p>Copies the list of user annotations from <c>Source</c> to <c>Target</c>.</p>
+ 
+  <p>Note: this is equivalent to <c>set_ann(Target,
+  get_ann(Source))</c>, but potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_ann-1">get_ann/1</seealso>, <seealso marker="#set_ann-2">set_ann/2</seealso>.</p>
+</desc></func>
+<func>
+<name>get_attrs(Tree::syntaxTree()) -&gt; syntaxTreeAttributes()</name>
+<fsummary>Returns a representation of the attributes associated with a
+  syntax tree node.</fsummary>
+
+<desc><marker id="get_attrs-1"/>
+
+<p>Returns a representation of the attributes associated with a
+  syntax tree node. The attributes are all the extra information that
+  can be attached to a node. Currently, this includes position
+  information, source code comments, and user annotations. The result
+  of this function cannot be inspected directly; only attached to
+  another node (see <seealso marker="#set_attrs-2">set_attrs/2</seealso>).</p>
+ 
+  <p>For accessing individual attributes, see <seealso marker="#get_pos-1">get_pos/1</seealso>,
+  <seealso marker="#get_ann-1">get_ann/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso> and
+  <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_ann-1">get_ann/1</seealso>, <seealso marker="#get_pos-1">get_pos/1</seealso>, <seealso marker="#get_postcomments-1">get_postcomments/1</seealso>, <seealso marker="#get_precomments-1">get_precomments/1</seealso>, <seealso marker="#set_attrs-2">set_attrs/2</seealso>.</p>
+</desc></func>
+<func>
+<name>set_attrs(Node::syntaxTree(), Attr::syntaxTreeAttributes()) -&gt; syntaxTree()</name>
+<fsummary>Sets the attributes of Node to Attributes.</fsummary>
+
+<desc><marker id="set_attrs-2"/>
+
+<p>Sets the attributes of <c>Node</c> to <c>Attributes</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#copy_attrs-2">copy_attrs/2</seealso>, <seealso marker="#get_attrs-1">get_attrs/1</seealso>.</p>
+</desc></func>
+<func>
+<name>copy_attrs(S::syntaxTree(), T::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Copies the attributes from Source to Target.</fsummary>
+
+<desc><marker id="copy_attrs-2"/>
+
+<p>Copies the attributes from <c>Source</c> to <c>Target</c>.</p>
+ 
+  <p>Note: this is equivalent to <c>set_attrs(Target,
+  get_attrs(Source))</c>, but potentially more efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#set_attrs-2">set_attrs/2</seealso>.</p>
+</desc></func>
+<func>
+<name>comment(Strings::[string()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to comment(none, Strings).
+</fsummary>
+
+<desc><marker id="comment-1"/>
+<p>Equivalent to <seealso marker="#comment-2">comment(none, Strings)</seealso>.</p>
+</desc></func>
+<func>
+<name>comment(Pad::padding(), Strings::[string()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract comment with the given padding and text.</fsummary>
+
+<desc><marker id="comment-2"/>
+
+<p>Creates an abstract comment with the given padding and text. If
+  <c>Strings</c> is a (possibly empty) list
+  <c>["Txt1", ..., "TxtN"]</c>, the result
+  represents the source code text
+  </p><pre>
+     %Txt1
+     ...
+     %TxtN</pre><p>
+  <c>Padding</c> states the number of empty character positions
+  to the left of the comment separating it horizontally from
+  source code on the same line (if any). If <c>Padding</c> is
+  <c>none</c>, a default positive number is used. If
+  <c>Padding</c> is an integer less than 1, there should be no
+  separating space. Comments are in themselves regarded as source
+  program forms.
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-1">comment/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>.</p>
+</desc></func>
+<func>
+<name>comment_text(Node::syntaxTree()) -&gt; [string()]</name>
+<fsummary>Returns the lines of text of the abstract comment.</fsummary>
+
+<desc><marker id="comment_text-1"/>
+
+<p>Returns the lines of text of the abstract comment.
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-2">comment/2</seealso>.</p>
+</desc></func>
+<func>
+<name>comment_padding(Node::syntaxTree()) -&gt; padding()</name>
+<fsummary>Returns the amount of padding before the comment, or
+  none.</fsummary>
+
+<desc><marker id="comment_padding-1"/>
+
+<p>Returns the amount of padding before the comment, or
+  <c>none</c>. The latter means that a default padding may be used.
+ </p>
+<p><em>See also:</em> <seealso marker="#comment-2">comment/2</seealso>.</p>
+</desc></func>
+<func>
+<name>form_list(Forms::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract sequence of "source code forms".</fsummary>
+
+<desc><marker id="form_list-1"/>
+
+<p>Creates an abstract sequence of "source code forms". If
+  <c>Forms</c> is <c>[F1, ..., Fn]</c>, where each
+  <c>Fi</c> is a form (see <seealso marker="#is_form-1">is_form/1</seealso>, the result
+  represents
+  </p><pre>
+     F1
+     ...
+     Fn</pre><p>
+  where the <c>Fi</c> are separated by one or more line breaks. A
+  node of type <c>form_list</c> is itself regarded as a source
+  code form; see <seealso marker="#flatten_form_list-1">flatten_form_list/1</seealso>.</p>
+ 
+  <p>Note: this is simply a way of grouping source code forms as a
+  single syntax tree, usually in order to form an Erlang module
+  definition.
+ </p>
+<p><em>See also:</em> <seealso marker="#flatten_form_list-1">flatten_form_list/1</seealso>, <seealso marker="#form_list_elements-1">form_list_elements/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>.</p>
+</desc></func>
+<func>
+<name>form_list_elements(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of subnodes of a form_list node.</fsummary>
+
+<desc><marker id="form_list_elements-1"/>
+
+<p>Returns the list of subnodes of a <c>form_list</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#form_list-1">form_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>flatten_form_list(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Flattens sublists of a form_list node.</fsummary>
+
+<desc><marker id="flatten_form_list-1"/>
+
+<p>Flattens sublists of a <c>form_list</c> node. Returns
+  <c>Node</c> with all subtrees of type <c>form_list</c>
+  recursively expanded, yielding a single "flat" abstract form
+  sequence.
+ </p>
+<p><em>See also:</em> <seealso marker="#form_list-1">form_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>text(String::string()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract piece of source code text.</fsummary>
+
+<desc><marker id="text-1"/>
+
+<p>Creates an abstract piece of source code text. The result
+  represents exactly the sequence of characters in <c>String</c>.
+  This is useful in cases when one wants full control of the resulting
+  output, e.g., for the appearance of floating-point numbers or macro
+  definitions.
+ </p>
+<p><em>See also:</em> <seealso marker="#text_string-1">text_string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>text_string(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the character sequence represented by a text node.</fsummary>
+
+<desc><marker id="text_string-1"/>
+
+<p>Returns the character sequence represented by a <c>text</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#text-1">text/1</seealso>.</p>
+</desc></func>
+<func>
+<name>variable(Name::atom() | string()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract variable with the given name.</fsummary>
+
+<desc><marker id="variable-1"/>
+
+<p>Creates an abstract variable with the given name.
+  <c>Name</c> may be any atom or string that represents a
+  lexically valid variable name, but <em>not</em> a single underscore
+  character; see <seealso marker="#underscore-0">underscore/0</seealso>.</p>
+ 
+  <p>Note: no checking is done whether the character sequence
+  represents a proper variable name, i.e., whether or not its first
+  character is an uppercase Erlang character, or whether it does not
+  contain control characters, whitespace, etc.
+ </p>
+<p><em>See also:</em> <seealso marker="#underscore-0">underscore/0</seealso>, <seealso marker="#variable_literal-1">variable_literal/1</seealso>, <seealso marker="#variable_name-1">variable_name/1</seealso>.</p>
+</desc></func>
+<func>
+<name>variable_name(Node::syntaxTree()) -&gt; atom()</name>
+<fsummary>Returns the name of a variable node as an atom.</fsummary>
+
+<desc><marker id="variable_name-1"/>
+
+<p>Returns the name of a <c>variable</c> node as an atom.
+ </p>
+<p><em>See also:</em> <seealso marker="#variable-1">variable/1</seealso>.</p>
+</desc></func>
+<func>
+<name>variable_literal(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the name of a variable node as a string.</fsummary>
+
+<desc><marker id="variable_literal-1"/>
+
+<p>Returns the name of a <c>variable</c> node as a string.
+ </p>
+<p><em>See also:</em> <seealso marker="#variable-1">variable/1</seealso>.</p>
+</desc></func>
+<func>
+<name>underscore() -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract universal pattern ("_").</fsummary>
+
+<desc><marker id="underscore-0"/>
+
+<p>Creates an abstract universal pattern ("<c>_</c>"). The
+  lexical representation is a single underscore character. Note that
+  this is <em>not</em> a variable, lexically speaking.
+ </p>
+<p><em>See also:</em> <seealso marker="#variable-1">variable/1</seealso>.</p>
+</desc></func>
+<func>
+<name>integer(Value::integer()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract integer literal.</fsummary>
+
+<desc><marker id="integer-1"/>
+
+<p>Creates an abstract integer literal. The lexical representation
+  is the canonical decimal numeral of <c>Value</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#integer_literal-1">integer_literal/1</seealso>, <seealso marker="#integer_value-1">integer_value/1</seealso>, <seealso marker="#is_integer-2">is_integer/2</seealso>.</p>
+</desc></func>
+<func>
+<name>is_integer(Node::syntaxTree(), Value::integer()) -&gt; boolean()</name>
+<fsummary>Returns true if Node has type
+  integer and represents Value, otherwise false.</fsummary>
+
+<desc><marker id="is_integer-2"/>
+
+<p>Returns <c>true</c> if <c>Node</c> has type
+  <c>integer</c> and represents <c>Value</c>, otherwise <c>false</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#integer-1">integer/1</seealso>.</p>
+</desc></func>
+<func>
+<name>integer_value(Node::syntaxTree()) -&gt; integer()</name>
+<fsummary>Returns the value represented by an integer node.</fsummary>
+
+<desc><marker id="integer_value-1"/>
+
+<p>Returns the value represented by an <c>integer</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#integer-1">integer/1</seealso>.</p>
+</desc></func>
+<func>
+<name>integer_literal(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the numeral string represented by an integer node.</fsummary>
+
+<desc><marker id="integer_literal-1"/>
+
+<p>Returns the numeral string represented by an <c>integer</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#integer-1">integer/1</seealso>.</p>
+</desc></func>
+<func>
+<name>float(Value::float()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract floating-point literal.</fsummary>
+
+<desc><marker id="float-1"/>
+
+<p>Creates an abstract floating-point literal. The lexical
+  representation is the decimal floating-point numeral of <c>Value</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#float_literal-1">float_literal/1</seealso>, <seealso marker="#float_value-1">float_value/1</seealso>.</p>
+</desc></func>
+<func>
+<name>float_value(Node::syntaxTree()) -&gt; float()</name>
+<fsummary>Returns the value represented by a float node.</fsummary>
+
+<desc><marker id="float_value-1"/>
+
+<p>Returns the value represented by a <c>float</c> node. Note
+  that floating-point values should usually not be compared for
+  equality.
+ </p>
+<p><em>See also:</em> <seealso marker="#float-1">float/1</seealso>.</p>
+</desc></func>
+<func>
+<name>float_literal(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the numeral string represented by a float node.</fsummary>
+
+<desc><marker id="float_literal-1"/>
+
+<p>Returns the numeral string represented by a <c>float</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#float-1">float/1</seealso>.</p>
+</desc></func>
+<func>
+<name>char(Char::char()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract character literal.</fsummary>
+
+<desc><marker id="char-1"/>
+
+<p>Creates an abstract character literal. The result represents
+  "<c>$Name</c>", where <c>Name</c> corresponds to
+  <c>Value</c>.</p>
+ 
+  <p>Note: the literal corresponding to a particular character value is
+  not uniquely defined. E.g., the character "<c>a</c>" can be
+  written both as "<c>$a</c>" and "<c>$\141</c>", and a Tab
+  character can be written as "<c>$\11</c>", "<c>$\011</c>"
+  or "<c>$\t</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#char_literal-1">char_literal/1</seealso>, <seealso marker="#char_literal-2">char_literal/2</seealso>, <seealso marker="#char_value-1">char_value/1</seealso>, <seealso marker="#is_char-2">is_char/2</seealso>.</p>
+</desc></func>
+<func>
+<name>is_char(Node::syntaxTree(), Value::char()) -&gt; boolean()</name>
+<fsummary>Returns true if Node has type
+  char and represents Value, otherwise false.</fsummary>
+
+<desc><marker id="is_char-2"/>
+
+<p>Returns <c>true</c> if <c>Node</c> has type
+  <c>char</c> and represents <c>Value</c>, otherwise <c>false</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#char-1">char/1</seealso>.</p>
+</desc></func>
+<func>
+<name>char_value(Node::syntaxTree()) -&gt; char()</name>
+<fsummary>Returns the value represented by a char node.</fsummary>
+
+<desc><marker id="char_value-1"/>
+
+<p>Returns the value represented by a <c>char</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#char-1">char/1</seealso>.</p>
+</desc></func>
+<func>
+<name>char_literal(Node::syntaxTree()) -&gt; nonempty_string()</name>
+<fsummary>Returns the literal string represented by a char
+  node.</fsummary>
+
+<desc><marker id="char_literal-1"/>
+
+<p>Returns the literal string represented by a <c>char</c>
+  node. This includes the leading "<c>$</c>" character.
+  Characters beyond 255 will be escaped.
+ </p>
+<p><em>See also:</em> <seealso marker="#char-1">char/1</seealso>.</p>
+</desc></func>
+<func>
+<name>char_literal(Node::syntaxTree(), X2::encoding()) -&gt; nonempty_string()</name>
+<fsummary>Returns the literal string represented by a char
+  node.</fsummary>
+
+<desc><marker id="char_literal-2"/>
+
+<p>Returns the literal string represented by a <c>char</c>
+  node. This includes the leading "<c>$</c>" character.
+  Depending on the encoding a character beyond 255 will be escaped
+  ('latin1') or copied as is ('utf8').
+ </p>
+<p><em>See also:</em> <seealso marker="#char-1">char/1</seealso>.</p>
+</desc></func>
+<func>
+<name>string(String::string()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract string literal.</fsummary>
+
+<desc><marker id="string-1"/>
+
+<p>Creates an abstract string literal. The result represents
+  <c>"Text"</c> (including the surrounding
+  double-quotes), where <c>Text</c> corresponds to the sequence
+  of characters in <c>Value</c>, but not representing a
+  <em>specific</em> string literal.</p>
+ 
+  <p>For example, the result of <c>string("x\ny")</c> represents any and all of
+  <c>"x\ny"</c>, <c>"x\12y"</c>, <c>"x\012y"</c> and <c>"x\^Jy"</c>; see <seealso marker="#char-1">char/1</seealso>.
+ </p>
+<p><em>See also:</em> <seealso marker="#char-1">char/1</seealso>, <seealso marker="#is_string-2">is_string/2</seealso>, <seealso marker="#string_literal-1">string_literal/1</seealso>, <seealso marker="#string_literal-2">string_literal/2</seealso>, <seealso marker="#string_value-1">string_value/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_string(Node::syntaxTree(), Value::string()) -&gt; boolean()</name>
+<fsummary>Returns true if Node has type
+  string and represents Value, otherwise false.</fsummary>
+
+<desc><marker id="is_string-2"/>
+
+<p>Returns <c>true</c> if <c>Node</c> has type
+  <c>string</c> and represents <c>Value</c>, otherwise <c>false</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#string-1">string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>string_value(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the value represented by a string node.</fsummary>
+
+<desc><marker id="string_value-1"/>
+
+<p>Returns the value represented by a <c>string</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#string-1">string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>string_literal(Node::syntaxTree()) -&gt; nonempty_string()</name>
+<fsummary>Returns the literal string represented by a string
+  node.</fsummary>
+
+<desc><marker id="string_literal-1"/>
+
+<p>Returns the literal string represented by a <c>string</c>
+  node. This includes surrounding double-quote characters.
+  Characters beyond 255 will be escaped.
+ </p>
+<p><em>See also:</em> <seealso marker="#string-1">string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>string_literal(Node::syntaxTree(), X2::encoding()) -&gt; nonempty_string()</name>
+<fsummary>Returns the literal string represented by a string
+  node.</fsummary>
+
+<desc><marker id="string_literal-2"/>
+
+<p>Returns the literal string represented by a <c>string</c>
+  node. This includes surrounding double-quote characters.
+  Depending on the encoding characters beyond 255 will be escaped
+  ('latin1') or copied as is ('utf8').
+ </p>
+<p><em>See also:</em> <seealso marker="#string-1">string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>atom(Name::atom() | string()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract atom literal.</fsummary>
+
+<desc><marker id="atom-1"/>
+
+<p>Creates an abstract atom literal. The print name of the atom is
+  the character sequence represented by <c>Name</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#atom_literal-1">atom_literal/1</seealso>, <seealso marker="#atom_name-1">atom_name/1</seealso>, <seealso marker="#atom_value-1">atom_value/1</seealso>, <seealso marker="#is_atom-2">is_atom/2</seealso>.</p>
+</desc></func>
+<func>
+<name>is_atom(Node::syntaxTree(), Value::atom()) -&gt; boolean()</name>
+<fsummary>Returns true if Node has type
+  atom and represents Value, otherwise false.</fsummary>
+
+<desc><marker id="is_atom-2"/>
+
+<p>Returns <c>true</c> if <c>Node</c> has type
+  <c>atom</c> and represents <c>Value</c>, otherwise <c>false</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#atom-1">atom/1</seealso>.</p>
+</desc></func>
+<func>
+<name>atom_value(Node::syntaxTree()) -&gt; atom()</name>
+<fsummary>Returns the value represented by an atom node.</fsummary>
+
+<desc><marker id="atom_value-1"/>
+
+<p>Returns the value represented by an <c>atom</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#atom-1">atom/1</seealso>.</p>
+</desc></func>
+<func>
+<name>atom_name(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the printname of an atom node.</fsummary>
+
+<desc><marker id="atom_name-1"/>
+
+<p>Returns the printname of an <c>atom</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#atom-1">atom/1</seealso>.</p>
+</desc></func>
+<func>
+<name>atom_literal(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the literal string represented by an atom  
+node.</fsummary>
+
+<desc><marker id="atom_literal-1"/>
+
+<p>Returns the literal string represented by an <c>atom</c>  
+node. This includes surrounding single-quote characters if necessary.</p>
+ 
+  <p>Note that e.g. the result of <c>atom("x\ny")</c> represents
+  any and all of `x\ny'', `x\12y'',
+  `x\012y'' and `x\^Jy\''; see <seealso marker="#string-1">string/1</seealso>.
+ </p>
+<p><em>See also:</em> <seealso marker="#atom-1">atom/1</seealso>, <seealso marker="#string-1">string/1</seealso>.</p>
+</desc></func>
+<func>
+<name>tuple(List::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract tuple.</fsummary>
+
+<desc><marker id="tuple-1"/>
+
+<p>Creates an abstract tuple. If <c>Elements</c> is
+  <c>[X1, ..., Xn]</c>, the result represents
+  "<c>{X1, ..., Xn}</c>".</p>
+ 
+  <p>Note: The Erlang language has distinct 1-tuples, i.e.,
+  <c>{X}</c> is always distinct from <c>X</c> itself.
+ </p>
+<p><em>See also:</em> <seealso marker="#tuple_elements-1">tuple_elements/1</seealso>, <seealso marker="#tuple_size-1">tuple_size/1</seealso>.</p>
+</desc></func>
+<func>
+<name>tuple_elements(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of element subtrees of a tuple node.</fsummary>
+
+<desc><marker id="tuple_elements-1"/>
+
+<p>Returns the list of element subtrees of a <c>tuple</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#tuple-1">tuple/1</seealso>.</p>
+</desc></func>
+<func>
+<name>tuple_size(Node::syntaxTree()) -&gt; non_neg_integer()</name>
+<fsummary>Returns the number of elements of a tuple node.</fsummary>
+
+<desc><marker id="tuple_size-1"/>
+
+<p>Returns the number of elements of a <c>tuple</c> node.</p>
+ 
+  <p>Note: this is equivalent to
+  <c>length(tuple_elements(Node))</c>, but potentially more
+  efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#tuple-1">tuple/1</seealso>, <seealso marker="#tuple_elements-1">tuple_elements/1</seealso>.</p>
+</desc></func>
+<func>
+<name>list(List::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to list(List, none).
+</fsummary>
+
+<desc><marker id="list-1"/>
+<p>Equivalent to <seealso marker="#list-2">list(List, none)</seealso>.</p>
+</desc></func>
+<func>
+<name>list(Elements::[syntaxTree()], Tail::none | syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Constructs an abstract list skeleton.</fsummary>
+
+<desc><marker id="list-2"/>
+
+<p>Constructs an abstract list skeleton. The result has type
+  <c>list</c> or <c>nil</c>. If <c>List</c> is a
+  nonempty list <c>[E1, ..., En]</c>, the result has type
+  <c>list</c> and represents either "<c>[E1, ...,
+  En]</c>", if <c>Tail</c> is <c>none</c>, or
+  otherwise "<c>[E1, ..., En |
+  Tail]</c>". If <c>List</c> is the empty list,
+  <c>Tail</c> <em>must</em> be <c>none</c>, and in that
+  case the result has type <c>nil</c> and represents
+  "<c>[]</c>" (see <seealso marker="#nil-0">nil/0</seealso>).</p>
+ 
+  <p>The difference between lists as semantic objects (built up of  
+individual "cons" and "nil" terms) and the various syntactic forms  
+for denoting lists may be bewildering at first. This module provides  
+functions both for exact control of the syntactic representation as  
+well as for the simple composition and deconstruction in terms of  
+cons and head/tail operations.</p>
+ 
+  <p>Note: in <c>list(Elements, none)</c>, the "nil" list
+  terminator is implicit and has no associated information (see
+  <seealso marker="#get_attrs-1">get_attrs/1</seealso>), while in the seemingly equivalent
+  <c>list(Elements, Tail)</c> when <c>Tail</c> has type
+  <c>nil</c>, the list terminator subtree <c>Tail</c> may
+  have attached attributes such as position, comments, and annotations,
+  which will be preserved in the result.
+ </p>
+<p><em>See also:</em> <seealso marker="#compact_list-1">compact_list/1</seealso>, <seealso marker="#cons-2">cons/2</seealso>, <seealso marker="#get_attrs-1">get_attrs/1</seealso>, <seealso marker="#is_list_skeleton-1">is_list_skeleton/1</seealso>, <seealso marker="#is_proper_list-1">is_proper_list/1</seealso>, <seealso marker="#list-1">list/1</seealso>, <seealso marker="#list_elements-1">list_elements/1</seealso>, <seealso marker="#list_head-1">list_head/1</seealso>, <seealso marker="#list_length-1">list_length/1</seealso>, <seealso marker="#list_prefix-1">list_prefix/1</seealso>, <seealso marker="#list_suffix-1">list_suffix/1</seealso>, <seealso marker="#list_tail-1">list_tail/1</seealso>, <seealso marker="#nil-0">nil/0</seealso>, <seealso marker="#normalize_list-1">normalize_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>nil() -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract empty list.</fsummary>
+
+<desc><marker id="nil-0"/>
+
+<p>Creates an abstract empty list. The result represents
+  "<c>[]</c>". The empty list is traditionally called "nil".
+ </p>
+<p><em>See also:</em> <seealso marker="#is_list_skeleton-1">is_list_skeleton/1</seealso>, <seealso marker="#list-2">list/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_prefix(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the prefix element subtrees of a list node.</fsummary>
+
+<desc><marker id="list_prefix-1"/>
+
+<p>Returns the prefix element subtrees of a <c>list</c> node.
+  If <c>Node</c> represents "<c>[E1, ...,
+  En]</c>" or "<c>[E1, ..., En |
+  Tail]</c>", the returned value is <c>[E1, ...,
+  En]</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#list-2">list/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_suffix(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the suffix subtree of a list node, if one
+  exists.</fsummary>
+
+<desc><marker id="list_suffix-1"/>
+
+<p>Returns the suffix subtree of a <c>list</c> node, if one
+  exists. If <c>Node</c> represents "<c>[E1, ...,
+  En | Tail]</c>", the returned value is
+  <c>Tail</c>, otherwise, i.e., if <c>Node</c> represents
+  "<c>[E1, ..., En]</c>", <c>none</c> is  
+returned.</p>
+ 
+  <p>Note that even if this function returns some <c>Tail</c>
+  that is not <c>none</c>, the type of <c>Tail</c> can be
+  <c>nil</c>, if the tail has been given explicitly, and the list
+  skeleton has not been compacted (see <seealso marker="#compact_list-1">compact_list/1</seealso>).
+ </p>
+<p><em>See also:</em> <seealso marker="#compact_list-1">compact_list/1</seealso>, <seealso marker="#list-2">list/2</seealso>, <seealso marker="#nil-0">nil/0</seealso>.</p>
+</desc></func>
+<func>
+<name>cons(Head::syntaxTree(), Tail::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>"Optimising" list skeleton cons operation.</fsummary>
+
+<desc><marker id="cons-2"/>
+
+<p>"Optimising" list skeleton cons operation. Creates an abstract
+  list skeleton whose first element is <c>Head</c> and whose tail
+  corresponds to <c>Tail</c>. This is similar to
+  <c>list([Head], Tail)</c>, except that <c>Tail</c> may
+  not be <c>none</c>, and that the result does not necessarily
+  represent exactly "<c>[Head | Tail]</c>", but
+  may depend on the <c>Tail</c> subtree. E.g., if
+  <c>Tail</c> represents <c>[X, Y]</c>, the result may
+  represent "<c>[Head, X, Y]</c>", rather than
+  "<c>[Head | [X, Y]]</c>". Annotations on
+  <c>Tail</c> itself may be lost if <c>Tail</c> represents
+  a list skeleton, but comments on <c>Tail</c> are propagated to
+  the result.
+ </p>
+<p><em>See also:</em> <seealso marker="#list-2">list/2</seealso>, <seealso marker="#list_head-1">list_head/1</seealso>, <seealso marker="#list_tail-1">list_tail/1</seealso>.</p>
+</desc></func>
+<func>
+<name>list_head(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the head element subtree of a list node.</fsummary>
+
+<desc><marker id="list_head-1"/>
+
+<p>Returns the head element subtree of a <c>list</c> node. If
+  <c>Node</c> represents "<c>[Head ...]</c>", the
+  result will represent "<c>Head</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#cons-2">cons/2</seealso>, <seealso marker="#list-2">list/2</seealso>, <seealso marker="#list_tail-1">list_tail/1</seealso>.</p>
+</desc></func>
+<func>
+<name>list_tail(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the tail of a list node.</fsummary>
+
+<desc><marker id="list_tail-1"/>
+
+<p>Returns the tail of a <c>list</c> node. If
+  <c>Node</c> represents a single-element list
+  "<c>[E]</c>", then the result has type
+  <c>nil</c>, representing "<c>[]</c>". If
+  <c>Node</c> represents "<c>[E1, E2
+  ...]</c>", the result will represent "<c>[E2
+  ...]</c>", and if <c>Node</c> represents
+  "<c>[Head | Tail]</c>", the result will
+  represent "<c>Tail</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#cons-2">cons/2</seealso>, <seealso marker="#list-2">list/2</seealso>, <seealso marker="#list_head-1">list_head/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_list_skeleton(Node::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Returns true if Node has type
+  list or nil, otherwise false.</fsummary>
+
+<desc><marker id="is_list_skeleton-1"/>
+
+<p>Returns <c>true</c> if <c>Node</c> has type
+  <c>list</c> or <c>nil</c>, otherwise <c>false</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#list-2">list/2</seealso>, <seealso marker="#nil-0">nil/0</seealso>.</p>
+</desc></func>
+<func>
+<name>is_proper_list(Node::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Returns true if Node represents a
+  proper list, and false otherwise.</fsummary>
+
+<desc><marker id="is_proper_list-1"/>
+
+<p>Returns <c>true</c> if <c>Node</c> represents a
+  proper list, and <c>false</c> otherwise. A proper list is a
+  list skeleton either on the form "<c>[]</c>" or
+  "<c>[E1, ..., En]</c>", or "<c>[... |
+  Tail]</c>" where recursively <c>Tail</c> also  
+represents a proper list.</p>
+ 
+  <p>Note: Since <c>Node</c> is a syntax tree, the actual
+  run-time values corresponding to its subtrees may often be partially
+  or completely unknown. Thus, if <c>Node</c> represents e.g.
+  "<c>[... | Ns]</c>" (where <c>Ns</c> is a variable), then
+  the function will return <c>false</c>, because it is not known
+  whether <c>Ns</c> will be bound to a list at run-time. If
+  <c>Node</c> instead represents e.g. "<c>[1, 2, 3]</c>" or
+  "<c>[A | []]</c>", then the function will return
+  <c>true</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#list-2">list/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_elements(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of element subtrees of a list skeleton.</fsummary>
+
+<desc><marker id="list_elements-1"/>
+
+<p>Returns the list of element subtrees of a list skeleton.
+  <c>Node</c> must represent a proper list. E.g., if
+  <c>Node</c> represents "<c>[X1, X2 |
+  [X3, X4 | []]</c>", then
+  <c>list_elements(Node)</c> yields the list <c>[X1, X2, X3, X4]</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#is_proper_list-1">is_proper_list/1</seealso>, <seealso marker="#list-2">list/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_length(Node::syntaxTree()) -&gt; non_neg_integer()</name>
+<fsummary>Returns the number of element subtrees of a list skeleton.</fsummary>
+
+<desc><marker id="list_length-1"/>
+
+<p>Returns the number of element subtrees of a list skeleton.
+  <c>Node</c> must represent a proper list. E.g., if
+  <c>Node</c> represents "<c>[X1 | [X2, X3 | [X4, X5,
+  X6]]]</c>", then <c>list_length(Node)</c> returns the  
+integer 6.</p>
+ 
+  <p>Note: this is equivalent to
+  <c>length(list_elements(Node))</c>, but potentially more
+  efficient.
+ </p>
+<p><em>See also:</em> <seealso marker="#is_proper_list-1">is_proper_list/1</seealso>, <seealso marker="#list-2">list/2</seealso>, <seealso marker="#list_elements-1">list_elements/1</seealso>.</p>
+</desc></func>
+<func>
+<name>normalize_list(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Expands an abstract list skeleton to its most explicit form.</fsummary>
+
+<desc><marker id="normalize_list-1"/>
+
+<p>Expands an abstract list skeleton to its most explicit form. If
+  <c>Node</c> represents "<c>[E1, ..., En |
+  Tail]</c>", the result represents "<c>[E1 |
+  ... [En | Tail1] ... ]</c>", where
+  <c>Tail1</c> is the result of
+  <c>normalize_list(Tail)</c>. If <c>Node</c> represents
+  "<c>[E1, ..., En]</c>", the result simply
+  represents "<c>[E1 | ... [En | []] ...
+  ]</c>". If <c>Node</c> does not represent a list skeleton,
+  <c>Node</c> itself is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#compact_list-1">compact_list/1</seealso>, <seealso marker="#list-2">list/2</seealso>.</p>
+</desc></func>
+<func>
+<name>compact_list(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Yields the most compact form for an abstract list skeleton.</fsummary>
+
+<desc><marker id="compact_list-1"/>
+
+<p>Yields the most compact form for an abstract list skeleton. The
+  result either represents "<c>[E1, ..., En |
+  Tail]</c>", where <c>Tail</c> is not a list
+  skeleton, or otherwise simply "<c>[E1, ...,
+  En]</c>". Annotations on subtrees of <c>Node</c>
+  that represent list skeletons may be lost, but comments will be
+  propagated to the result. Returns <c>Node</c> itself if
+  <c>Node</c> does not represent a list skeleton.
+ </p>
+<p><em>See also:</em> <seealso marker="#list-2">list/2</seealso>, <seealso marker="#normalize_list-1">normalize_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>binary(List::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract binary-object template.</fsummary>
+
+<desc><marker id="binary-1"/>
+
+<p>Creates an abstract binary-object template. If
+  <c>Fields</c> is <c>[F1, ..., Fn]</c>, the result
+  represents "<c>&lt;&lt;F1, ...,
+  Fn&gt;&gt;</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_field-2">binary_field/2</seealso>, <seealso marker="#binary_fields-1">binary_fields/1</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_fields(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of field subtrees of a binary node.</fsummary>
+
+<desc><marker id="binary_fields-1"/>
+
+<p>Returns the list of field subtrees of a <c>binary</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary-1">binary/1</seealso>, <seealso marker="#binary_field-2">binary_field/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field(Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to binary_field(Body, []).
+</fsummary>
+
+<desc><marker id="binary_field-1"/>
+<p>Equivalent to <seealso marker="#binary_field-2">binary_field(Body, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field(Body::syntaxTree(), Size::none | syntaxTree(), Types::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract binary template field.</fsummary>
+
+<desc><marker id="binary_field-3"/>
+
+<p>Creates an abstract binary template field.
+  If <c>Size</c> is <c>none</c>, this is equivalent to
+  "<c>binary_field(Body, Types)</c>", otherwise it is
+  equivalent to "<c>binary_field(size_qualifier(Body, Size),
+  Types)</c>".</p>
+ 
+  <p>(This is a utility function.)
+ </p>
+<p><em>See also:</em> <seealso marker="#binary-1">binary/1</seealso>, <seealso marker="#binary_field-2">binary_field/2</seealso>, <seealso marker="#size_qualifier-2">size_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field(Body::syntaxTree(), Types::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract binary template field.</fsummary>
+
+<desc><marker id="binary_field-2"/>
+
+<p>Creates an abstract binary template field. If
+  <c>Types</c> is the empty list, the result simply represents
+  "<c>Body</c>", otherwise, if <c>Types</c> is
+  <c>[T1, ..., Tn]</c>, the result represents
+  "<c>Body/T1-...-Tn</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#binary-1">binary/1</seealso>, <seealso marker="#binary_field-1">binary_field/1</seealso>, <seealso marker="#binary_field-3">binary_field/3</seealso>, <seealso marker="#binary_field_body-1">binary_field_body/1</seealso>, <seealso marker="#binary_field_size-1">binary_field_size/1</seealso>, <seealso marker="#binary_field_types-1">binary_field_types/1</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a binary_field.</fsummary>
+
+<desc><marker id="binary_field_body-1"/>
+
+<p>Returns the body subtree of a <c>binary_field</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_field-2">binary_field/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field_types(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of type-specifier subtrees of a
+  binary_field node.</fsummary>
+
+<desc><marker id="binary_field_types-1"/>
+
+<p>Returns the list of type-specifier subtrees of a
+  <c>binary_field</c> node. If <c>Node</c> represents
+  "<c>.../T1, ..., Tn</c>", the result is
+  <c>[T1, ..., Tn]</c>, otherwise the result is the empty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_field-2">binary_field/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_field_size(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the size specifier subtree of a
+  binary_field node, if any.</fsummary>
+
+<desc><marker id="binary_field_size-1"/>
+
+<p>Returns the size specifier subtree of a
+  <c>binary_field</c> node, if any. If <c>Node</c>
+  represents "<c>Body:Size</c>" or
+  "<c>Body:Size/T1, ...,
+  Tn</c>", the result is <c>Size</c>, otherwise
+  <c>none</c> is returned.</p>
+ 
+  <p>(This is a utility function.)
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_field-2">binary_field/2</seealso>, <seealso marker="#binary_field-3">binary_field/3</seealso>.</p>
+</desc></func>
+<func>
+<name>size_qualifier(Body::syntaxTree(), Size::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract size qualifier.</fsummary>
+
+<desc><marker id="size_qualifier-2"/>
+
+<p>Creates an abstract size qualifier. The result represents
+  "<c>Body:Size</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#size_qualifier_argument-1">size_qualifier_argument/1</seealso>, <seealso marker="#size_qualifier_body-1">size_qualifier_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>size_qualifier_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a size_qualifier node.</fsummary>
+
+<desc><marker id="size_qualifier_body-1"/>
+
+<p>Returns the body subtree of a <c>size_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#size_qualifier-2">size_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>size_qualifier_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument subtree (the size) of a
+  size_qualifier node.</fsummary>
+
+<desc><marker id="size_qualifier_argument-1"/>
+
+<p>Returns the argument subtree (the size) of a
+  <c>size_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#size_qualifier-2">size_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>error_marker(Error::term()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract error marker.</fsummary>
+
+<desc><marker id="error_marker-1"/>
+
+<p>Creates an abstract error marker. The result represents an
+  occurrence of an error in the source code, with an associated Erlang
+  I/O ErrorInfo structure given by <c>Error</c> (see module
+  <seealso marker="stdlib:io">io(3)</seealso> for details). Error markers are regarded as source  
+code forms, but have no defined lexical form.</p>
+ 
+  <p>Note: this is supported only for backwards compatibility with
+  existing parsers and tools.
+ </p>
+<p><em>See also:</em> <seealso marker="#eof_marker-0">eof_marker/0</seealso>, <seealso marker="#error_marker_info-1">error_marker_info/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#warning_marker-1">warning_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>error_marker_info(Node::syntaxTree()) -&gt; term()</name>
+<fsummary>Returns the ErrorInfo structure of an error_marker node.</fsummary>
+
+<desc><marker id="error_marker_info-1"/>
+
+<p>Returns the ErrorInfo structure of an <c>error_marker</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#error_marker-1">error_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>warning_marker(Warning::term()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract warning marker.</fsummary>
+
+<desc><marker id="warning_marker-1"/>
+
+<p>Creates an abstract warning marker. The result represents an
+  occurrence of a possible problem in the source code, with an
+  associated Erlang I/O ErrorInfo structure given by <c>Error</c>
+  (see module <seealso marker="stdlib:io">io(3)</seealso> for details). Warning markers are  
+regarded as source code forms, but have no defined lexical form.</p>
+ 
+  <p>Note: this is supported only for backwards compatibility with
+  existing parsers and tools.
+ </p>
+<p><em>See also:</em> <seealso marker="#eof_marker-0">eof_marker/0</seealso>, <seealso marker="#error_marker-1">error_marker/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#warning_marker_info-1">warning_marker_info/1</seealso>.</p>
+</desc></func>
+<func>
+<name>warning_marker_info(Node::syntaxTree()) -&gt; term()</name>
+<fsummary>Returns the ErrorInfo structure of a warning_marker node.</fsummary>
+
+<desc><marker id="warning_marker_info-1"/>
+
+<p>Returns the ErrorInfo structure of a <c>warning_marker</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#warning_marker-1">warning_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>eof_marker() -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract end-of-file marker.</fsummary>
+
+<desc><marker id="eof_marker-0"/>
+
+<p>Creates an abstract end-of-file marker. This represents the  
+end of input when reading a sequence of source code forms. An  
+end-of-file marker is itself regarded as a source code form  
+(namely, the last in any sequence in which it occurs). It has no  
+defined lexical form.</p>
+ 
+  <p>Note: this is retained only for backwards compatibility with
+  existing parsers and tools.
+ </p>
+<p><em>See also:</em> <seealso marker="#error_marker-1">error_marker/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#warning_marker-1">warning_marker/1</seealso>.</p>
+</desc></func>
+<func>
+<name>attribute(Name::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to attribute(Name, none).
+</fsummary>
+
+<desc><marker id="attribute-1"/>
+<p>Equivalent to <seealso marker="#attribute-2">attribute(Name, none)</seealso>.</p>
+</desc></func>
+<func>
+<name>attribute(Name::syntaxTree(), Args::none | [syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract program attribute.</fsummary>
+
+<desc><marker id="attribute-2"/>
+
+<p>Creates an abstract program attribute. If
+  <c>Arguments</c> is <c>[A1, ..., An]</c>, the result
+  represents "<c>-Name(A1, ...,
+  An).</c>". Otherwise, if <c>Arguments</c> is
+  <c>none</c>, the result represents
+  "<c>-Name.</c>". The latter form makes it possible
+  to represent preprocessor directives such as
+  "<c>-endif.</c>". Attributes are source code forms.</p>
+ 
+  <p>Note: The preprocessor macro definition directive
+  "<c>-define(Name, Body).</c>" has relatively
+  few requirements on the syntactical form of <c>Body</c> (viewed
+  as a sequence of tokens). The <c>text</c> node type can be used
+  for a <c>Body</c> that is not a normal Erlang construct.
+ </p>
+<p><em>See also:</em> <seealso marker="#attribute-1">attribute/1</seealso>, <seealso marker="#attribute_arguments-1">attribute_arguments/1</seealso>, <seealso marker="#attribute_name-1">attribute_name/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#text-1">text/1</seealso>.</p>
+</desc></func>
+<func>
+<name>attribute_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of an attribute node.</fsummary>
+
+<desc><marker id="attribute_name-1"/>
+
+<p>Returns the name subtree of an <c>attribute</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#attribute-1">attribute/1</seealso>.</p>
+</desc></func>
+<func>
+<name>attribute_arguments(Node::syntaxTree()) -&gt; none | [syntaxTree()]</name>
+<fsummary>Returns the list of argument subtrees of an
+  attribute node, if any.</fsummary>
+
+<desc><marker id="attribute_arguments-1"/>
+
+<p>Returns the list of argument subtrees of an
+  <c>attribute</c> node, if any. If <c>Node</c>
+  represents "<c>-Name.</c>", the result is
+  <c>none</c>. Otherwise, if <c>Node</c> represents
+  "<c>-Name(E1, ..., En).</c>",
+  <c>[E1, ..., E1]</c> is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#attribute-1">attribute/1</seealso>.</p>
+</desc></func>
+<func>
+<name>arity_qualifier(Body::syntaxTree(), Arity::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract arity qualifier.</fsummary>
+
+<desc><marker id="arity_qualifier-2"/>
+
+<p>Creates an abstract arity qualifier. The result represents
+  "<c>Body/Arity</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#arity_qualifier_argument-1">arity_qualifier_argument/1</seealso>, <seealso marker="#arity_qualifier_body-1">arity_qualifier_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>arity_qualifier_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of an arity_qualifier node.</fsummary>
+
+<desc><marker id="arity_qualifier_body-1"/>
+
+<p>Returns the body subtree of an <c>arity_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#arity_qualifier-2">arity_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>arity_qualifier_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument (the arity) subtree of an
+  arity_qualifier node.</fsummary>
+
+<desc><marker id="arity_qualifier_argument-1"/>
+
+<p>Returns the argument (the arity) subtree of an
+  <c>arity_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#arity_qualifier-2">arity_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>module_qualifier(Module::syntaxTree(), Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract module qualifier.</fsummary>
+
+<desc><marker id="module_qualifier-2"/>
+
+<p>Creates an abstract module qualifier. The result represents
+  "<c>Module:Body</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#module_qualifier_argument-1">module_qualifier_argument/1</seealso>, <seealso marker="#module_qualifier_body-1">module_qualifier_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>module_qualifier_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument (the module) subtree of a
+  module_qualifier node.</fsummary>
+
+<desc><marker id="module_qualifier_argument-1"/>
+
+<p>Returns the argument (the module) subtree of a
+  <c>module_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>module_qualifier_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a module_qualifier node.</fsummary>
+
+<desc><marker id="module_qualifier_body-1"/>
+
+<p>Returns the body subtree of a <c>module_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>function(Name::syntaxTree(), Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract function definition.</fsummary>
+
+<desc><marker id="function-2"/>
+
+<p>Creates an abstract function definition. If <c>Clauses</c>
+  is <c>[C1, ..., Cn]</c>, the result represents
+  "<c>Name C1; ...; Name
+  Cn.</c>". More exactly, if each <c>Ci</c>
+  represents "<c>(Pi1, ..., Pim) Gi -&gt;
+  Bi</c>", then the result represents
+  "<c>Name(P11, ..., P1m) G1 -&gt;
+  B1; ...; Name(Pn1, ..., Pnm)
+  Gn -&gt; Bn.</c>". Function definitions are source
+  code forms.
+ </p>
+<p><em>See also:</em> <seealso marker="#function_arity-1">function_arity/1</seealso>, <seealso marker="#function_clauses-1">function_clauses/1</seealso>, <seealso marker="#function_name-1">function_name/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#rule-2">rule/2</seealso>.</p>
+</desc></func>
+<func>
+<name>function_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of a function node.</fsummary>
+
+<desc><marker id="function_name-1"/>
+
+<p>Returns the name subtree of a <c>function</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#function-2">function/2</seealso>.</p>
+</desc></func>
+<func>
+<name>function_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a function node.</fsummary>
+
+<desc><marker id="function_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a <c>function</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#function-2">function/2</seealso>.</p>
+</desc></func>
+<func>
+<name>function_arity(Node::syntaxTree()) -&gt; arity()</name>
+<fsummary>Returns the arity of a function node.</fsummary>
+
+<desc><marker id="function_arity-1"/>
+
+<p>Returns the arity of a <c>function</c> node. The result  
+is the number of parameter patterns in the first clause of the  
+function; subsequent clauses are ignored.</p>
+ 
+  <p>An exception is thrown if <c>function_clauses(Node)</c>
+  returns an empty list, or if the first element of that list is not
+  a syntax tree <c>C</c> of type <c>clause</c> such that
+  <c>clause_patterns(C)</c> is a nonempty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#clause_patterns-1">clause_patterns/1</seealso>, <seealso marker="#function-2">function/2</seealso>, <seealso marker="#function_clauses-1">function_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>clause(Guard::guard(), Body::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to clause([], Guard, Body).
+</fsummary>
+
+<desc><marker id="clause-2"/>
+<p>Equivalent to <seealso marker="#clause-3">clause([], Guard, Body)</seealso>.</p>
+</desc></func>
+<func>
+<name>clause(Patterns::[syntaxTree()], Guard::guard(), Body::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract clause.</fsummary>
+
+<desc><marker id="clause-3"/>
+
+<p>Creates an abstract clause. If <c>Patterns</c> is
+  <c>[P1, ..., Pn]</c> and <c>Body</c> is <c>[B1, ...,
+  Bm]</c>, then if <c>Guard</c> is <c>none</c>, the
+  result represents "<c>(P1, ..., Pn) -&gt;
+  B1, ..., Bm</c>", otherwise, unless
+  <c>Guard</c> is a list, the result represents
+  "<c>(P1, ..., Pn) when Guard -&gt;
+  B1, ..., Bm</c>".</p>
+ 
+  <p>For simplicity, the <c>Guard</c> argument may also be any
+  of the following:
+  </p><list>
+    <item><p>An empty list <c>[]</c>. This is equivalent to passing
+        <c>none</c>.</p></item>
+    <item><p>A nonempty list <c>[E1, ..., Ej]</c> of syntax trees.
+        This is equivalent to passing <c>conjunction([E1, ...,
+        Ej])</c>.</p></item>
+    <item><p>A nonempty list of lists of syntax trees <c>[[E1_1, ...,
+        E1_k1], ..., [Ej_1, ..., Ej_kj]]</c>, which is equivalent
+        to passing <c>disjunction([conjunction([E1_1, ...,
+        E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])</c>.</p></item>
+  </list><p>
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-2">clause/2</seealso>, <seealso marker="#clause_body-1">clause_body/1</seealso>, <seealso marker="#clause_guard-1">clause_guard/1</seealso>, <seealso marker="#clause_patterns-1">clause_patterns/1</seealso>.</p>
+</desc></func>
+<func>
+<name>clause_patterns(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of pattern subtrees of a clause node.</fsummary>
+
+<desc><marker id="clause_patterns-1"/>
+
+<p>Returns the list of pattern subtrees of a <c>clause</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>.</p>
+</desc></func>
+<func>
+<name>clause_guard(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the guard subtree of a clause node, if
+  any.</fsummary>
+
+<desc><marker id="clause_guard-1"/>
+
+<p>Returns the guard subtree of a <c>clause</c> node, if
+  any. If <c>Node</c> represents "<c>(P1, ...,
+  Pn) when Guard -&gt; B1, ...,
+  Bm</c>", <c>Guard</c> is returned. Otherwise, the
+  result is <c>none</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>.</p>
+</desc></func>
+<func>
+<name>clause_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Return the list of body subtrees of a clause node.</fsummary>
+
+<desc><marker id="clause_body-1"/>
+
+<p>Return the list of body subtrees of a <c>clause</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>.</p>
+</desc></func>
+<func>
+<name>disjunction(Tests::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract disjunction.</fsummary>
+
+<desc><marker id="disjunction-1"/>
+
+<p>Creates an abstract disjunction. If <c>List</c> is
+  <c>[E1, ..., En]</c>, the result represents
+  "<c>E1; ...; En</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#conjunction-1">conjunction/1</seealso>, <seealso marker="#disjunction_body-1">disjunction_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>disjunction_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a
+  disjunction node.</fsummary>
+
+<desc><marker id="disjunction_body-1"/>
+
+<p>Returns the list of body subtrees of a
+  <c>disjunction</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#disjunction-1">disjunction/1</seealso>.</p>
+</desc></func>
+<func>
+<name>conjunction(Tests::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract conjunction.</fsummary>
+
+<desc><marker id="conjunction-1"/>
+
+<p>Creates an abstract conjunction. If <c>List</c> is
+  <c>[E1, ..., En]</c>, the result represents
+  "<c>E1, ..., En</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#conjunction_body-1">conjunction_body/1</seealso>, <seealso marker="#disjunction-1">disjunction/1</seealso>.</p>
+</desc></func>
+<func>
+<name>conjunction_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a
+  conjunction node.</fsummary>
+
+<desc><marker id="conjunction_body-1"/>
+
+<p>Returns the list of body subtrees of a
+  <c>conjunction</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#conjunction-1">conjunction/1</seealso>.</p>
+</desc></func>
+<func>
+<name>catch_expr(Expr::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract catch-expression.</fsummary>
+
+<desc><marker id="catch_expr-1"/>
+
+<p>Creates an abstract catch-expression. The result represents
+  "<c>catch Expr</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#catch_expr_body-1">catch_expr_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>catch_expr_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a catch_expr node.</fsummary>
+
+<desc><marker id="catch_expr_body-1"/>
+
+<p>Returns the body subtree of a <c>catch_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#catch_expr-1">catch_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>match_expr(Pattern::syntaxTree(), Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract match-expression.</fsummary>
+
+<desc><marker id="match_expr-2"/>
+
+<p>Creates an abstract match-expression. The result represents
+  "<c>Pattern = Body</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#match_expr_body-1">match_expr_body/1</seealso>, <seealso marker="#match_expr_pattern-1">match_expr_pattern/1</seealso>.</p>
+</desc></func>
+<func>
+<name>match_expr_pattern(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the pattern subtree of a match_expr node.</fsummary>
+
+<desc><marker id="match_expr_pattern-1"/>
+
+<p>Returns the pattern subtree of a <c>match_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#match_expr-2">match_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>match_expr_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a match_expr node.</fsummary>
+
+<desc><marker id="match_expr_body-1"/>
+
+<p>Returns the body subtree of a <c>match_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#match_expr-2">match_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>operator(Name::atom() | string()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract operator.</fsummary>
+
+<desc><marker id="operator-1"/>
+
+<p>Creates an abstract operator. The name of the operator is the
+  character sequence represented by <c>Name</c>. This is
+  analogous to the print name of an atom, but an operator is never
+  written within single-quotes; e.g., the result of
+  <c>operator(</c>++')' represents "<c>++</c>" rather
+  than "`++''".
+ </p>
+<p><em>See also:</em> <seealso marker="#atom-1">atom/1</seealso>, <seealso marker="#operator_literal-1">operator_literal/1</seealso>, <seealso marker="#operator_name-1">operator_name/1</seealso>.</p>
+</desc></func>
+<func>
+<name>operator_name(Node::syntaxTree()) -&gt; atom()</name>
+<fsummary>Returns the name of an operator node.</fsummary>
+
+<desc><marker id="operator_name-1"/>
+
+<p>Returns the name of an <c>operator</c> node. Note that
+  the name is returned as an atom.
+ </p>
+<p><em>See also:</em> <seealso marker="#operator-1">operator/1</seealso>.</p>
+</desc></func>
+<func>
+<name>operator_literal(Node::syntaxTree()) -&gt; string()</name>
+<fsummary>Returns the literal string represented by an
+  operator node.</fsummary>
+
+<desc><marker id="operator_literal-1"/>
+
+<p>Returns the literal string represented by an
+  <c>operator</c> node. This is simply the operator name as a string.
+ </p>
+<p><em>See also:</em> <seealso marker="#operator-1">operator/1</seealso>.</p>
+</desc></func>
+<func>
+<name>infix_expr(Left::syntaxTree(), Operator::syntaxTree(), Right::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract infix operator expression.</fsummary>
+
+<desc><marker id="infix_expr-3"/>
+
+<p>Creates an abstract infix operator expression. The result
+  represents "<c>Left Operator
+  Right</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#infix_expr_left-1">infix_expr_left/1</seealso>, <seealso marker="#infix_expr_operator-1">infix_expr_operator/1</seealso>, <seealso marker="#infix_expr_right-1">infix_expr_right/1</seealso>, <seealso marker="#prefix_expr-2">prefix_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>infix_expr_left(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the left argument subtree of an
+  infix_expr node.</fsummary>
+
+<desc><marker id="infix_expr_left-1"/>
+
+<p>Returns the left argument subtree of an
+  <c>infix_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#infix_expr-3">infix_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>infix_expr_operator(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the operator subtree of an infix_expr node.</fsummary>
+
+<desc><marker id="infix_expr_operator-1"/>
+
+<p>Returns the operator subtree of an <c>infix_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#infix_expr-3">infix_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>infix_expr_right(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the right argument subtree of an
+  infix_expr node.</fsummary>
+
+<desc><marker id="infix_expr_right-1"/>
+
+<p>Returns the right argument subtree of an
+  <c>infix_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#infix_expr-3">infix_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>prefix_expr(Operator::syntaxTree(), Argument::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract prefix operator expression.</fsummary>
+
+<desc><marker id="prefix_expr-2"/>
+
+<p>Creates an abstract prefix operator expression. The result
+  represents "<c>Operator Argument</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#infix_expr-3">infix_expr/3</seealso>, <seealso marker="#prefix_expr_argument-1">prefix_expr_argument/1</seealso>, <seealso marker="#prefix_expr_operator-1">prefix_expr_operator/1</seealso>.</p>
+</desc></func>
+<func>
+<name>prefix_expr_operator(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the operator subtree of a prefix_expr node.</fsummary>
+
+<desc><marker id="prefix_expr_operator-1"/>
+
+<p>Returns the operator subtree of a <c>prefix_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#prefix_expr-2">prefix_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>prefix_expr_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument subtree of a prefix_expr node.</fsummary>
+
+<desc><marker id="prefix_expr_argument-1"/>
+
+<p>Returns the argument subtree of a <c>prefix_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#prefix_expr-2">prefix_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_field(Name::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to record_field(Name, none).
+</fsummary>
+
+<desc><marker id="record_field-1"/>
+<p>Equivalent to <seealso marker="#record_field-2">record_field(Name, none)</seealso>.</p>
+</desc></func>
+<func>
+<name>record_field(Name::syntaxTree(), Value::none | syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract record field specification.</fsummary>
+
+<desc><marker id="record_field-2"/>
+
+<p>Creates an abstract record field specification. If
+  <c>Value</c> is <c>none</c>, the result represents
+  simply "<c>Name</c>", otherwise it represents
+  "<c>Name = Value</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#record_expr-3">record_expr/3</seealso>, <seealso marker="#record_field_name-1">record_field_name/1</seealso>, <seealso marker="#record_field_value-1">record_field_value/1</seealso>.</p>
+</desc></func>
+<func>
+<name>record_field_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of a record_field node.</fsummary>
+
+<desc><marker id="record_field_name-1"/>
+
+<p>Returns the name subtree of a <c>record_field</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_field-2">record_field/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_field_value(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the value subtree of a record_field node,
+  if any.</fsummary>
+
+<desc><marker id="record_field_value-1"/>
+
+<p>Returns the value subtree of a <c>record_field</c> node,
+  if any. If <c>Node</c> represents
+  "<c>Name</c>", <c>none</c> is
+  returned. Otherwise, if <c>Node</c> represents
+  "<c>Name = Value</c>", <c>Value</c>
+  is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_field-2">record_field/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_index_expr(Type::syntaxTree(), Field::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract record field index expression.</fsummary>
+
+<desc><marker id="record_index_expr-2"/>
+
+<p>Creates an abstract record field index expression. The result
+  represents "<c>#Type.Field</c>".</p>
+ 
+  <p>(Note: the function name <c>record_index/2</c> is reserved
+  by the Erlang compiler, which is why that name could not be used
+  for this constructor.)
+ </p>
+<p><em>See also:</em> <seealso marker="#record_expr-3">record_expr/3</seealso>, <seealso marker="#record_index_expr_field-1">record_index_expr_field/1</seealso>, <seealso marker="#record_index_expr_type-1">record_index_expr_type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>record_index_expr_type(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the type subtree of a record_index_expr node.</fsummary>
+
+<desc><marker id="record_index_expr_type-1"/>
+
+<p>Returns the type subtree of a <c>record_index_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_index_expr-2">record_index_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_index_expr_field(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the field subtree of a record_index_expr node.</fsummary>
+
+<desc><marker id="record_index_expr_field-1"/>
+
+<p>Returns the field subtree of a <c>record_index_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_index_expr-2">record_index_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_access(Argument::syntaxTree(), Field::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to record_access(Argument, none, Field).
+</fsummary>
+
+<desc><marker id="record_access-2"/>
+<p>Equivalent to <seealso marker="#record_access-3">record_access(Argument, none, Field)</seealso>.</p>
+</desc></func>
+<func>
+<name>record_access(Argument::syntaxTree(), Type::none | syntaxTree(), Field::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract record field access expression.</fsummary>
+
+<desc><marker id="record_access-3"/>
+
+<p>Creates an abstract record field access expression. If
+  <c>Type</c> is not <c>none</c>, the result represents
+  "<c>Argument#Type.Field</c>".</p>
+ 
+  <p>If <c>Type</c> is <c>none</c>, the result represents
+  "<c>Argument.Field</c>". This is a special
+  form only allowed within Mnemosyne queries.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_access-2">record_access/2</seealso>, <seealso marker="#record_access_argument-1">record_access_argument/1</seealso>, <seealso marker="#record_access_field-1">record_access_field/1</seealso>, <seealso marker="#record_access_type-1">record_access_type/1</seealso>, <seealso marker="#record_expr-3">record_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_access_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument subtree of a record_access node.</fsummary>
+
+<desc><marker id="record_access_argument-1"/>
+
+<p>Returns the argument subtree of a <c>record_access</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_access-3">record_access/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_access_type(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the type subtree of a record_access node,
+  if any.</fsummary>
+
+<desc><marker id="record_access_type-1"/>
+
+<p>Returns the type subtree of a <c>record_access</c> node,
+  if any. If <c>Node</c> represents
+  "<c>Argument.Field</c>", <c>none</c>
+  is returned, otherwise if <c>Node</c> represents
+  "<c>Argument#Type.Field</c>",
+  <c>Type</c> is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_access-3">record_access/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_access_field(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the field subtree of a record_access node.</fsummary>
+
+<desc><marker id="record_access_field-1"/>
+
+<p>Returns the field subtree of a <c>record_access</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_access-3">record_access/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_expr(Type::syntaxTree(), Fields::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to record_expr(none, Type, Fields).
+</fsummary>
+
+<desc><marker id="record_expr-2"/>
+<p>Equivalent to <seealso marker="#record_expr-3">record_expr(none, Type, Fields)</seealso>.</p>
+</desc></func>
+<func>
+<name>record_expr(Argument::none | syntaxTree(), Type::syntaxTree(), Fields::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract record expression.</fsummary>
+
+<desc><marker id="record_expr-3"/>
+
+<p>Creates an abstract record expression. If <c>Fields</c> is
+  <c>[F1, ..., Fn]</c>, then if <c>Argument</c> is
+  <c>none</c>, the result represents
+  "<c>#Type{F1, ..., Fn}</c>",
+  otherwise it represents
+  "<c>Argument#Type{F1, ...,
+  Fn}</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#record_access-3">record_access/3</seealso>, <seealso marker="#record_expr-2">record_expr/2</seealso>, <seealso marker="#record_expr_argument-1">record_expr_argument/1</seealso>, <seealso marker="#record_expr_fields-1">record_expr_fields/1</seealso>, <seealso marker="#record_expr_type-1">record_expr_type/1</seealso>, <seealso marker="#record_field-2">record_field/2</seealso>, <seealso marker="#record_index_expr-2">record_index_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>record_expr_argument(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the argument subtree of a record_expr node,
+  if any.</fsummary>
+
+<desc><marker id="record_expr_argument-1"/>
+
+<p>Returns the argument subtree of a <c>record_expr</c> node,
+  if any. If <c>Node</c> represents
+  "<c>#Type{...}</c>", <c>none</c> is returned.
+  Otherwise, if <c>Node</c> represents
+  "<c>Argument#Type{...}</c>",
+  <c>Argument</c> is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_expr-3">record_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_expr_type(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the type subtree of a record_expr node.</fsummary>
+
+<desc><marker id="record_expr_type-1"/>
+
+<p>Returns the type subtree of a <c>record_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_expr-3">record_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>record_expr_fields(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of field subtrees of a
+  record_expr node.</fsummary>
+
+<desc><marker id="record_expr_fields-1"/>
+
+<p>Returns the list of field subtrees of a
+  <c>record_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#record_expr-3">record_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>application(Module::none | syntaxTree(), Name::syntaxTree(), Arguments::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract function application expression.</fsummary>
+
+<desc><marker id="application-3"/>
+
+<p>Creates an abstract function application expression. If
+  <c>Module</c> is <c>none</c>, this is call is equivalent
+  to <c>application(Function, Arguments)</c>, otherwise it is
+  equivalent to <c>application(module_qualifier(Module, Function),
+  Arguments)</c>.</p>
+ 
+  <p>(This is a utility function.)
+ </p>
+<p><em>See also:</em> <seealso marker="#application-2">application/2</seealso>, <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>application(Operator::syntaxTree(), Arguments::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract function application expression.</fsummary>
+
+<desc><marker id="application-2"/>
+
+<p>Creates an abstract function application expression. If
+  <c>Arguments</c> is <c>[A1, ..., An]</c>, the result
+  represents "<c>Operator(A1, ...,
+  An)</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#application-3">application/3</seealso>, <seealso marker="#application_arguments-1">application_arguments/1</seealso>, <seealso marker="#application_operator-1">application_operator/1</seealso>.</p>
+</desc></func>
+<func>
+<name>application_operator(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the operator subtree of an application node.</fsummary>
+
+<desc><marker id="application_operator-1"/>
+
+<p>Returns the operator subtree of an <c>application</c> node.</p>
+ 
+  <p>Note: if <c>Node</c> represents
+  "<c>M:F(...)</c>", then the result is the
+  subtree representing "<c>M:F</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#application-2">application/2</seealso>, <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>application_arguments(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of argument subtrees of an
+  application node.</fsummary>
+
+<desc><marker id="application_arguments-1"/>
+
+<p>Returns the list of argument subtrees of an
+  <c>application</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#application-2">application/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_comp(Template::syntaxTree(), Body::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract list comprehension.</fsummary>
+
+<desc><marker id="list_comp-2"/>
+
+<p>Creates an abstract list comprehension. If <c>Body</c> is
+  <c>[E1, ..., En]</c>, the result represents
+  "<c>[Template || E1, ..., En]</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#generator-2">generator/2</seealso>, <seealso marker="#list_comp_body-1">list_comp_body/1</seealso>, <seealso marker="#list_comp_template-1">list_comp_template/1</seealso>.</p>
+</desc></func>
+<func>
+<name>list_comp_template(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the template subtree of a list_comp node.</fsummary>
+
+<desc><marker id="list_comp_template-1"/>
+
+<p>Returns the template subtree of a <c>list_comp</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#list_comp-2">list_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>list_comp_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a list_comp node.</fsummary>
+
+<desc><marker id="list_comp_body-1"/>
+
+<p>Returns the list of body subtrees of a <c>list_comp</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#list_comp-2">list_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_comp(Template::syntaxTree(), Body::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract binary comprehension.</fsummary>
+
+<desc><marker id="binary_comp-2"/>
+
+<p>Creates an abstract binary comprehension. If <c>Body</c> is
+  <c>[E1, ..., En]</c>, the result represents
+  "<c>&lt;&lt;Template || E1, ..., En&gt;&gt;</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_comp_body-1">binary_comp_body/1</seealso>, <seealso marker="#binary_comp_template-1">binary_comp_template/1</seealso>, <seealso marker="#generator-2">generator/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_comp_template(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the template subtree of a binary_comp node.</fsummary>
+
+<desc><marker id="binary_comp_template-1"/>
+
+<p>Returns the template subtree of a <c>binary_comp</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_comp-2">binary_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_comp_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a binary_comp node.</fsummary>
+
+<desc><marker id="binary_comp_body-1"/>
+
+<p>Returns the list of body subtrees of a <c>binary_comp</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_comp-2">binary_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>rule(Name::syntaxTree(), Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract Mnemosyne rule.</fsummary>
+
+<desc><marker id="rule-2"/>
+
+<p>Creates an abstract Mnemosyne rule. If <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c>, the results represents
+  "<c>Name C1; ...; Name
+  Cn.</c>". More exactly, if each <c>Ci</c>
+  represents "<c>(Pi1, ..., Pim) Gi -&gt;
+  Bi</c>", then the result represents
+  "<c>Name(P11, ..., P1m) G1 :-
+  B1; ...; Name(Pn1, ..., Pnm)
+  Gn :- Bn.</c>". Rules are source code forms.
+ </p>
+<p><em>See also:</em> <seealso marker="#function-2">function/2</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#rule_arity-1">rule_arity/1</seealso>, <seealso marker="#rule_clauses-1">rule_clauses/1</seealso>, <seealso marker="#rule_name-1">rule_name/1</seealso>.</p>
+</desc></func>
+<func>
+<name>rule_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of a rule node.</fsummary>
+
+<desc><marker id="rule_name-1"/>
+
+<p>Returns the name subtree of a <c>rule</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#rule-2">rule/2</seealso>.</p>
+</desc></func>
+<func>
+<name>rule_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a rule node.</fsummary>
+
+<desc><marker id="rule_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a <c>rule</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#rule-2">rule/2</seealso>.</p>
+</desc></func>
+<func>
+<name>rule_arity(Node::syntaxTree()) -&gt; arity()</name>
+<fsummary>Returns the arity of a rule node.</fsummary>
+
+<desc><marker id="rule_arity-1"/>
+
+<p>Returns the arity of a <c>rule</c> node. The result is the  
+number of parameter patterns in the first clause of the rule;  
+subsequent clauses are ignored.</p>
+ 
+  <p>An exception is thrown if <c>rule_clauses(Node)</c> returns
+  an empty list, or if the first element of that list is not a syntax
+  tree <c>C</c> of type <c>clause</c> such that
+  <c>clause_patterns(C)</c> is a nonempty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#clause_patterns-1">clause_patterns/1</seealso>, <seealso marker="#rule-2">rule/2</seealso>, <seealso marker="#rule_clauses-1">rule_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>generator(Pattern::syntaxTree(), Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract generator.</fsummary>
+
+<desc><marker id="generator-2"/>
+
+<p>Creates an abstract generator. The result represents
+  "<c>Pattern &lt;- Body</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_comp-2">binary_comp/2</seealso>, <seealso marker="#generator_body-1">generator_body/1</seealso>, <seealso marker="#generator_pattern-1">generator_pattern/1</seealso>, <seealso marker="#list_comp-2">list_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>generator_pattern(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the pattern subtree of a generator node.</fsummary>
+
+<desc><marker id="generator_pattern-1"/>
+
+<p>Returns the pattern subtree of a <c>generator</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#generator-2">generator/2</seealso>.</p>
+</desc></func>
+<func>
+<name>generator_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a generator node.</fsummary>
+
+<desc><marker id="generator_body-1"/>
+
+<p>Returns the body subtree of a <c>generator</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#generator-2">generator/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_generator(Pattern::syntaxTree(), Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract binary_generator.</fsummary>
+
+<desc><marker id="binary_generator-2"/>
+
+<p>Creates an abstract binary_generator. The result represents
+  "<c>Pattern &lt;- Body</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_comp-2">binary_comp/2</seealso>, <seealso marker="#binary_generator_body-1">binary_generator_body/1</seealso>, <seealso marker="#binary_generator_pattern-1">binary_generator_pattern/1</seealso>, <seealso marker="#list_comp-2">list_comp/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_generator_pattern(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the pattern subtree of a generator node.</fsummary>
+
+<desc><marker id="binary_generator_pattern-1"/>
+
+<p>Returns the pattern subtree of a <c>generator</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_generator-2">binary_generator/2</seealso>.</p>
+</desc></func>
+<func>
+<name>binary_generator_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a generator node.</fsummary>
+
+<desc><marker id="binary_generator_body-1"/>
+
+<p>Returns the body subtree of a <c>generator</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#binary_generator-2">binary_generator/2</seealso>.</p>
+</desc></func>
+<func>
+<name>block_expr(Body::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract block expression.</fsummary>
+
+<desc><marker id="block_expr-1"/>
+
+<p>Creates an abstract block expression. If <c>Body</c> is
+  <c>[B1, ..., Bn]</c>, the result represents "<c>begin
+  B1, ..., Bn end</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#block_expr_body-1">block_expr_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>block_expr_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a block_expr node.</fsummary>
+
+<desc><marker id="block_expr_body-1"/>
+
+<p>Returns the list of body subtrees of a <c>block_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#block_expr-1">block_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>if_expr(Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract if-expression.</fsummary>
+
+<desc><marker id="if_expr-1"/>
+
+<p>Creates an abstract if-expression. If <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c>, the result represents "<c>if
+  C1; ...; Cn end</c>". More exactly, if each
+  <c>Ci</c> represents "<c>() Gi -&gt;
+  Bi</c>", then the result represents "<c>if
+  G1 -&gt; B1; ...; Gn -&gt; Bn
+  end</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#if_expr_clauses-1">if_expr_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>if_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of an if_expr node.</fsummary>
+
+<desc><marker id="if_expr_clauses-1"/>
+
+<p>Returns the list of clause subtrees of an <c>if_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#if_expr-1">if_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>case_expr(Argument::syntaxTree(), Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract case-expression.</fsummary>
+
+<desc><marker id="case_expr-2"/>
+
+<p>Creates an abstract case-expression. If <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c>, the result represents "<c>case
+  Argument of C1; ...; Cn end</c>". More
+  exactly, if each <c>Ci</c> represents "<c>(Pi)
+  Gi -&gt; Bi</c>", then the result represents
+  "<c>case Argument of P1 G1 -&gt;
+  B1; ...; Pn Gn -&gt; Bn end</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr_argument-1">case_expr_argument/1</seealso>, <seealso marker="#case_expr_clauses-1">case_expr_clauses/1</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#cond_expr-1">cond_expr/1</seealso>, <seealso marker="#if_expr-1">if_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>case_expr_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument subtree of a case_expr node.</fsummary>
+
+<desc><marker id="case_expr_argument-1"/>
+
+<p>Returns the argument subtree of a <c>case_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>case_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a case_expr node.</fsummary>
+
+<desc><marker id="case_expr_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a <c>case_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>.</p>
+</desc></func>
+<func>
+<name>cond_expr(Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract cond-expression.</fsummary>
+
+<desc><marker id="cond_expr-1"/>
+
+<p>Creates an abstract cond-expression. If <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c>, the result represents "<c>cond
+  C1; ...; Cn end</c>". More exactly, if each
+  <c>Ci</c> represents "<c>() Ei -&gt;
+  Bi</c>", then the result represents "<c>cond
+  E1 -&gt; B1; ...; En -&gt; Bn
+  end</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#cond_expr_clauses-1">cond_expr_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>cond_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a cond_expr node.</fsummary>
+
+<desc><marker id="cond_expr_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a <c>cond_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#cond_expr-1">cond_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>receive_expr(Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to receive_expr(Clauses, none, []).
+</fsummary>
+
+<desc><marker id="receive_expr-1"/>
+<p>Equivalent to <seealso marker="#receive_expr-3">receive_expr(Clauses, none, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>receive_expr(Clauses::[syntaxTree()], Timeout::none | syntaxTree(), Action::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract receive-expression.</fsummary>
+
+<desc><marker id="receive_expr-3"/>
+
+<p>Creates an abstract receive-expression. If <c>Timeout</c>
+  is <c>none</c>, the result represents "<c>receive
+  C1; ...; Cn end</c>" (the <c>Action</c>
+  argument is ignored). Otherwise, if <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c> and <c>Action</c> is <c>[A1, ...,
+  Am]</c>, the result represents "<c>receive C1; ...;
+  Cn after Timeout -&gt; A1, ..., Am
+  end</c>". More exactly, if each <c>Ci</c> represents
+  "<c>(Pi) Gi -&gt; Bi</c>", then the
+  result represents "<c>receive P1 G1 -&gt;
+  B1; ...; Pn Gn -&gt; Bn ...
+  end</c>".</p>
+ 
+  <p>Note that in Erlang, a receive-expression must have at least one
+  clause if no timeout part is specified.
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#receive_expr-1">receive_expr/1</seealso>, <seealso marker="#receive_expr_action-1">receive_expr_action/1</seealso>, <seealso marker="#receive_expr_clauses-1">receive_expr_clauses/1</seealso>, <seealso marker="#receive_expr_timeout-1">receive_expr_timeout/1</seealso>.</p>
+</desc></func>
+<func>
+<name>receive_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a
+  receive_expr node.</fsummary>
+
+<desc><marker id="receive_expr_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a
+  <c>receive_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#receive_expr-3">receive_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>receive_expr_timeout(Node::syntaxTree()) -&gt; none | syntaxTree()</name>
+<fsummary>Returns the timeout subtree of a receive_expr node,
+  if any.</fsummary>
+
+<desc><marker id="receive_expr_timeout-1"/>
+
+<p>Returns the timeout subtree of a <c>receive_expr</c> node,
+  if any. If <c>Node</c> represents "<c>receive C1;
+  ...; Cn end</c>", <c>none</c> is returned.
+  Otherwise, if <c>Node</c> represents "<c>receive
+  C1; ...; Cn after Timeout -&gt; ... end</c>",
+  <c>Timeout</c> is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#receive_expr-3">receive_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>receive_expr_action(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of action body subtrees of a
+  receive_expr node.</fsummary>
+
+<desc><marker id="receive_expr_action-1"/>
+
+<p>Returns the list of action body subtrees of a
+  <c>receive_expr</c> node. If <c>Node</c> represents
+  "<c>receive C1; ...; Cn end</c>", this is the
+  empty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#receive_expr-3">receive_expr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr(Body::[syntaxTree()], Handlers::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to try_expr(Body, [], Handlers).
+</fsummary>
+
+<desc><marker id="try_expr-2"/>
+<p>Equivalent to <seealso marker="#try_expr-3">try_expr(Body, [], Handlers)</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr(Body::[syntaxTree()], Clauses::[syntaxTree()], Handlers::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to try_expr(Body, Clauses, Handlers, []).
+</fsummary>
+
+<desc><marker id="try_expr-3"/>
+<p>Equivalent to <seealso marker="#try_expr-4">try_expr(Body, Clauses, Handlers, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>try_after_expr(Body::[syntaxTree()], After::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to try_expr(Body, [], [], After).
+</fsummary>
+
+<desc><marker id="try_after_expr-2"/>
+<p>Equivalent to <seealso marker="#try_expr-4">try_expr(Body, [], [], After)</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr(Body::[syntaxTree()], Clauses::[syntaxTree()], Handlers::[syntaxTree()], After::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract try-expression.</fsummary>
+
+<desc><marker id="try_expr-4"/>
+
+<p>Creates an abstract try-expression. If <c>Body</c> is
+  <c>[B1, ..., Bn]</c>, <c>Clauses</c> is <c>[C1, ...,
+  Cj]</c>, <c>Handlers</c> is <c>[H1, ..., Hk]</c>, and
+  <c>After</c> is <c>[A1, ..., Am]</c>, the result
+  represents "<c>try B1, ..., Bn of C1;
+  ...; Cj catch H1; ...; Hk after
+  A1, ..., Am end</c>". More exactly, if each
+  <c>Ci</c> represents "<c>(CPi) CGi -&gt;
+  CBi</c>", and each <c>Hi</c> represents
+  "<c>(HPi) HGi -&gt; HBi</c>", then the
+  result represents "<c>try B1, ..., Bn of
+  CP1 CG1 -&gt; CB1; ...; CPj
+  CGj -&gt; CBj catch HP1 HG1 -&gt;
+  HB1; ...; HPk HGk -&gt; HBk after
+  A1, ..., Am end</c>"; see
+  <seealso marker="#case_expr-2">case_expr/2</seealso>. If <c>Clauses</c> is the empty list,
+  the <c>of ...</c> section is left out. If <c>After</c> is
+  the empty list, the <c>after ...</c> section is left out. If
+  <c>Handlers</c> is the empty list, and <c>After</c> is
+  nonempty, the <c>catch ...</c> section is left out.
+ </p>
+<p><em>See also:</em> <seealso marker="#case_expr-2">case_expr/2</seealso>, <seealso marker="#class_qualifier-2">class_qualifier/2</seealso>, <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#try_after_expr-2">try_after_expr/2</seealso>, <seealso marker="#try_expr-2">try_expr/2</seealso>, <seealso marker="#try_expr-3">try_expr/3</seealso>, <seealso marker="#try_expr_after-1">try_expr_after/1</seealso>, <seealso marker="#try_expr_body-1">try_expr_body/1</seealso>, <seealso marker="#try_expr_clauses-1">try_expr_clauses/1</seealso>, <seealso marker="#try_expr_handlers-1">try_expr_handlers/1</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr_body(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of body subtrees of a try_expr node.</fsummary>
+
+<desc><marker id="try_expr_body-1"/>
+
+<p>Returns the list of body subtrees of a <c>try_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#try_expr-4">try_expr/4</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of case-clause subtrees of a
+  try_expr node.</fsummary>
+
+<desc><marker id="try_expr_clauses-1"/>
+
+<p>Returns the list of case-clause subtrees of a
+  <c>try_expr</c> node. If <c>Node</c> represents
+  "<c>try Body catch H1; ...; Hn
+  end</c>", the result is the empty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#try_expr-4">try_expr/4</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr_handlers(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of handler-clause subtrees of a
+  try_expr node.</fsummary>
+
+<desc><marker id="try_expr_handlers-1"/>
+
+<p>Returns the list of handler-clause subtrees of a
+  <c>try_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#try_expr-4">try_expr/4</seealso>.</p>
+</desc></func>
+<func>
+<name>try_expr_after(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of "after" subtrees of a try_expr node.</fsummary>
+
+<desc><marker id="try_expr_after-1"/>
+
+<p>Returns the list of "after" subtrees of a <c>try_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#try_expr-4">try_expr/4</seealso>.</p>
+</desc></func>
+<func>
+<name>class_qualifier(Class::syntaxTree(), Body::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract class qualifier.</fsummary>
+
+<desc><marker id="class_qualifier-2"/>
+
+<p>Creates an abstract class qualifier. The result represents
+  "<c>Class:Body</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#class_qualifier_argument-1">class_qualifier_argument/1</seealso>, <seealso marker="#class_qualifier_body-1">class_qualifier_body/1</seealso>, <seealso marker="#try_expr-4">try_expr/4</seealso>.</p>
+</desc></func>
+<func>
+<name>class_qualifier_argument(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the argument (the class) subtree of a
+  class_qualifier node.</fsummary>
+
+<desc><marker id="class_qualifier_argument-1"/>
+
+<p>Returns the argument (the class) subtree of a
+  <c>class_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#class_qualifier-2">class_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>class_qualifier_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a class_qualifier node.</fsummary>
+
+<desc><marker id="class_qualifier_body-1"/>
+
+<p>Returns the body subtree of a <c>class_qualifier</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#class_qualifier-2">class_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>implicit_fun(Name::syntaxTree(), Arity::none | syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract "implicit fun" expression.</fsummary>
+
+<desc><marker id="implicit_fun-2"/>
+
+<p>Creates an abstract "implicit fun" expression. If
+  <c>Arity</c> is <c>none</c>, this is equivalent to
+  <c>implicit_fun(Name)</c>, otherwise it is equivalent to
+  <c>implicit_fun(arity_qualifier(Name, Arity))</c>.</p>
+ 
+  <p>(This is a utility function.)
+ </p>
+<p><em>See also:</em> <seealso marker="#implicit_fun-1">implicit_fun/1</seealso>, <seealso marker="#implicit_fun-3">implicit_fun/3</seealso>.</p>
+</desc></func>
+<func>
+<name>implicit_fun(Module::none | syntaxTree(), Name::syntaxTree(), Arity::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract module-qualified "implicit fun" expression.</fsummary>
+
+<desc><marker id="implicit_fun-3"/>
+
+<p>Creates an abstract module-qualified "implicit fun" expression.
+  If <c>Module</c> is <c>none</c>, this is equivalent to
+  <c>implicit_fun(Name, Arity)</c>, otherwise it is equivalent to
+  <c>implicit_fun(module_qualifier(Module, arity_qualifier(Name,
+  Arity))</c>.</p>
+ 
+  <p>(This is a utility function.)
+ </p>
+<p><em>See also:</em> <seealso marker="#implicit_fun-1">implicit_fun/1</seealso>, <seealso marker="#implicit_fun-2">implicit_fun/2</seealso>.</p>
+</desc></func>
+<func>
+<name>implicit_fun(Name::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract "implicit fun" expression.</fsummary>
+
+<desc><marker id="implicit_fun-1"/>
+
+<p>Creates an abstract "implicit fun" expression. The result
+  represents "<c>fun Name</c>". <c>Name</c> should
+  represent either <c>F/A</c> or
+  <c>M:F/A</c>
+ </p>
+<p><em>See also:</em> <seealso marker="#arity_qualifier-2">arity_qualifier/2</seealso>, <seealso marker="#implicit_fun-2">implicit_fun/2</seealso>, <seealso marker="#implicit_fun-3">implicit_fun/3</seealso>, <seealso marker="#implicit_fun_name-1">implicit_fun_name/1</seealso>, <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>implicit_fun_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of an implicit_fun node.</fsummary>
+
+<desc><marker id="implicit_fun_name-1"/>
+
+<p>Returns the name subtree of an <c>implicit_fun</c> node.</p>
+ 
+  <p>Note: if <c>Node</c> represents "<c>fun
+  N/A</c>" or "<c>fun
+  M:N/A</c>", then the result is the
+  subtree representing "<c>N/A</c>" or
+  "<c>M:N/A</c>", respectively.
+ </p>
+<p><em>See also:</em> <seealso marker="#arity_qualifier-2">arity_qualifier/2</seealso>, <seealso marker="#implicit_fun-1">implicit_fun/1</seealso>, <seealso marker="#module_qualifier-2">module_qualifier/2</seealso>.</p>
+</desc></func>
+<func>
+<name>fun_expr(Clauses::[syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract fun-expression.</fsummary>
+
+<desc><marker id="fun_expr-1"/>
+
+<p>Creates an abstract fun-expression. If <c>Clauses</c> is
+  <c>[C1, ..., Cn]</c>, the result represents "<c>fun
+  C1; ...; Cn end</c>". More exactly, if each
+  <c>Ci</c> represents "<c>(Pi1, ..., Pim)
+  Gi -&gt; Bi</c>", then the result represents
+  "<c>fun (P11, ..., P1m) G1 -&gt;
+  B1; ...; (Pn1, ..., Pnm) Gn -&gt;
+  Bn end</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#fun_expr_arity-1">fun_expr_arity/1</seealso>, <seealso marker="#fun_expr_clauses-1">fun_expr_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>fun_expr_clauses(Node::syntaxTree()) -&gt; [syntaxTree()]</name>
+<fsummary>Returns the list of clause subtrees of a fun_expr node.</fsummary>
+
+<desc><marker id="fun_expr_clauses-1"/>
+
+<p>Returns the list of clause subtrees of a <c>fun_expr</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#fun_expr-1">fun_expr/1</seealso>.</p>
+</desc></func>
+<func>
+<name>fun_expr_arity(Node::syntaxTree()) -&gt; arity()</name>
+<fsummary>Returns the arity of a fun_expr node.</fsummary>
+
+<desc><marker id="fun_expr_arity-1"/>
+
+<p>Returns the arity of a <c>fun_expr</c> node. The result is  
+the number of parameter patterns in the first clause of the  
+fun-expression; subsequent clauses are ignored.</p>
+ 
+  <p>An exception is thrown if <c>fun_expr_clauses(Node)</c>
+  returns an empty list, or if the first element of that list is not a
+  syntax tree <c>C</c> of type <c>clause</c> such that
+  <c>clause_patterns(C)</c> is a nonempty list.
+ </p>
+<p><em>See also:</em> <seealso marker="#clause-3">clause/3</seealso>, <seealso marker="#clause_patterns-1">clause_patterns/1</seealso>, <seealso marker="#fun_expr-1">fun_expr/1</seealso>, <seealso marker="#fun_expr_clauses-1">fun_expr_clauses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>parentheses(Expr::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract parenthesised expression.</fsummary>
+
+<desc><marker id="parentheses-1"/>
+
+<p>Creates an abstract parenthesised expression. The result
+  represents "<c>(Body)</c>", independently of the
+  context.
+ </p>
+<p><em>See also:</em> <seealso marker="#parentheses_body-1">parentheses_body/1</seealso>.</p>
+</desc></func>
+<func>
+<name>parentheses_body(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the body subtree of a parentheses node.</fsummary>
+
+<desc><marker id="parentheses_body-1"/>
+
+<p>Returns the body subtree of a <c>parentheses</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#parentheses-1">parentheses/1</seealso>.</p>
+</desc></func>
+<func>
+<name>macro(Name::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Equivalent to macro(Name, none).
+</fsummary>
+
+<desc><marker id="macro-1"/>
+<p>Equivalent to <seealso marker="#macro-2">macro(Name, none)</seealso>.</p>
+</desc></func>
+<func>
+<name>macro(Name::syntaxTree(), Arguments::none | [syntaxTree()]) -&gt; syntaxTree()</name>
+<fsummary>Creates an abstract macro application.</fsummary>
+
+<desc><marker id="macro-2"/>
+
+<p>Creates an abstract macro application. If <c>Arguments</c>
+  is <c>none</c>, the result represents
+  "<c>?Name</c>", otherwise, if <c>Arguments</c>
+  is <c>[A1, ..., An]</c>, the result represents
+  "<c>?Name(A1, ..., An)</c>".</p>
+ 
+  <p>Notes: if <c>Arguments</c> is the empty list, the result
+  will thus represent "<c>?Name()</c>", including a pair  
+of matching parentheses.</p>
+ 
+  <p>The only syntactical limitation imposed by the preprocessor on the
+  arguments to a macro application (viewed as sequences of tokens) is
+  that they must be balanced with respect to parentheses, brackets,
+  <c>begin ... end</c>, <c>case ... end</c>, etc. The
+  <c>text</c> node type can be used to represent arguments which
+  are not regular Erlang constructs.
+ </p>
+<p><em>See also:</em> <seealso marker="#macro-1">macro/1</seealso>, <seealso marker="#macro_arguments-1">macro_arguments/1</seealso>, <seealso marker="#macro_name-1">macro_name/1</seealso>, <seealso marker="#text-1">text/1</seealso>.</p>
+</desc></func>
+<func>
+<name>macro_name(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns the name subtree of a macro node.</fsummary>
+
+<desc><marker id="macro_name-1"/>
+
+<p>Returns the name subtree of a <c>macro</c> node.
+ </p>
+<p><em>See also:</em> <seealso marker="#macro-2">macro/2</seealso>.</p>
+</desc></func>
+<func>
+<name>macro_arguments(Node::syntaxTree()) -&gt; none | [syntaxTree()]</name>
+<fsummary>Returns the list of argument subtrees of a macro
+  node, if any.</fsummary>
+
+<desc><marker id="macro_arguments-1"/>
+
+<p>Returns the list of argument subtrees of a <c>macro</c>
+  node, if any. If <c>Node</c> represents
+  "<c>?Name</c>", <c>none</c> is returned.
+  Otherwise, if <c>Node</c> represents
+  "<c>?Name(A1, ..., An)</c>",
+  <c>[A1, ..., An]</c> is returned.
+ </p>
+<p><em>See also:</em> <seealso marker="#macro-2">macro/2</seealso>.</p>
+</desc></func>
+<func>
+<name>abstract(T::term()) -&gt; syntaxTree()</name>
+<fsummary>Returns the syntax tree corresponding to an Erlang term.</fsummary>
+
+<desc><marker id="abstract-1"/>
+
+<p>Returns the syntax tree corresponding to an Erlang term.
+  <c>Term</c> must be a literal term, i.e., one that can be
+  represented as a source code literal. Thus, it may not contain a
+  process identifier, port, reference, binary or function value as a
+  subterm. The function recognises printable strings, in order to get a
+  compact and readable representation. Evaluation fails with reason
+  <c>badarg</c> if <c>Term</c> is not a literal term.
+ </p>
+<p><em>See also:</em> <seealso marker="#concrete-1">concrete/1</seealso>, <seealso marker="#is_literal-1">is_literal/1</seealso>.</p>
+</desc></func>
+<func>
+<name>concrete(Node::syntaxTree()) -&gt; term()</name>
+<fsummary>Returns the Erlang term represented by a syntax tree.</fsummary>
+
+<desc><marker id="concrete-1"/>
+
+<p>Returns the Erlang term represented by a syntax tree. Evaluation
+  fails with reason <c>badarg</c> if <c>Node</c> does not  
+represent a literal term.</p>
+ 
+  <p>Note: Currently, the set of syntax trees which have a concrete
+  representation is larger than the set of trees which can be built
+  using the function <seealso marker="#abstract-1">abstract/1</seealso>. An abstract character
+  will be concretised as an integer, while <seealso marker="#abstract-1">abstract/1</seealso> does
+  not at present yield an abstract character for any input. (Use the
+  <seealso marker="#char-1">char/1</seealso> function to explicitly create an abstract
+  character.)
+ </p>
+<p><em>See also:</em> <seealso marker="#abstract-1">abstract/1</seealso>, <seealso marker="#char-1">char/1</seealso>, <seealso marker="#is_literal-1">is_literal/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_literal(T::syntaxTree()) -&gt; boolean()</name>
+<fsummary>Returns true if Node represents a
+  literal term, otherwise false.</fsummary>
+
+<desc><marker id="is_literal-1"/>
+
+<p>Returns <c>true</c> if <c>Node</c> represents a
+  literal term, otherwise <c>false</c>. This function returns
+  <c>true</c> if and only if the value of
+  <c>concrete(Node)</c> is defined.
+ </p>
+<p><em>See also:</em> <seealso marker="#abstract-1">abstract/1</seealso>, <seealso marker="#concrete-1">concrete/1</seealso>.</p>
+</desc></func>
+<func>
+<name>revert(Node::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Returns an erl_parse-compatible representation of a
+  syntax tree, if possible.</fsummary>
+
+<desc><marker id="revert-1"/>
+
+<p>Returns an <c>erl_parse</c>-compatible representation of a
+  syntax tree, if possible. If <c>Tree</c> represents a
+  well-formed Erlang program or expression, the conversion should work
+  without problems. Typically, <seealso marker="#is_tree-1">is_tree/1</seealso> yields
+  <c>true</c> if conversion failed (i.e., the result is still an
+  abstract syntax tree), and <c>false</c> otherwise.</p>
+ 
+  <p>The <seealso marker="#is_tree-1">is_tree/1</seealso> test is not completely foolproof. For a
+  few special node types (e.g. <c>arity_qualifier</c>), if such a
+  node occurs in a context where it is not expected, it will be left
+  unchanged as a non-reverted subtree of the result. This can only
+  happen if <c>Tree</c> does not actually represent legal Erlang
+  code.
+ </p>
+<p><em>See also:</em> <seealso marker="stdlib:erl_parse">erl_parse(3)</seealso>, <seealso marker="#revert_forms-1">revert_forms/1</seealso>.</p>
+</desc></func>
+<func>
+<name>revert_forms(Forms::forms()) -&gt; [erl_parse()]</name>
+<fsummary>Reverts a sequence of Erlang source code forms.</fsummary>
+
+<desc><marker id="revert_forms-1"/>
+
+<p>Reverts a sequence of Erlang source code forms. The sequence can
+  be given either as a <c>form_list</c> syntax tree (possibly
+  nested), or as a list of "program form" syntax trees. If successful,
+  the corresponding flat list of <c>erl_parse</c>-compatible
+  syntax trees is returned (see <seealso marker="#revert-1">revert/1</seealso>). If some program
+  form could not be reverted, <c>{error, Form}</c> is thrown.
+  Standalone comments in the form sequence are discarded.
+ </p>
+<p><em>See also:</em> <seealso marker="#form_list-1">form_list/1</seealso>, <seealso marker="#is_form-1">is_form/1</seealso>, <seealso marker="#revert-1">revert/1</seealso>.</p>
+</desc></func>
+<func>
+<name>subtrees(T::syntaxTree()) -&gt; [[syntaxTree()]]</name>
+<fsummary>Returns the grouped list of all subtrees of a syntax tree.</fsummary>
+
+<desc><marker id="subtrees-1"/>
+
+<p>Returns the grouped list of all subtrees of a syntax tree. If
+  <c>Node</c> is a leaf node (see <seealso marker="#is_leaf-1">is_leaf/1</seealso>), this
+  is the empty list, otherwise the result is always a nonempty list,
+  containing the lists of subtrees of <c>Node</c>, in  
+left-to-right order as they occur in the printed program text, and  
+grouped by category. Often, each group contains only a single  
+subtree.</p>
+ 
+  <p>Depending on the type of <c>Node</c>, the size of some  
+groups may be variable (e.g., the group consisting of all the  
+elements of a tuple), while others always contain the same number of  
+elements - usually exactly one (e.g., the group containing the  
+argument expression of a case-expression). Note, however, that the  
+exact structure of the returned list (for a given node type) should  
+in general not be depended upon, since it might be subject to change  
+without notice.</p>
+ 
+  <p>The function <seealso marker="#subtrees-1">subtrees/1</seealso> and the constructor functions
+  <seealso marker="#make_tree-2">make_tree/2</seealso> and <seealso marker="#update_tree-2">update_tree/2</seealso> can be a  
+great help if one wants to traverse a syntax tree, visiting all its  
+subtrees, but treat nodes of the tree in a uniform way in most or all  
+cases. Using these functions makes this simple, and also assures that  
+your code is not overly sensitive to extensions of the syntax tree  
+data type, because any node types not explicitly handled by your code  
+can be left to a default case.</p>
+ 
+  <p>For example:
+  </p><pre>     postorder(F, Tree) -&gt;
+        F(case subtrees(Tree) of
+            [] -&gt; Tree;
+            List -&gt; update_tree(Tree,
+                                [[postorder(F, Subtree)
+                                  || Subtree &amp;lt;- Group]
+                                 || Group &amp;lt;- List])
+          end).</pre><p>
+  maps the function <c>F</c> on <c>Tree</c> and all its
+  subtrees, doing a post-order traversal of the syntax tree. (Note the
+  use of <seealso marker="#update_tree-2">update_tree/2</seealso> to preserve node attributes.) For a
+  simple function like:
+  </p><pre>     f(Node) -&gt;
+        case type(Node) of
+            atom -&gt; atom("a_" ++ atom_name(Node));
+            _ -&gt; Node
+        end.</pre><p>
+  the call <c>postorder(fun f/1, Tree)</c> will yield a new
+  representation of <c>Tree</c> in which all atom names have been
+  extended with the prefix "a_", but nothing else (including comments,
+  annotations and line numbers) has been changed.
+ </p>
+<p><em>See also:</em> <seealso marker="#copy_attrs-2">copy_attrs/2</seealso>, <seealso marker="#is_leaf-1">is_leaf/1</seealso>, <seealso marker="#make_tree-2">make_tree/2</seealso>, <seealso marker="#type-1">type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>update_tree(Node::syntaxTree(), Groups::[[syntaxTree()]]) -&gt; syntaxTree()</name>
+<fsummary>Creates a syntax tree with the same type and attributes as the
+  given tree.</fsummary>
+
+<desc><marker id="update_tree-2"/>
+
+<p>Creates a syntax tree with the same type and attributes as the
+  given tree. This is equivalent to <c>copy_attrs(Node,
+  make_tree(type(Node), Groups))</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#copy_attrs-2">copy_attrs/2</seealso>, <seealso marker="#make_tree-2">make_tree/2</seealso>, <seealso marker="#type-1">type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>make_tree(X1::atom(), X2::[[syntaxTree()]]) -&gt; syntaxTree()</name>
+<fsummary>Creates a syntax tree with the given type and subtrees.</fsummary>
+
+<desc><marker id="make_tree-2"/>
+
+<p>Creates a syntax tree with the given type and subtrees.
+  <c>Type</c> must be a node type name (see <seealso marker="#type-1">type/1</seealso>)
+  that does not denote a leaf node type (see <seealso marker="#is_leaf-1">is_leaf/1</seealso>).
+  <c>Groups</c> must be a <em>nonempty</em> list of groups of
+  syntax trees, representing the subtrees of a node of the given type,
+  in left-to-right order as they would occur in the printed program
+  text, grouped by category as done by <seealso marker="#subtrees-1">subtrees/1</seealso>.</p>
+ 
+  <p>The result of <c>copy_attrs(Node, make_tree(type(Node),
+  subtrees(Node)))</c> (see <seealso marker="#update_tree-2">update_tree/2</seealso>) represents
+  the same source code text as the original <c>Node</c>, assuming
+  that <c>subtrees(Node)</c> yields a nonempty list. However, it
+  does not necessarily have the same data representation as
+  <c>Node</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#copy_attrs-2">copy_attrs/2</seealso>, <seealso marker="#is_leaf-1">is_leaf/1</seealso>, <seealso marker="#subtrees-1">subtrees/1</seealso>, <seealso marker="#type-1">type/1</seealso>, <seealso marker="#update_tree-2">update_tree/2</seealso>.</p>
+</desc></func>
+<func>
+<name>meta(T::syntaxTree()) -&gt; syntaxTree()</name>
+<fsummary>Creates a meta-representation of a syntax tree.</fsummary>
+
+<desc><marker id="meta-1"/>
+
+<p>Creates a meta-representation of a syntax tree. The result
+  represents an Erlang expression "<c>MetaTree</c>"
+  which, if evaluated, will yield a new syntax tree representing the
+  same source code text as <c>Tree</c> (although the actual data
+  representation may be different). The expression represented by
+  <c>MetaTree</c> is <em>implementation independent</em> with
+  regard to the data structures used by the abstract syntax tree
+  implementation. Comments attached to nodes of <c>Tree</c> will  
+be preserved, but other attributes are lost.</p>
+ 
+  <p>Any node in <c>Tree</c> whose node type is
+  <c>variable</c> (see <seealso marker="#type-1">type/1</seealso>), and whose list of
+  annotations (see <seealso marker="#get_ann-1">get_ann/1</seealso>) contains the atom
+  <c>meta_var</c>, will remain unchanged in the resulting tree,
+  except that exactly one occurrence of <c>meta_var</c> is  
+removed from its annotation list.</p>
+ 
+  <p>The main use of the function <c>meta/1</c> is to transform a
+  data structure <c>Tree</c>, which represents a piece of program
+  code, into a form that is <em>representation independent when
+  printed</em>. E.g., suppose <c>Tree</c> represents a variable
+  named "V". Then (assuming a function <c>print/1</c> for
+  printing syntax trees), evaluating <c>print(abstract(Tree))</c>
+  - simply using <seealso marker="#abstract-1">abstract/1</seealso> to map the actual data
+  structure onto a syntax tree representation - would output a string
+  that might look something like "<c>{tree, variable, ..., "V",
+  ...}</c>", which is obviously dependent on the implementation of
+  the abstract syntax trees. This could e.g. be useful for caching a
+  syntax tree in a file. However, in some situations like in a program
+  generator generator (with two "generator"), it may be unacceptable.
+  Using <c>print(meta(Tree))</c> instead would output a
+  <em>representation independent</em> syntax tree generating
+  expression; in the above case, something like
+  "<c>erl_syntax:variable("V")</c>".
+ </p>
+<p><em>See also:</em> <seealso marker="#abstract-1">abstract/1</seealso>, <seealso marker="#get_ann-1">get_ann/1</seealso>, <seealso marker="#type-1">type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>tree(Type::atom()) -&gt; #tree{}</name>
+<fsummary>Equivalent to tree(Type, []).
+</fsummary>
+
+<desc><marker id="tree-1"/>
+<p>Equivalent to <seealso marker="#tree-2">tree(Type, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>tree(Type::atom(), Data::term()) -&gt; #tree{}</name>
+<fsummary>For special purposes only.</fsummary>
+
+<desc><marker id="tree-2"/>
+
+<p><em>For special purposes only</em>. Creates an abstract syntax
+  tree node with type tag <c>Type</c> and associated data
+  <c>Data</c>.</p>
+ 
+  <p>This function and the related <seealso marker="#is_tree-1">is_tree/1</seealso> and
+  <seealso marker="#data-1">data/1</seealso> provide a uniform way to extend the set of
+  <c>erl_parse</c> node types. The associated data is any term,  
+whose format may depend on the type tag.</p>
+ 
+  <p><em>Notes:</em>
+  </p><list>
+   <item><p>Any nodes created outside of this module must have type tags
+       distinct from those currently defined by this module; see
+       <seealso marker="#type-1">type/1</seealso> for a complete list.</p></item>
+   <item><p>The type tag of a syntax tree node may also be used
+       as a primary tag by the <c>erl_parse</c> representation;
+       in that case, the selector functions for that node type
+       <em>must</em> handle both the abstract syntax tree and the
+       <c>erl_parse</c> form. The function <c>type(T)</c>
+       should return the correct type tag regardless of the
+       representation of <c>T</c>, so that the user sees no
+       difference between <c>erl_syntax</c> and
+       <c>erl_parse</c> nodes.</p></item>
+  </list><p>
+ </p>
+<p><em>See also:</em> <seealso marker="#data-1">data/1</seealso>, <seealso marker="#is_tree-1">is_tree/1</seealso>, <seealso marker="#type-1">type/1</seealso>.</p>
+</desc></func>
+<func>
+<name>is_tree(Tree::syntaxTree()) -&gt; boolean()</name>
+<fsummary>For special purposes only.</fsummary>
+
+<desc><marker id="is_tree-1"/>
+
+<p><em>For special purposes only</em>. Returns <c>true</c> if
+  <c>Tree</c> is an abstract syntax tree and <c>false</c>  
+otherwise.</p>
+ 
+  <p><em>Note</em>: this function yields <c>false</c> for all
+  "old-style" <c>erl_parse</c>-compatible "parse trees".
+ </p>
+<p><em>See also:</em> <seealso marker="#tree-2">tree/2</seealso>.</p>
+</desc></func>
+<func>
+<name>data(Tree::syntaxTree()) -&gt; term()</name>
+<fsummary>For special purposes only.</fsummary>
+
+<desc><marker id="data-1"/>
+
+<p><em>For special purposes only</em>. Returns the associated data
+  of a syntax tree node. Evaluation fails with reason
+  <c>badarg</c> if <c>is_tree(Node)</c> does not yield
+  <c>true</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#tree-2">tree/2</seealso>.</p>
+</desc></func></funcs>
+
+<authors>
+
+<aname>Richard Carlsson</aname>
+<email>carlsson.richard@gmail.com</email></authors></erlref>
