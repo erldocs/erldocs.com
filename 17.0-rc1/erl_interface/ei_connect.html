@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ei_connect (erl_interface) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;ei_connect&lt;/h1&gt;
+  &lt;libsummary&gt;Communicate with distributed erlang&lt;/libsummary&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;This module enables C programs to communicate with erlang nodes,
+      using the erlang distribution over TCP/IP.&lt;/p&gt;
+    &lt;p&gt;A C node appears to Erlang as a
+      &lt;em&gt;hidden node&lt;/em&gt;.
+      That is, Erlang processes that know the name of the
+      C node are able to communicate with it in a normal manner, but
+      the node name will not appear in the listing provided by the
+      Erlang function &lt;code&gt;nodes/0&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;The environment variable &lt;code&gt;ERL_EPMD_PORT&lt;/code&gt; can be used
+      to indicate which logical cluster a C node belongs to.&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Timeout functions&lt;/h4&gt;
+    &lt;p&gt;Most functions appear in a version with the suffix
+      &lt;code&gt;_tmo&lt;/code&gt; appended to the function name. Those function take
+      an additional argument, a timeout in &lt;em&gt;milliseconds&lt;/em&gt;. The
+      semantics is this; for each communication primitive involved in
+      the operation, if the primitive does not complete within the time
+      specified, the function will return an error and
+      &lt;code&gt;erl_errno&lt;/code&gt; will be set to &lt;code&gt;ETIMEDOUT&lt;/code&gt;. With
+      communication primitive is meant an operation on the socket, like
+      &lt;code&gt;connect&lt;/code&gt;, &lt;code&gt;accept&lt;/code&gt;, &lt;code&gt;recv&lt;/code&gt; or &lt;code&gt;send&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;Obviously the timeouts are for implementing fault tolerance,
+      not to keep hard realtime promises. The &lt;code&gt;_tmo&lt;/code&gt; functions
+      are for detecting non-responsive peers and to avoid blocking on
+      socket operations. &lt;/p&gt;
+    &lt;p&gt;A timeout value of &lt;code&gt;0&lt;/code&gt; (zero), means that timeouts are
+      disabled. Calling a &lt;code&gt;_tmo&lt;/code&gt;-function with the last argument as
+      &lt;code&gt;0&lt;/code&gt; is therefore exactly the same thing as calling the
+      function without the &lt;code&gt;_tmo&lt;/code&gt; suffix.&lt;/p&gt;
+    &lt;p&gt;As with all other ei functions, you are &lt;em&gt;not&lt;/em&gt; expected
+      to put the socket in non blocking mode yourself in the program. Every
+      use of non blocking mode is embedded inside the timeout
+      functions. The socket will always be back in blocking mode after
+      the operations are completed (regardless of the result). To
+      avoid problems, leave the socket options alone. Ei will handle
+      any socket options that need modification.&lt;/p&gt;
+    &lt;p&gt;In all other senses, the &lt;code&gt;_tmo&lt;/code&gt; functions inherit all 
+      the return values and the semantics from the functions without 
+      the &lt;code&gt;_tmo&lt;/code&gt; suffix.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)&lt;/pre&gt;
+      &lt;pre&gt;int ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These function initializes the &lt;code&gt;ec&lt;/code&gt; structure, to
+          identify the node name and cookie of the server. One of them
+          has to be called before other functions that works on the
+          type &lt;code&gt;ei_cnode&lt;/code&gt; or a file descriptor associated with a
+          connection to another node are used.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ec&lt;/code&gt; is a structure containing information about the
+          C-node. It is used in other &lt;code&gt;ei&lt;/code&gt; functions for
+          connecting and receiving data.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;this_node_name&lt;/code&gt; is the  registered name of the process
+          (the name before &#039;@&#039;).&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;cookie&lt;/code&gt; is the cookie for the node.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;creation&lt;/code&gt; identifies a specific instance of a C
+          node. It can help prevent the node from receiving messages
+          sent to an earlier process with the same registered name.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;thishostname&lt;/code&gt; is the name of the machine we&#039;re running
+          on. If long names are to be used, it should be fully
+          qualified (i.e. &lt;code&gt;durin.erix.ericsson.se&lt;/code&gt; instead of
+          &lt;code&gt;durin&lt;/code&gt;).&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;thisalivename&lt;/code&gt; is the registered name of the process.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;thisnodename&lt;/code&gt; is the full name of the node,
+          i.e. &lt;code&gt;einode@durin&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;thispaddr&lt;/code&gt; if the IP address of the host.&lt;/p&gt;
+        &lt;p&gt;A C node acting as a server will be assigned a creation
+          number when it calls &lt;code&gt;ei_publish()&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;A connection is closed by simply closing the socket. Refer
+          to system documentation to close the socket gracefully (when
+          there are outgoing packets before close).&lt;/p&gt;
+        &lt;p&gt;This function return a negative value indicating that an error
+          occurred.&lt;/p&gt;
+        &lt;p&gt;Example 1:
+          &lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+int n = 0;
+struct in_addr addr;
+ei_cnode ec;
+addr.s_addr = inet_addr(&quot;150.236.14.75&quot;);
+if (ei_connect_xinit(&amp;ec,
+                     &quot;chivas&quot;,
+                     &quot;madonna&quot;,
+                     &quot;madonna@chivas.du.etx.ericsson.se&quot;,
+                     &amp;addr;
+                     &quot;cookie...&quot;,
+                     n++) &amp;lt; 0) {
+    fprintf(stderr,&quot;ERROR when initializing: %d&quot;,erl_errno);
+    exit(-1);
+}
+        &lt;/pre&gt;
+        &lt;p&gt;Example 2:
+          &lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+if (ei_connect_init(&amp;ec, &quot;madonna&quot;, &quot;cookie...&quot;, n++) &amp;lt; 0) {
+    fprintf(stderr,&quot;ERROR when initializing: %d&quot;,erl_errno);
+    exit(-1);
+}
+        &lt;/pre&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_connect(ei_cnode* ec, char *nodename)&lt;/pre&gt;
+      &lt;pre&gt;int ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions set up a connection to an Erlang node.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ei_xconnect()&lt;/code&gt; requires the IP address of the remote
+          host and the alive name of the remote node
+          to be specified. &lt;code&gt;ei_connect()&lt;/code&gt; provides an alternative
+          interface, and determines the information from the node name
+          provided.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;addr&lt;/code&gt; is the 32-bit IP address of the remote host.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;alive&lt;/code&gt; is the alivename of the remote node.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;node&lt;/code&gt; is the name of the remote node.&lt;/p&gt;
+        &lt;p&gt;These functions return an open file descriptor on success, or
+          a negative value indicating that an error occurred --- in
+          which case they will set &lt;code&gt;erl_errno&lt;/code&gt; to one of:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;EHOSTUNREACH&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;The remote host &lt;code&gt;node&lt;/code&gt; is unreachable&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;ENOMEM&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;No more memory available.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;EIO&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;I/O error.&lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;Additionally, &lt;code&gt;errno&lt;/code&gt; values from
+          &lt;code&gt;socket&lt;/code&gt;&lt;em&gt;(2)&lt;/em&gt; and &lt;code&gt;connect&lt;/code&gt;&lt;em&gt;(2)&lt;/em&gt;
+          system calls may be propagated into &lt;code&gt;erl_errno&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Example:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+#define NODE   &quot;madonna@chivas.du.etx.ericsson.se&quot;
+#define ALIVE  &quot;madonna&quot;
+#define IP_ADDR &quot;150.236.14.75&quot;
+
+/*** Variant 1 ***/
+int fd = ei_connect(&amp;ec, NODE);
+
+/*** Variant 2 ***/
+struct in_addr addr;
+addr.s_addr = inet_addr(IP_ADDR);
+fd = ei_xconnect(&amp;ec, &amp;addr, ALIVE);
+        &lt;/pre&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)&lt;/pre&gt;
+      &lt;pre&gt;int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_connect and ei_xconnect with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive(int fd, unsigned char* bufp, int bufsize)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function receives a message consisting of a sequence
+          of bytes in the Erlang external format.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fd&lt;/code&gt; is an open descriptor to an Erlang connection. It
+          is obtained from a previous &lt;code&gt;ei_connect&lt;/code&gt; or
+          &lt;code&gt;ei_accept&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;bufp&lt;/code&gt; is a buffer large enough to hold the expected
+          message. &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;bufsize&lt;/code&gt; indicates the size of &lt;code&gt;bufp&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;If a &lt;em&gt;tick&lt;/em&gt; occurs, i.e., the Erlang node on the
+          other end of the connection has polled this node to see if it
+          is still alive, the function will return &lt;code&gt;ERL_TICK&lt;/code&gt; and
+          no message will be placed in the buffer. Also,
+          &lt;code&gt;erl_errno&lt;/code&gt; will be set to &lt;code&gt;EAGAIN&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;On success, the message is placed in the specified buffer
+          and the function returns the number of bytes actually read. On
+          failure, the function returns &lt;code&gt;ERL_ERROR&lt;/code&gt; and will set
+          &lt;code&gt;erl_errno&lt;/code&gt; to one of:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;EAGAIN&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Temporary error: Try again.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;EMSGSIZE&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Buffer too small.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;EIO&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;I/O error.&lt;/item&gt;
+        &lt;/taglist&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive_tmo(int fd, unsigned char* bufp, int bufsize, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_receive with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive_msg(int fd, erlang_msg* msg, ei_x_buff* x)&lt;/pre&gt;
+      &lt;pre&gt;int ei_xreceive_msg(int fd, erlang_msg* msg, ei_x_buff* x)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions receives a message to the buffer in
+          &lt;code&gt;x&lt;/code&gt;.  &lt;code&gt;ei_xreceive_msg&lt;/code&gt; allows the buffer in
+          &lt;code&gt;x&lt;/code&gt; to grow, but &lt;code&gt;ei_receive_msg&lt;/code&gt; fails if the
+          message is bigger than the preallocated buffer in &lt;code&gt;x&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fd&lt;/code&gt; is an open descriptor to an Erlang connection.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;msg&lt;/code&gt; is a pointer to an &lt;code&gt;erlang_msg&lt;/code&gt; structure
+          and contains information on the message received.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;x&lt;/code&gt; is buffer obtained from &lt;code&gt;ei_x_new&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;On success, the function returns &lt;code&gt;ERL_MSG&lt;/code&gt; and the
+          &lt;code&gt;msg&lt;/code&gt; struct will be initialized. &lt;code&gt;erlang_msg&lt;/code&gt;
+          is defined as follows:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef struct {
+    long msgtype;
+    erlang_pid from;
+    erlang_pid to;
+    char toname[MAXATOMLEN+1];
+    char cookie[MAXATOMLEN+1];
+    erlang_trace token;
+} erlang_msg;
+        &lt;/pre&gt;
+        &lt;p&gt;&lt;code&gt;msgtype&lt;/code&gt; identifies the type of message, and is one of
+          &lt;code&gt;ERL_SEND&lt;/code&gt;, &lt;code&gt;ERL_REG_SEND&lt;/code&gt;, &lt;code&gt;ERL_LINK&lt;/code&gt;,
+          &lt;code&gt;ERL_UNLINK&lt;/code&gt; and &lt;code&gt;ERL_EXIT&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;msgtype&lt;/code&gt; is &lt;code&gt;ERL_SEND&lt;/code&gt; this indicates that an
+          ordinary send operation has taken place, and &lt;code&gt;msg-&amp;gt;to&lt;/code&gt;
+          contains the Pid of the recipient (the C-node). If
+          &lt;code&gt;type&lt;/code&gt; is &lt;code&gt;ERL_REG_SEND&lt;/code&gt; then a registered send
+          operation took place, and &lt;code&gt;msg-&amp;gt;from&lt;/code&gt; contains the Pid
+          of the sender.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;msgtype&lt;/code&gt; is &lt;code&gt;ERL_LINK&lt;/code&gt; or &lt;code&gt;ERL_UNLINK&lt;/code&gt;, then
+          &lt;code&gt;msg-&amp;gt;to&lt;/code&gt; and &lt;code&gt;msg-&amp;gt;from&lt;/code&gt; contain the pids of the
+          sender and recipient of the link or unlink.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;msgtype&lt;/code&gt; is &lt;code&gt;ERL_EXIT&lt;/code&gt;, then this indicates that
+          a link has been broken. In this case, &lt;code&gt;msg-&amp;gt;to&lt;/code&gt; and
+          &lt;code&gt;msg-&amp;gt;from&lt;/code&gt; contain the pids of the linked processes.&lt;/p&gt;
+        &lt;p&gt;The return value is the same as for &lt;code&gt;ei_receive&lt;/code&gt;, see
+          above.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned imeout_ms)&lt;/pre&gt;
+      &lt;pre&gt;int ei_xreceive_msg_tmo(int fd, erlang_msg* msg, ei_x_buff* x, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_receive_msg and ei_xreceive_msg with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive_encoded(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.&lt;/p&gt;
+        &lt;p&gt;In essence the function performs the same operation as
+          &lt;code&gt;ei_xreceive_msg&lt;/code&gt;, but instead of using an ei_x_buff, the
+          function expects a pointer to a character pointer
+          (&lt;code&gt;mbufp&lt;/code&gt;), where the character pointer should point to a
+          memory area allocated by &lt;code&gt;malloc&lt;/code&gt;. The argument
+          &lt;code&gt;bufsz&lt;/code&gt; should be a pointer to an integer containing the
+          exact size (in bytes) of the memory area. The function may
+          reallocate the memory area and will in such cases put the new
+          size in &lt;code&gt;*bufsz&lt;/code&gt; and update &lt;code&gt;*mbufp&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Furthermore the function returns either ERL_TICK or the
+          &lt;code&gt;msgtype&lt;/code&gt; field of the &lt;code&gt;erlang_msg *msg&lt;/code&gt;. The actual
+          length of the message is put in &lt;code&gt;*msglen&lt;/code&gt;. On error it
+          will return a value &lt;code&gt;&amp;lt; 0&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;It is recommended to use ei_xreceive_msg instead when
+          possible, for the sake of readability. The function will
+          however be retained in the interface for compatibility and
+          will &lt;em&gt;not&lt;/em&gt; be removed not be removed in future releases
+          without notice.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_receive_encoded with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send(int fd, erlang_pid* to, char* buf, int len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function sends an Erlang term to a process.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fd&lt;/code&gt; is an open descriptor to an Erlang connection.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;to&lt;/code&gt; is the Pid of the intended recipient of the
+          message.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;buf&lt;/code&gt; is the buffer containing the term in binary
+          format.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;len&lt;/code&gt; is the length of the message in bytes.&lt;/p&gt;
+        &lt;p&gt;The function returns 0 if successful, otherwise -1, in the
+          latter case it will set &lt;code&gt;erl_errno&lt;/code&gt; to &lt;code&gt;EIO&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_send with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send_encoded(int fd, erlang_pid* to, char* buf, int len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Works exactly as ei_send, the alternative name retained for
+          backward compatibility. The function will &lt;em&gt;not&lt;/em&gt; be
+          removed without notice.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send_encoded_tmo(int fd, erlang_pid* to, char* buf, int len, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_send_encoded with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_reg_send(ei_cnode* ec, int fd, char* server_name, char* buf, int len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function sends an Erlang term to a registered process.
+          &lt;/p&gt;
+        &lt;p&gt;This function sends an Erlang term to a process.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fd&lt;/code&gt; is an open descriptor to an Erlang connection.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;server_name&lt;/code&gt; is the registered name of the intended
+          recipient.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;buf&lt;/code&gt; is the buffer containing the term in binary
+          format.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;len&lt;/code&gt; is the length of the message in bytes.&lt;/p&gt;
+        &lt;p&gt;The function returns 0 if successful, otherwise -1, in the
+          latter case it will set &lt;code&gt;erl_errno&lt;/code&gt; to &lt;code&gt;EIO&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Example, send the atom &quot;ok&quot; to the process &quot;worker&quot;:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+ei_x_buff x;
+ei_x_new_with_version(&amp;x);
+ei_x_encode_atom(&amp;x, &quot;ok&quot;);
+if (ei_reg_send(&amp;ec, fd, x.buff, x.index) &amp;lt; 0)
+    handle_error();
+        &lt;/pre&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_reg_send with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send_reg_encoded(int fd, const erlang_pid *from, const char *to, const char *buf, int len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function is retained for compatibility with code
+          generated by the interface compiler and with code following
+          examples in the same application.&lt;/p&gt;
+        &lt;p&gt;The function works as &lt;code&gt;ei_reg_send&lt;/code&gt; with one
+          exception. Instead of taking the &lt;code&gt;ei_cnode&lt;/code&gt; as a first
+          argument, it takes a second argument, an &lt;code&gt;erlang_pid&lt;/code&gt;
+          which should be the process identifier of the sending process
+          (in the erlang distribution protocol). &lt;/p&gt;
+        &lt;p&gt;A suitable &lt;code&gt;erlang_pid&lt;/code&gt; can be constructed from the
+          &lt;code&gt;ei_cnode&lt;/code&gt; structure by the following example code:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+          ei_cnode ec;
+          erlang_pid *self;
+          int fd; /* the connection fd */
+          ...
+          self = ei_self(&amp;ec);
+          self-&amp;gt;num = fd;
+        &lt;/pre&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_send_reg_encoded with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x)&lt;/pre&gt;
+      &lt;pre&gt;int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen)&lt;/pre&gt;
+      &lt;pre&gt;int ei_rpc_from(ei_cnode *ec, int fd, int timeout, erlang_msg *msg, ei_x_buff *x)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions support calling Erlang functions on remote nodes.
+          &lt;code&gt;ei_rpc_to()&lt;/code&gt; sends an rpc request to a remote node and
+          &lt;code&gt;ei_rpc_from()&lt;/code&gt; receives the results of such a call.
+          &lt;code&gt;ei_rpc()&lt;/code&gt; combines the functionality of these two functions
+          by sending an rpc request and waiting for the results. See also
+          &lt;code&gt;rpc:call/4&lt;/code&gt;. &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ec&lt;/code&gt; is the C-node structure previously initiated by a
+          call to &lt;code&gt;ei_connect_init()&lt;/code&gt; or
+          &lt;code&gt;ei_connect_xinit()&lt;/code&gt;&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fd&lt;/code&gt; is an open descriptor to an Erlang connection.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;timeout&lt;/code&gt; is the maximum time (in ms) to wait for
+          results. Specify &lt;code&gt;ERL_NO_TIMEOUT&lt;/code&gt; to wait forever.
+          &lt;code&gt;ei_rpc()&lt;/code&gt; will wait infinitely for the answer,
+          i.e. the call will never time out.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;mod&lt;/code&gt; is the name of the module containing the function
+          to be run on the remote node.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;fun&lt;/code&gt; is the name of the function to run.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;argbuf&lt;/code&gt; is a pointer to a buffer with an encoded
+          Erlang list, without a version magic number, containing the
+          arguments to be passed to the function.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;argbuflen&lt;/code&gt; is the length of the buffer containing the
+          encoded Erlang list.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;msg&lt;/code&gt; structure of type &lt;code&gt;erlang_msg&lt;/code&gt; and contains
+          information on the message received. See &lt;code&gt;ei_receive_msg()&lt;/code&gt;
+          for a description of the &lt;code&gt;erlang_msg&lt;/code&gt; format.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;x&lt;/code&gt; points to the dynamic buffer that receives the
+          result. For for &lt;code&gt;ei_rpc()&lt;/code&gt; this will be the result
+          without the version magic number. For &lt;code&gt;ei_rpc_from()&lt;/code&gt;
+          the result will return a version magic number and a 2-tuple
+          &lt;code&gt;{rex,Reply}&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ei_rpc()&lt;/code&gt; returns the number of bytes in the result
+          on success and -1 on failure. &lt;code&gt;ei_rpc_from()&lt;/code&gt; returns
+          number of bytes or one of &lt;code&gt;ERL_TICK&lt;/code&gt;, &lt;code&gt;ERL_TIMEOUT&lt;/code&gt;
+          and &lt;code&gt;ERL_ERROR&lt;/code&gt; otherwise. When failing,
+          all three functions set &lt;code&gt;erl_errno&lt;/code&gt; to one of:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;EIO&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;I/O error.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;ETIMEDOUT&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Timeout expired.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;EAGAIN&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Temporary error: Try again.&lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;Example, check to see if an erlang process is alive:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+int index = 0, is_alive;
+ei_x_buff args, result;
+
+ei_x_new(&amp;result);
+ei_x_new(&amp;args);
+ei_x_encode_list_header(&amp;args, 1);
+ei_x_encode_pid(&amp;args, &amp;check_pid);
+ei_x_encode_empty_list(&amp;args);
+
+if (ei_rpc(&amp;ec, fd, &quot;erlang&quot;, &quot;is_process_alive&quot;,
+           args.buff, args.index, &amp;result) &amp;lt; 0)
+    handle_error();
+
+if (ei_decode_version(result.buff, &amp;index) &amp;lt; 0
+    || ei_decode_bool(result.buff, &amp;index, &amp;is_alive) &amp;lt; 0)
+    handle_error();
+        &lt;/pre&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_publish(ei_cnode *ec, int port)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions are used by a server process to register
+          with the local name server &lt;em&gt;epmd&lt;/em&gt;, thereby allowing
+          other processes to send messages by using the registered name.
+          Before calling either of these functions, the process should
+          have called &lt;code&gt;bind()&lt;/code&gt; and &lt;code&gt;listen()&lt;/code&gt; on an open socket.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ec&lt;/code&gt; is the C-node structure.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;port&lt;/code&gt; is the local name to register, and should be the
+          same as the port number that was previously bound to the socket.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;addr&lt;/code&gt; is the 32-bit IP address of the local host.&lt;/p&gt;
+        &lt;p&gt;To unregister with epmd, simply close the returned
+          descriptor. Do not use &lt;code&gt;ei_unpublish()&lt;/code&gt;, which is deprecated anyway.&lt;/p&gt;
+        &lt;p&gt;On success, the functions return a descriptor connecting the
+          calling process to epmd. On failure, they return -1 and set
+          &lt;code&gt;erl_errno&lt;/code&gt; to &lt;code&gt;EIO&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Additionally, &lt;code&gt;errno&lt;/code&gt; values from &lt;code&gt;socket&lt;/code&gt;&lt;em&gt;(2)&lt;/em&gt;
+          and &lt;code&gt;connect&lt;/code&gt;&lt;em&gt;(2)&lt;/em&gt; system calls may be propagated
+          into &lt;code&gt;erl_errno&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_publish_tmo(ei_cnode *ec, int port, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_publish with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function is used by a server process to accept a
+          connection from a client process.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ec&lt;/code&gt; is the C-node structure.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;listensock&lt;/code&gt; is an open socket descriptor on which
+          &lt;code&gt;listen()&lt;/code&gt; has previously been called.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;conp&lt;/code&gt; is a pointer to an &lt;code&gt;ErlConnect&lt;/code&gt; struct,
+          described as follows:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef struct {
+  char ipadr[4];             
+  char nodename[MAXNODELEN];
+} ErlConnect;
+        &lt;/pre&gt;
+        &lt;p&gt;On success, &lt;code&gt;conp&lt;/code&gt; is filled in with the address and
+          node name of the connecting client and a file descriptor is
+          returned. On failure, &lt;code&gt;ERL_ERROR&lt;/code&gt; is returned and
+          &lt;code&gt;erl_errno&lt;/code&gt; is set to &lt;code&gt;EIO&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_accept_tmo(ei_cnode *ec, int listensock, ErlConnect *conp, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_accept with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_unpublish(ei_cnode *ec)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function can be called by a process to unregister a
+          specified node from epmd on the localhost. This is however usually not 
+	  allowed, unless epmd was started with the -relaxed_command_check 
+	  flag, which it normally isn&#039;t.&lt;/p&gt;
+
+	  &lt;p&gt;To unregister a node you have published, you should
+	  close the descriptor that was returned by  
+	  &lt;code&gt;ei_publish()&lt;/code&gt;.&lt;/p&gt; 
+
+        &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+          &lt;p&gt;This function is deprecated and will be removed in a future 
+	  release.&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;p&gt;&lt;code&gt;ec&lt;/code&gt; is the node structure of the node to unregister.&lt;/p&gt;
+        &lt;p&gt;If the node was successfully unregistered from epmd, the
+          function returns 0. Otherwise, it returns -1 and sets
+          &lt;code&gt;erl_errno&lt;/code&gt; is to &lt;code&gt;EIO&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_unpublish_tmo(ei_cnode *ec, unsigned timeout_ms)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;ei_unpublish with an optional timeout argument,
+          see the description at the beginning of this document.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;const char * ei_thisnodename(ei_cnode *ec)&lt;/pre&gt;
+      &lt;pre&gt;const char * ei_thishostname(ei_cnode *ec)&lt;/pre&gt;
+      &lt;pre&gt;const char * ei_thisalivename(ei_cnode *ec)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions can be used to retrieve information about
+          the C Node. These values are initially set with
+          &lt;code&gt;ei_connect_init()&lt;/code&gt; or &lt;code&gt;ei_connect_xinit()&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;They simply fetches the appropriate field from the &lt;code&gt;ec&lt;/code&gt;
+          structure. Read the field directly will probably be safe for
+          a long time, so these functions are not really needed.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;erlang_pid * ei_self(ei_cnode *ec)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function retrieves the Pid of the C-node. Every C-node
+          has a (pseudo) pid used in &lt;code&gt;ei_send_reg&lt;/code&gt;, &lt;code&gt;ei_rpc&lt;/code&gt;
+          and others. This is contained in a field in the &lt;code&gt;ec&lt;/code&gt;
+          structure. It will be safe for a long time to fetch this
+          field directly from the &lt;code&gt;ei_cnode&lt;/code&gt; structure.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;struct hostent *ei_gethostbyname(const char *name)&lt;/pre&gt;
+      &lt;pre&gt;struct hostent *ei_gethostbyaddr(const char *addr, int len, int type)&lt;/pre&gt;
+      &lt;pre&gt;struct hostent *ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)&lt;/pre&gt;
+      &lt;pre&gt;struct hostent *ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These are convenience functions for some common name lookup functions.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;int ei_get_tracelevel(void)&lt;/pre&gt;
+      &lt;pre&gt;void ei_set_tracelevel(int level)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;These functions are used to set tracing on the distribution. The levels are different verbosity levels. A higher level means more information.
+	See also Debug Information and &lt;code&gt;EI_TRACELEVEL&lt;/code&gt; below. &lt;/p&gt;
+	&lt;p&gt; &lt;code&gt;ei_set_tracelevel&lt;/code&gt; and &lt;code&gt;ei_get_tracelevel&lt;/code&gt; are not thread safe.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Debug Information&lt;/h4&gt;
+    &lt;p&gt;If a connection attempt fails, the following can be checked:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;&lt;code&gt;erl_errno&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;that the right cookie was used&lt;/item&gt;
+      &lt;item&gt;that &lt;em&gt;epmd&lt;/em&gt; is running&lt;/item&gt;
+      &lt;item&gt;the remote Erlang node on the other side is running the
+       same version of Erlang as the &lt;code&gt;ei&lt;/code&gt;
+       library.&lt;/item&gt;
+      &lt;item&gt;the environment variable &lt;code&gt;ERL_EPMD_PORT&lt;/code&gt;
+       is set correctly.&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The connection attempt can be traced by setting a tracelevel by either using
+    &lt;code&gt;ei_set_tracelevel&lt;/code&gt; or by setting the environment variable &lt;code&gt;EI_TRACELEVEL&lt;/code&gt;.
+    The different tracelevels has the following messages:&lt;/p&gt;
+    &lt;list&gt;
+    	&lt;item&gt;1: Verbose error messages&lt;/item&gt;
+    	&lt;item&gt;2: Above messages and verbose warning messages &lt;/item&gt;
+    	&lt;item&gt;3: Above messages and progress reports for connection handling&lt;/item&gt;
+    	&lt;item&gt;4: Above messages and progress reports for communication&lt;/item&gt;
+    	&lt;item&gt;5: Above messages and progress reports for data conversion&lt;/item&gt;
+    &lt;/list&gt;
+  &lt;/div&gt;
+
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot; /&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

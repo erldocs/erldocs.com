@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>xref (tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;xref&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;A Cross Reference Tool for analyzing dependencies between functions, modules, applications and releases.&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;Xref is a cross reference tool that can be used for finding
+      dependencies between functions, modules, applications and
+      releases.
+      &lt;/p&gt;
+    &lt;p&gt;Calls between functions are either       &lt;span id=&quot;local_call&quot;&gt; &lt;/span&gt;
+&lt;em&gt;local calls&lt;/em&gt; like &lt;code&gt;f()&lt;/code&gt;, or       &lt;span id=&quot;external_call&quot;&gt; &lt;/span&gt;
+&lt;em&gt;external calls&lt;/em&gt; like
+      &lt;code&gt;m:f()&lt;/code&gt;.       &lt;span id=&quot;module_data&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Module data&lt;/em&gt;,
+      which are extracted from BEAM files, include local functions,
+      exported functions, local calls and external calls. By default,
+      calls to built-in functions (BIF) are ignored, but
+      if the option &lt;code&gt;builtins&lt;/code&gt;, accepted by some of this
+      module&#039;s functions, is set to &lt;code&gt;true&lt;/code&gt;, calls to BIFs
+      are included as well. It is the analyzing OTP version that
+      decides what functions are BIFs. Functional objects are assumed
+      to be called where they are created (and nowhere else).       &lt;span id=&quot;unresolved_call&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Unresolved calls&lt;/em&gt; are calls to
+      &lt;code&gt;apply&lt;/code&gt; or &lt;code&gt;spawn&lt;/code&gt; with variable module, variable
+      function, or variable arguments. Examples are &lt;code&gt;M:F(a)&lt;/code&gt;,
+      &lt;code&gt;apply(M,&amp;nbsp;f,&amp;nbsp;[a])&lt;/code&gt;, and
+      &lt;code&gt;spawn(m,&amp;nbsp;f(),&amp;nbsp;Args)&lt;/code&gt;. Unresolved calls are
+      represented by calls where variable modules have been replaced
+      with the atom &lt;code&gt;&#039;$M_EXPR&#039;&lt;/code&gt;, variable functions have been
+      replaced with the atom &lt;code&gt;&#039;$F_EXPR&#039;&lt;/code&gt;, and variable number of
+      arguments have been replaced with the number &lt;code&gt;-1&lt;/code&gt;. The
+      above mentioned examples are represented by calls to
+      &lt;code&gt;&#039;$M_EXPR&#039;:&#039;$F_EXPR&#039;/1&lt;/code&gt;, &lt;code&gt;&#039;$M_EXPR&#039;:f/1&lt;/code&gt;, and
+      &lt;code&gt;m:&#039;$F_EXPR&#039;/-1&lt;/code&gt;. The unresolved calls are a subset of the
+      external calls.
+      &lt;/p&gt;
+    &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+      &lt;p&gt;Unresolved calls make module data incomplete, which
+        implies that the results of analyses may be invalid.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;&lt;em&gt;Applications&lt;/em&gt; are collections of modules. The
+      modules&#039; BEAM files are located in the &lt;code&gt;ebin&lt;/code&gt;
+      subdirectory of the application directory. The name of the
+      application directory determines the name and version of the
+      application.
+      &lt;em&gt;Releases&lt;/em&gt; are collections of applications
+      located in the &lt;code&gt;lib&lt;/code&gt; subdirectory of the release directory. 
+      There is more to read about applications and releases in the
+      Design Principles book.
+      &lt;/p&gt;
+    &lt;p&gt;      &lt;span id=&quot;xref_server&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Xref servers&lt;/em&gt; are identified
+      by names, supplied when creating new servers. Each Xref server
+      holds a set of releases, a set of applications, and a set of
+      modules with module data. Xref servers are independent of each
+      other, and all analyses are evaluated in the context of one
+      single Xref server (exceptions are the functions &lt;code&gt;m/1&lt;/code&gt; and
+      &lt;code&gt;d/1&lt;/code&gt; which do not use servers at all). The       &lt;span id=&quot;mode&quot;&gt; &lt;/span&gt;
+&lt;em&gt;mode&lt;/em&gt; of an Xref server determines what module
+      data are extracted from BEAM files as modules are added to the
+      server. Starting with R7, BEAM files compiled with the option
+      &lt;code&gt;debug_info&lt;/code&gt; contain so called       &lt;span id=&quot;debug_info&quot;&gt; &lt;/span&gt;
+debug information, which is an abstract
+      representation of the code. In &lt;code&gt;functions&lt;/code&gt; mode, which is
+      the default mode, function calls and line numbers are extracted
+      from debug information. In &lt;code&gt;modules&lt;/code&gt; mode, debug
+      information is ignored if present, but dependencies between
+      modules are extracted from other parts of the BEAM files. The
+      &lt;code&gt;modules&lt;/code&gt; mode is significantly less time and space
+      consuming than the &lt;code&gt;functions&lt;/code&gt; mode, but the analyses that
+      can be done are limited.
+      &lt;/p&gt;
+    &lt;p&gt;An       &lt;span id=&quot;analyzed_module&quot;&gt; &lt;/span&gt;
+&lt;em&gt;analyzed module&lt;/em&gt; is a
+      module that has been added to an Xref server together with its
+      module data.
+      A       &lt;span id=&quot;library_module&quot;&gt; &lt;/span&gt;
+&lt;em&gt;library module&lt;/em&gt; is a
+      module located in some directory mentioned in the       &lt;span id=&quot;library_path&quot;&gt; &lt;/span&gt;
+&lt;em&gt;library path&lt;/em&gt;. 
+      A library module is said to be used if some of its exported
+      functions are used by some analyzed module.
+      An       &lt;span id=&quot;unknown_module&quot;&gt; &lt;/span&gt;
+&lt;em&gt;unknown module&lt;/em&gt; is a
+      module that is neither an analyzed module nor a library module,
+      but whose exported functions are used by some analyzed module. 
+      An       &lt;span id=&quot;unknown_function&quot;&gt; &lt;/span&gt;
+&lt;em&gt;unknown function&lt;/em&gt; is a
+      used function that is neither local or exported by any 
+      analyzed module nor exported by any library module. 
+      An       &lt;span id=&quot;undefined_function&quot;&gt; &lt;/span&gt;
+&lt;em&gt;undefined function&lt;/em&gt; is an externally used function that
+      is not exported by any analyzed module or library module. With
+      this notion, a local function can be an undefined function, namely
+      if it is externally used from some module. All unknown functions
+      are also undefined functions; there is a &lt;a href=&quot;xref_chapter.html#venn2&quot; class=&quot;seealso&quot;&gt;figure&lt;/a&gt; in the
+      User&#039;s Guide that illustrates this relationship.
+      &lt;/p&gt;
+    &lt;p&gt;Starting with R9C, the module attribute tag &lt;code&gt;deprecated&lt;/code&gt;
+      can be used to inform Xref about       &lt;span id=&quot;deprecated_function&quot;&gt; &lt;/span&gt;
+&lt;em&gt;deprecated functions&lt;/em&gt; and
+      optionally when functions are planned to be removed. A few
+      examples show the idea:
+      &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;-deprecated({f,1}).&lt;/dt&gt;
+      &lt;item&gt;The exported function &lt;code&gt;f/1&lt;/code&gt; is deprecated. Nothing is
+       said whether &lt;code&gt;f/1&lt;/code&gt; will be removed or not.&lt;/item&gt;
+      &lt;dt&gt;-deprecated({f,&#039;_&#039;}).&lt;/dt&gt;
+      &lt;item&gt;All exported functions &lt;code&gt;f/0&lt;/code&gt;, &lt;code&gt;f/1&lt;/code&gt; and so on are
+       deprecated.&lt;/item&gt;
+      &lt;dt&gt;-deprecated(module).&lt;/dt&gt;
+      &lt;item&gt;All exported functions in the module are deprecated.
+       Equivalent to &lt;code&gt;-deprecated({&#039;_&#039;,&#039;_&#039;}).&lt;/code&gt;.&lt;/item&gt;
+      &lt;dt&gt;-deprecated([{g,1,next_version}]).&lt;/dt&gt;
+      &lt;item&gt;The function &lt;code&gt;g/1&lt;/code&gt; is deprecated and will be
+       removed in next version.&lt;/item&gt;
+      &lt;dt&gt;-deprecated([{g,2,next_major_release}]).&lt;/dt&gt;
+      &lt;item&gt;The function &lt;code&gt;g/2&lt;/code&gt; is deprecated and will be
+       removed in next major release.&lt;/item&gt;
+      &lt;dt&gt;-deprecated([{g,3,eventually}]).&lt;/dt&gt;
+      &lt;item&gt;The function &lt;code&gt;g/3&lt;/code&gt; is deprecated and will
+       eventually be removed.&lt;/item&gt;
+      &lt;dt&gt;-deprecated({&#039;_&#039;,&#039;_&#039;,eventually}).&lt;/dt&gt;
+      &lt;item&gt;All exported functions in the module are deprecated and
+       will eventually be removed.&lt;/item&gt;
+    &lt;/taglist&gt;
+    &lt;p&gt;Before any analysis can take place, module data must be &lt;em&gt;set up&lt;/em&gt;. For instance, the cross reference and the unknown
+      functions are computed when all module data are known. The
+      functions that need complete data (&lt;code&gt;analyze&lt;/code&gt;, &lt;code&gt;q&lt;/code&gt;,
+      &lt;code&gt;variables&lt;/code&gt;) take care of setting up data automatically.
+      Module data need to be set up (again) after calls to any of the
+      &lt;code&gt;add&lt;/code&gt;, &lt;code&gt;replace&lt;/code&gt;, &lt;code&gt;remove&lt;/code&gt;,
+      &lt;code&gt;set_library_path&lt;/code&gt; or &lt;code&gt;update&lt;/code&gt; functions.
+      &lt;/p&gt;
+    &lt;p&gt;The result of setting up module data is the       &lt;span id=&quot;call_graph&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Call Graph&lt;/em&gt;. A (directed) graph
+      consists of a set of vertices and a set of (directed) edges. The
+      edges represent       &lt;span id=&quot;call&quot;&gt; &lt;/span&gt;
+&lt;em&gt;calls&lt;/em&gt; (From,&amp;nbsp;To)
+      between functions, modules, applications or releases. From is
+      said to call To, and To is said to be used by From. The vertices
+      of the Call Graph are the functions of all module data: local
+      and exported functions of analyzed modules; used BIFs; used
+      exported functions of library modules; and unknown functions.
+      The functions &lt;code&gt;module_info/0,1&lt;/code&gt; added by the compiler are
+      included among the exported functions, but only when called from
+      some module. The edges are the function calls of all module
+      data. A consequence of the edges being a set is that there is
+      only one edge if a function is locally or externally used
+      several times on one and the same line of code.
+      &lt;/p&gt;
+    &lt;p&gt;The Call Graph is       &lt;span id=&quot;representation&quot;&gt; &lt;/span&gt;
+represented by
+      Erlang terms (the sets are lists), which is suitable for many
+      analyses. But for analyses that look at chains of calls, a list
+      representation is much too
+      slow. Instead the representation offered by the &lt;code&gt;digraph&lt;/code&gt;
+      module is used. The translation of the list representation of
+      the Call Graph - or a subgraph thereof - to the &lt;code&gt;digraph&lt;/code&gt;
+      representation does not
+      come for free, so the language used for expressing queries to be
+      described below has a special operator for this task and a
+      possibility to save the &lt;code&gt;digraph&lt;/code&gt; representation for
+      subsequent analyses.
+      &lt;/p&gt;
+    &lt;p&gt;In addition to the Call Graph there is a graph called the
+            &lt;span id=&quot;inter_call_graph&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Inter Call Graph&lt;/em&gt;. This is
+      a graph of calls (From,&amp;nbsp;To) such that there is a chain of
+      calls from From to To in the Call Graph, and every From and To
+      is an exported function or an unused local function.
+      The vertices are the same as for the Call Graph.
+      &lt;/p&gt;
+    &lt;p&gt;Calls between modules, applications and releases are also
+      directed graphs. The       &lt;span id=&quot;type&quot;&gt; &lt;/span&gt;
+&lt;em&gt;types&lt;/em&gt;
+      of the vertices and edges of these graphs are (ranging from the
+      most special to the most general):
+      &lt;code&gt;Fun&lt;/code&gt; for functions; &lt;code&gt;Mod&lt;/code&gt; for modules;
+      &lt;code&gt;App&lt;/code&gt; for applications; and &lt;code&gt;Rel&lt;/code&gt; for releases.
+      The following paragraphs will describe the different constructs
+      of the language used for selecting and analyzing parts of the
+      graphs, beginning with the       &lt;span id=&quot;constants&quot;&gt; &lt;/span&gt;
+&lt;em&gt;constants&lt;/em&gt;:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= Constants&lt;/item&gt;
+      &lt;item&gt;Constants ::= Consts | Consts &lt;code&gt;:&lt;/code&gt; Type | RegExpr&lt;/item&gt;
+      &lt;item&gt;Consts ::= Constant | &lt;code&gt;[&lt;/code&gt;Constant&lt;code&gt;,&lt;/code&gt;&amp;nbsp;...&lt;code&gt;]&lt;/code&gt;
+       | &lt;code&gt;{&lt;/code&gt;Constant&lt;code&gt;,&lt;/code&gt;&amp;nbsp;...&lt;code&gt;}&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;Constant ::= Call | Const&lt;/item&gt;
+      &lt;item&gt;Call ::= FunSpec&amp;nbsp;&lt;code&gt;-&amp;gt;&lt;/code&gt;&amp;nbsp;FunSpec
+       | &lt;code&gt;{&lt;/code&gt;MFA&lt;code&gt;,&lt;/code&gt;&amp;nbsp;MFA&lt;code&gt;}&lt;/code&gt;
+       | AtomConst&amp;nbsp;&lt;code&gt;-&amp;gt;&lt;/code&gt;&amp;nbsp;AtomConst 
+       | &lt;code&gt;{&lt;/code&gt;AtomConst&lt;code&gt;,&lt;/code&gt;&amp;nbsp;AtomConst&lt;code&gt;}&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;Const ::= AtomConst | FunSpec | MFA&lt;/item&gt;
+      &lt;item&gt;AtomConst ::= Application | Module | Release&lt;/item&gt;
+      &lt;item&gt;FunSpec ::= Module &lt;code&gt;:&lt;/code&gt; Function &lt;code&gt;/&lt;/code&gt; Arity&lt;/item&gt;
+      &lt;item&gt;MFA ::=
+      &lt;code&gt;{&lt;/code&gt;Module&lt;code&gt;,&lt;/code&gt;&amp;nbsp;Function&lt;code&gt;,&lt;/code&gt;&amp;nbsp;Arity&lt;code&gt;}&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;RegExpr ::= RegString &lt;code&gt;:&lt;/code&gt; Type 
+       | RegFunc 
+       | RegFunc &lt;code&gt;:&lt;/code&gt; Type&lt;/item&gt;
+      &lt;item&gt;RegFunc ::= RegModule &lt;code&gt;:&lt;/code&gt; RegFunction &lt;code&gt;/&lt;/code&gt; RegArity&lt;/item&gt;
+      &lt;item&gt;RegModule ::= RegAtom&lt;/item&gt;
+      &lt;item&gt;RegFunction ::= RegAtom&lt;/item&gt;
+      &lt;item&gt;RegArity ::= RegString | Number | &lt;code&gt;_&lt;/code&gt; | &lt;code&gt;-1&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;RegAtom ::= RegString | Atom | &lt;code&gt;_&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;RegString ::= - a regular expression, as described in the 
+      &lt;code&gt;re&lt;/code&gt; module, enclosed in double quotes -&lt;/item&gt;
+      &lt;item&gt;Type ::= &lt;code&gt;Fun&lt;/code&gt; | &lt;code&gt;Mod&lt;/code&gt; | &lt;code&gt;App&lt;/code&gt; | &lt;code&gt;Rel&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;Function ::= Atom&lt;/item&gt;
+      &lt;item&gt;Application ::= Atom&lt;/item&gt;
+      &lt;item&gt;Module ::= Atom&lt;/item&gt;
+      &lt;item&gt;Release ::= Atom&lt;/item&gt;
+      &lt;item&gt;Arity ::= Number | &lt;code&gt;-1&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;Atom ::= - same as Erlang atoms -&lt;/item&gt;
+      &lt;item&gt;Number ::= - same as non-negative Erlang integers -&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Examples of constants are: &lt;code&gt;kernel&lt;/code&gt;, &lt;code&gt;kernel-&amp;gt;stdlib&lt;/code&gt;,
+      &lt;code&gt;[kernel, sasl]&lt;/code&gt;, &lt;code&gt;[pg -&amp;gt; mnesia, {tv, mnesia}] : Mod&lt;/code&gt;.
+      It is an error if an instance of &lt;code&gt;Const&lt;/code&gt; does not match any
+      vertex of any graph. 
+      If there  are more than one vertex matching an untyped instance
+      of &lt;code&gt;AtomConst&lt;/code&gt;, then the one of the most general type is
+      chosen.
+      A list of constants is interpreted as a set of constants, all of
+      the same type.
+      A tuple of constants constitute a chain of calls (which may,
+      but does not have to, correspond to an actual chain of calls of
+      some graph).
+      Assigning a type to a list or tuple of &lt;code&gt;Constant&lt;/code&gt; is
+      equivalent to assigning the type to each &lt;code&gt;Constant&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;&lt;span id=&quot;regexp&quot;&gt; &lt;/span&gt;&lt;em&gt;Regular expressions&lt;/em&gt; are used as a
+      means to select some of the vertices of a graph.
+      A &lt;code&gt;RegExpr&lt;/code&gt; consisting of a &lt;code&gt;RegString&lt;/code&gt; and a type -
+      an example is &lt;code&gt;&quot;xref_.*&quot; : Mod&lt;/code&gt; - is interpreted as those
+      modules (or applications or releases, depending on the type)
+      that match the expression.
+      Similarly, a &lt;code&gt;RegFunc&lt;/code&gt; is interpreted as those vertices
+      of the Call Graph that match the expression. 
+      An example is &lt;code&gt;&quot;xref_.*&quot;:&quot;add_.*&quot;/&quot;(2|3)&quot;&lt;/code&gt;, which matches
+      all &lt;code&gt;add&lt;/code&gt; functions of arity two or three of any of the
+      xref modules.
+      Another example, one that matches all functions of arity 10 or
+      more: &lt;code&gt;_:_/&quot;[1-9].+&quot;&lt;/code&gt;. Here &lt;code&gt;_&lt;/code&gt; is an abbreviation for
+      &lt;code&gt;&quot;.*&quot;&lt;/code&gt;, that is, the regular expression that matches
+      anything.
+      &lt;/p&gt;
+    &lt;p&gt;The syntax of       &lt;span id=&quot;variable&quot;&gt; &lt;/span&gt;
+&lt;em&gt;variables&lt;/em&gt; is
+      simple:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= Variable&lt;/item&gt;
+      &lt;item&gt;Variable ::= - same as Erlang variables -&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;There are two kinds of variables: predefined variables and user 
+      variables. 
+            &lt;span id=&quot;predefined_variable&quot;&gt; &lt;/span&gt;
+&lt;em&gt;Predefined variables&lt;/em&gt;
+      hold set up module data, and cannot be assigned to but only used 
+      in queries. 
+            &lt;span id=&quot;user_variable&quot;&gt; &lt;/span&gt;
+&lt;em&gt;User variables&lt;/em&gt; on the other 
+      hand can be assigned to, and are typically used for
+      temporary results while evaluating a query, and for keeping
+      results of queries for use in subsequent queries. 
+      The predefined variables are (variables marked with (*) are
+      available in &lt;code&gt;functions&lt;/code&gt; mode only):
+      &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;E&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Call Graph Edges (*).&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;V&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Call Graph Vertices (*).
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;M&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Modules. All modules: analyzed modules, used library
+       modules, and unknown modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;A&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Applications.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;R&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Releases.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;ME&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Module Edges. All module calls.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;AE&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Application Edges. All application calls. &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;RE&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Release Edges. All release calls.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;L&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Local Functions (*). All local functions of analyzed modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;X&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Exported Functions. All exported functions of analyzed 
+       modules and all used exported functions of library modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;F&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Functions (*).&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;B&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Used BIFs. &lt;code&gt;B&lt;/code&gt; is empty if &lt;code&gt;builtins&lt;/code&gt; is 
+      &lt;code&gt;false&lt;/code&gt; for all analyzed modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;U&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Unknown Functions.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;UU&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Unused Functions (*). All local and exported functions of
+       analyzed modules that have not been used. &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;XU&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Externally Used Functions. Functions of all modules -
+       including local functions - that have been used in some
+       external call.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;LU&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Locally Used Functions (*). Functions of all modules that have
+       been used in some local call.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;LC&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Local Calls (*).&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;XC&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;External Calls (*).
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;AM&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Analyzed Modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;UM&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Unknown Modules.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;LM&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Used Library Modules.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;UC&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Unresolved Calls. Empty in &lt;code&gt;modules&lt;/code&gt; mode.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;EE&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Inter Call Graph Edges (*).
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;DF&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Deprecated Functions. All deprecated exported 
+       functions and all used deprecated BIFs.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;DF_1&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Deprecated Functions. All deprecated functions 
+       to be removed in next version.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;DF_2&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Deprecated Functions. All deprecated functions 
+       to be removed in next version or next major release.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;DF_3&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Deprecated Functions. All deprecated functions to be
+       removed in next version, next major release, or later.&lt;/item&gt;
+    &lt;/taglist&gt;
+    &lt;p&gt;These are a few       &lt;span id=&quot;simple_facts&quot;&gt; &lt;/span&gt;
+facts about the
+      predefined variables (the set operators &lt;code&gt;+&lt;/code&gt; (union) and
+      &lt;code&gt;-&lt;/code&gt; (difference) as well as the cast operator
+      &lt;code&gt;(&lt;/code&gt;Type&lt;code&gt;)&lt;/code&gt; are described below):
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;&lt;code&gt;F&lt;/code&gt; is equal to  &lt;code&gt;L + X&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;V&lt;/code&gt; is equal to &lt;code&gt;X + L + B + U&lt;/code&gt;, where &lt;code&gt;X&lt;/code&gt;,
+      &lt;code&gt;L&lt;/code&gt;, &lt;code&gt;B&lt;/code&gt; and &lt;code&gt;U&lt;/code&gt; are pairwise disjoint (that
+       is, have no elements in common).&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;UU&lt;/code&gt; is equal to &lt;code&gt;V - (XU + LU)&lt;/code&gt;, where
+      &lt;code&gt;LU&lt;/code&gt; and &lt;code&gt;XU&lt;/code&gt; may have elements in common. Put in
+       another way:&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;V&lt;/code&gt; is equal to &lt;code&gt;UU + XU + LU&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;E&lt;/code&gt; is equal to &lt;code&gt;LC + XC&lt;/code&gt;. Note that &lt;code&gt;LC&lt;/code&gt;
+       and &lt;code&gt;XC&lt;/code&gt; may have elements in common, namely if some
+       function is locally and externally used from one and the same
+       function.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;U&lt;/code&gt; is a subset of &lt;code&gt;XU&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;B&lt;/code&gt; is a subset of &lt;code&gt;XU&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;LU&lt;/code&gt; is equal to &lt;code&gt;range LC&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;XU&lt;/code&gt; is equal to &lt;code&gt;range XC&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;LU&lt;/code&gt; is a subset of &lt;code&gt;F&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;UU&lt;/code&gt; is a subset of &lt;code&gt;F&lt;/code&gt;. &lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;range UC&lt;/code&gt; is a subset of &lt;code&gt;U&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;M&lt;/code&gt; is equal to &lt;code&gt;AM + LM + UM&lt;/code&gt;, where &lt;code&gt;AM&lt;/code&gt;,
+      &lt;code&gt;LM&lt;/code&gt; and &lt;code&gt;UM&lt;/code&gt; are pairwise disjoint. &lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;ME&lt;/code&gt; is equal to &lt;code&gt;(Mod) E&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;AE&lt;/code&gt; is equal to &lt;code&gt;(App) E&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;RE&lt;/code&gt; is equal to &lt;code&gt;(Rel) E&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;(Mod) V&lt;/code&gt; is a subset of &lt;code&gt;M&lt;/code&gt;. Equality holds
+       if all analyzed modules have some local, exported, or unknown 
+       function.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;(App) M&lt;/code&gt; is a subset of &lt;code&gt;A&lt;/code&gt;. Equality holds
+       if all applications have some module.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;(Rel) A&lt;/code&gt; is a subset of &lt;code&gt;R&lt;/code&gt;. Equality holds
+       if all releases have some application.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;DF_1&lt;/code&gt; is a subset of &lt;code&gt;DF_2&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;DF_2&lt;/code&gt; is a subset of &lt;code&gt;DF_3&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;DF_3&lt;/code&gt; is a subset of &lt;code&gt;DF&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;DF&lt;/code&gt; is a subset of &lt;code&gt;X + B&lt;/code&gt;.&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;An important notion is that of       &lt;span id=&quot;conversion&quot;&gt; &lt;/span&gt;
+&lt;em&gt;conversion&lt;/em&gt; of expressions. The syntax of
+      a cast expression is:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= &lt;code&gt;(&lt;/code&gt; Type &lt;code&gt;)&lt;/code&gt; Expression&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The interpretation of the cast operator depends on the named
+      type &lt;code&gt;Type&lt;/code&gt;, the type of &lt;code&gt;Expression&lt;/code&gt;, and the
+      structure of the elements of the interpretation of &lt;code&gt;Expression&lt;/code&gt;. 
+      If the named type is equal to the
+      expression type, no conversion is done. Otherwise, the
+      conversion is done one step at a time;
+      &lt;code&gt;(Fun)&amp;nbsp;(App)&amp;nbsp;RE&lt;/code&gt;, for instance, is equivalent to
+      &lt;code&gt;(Fun)&amp;nbsp;(Mod)&amp;nbsp;(App)&amp;nbsp;RE&lt;/code&gt;. Now assume that the
+      interpretation of &lt;code&gt;Expression&lt;/code&gt; is a set of constants
+      (functions, modules, applications or releases). If the named
+      type is more general than the expression type, say &lt;code&gt;Mod&lt;/code&gt;
+      and &lt;code&gt;Fun&lt;/code&gt; respectively, then the interpretation of the cast
+      expression is the set of modules that have at least one
+      of their functions mentioned in the interpretation of the
+      expression. If the named
+      type is more special than the expression type, say &lt;code&gt;Fun&lt;/code&gt;
+      and &lt;code&gt;Mod&lt;/code&gt;, then the interpretation is the set of all the
+      functions of the modules (in &lt;code&gt;modules&lt;/code&gt; mode, the conversion
+      is partial since the local functions are not known).
+      The conversions to and from applications and releases
+      work analogously. For instance, &lt;code&gt;(App) &quot;xref_.*&quot; : Mod&lt;/code&gt;
+      returns all applications containing at least one module
+      such that &lt;code&gt;xref_&lt;/code&gt; is a prefix of the module name.
+      &lt;/p&gt;
+    &lt;p&gt;Now assume that the interpretation of &lt;code&gt;Expression&lt;/code&gt; is a
+      set of calls. If the named type is more general than the
+      expression type, say &lt;code&gt;Mod&lt;/code&gt; and &lt;code&gt;Fun&lt;/code&gt; respectively,
+      then the interpretation of the cast expression is the set of
+      calls (M1,&amp;nbsp;M2) such that the interpretation of the 
+      expression contains a call from some function
+      of M1 to some function of M2. If the named type is more special
+      than the expression type, say &lt;code&gt;Fun&lt;/code&gt; and &lt;code&gt;Mod&lt;/code&gt;, then
+      the interpretation is the set of all function calls
+      (F1,&amp;nbsp;F2) such that the interpretation of the expression
+      contains a call (M1,&amp;nbsp;M2) and F1 is
+      a function of M1 and F2 is a function of M2 (in &lt;code&gt;modules&lt;/code&gt;
+      mode, there are no functions calls, so a cast to &lt;code&gt;Fun&lt;/code&gt;
+      always yields an empty set). Again, the conversions to and from
+      applications and releases work analogously.
+      &lt;/p&gt;
+    &lt;p&gt;The interpretation of constants and variables are sets, and
+      those sets can be used as the basis for forming new sets by the
+      application of       &lt;span id=&quot;set_operator&quot;&gt; &lt;/span&gt;
+&lt;em&gt;set operators&lt;/em&gt;.
+      The syntax:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= Expression BinarySetOp Expression&lt;/item&gt;
+      &lt;item&gt;BinarySetOp ::= &lt;code&gt;+&lt;/code&gt; | &lt;code&gt;*&lt;/code&gt; | &lt;code&gt;-&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;&lt;code&gt;+&lt;/code&gt;, &lt;code&gt;*&lt;/code&gt; and &lt;code&gt;-&lt;/code&gt; are interpreted as union,
+      intersection and difference respectively: the union of two sets
+      contains the elements of both sets; the intersection of two sets
+      contains the elements common to both sets; and the difference of
+      two sets contains the elements of the first set that are not
+      members of the second set. The elements of the two sets must be
+      of the same structure; for instance, a function call cannot be
+      combined with a function. But if a cast operator can make the
+      elements compatible, then the more general elements are
+      converted to the less general element type. For instance,
+      &lt;code&gt;M&amp;nbsp;+&amp;nbsp;F&lt;/code&gt; is equivalent to
+      &lt;code&gt;(Fun)&amp;nbsp;M&amp;nbsp;+&amp;nbsp;F&lt;/code&gt;, and &lt;code&gt;E&amp;nbsp;-&amp;nbsp;AE&lt;/code&gt;
+      is equivalent to &lt;code&gt;E&amp;nbsp;-&amp;nbsp;(Fun)&amp;nbsp;AE&lt;/code&gt;. One more
+      example: &lt;code&gt;X * xref : Mod&lt;/code&gt; is interpreted as the set of
+      functions exported by the module &lt;code&gt;xref&lt;/code&gt;; &lt;code&gt;xref : Mod&lt;/code&gt;
+      is converted to the more special type of &lt;code&gt;X&lt;/code&gt; (&lt;code&gt;Fun&lt;/code&gt;,
+      that is) yielding all functions of &lt;code&gt;xref&lt;/code&gt;, and the
+      intersection with &lt;code&gt;X&lt;/code&gt; (all functions exported by analyzed 
+      modules and library modules) is interpreted as those functions
+      that are exported by some module &lt;em&gt;and&lt;/em&gt; functions of 
+      &lt;code&gt;xref&lt;/code&gt;. 
+      &lt;/p&gt;
+    &lt;p&gt;There are also unary set operators:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= UnarySetOp Expression&lt;/item&gt;
+      &lt;item&gt;UnarySetOp ::= &lt;code&gt;domain&lt;/code&gt; | &lt;code&gt;range&lt;/code&gt; | &lt;code&gt;strict&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Recall that a call is a pair (From,&amp;nbsp;To). &lt;code&gt;domain&lt;/code&gt;
+      applied to a set of calls is interpreted as the set of all
+      vertices From, and &lt;code&gt;range&lt;/code&gt; as the set of all vertices To.
+      The interpretation of the &lt;code&gt;strict&lt;/code&gt; operator is the operand
+      with all calls on the form (A,&amp;nbsp;A) removed. 
+      &lt;/p&gt;
+    &lt;p&gt;The interpretation of the       &lt;span id=&quot;restriction&quot;&gt; &lt;/span&gt;
+&lt;em&gt;restriction operators&lt;/em&gt; is a 
+      subset of the first operand, a set of calls. The second operand,
+      a set of vertices, is converted to the type of the first operand.
+      The syntax of the restriction operators:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= Expression RestrOp Expression&lt;/item&gt;
+      &lt;item&gt;RestrOp ::= &lt;code&gt;|&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;RestrOp ::= &lt;code&gt;||&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;RestrOp ::= &lt;code&gt;|||&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The interpretation in some detail for the three operators:
+      &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;|&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The subset of calls from any of the vertices.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;||&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The subset of calls to any of the vertices.&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;|||&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The subset of calls to and from any of the vertices.
+       For all sets of calls &lt;code&gt;CS&lt;/code&gt; and all sets of vertices
+      &lt;code&gt;VS&lt;/code&gt;, &lt;code&gt;CS&amp;nbsp;|||&amp;nbsp;VS&amp;nbsp;&lt;/code&gt; is equivalent to
+      &lt;code&gt;CS&amp;nbsp;|&amp;nbsp;VS&amp;nbsp;*&amp;nbsp;CS&amp;nbsp;||&amp;nbsp;VS&lt;/code&gt;.&lt;/item&gt;
+    &lt;/taglist&gt;
+    &lt;p&gt;      &lt;span id=&quot;graph_analyses&quot;&gt; &lt;/span&gt;
+Two functions (modules,
+      applications, releases) belong to the same strongly connected
+      component if they call each other (in)directly. The
+      interpretation of the &lt;code&gt;components&lt;/code&gt; operator is the set of
+      strongly connected components of a set of calls. The
+      &lt;code&gt;condensation&lt;/code&gt; of a set of calls is a new set of calls
+      between the strongly connected components such that there is an
+      edge between two components if there is some constant of the first
+      component that calls some constant of the second component.
+      &lt;/p&gt;
+    &lt;p&gt;The interpretation of the &lt;code&gt;of&lt;/code&gt; operator is a chain of
+      calls of the second operand (a set of calls) that passes throw
+      all of the vertices of the first operand (a tuple of
+      constants), in the given order. The second operand
+      is converted to the type of the first operand.
+      For instance, the &lt;code&gt;of&lt;/code&gt; operator can be used for finding out
+      whether a function calls another function indirectly, and the
+      chain of calls demonstrates how. The syntax of the graph
+      analyzing operators:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= Expression GraphOp Expression&lt;/item&gt;
+      &lt;item&gt;GraphOp ::= &lt;code&gt;components&lt;/code&gt; | &lt;code&gt;condensation&lt;/code&gt; | &lt;code&gt;of&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;As was mentioned before, the graph analyses operate on
+      the &lt;code&gt;digraph&lt;/code&gt; representation of graphs.
+      By default, the &lt;code&gt;digraph&lt;/code&gt; representation is created when
+      needed (and deleted when no longer used), but it can also be
+      created explicitly by use of the &lt;code&gt;closure&lt;/code&gt; operator:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= ClosureOp Expression&lt;/item&gt;
+      &lt;item&gt;ClosureOp ::= &lt;code&gt;closure&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The interpretation of the &lt;code&gt;closure&lt;/code&gt; operator is the
+      transitive closure of the operand. 
+      &lt;/p&gt;
+    &lt;p&gt;The restriction operators are defined for closures as well;
+      &lt;code&gt;closure&amp;nbsp;E&amp;nbsp;|&amp;nbsp;xref&amp;nbsp;:&amp;nbsp;Mod&lt;/code&gt; is
+      interpreted as the direct or indirect function calls from the
+      &lt;code&gt;xref&lt;/code&gt; module, while the interpretation of
+      &lt;code&gt;E&amp;nbsp;|&amp;nbsp;xref&amp;nbsp;:&amp;nbsp;Mod&lt;/code&gt; is the set of direct
+      calls from &lt;code&gt;xref&lt;/code&gt;. 
+      If some graph is to be used in several graph analyses, it saves
+      time to assign the &lt;code&gt;digraph&lt;/code&gt; representation of the graph
+      to a user variable, 
+      and then make sure that every graph analysis operates on that
+      variable instead of the list representation of the graph.
+      &lt;/p&gt;
+    &lt;p&gt;The lines where functions are defined (more precisely: where
+      the first clause begins) and the lines where functions are used
+      are available in &lt;code&gt;functions&lt;/code&gt; mode. The line numbers refer
+      to the files where the functions are defined. This holds also for
+      files included with the &lt;code&gt;-include&lt;/code&gt; and &lt;code&gt;-include_lib&lt;/code&gt;
+      directives, which may result in functions defined apparently in
+      the same line. The &lt;em&gt;line operators&lt;/em&gt; are used for assigning
+      line numbers to functions and for assigning sets of line numbers
+      to function calls. 
+      The syntax is similar to the one of the cast operator:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= &lt;code&gt;(&lt;/code&gt; LineOp&lt;code&gt;)&lt;/code&gt; Expression&lt;/item&gt;
+      &lt;item&gt;Expression ::= &lt;code&gt;(&lt;/code&gt; XLineOp&lt;code&gt;)&lt;/code&gt; Expression&lt;/item&gt;
+      &lt;item&gt;LineOp ::= &lt;code&gt;Lin&lt;/code&gt; | &lt;code&gt;ELin&lt;/code&gt; | &lt;code&gt;LLin&lt;/code&gt; | &lt;code&gt;XLin&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;XLineOp ::= &lt;code&gt;XXL&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The interpretation of the &lt;code&gt;Lin&lt;/code&gt; operator applied to a set
+      of functions assigns to each function the line number where the
+      function is defined. Unknown functions and functions of library
+      modules are assigned the number 0.
+      &lt;/p&gt;
+    &lt;p&gt;The interpretation of some LineOp operator applied to a
+      set of function calls assigns to each call the set of line
+      numbers where the first function calls the second function. Not
+      all calls are assigned line numbers by all operators:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;the &lt;code&gt;Lin&lt;/code&gt; operator is defined for Call Graph Edges;&lt;/item&gt;
+      &lt;item&gt;the &lt;code&gt;LLin&lt;/code&gt; operator is defined for Local Calls.&lt;/item&gt;
+      &lt;item&gt;the &lt;code&gt;XLin&lt;/code&gt; operator is defined for External Calls.&lt;/item&gt;
+      &lt;item&gt;the &lt;code&gt;ELin&lt;/code&gt; operator is defined for Inter Call Graph Edges.&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The &lt;code&gt;Lin&lt;/code&gt; (&lt;code&gt;LLin&lt;/code&gt;, &lt;code&gt;XLin&lt;/code&gt;) operator assigns
+      the lines where calls (local calls, external calls) are made.
+      The &lt;code&gt;ELin&lt;/code&gt; operator assigns to each call (From,&amp;nbsp;To),
+      for which it is defined, every line L such that there is
+      a chain of calls from From to To beginning with a call on line
+      L.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;XXL&lt;/code&gt; operator is defined for the interpretation of
+      any of the LineOp operators applied to a set of function
+      calls. The result is that of replacing the function call with
+      a line numbered function call, that is, each of the two
+      functions of the call is replaced by a pair of the function and
+      the line where the function is defined. The effect of the
+      &lt;code&gt;XXL&lt;/code&gt; operator can be undone by the LineOp operators. For
+      instance, &lt;code&gt;(Lin)&amp;nbsp;(XXL)&amp;nbsp;(Lin)&amp;nbsp;E&lt;/code&gt; is
+      equivalent to &lt;code&gt;(Lin)&amp;nbsp;E&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;+&lt;/code&gt;, &lt;code&gt;-&lt;/code&gt;, &lt;code&gt;*&lt;/code&gt; and &lt;code&gt;#&lt;/code&gt; operators are
+      defined for line number expressions, provided the operands are
+      compatible. The LineOp operators are also defined for
+      modules, applications, and releases; the operand is implicitly
+      converted to functions. Similarly, the cast operator is defined
+      for the interpretation of the LineOp operators.
+      &lt;/p&gt;
+    &lt;p&gt;The interpretation of the       &lt;span id=&quot;count&quot;&gt; &lt;/span&gt;
+&lt;em&gt;counting operator&lt;/em&gt; is the number of elements of a set. The operator
+      is undefined for closures. The &lt;code&gt;+&lt;/code&gt;, &lt;code&gt;-&lt;/code&gt; and &lt;code&gt;*&lt;/code&gt;
+      operators are interpreted as the obvious arithmetical operators
+      when applied to numbers. The syntax of the counting operator:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= CountOp Expression&lt;/item&gt;
+      &lt;item&gt;CountOp ::= &lt;code&gt;#&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;All binary operators are left associative; for instance,
+      &lt;code&gt;A&amp;nbsp;|&amp;nbsp;B &amp;nbsp;||&amp;nbsp;C&lt;/code&gt; is equivalent to
+      &lt;code&gt;(A&amp;nbsp;|&amp;nbsp;B)&amp;nbsp;||&amp;nbsp;C&lt;/code&gt;. The following is a list
+      of all operators, in increasing order of       &lt;span id=&quot;precedence&quot;&gt; &lt;/span&gt;
+&lt;em&gt;precedence&lt;/em&gt;:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;&lt;code&gt;+&lt;/code&gt;, &lt;code&gt;-&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;*&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;#&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;|&lt;/code&gt;, &lt;code&gt;||&lt;/code&gt;, &lt;code&gt;|||&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;of&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;(&lt;/code&gt;Type&lt;code&gt;)&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;&lt;code&gt;closure&lt;/code&gt;, &lt;code&gt;components&lt;/code&gt;, &lt;code&gt;condensation&lt;/code&gt;,
+      &lt;code&gt;domain&lt;/code&gt;, &lt;code&gt;range&lt;/code&gt;, &lt;code&gt;strict&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Parentheses are used for grouping, either to make an expression
+      more readable or to override the default precedence of operators:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Expression ::= &lt;code&gt;(&lt;/code&gt; Expression &lt;code&gt;)&lt;/code&gt;&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;A       &lt;span id=&quot;query&quot;&gt; &lt;/span&gt;
+&lt;em&gt;query&lt;/em&gt; is a non-empty sequence of
+      statements. A statement is either an assignment of a user
+      variable or an expression. The value of an assignment is the
+      value of the right hand side expression. It makes no sense to
+      put a plain expression anywhere else but last in queries. The
+      syntax of queries is summarized by these productions:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Query ::= Statement&lt;code&gt;,&lt;/code&gt;&amp;nbsp;...&lt;/item&gt;
+      &lt;item&gt;Statement ::= Assignment | Expression&lt;/item&gt;
+      &lt;item&gt;Assignment ::= Variable &lt;code&gt;:=&lt;/code&gt; Expression 
+       | Variable &lt;code&gt;=&lt;/code&gt; Expression&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;A variable cannot be assigned a new value unless first removed.
+      Variables assigned to by the &lt;code&gt;=&lt;/code&gt; operator are removed at
+      the end of the query, while variables assigned to by the
+      &lt;code&gt;:=&lt;/code&gt; operator can only be removed by calls to
+      &lt;code&gt;forget&lt;/code&gt;. There are no user variables when module data
+      need to be set up again; if any of the functions that make it
+      necessary to set up module data again is called, all user
+      variables are forgotten.
+      &lt;/p&gt;
+    &lt;p&gt;&lt;em&gt;Types&lt;/em&gt;&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+application() = atom()
+arity() = int() | -1
+bool() = true | false
+call() = {atom(), atom()} | funcall()
+constant() = mfa() | module() | application() | release()
+directory() = string()
+file() = string()
+funcall() = {mfa(), mfa()}
+function() = atom()
+int() = integer() &amp;gt;= 0
+library() = atom()
+library_path() = path() | code_path
+mfa() = {module(), function(), arity()}
+mode() = functions | modules
+module() = atom()
+release() = atom()
+string_position() = int() | at_end
+variable() = atom()
+xref() = atom() | pid()  &lt;/pre&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;add_application/3&quot;&gt;add_application(Xref, Directory [, Options]) -&amp;gt;  {ok, application()} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Directory = directory()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {builtins, bool()} | {name, application()}  | {verbose, bool()} | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | -&amp;nbsp;see&amp;nbsp;also&amp;nbsp;add_directory&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Adds an application, the modules of the application and &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; of the
+          modules to an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.
+          The modules will be members of the application.
+          The default is to use the base name of the
+          directory with the version removed as application name, but
+          this can be overridden by the &lt;code&gt;name&lt;/code&gt; option. Returns the
+          name of the application.
+          &lt;/p&gt;
+        &lt;p&gt;If the given directory has a subdirectory named
+          &lt;code&gt;ebin&lt;/code&gt;, modules (BEAM files) are searched for in that
+          directory, otherwise modules are searched for in the given
+          directory.
+          &lt;/p&gt;
+        &lt;p&gt;If the &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; of the Xref
+          server is &lt;code&gt;functions&lt;/code&gt;, BEAM files that contain no
+          &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt; are
+          ignored.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;add_directory/3&quot;&gt;add_directory(Xref, Directory [, Options]) -&amp;gt;  {ok, Modules} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Directory = directory()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Modules = [module()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {builtins, bool()} | {recurse, bool()}  | {verbose, bool()} | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {unrecognized_file, file()} | -&amp;nbsp;error from beam_lib:chunks/2&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Adds the modules found in the given directory and the &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;modules&#039; data&lt;/a&gt;
+          to an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;. 
+          The default is not to examine subdirectories, but if the option
+          &lt;code&gt;recurse&lt;/code&gt; has the value &lt;code&gt;true&lt;/code&gt;, modules are searched
+          for in subdirectories on all levels as well as in the given 
+          directory.
+          Returns a sorted list of the names of the added modules.
+          &lt;/p&gt;
+        &lt;p&gt;The modules added will not be members of any applications. 
+          &lt;/p&gt;
+        &lt;p&gt;If the &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; of the Xref
+          server is &lt;code&gt;functions&lt;/code&gt;, BEAM files that contain no
+          &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt; are
+          ignored.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;add_module/3&quot;&gt;add_module(Xref, File [, Options]) -&amp;gt; {ok, module()} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = file()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {module_clash, {module(), file(), file()}} | {no_debug_info, file()} | -&amp;nbsp;error from beam_lib:chunks/2&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Adds a module and its &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; to an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.
+          The module will not be member of any application.
+          Returns the name of the module.
+          &lt;/p&gt;
+        &lt;p&gt;If the &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; of the Xref
+          server is &lt;code&gt;functions&lt;/code&gt;, and the BEAM file contains no
+          &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt;,
+          the error message &lt;code&gt;no_debug_info&lt;/code&gt; is returned.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;add_release/3&quot;&gt;add_release(Xref, Directory [, Options]) -&amp;gt;  {ok, release()} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Directory = directory()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {builtins, bool()} | {name, release()}  | {verbose, bool()} | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason =  {application_clash, {application(), directory(), directory()}} | {file_error, file(), error()} | {invalid_filename, term()} | {invalid_options, term()} | {release_clash, {release(), directory(), directory()}} | -&amp;nbsp;see&amp;nbsp;also&amp;nbsp;add_directory&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Adds a release, the applications of the release, the
+          modules of the applications, and &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; of the
+          modules to an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.
+          The applications will be members of the release, 
+          and the modules will be members of the applications.
+          The default is to use the base name of the
+          directory as release name, but this can be overridden by the
+          &lt;code&gt;name&lt;/code&gt; option. Returns the name of the release.
+          &lt;/p&gt;
+        &lt;p&gt;If the given directory has a subdirectory named &lt;code&gt;lib&lt;/code&gt;,
+          the directories in that directory are assumed to be
+          application directories, otherwise all subdirectories of the
+          given directory are assumed to be application directories.
+          If there are several versions of some application, the one
+          with the highest version is chosen.
+          &lt;/p&gt;
+        &lt;p&gt;If the &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; of the Xref
+          server is &lt;code&gt;functions&lt;/code&gt;, BEAM files that contain no
+          &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt; are
+          ignored.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;analyze/3&quot;&gt;analyze(Xref, Analysis [, Options]) -&amp;gt;  {ok, Answer} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Analysis = undefined_function_calls  | undefined_functions | locals_not_used | exports_not_used | deprecated_function_calls | {deprecated_function_calls, DeprFlag} | deprecated_functions | {deprecated_functions, DeprFlag} | {call, FuncSpec} | {use, FuncSpec} | {module_call, ModSpec} | {module_use, ModSpec} | {application_call, AppSpec} | {application_use, AppSpec} | {release_call, RelSpec} | {release_use, RelSpec}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Answer = [term()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AppSpec = application() | [application()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;DeprFlag = next_version | next_major_release | eventually&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;FuncSpec = mfa() | [mfa()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ModSpec = module() | [module()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {verbose, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RelSpec = release() | [release()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {unavailable_analysis, term()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;          &lt;span id=&quot;analyze&quot;&gt; &lt;/span&gt;
+Evaluates a predefined analysis.
+          Returns a sorted list without duplicates of &lt;code&gt;call()&lt;/code&gt; or
+          &lt;code&gt;constant()&lt;/code&gt;, depending on the chosen analysis. The
+          predefined analyses, which operate on all &lt;a href=&quot;#analyzed_module&quot; class=&quot;seealso&quot;&gt;analyzed modules&lt;/a&gt;, are
+          (analyses marked with (*) are available in &lt;code&gt;functions&lt;/code&gt;&lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; only):&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;undefined_function_calls&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of calls to &lt;a href=&quot;#undefined_function&quot; class=&quot;seealso&quot;&gt;undefined functions&lt;/a&gt;.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;undefined_functions&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of &lt;a href=&quot;#undefined_function&quot; class=&quot;seealso&quot;&gt;undefined functions&lt;/a&gt;. &lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;locals_not_used&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of local functions that have not been
+           locally used.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;exports_not_used&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of exported functions that have not been
+           externally used.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;deprecated_function_calls&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of external calls to &lt;a href=&quot;#deprecated_function&quot; class=&quot;seealso&quot;&gt;deprecated functions&lt;/a&gt;.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{deprecated_function_calls, DeprFlag}&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of external calls to deprecated
+           functions. If &lt;code&gt;DeprFlag&lt;/code&gt; is equal to
+          &lt;code&gt;next_version&lt;/code&gt;, calls to functions to be removed in
+           next version are returned. If &lt;code&gt;DeprFlag&lt;/code&gt; is equal to
+          &lt;code&gt;next_major_release&lt;/code&gt;, calls to functions to be
+           removed in next major release are returned as well as
+           calls to functions to be removed in next version. Finally,
+           if &lt;code&gt;DeprFlag&lt;/code&gt; is equal to &lt;code&gt;eventually&lt;/code&gt;, all
+           calls to functions to be removed are returned, including
+           calls to functions to be removed in next version or next
+           major release.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;deprecated_functions&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of externally used deprecated
+           functions.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{deprecated_functions, DeprFlag}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of externally used deprecated
+           functions. If &lt;code&gt;DeprFlag&lt;/code&gt; is equal to
+          &lt;code&gt;next_version&lt;/code&gt;, functions to be removed in next
+           version are returned. If &lt;code&gt;DeprFlag&lt;/code&gt; is equal to
+          &lt;code&gt;next_major_release&lt;/code&gt;, functions to be removed in next
+           major release are returned as well as functions to be
+           removed in next version. Finally, if &lt;code&gt;DeprFlag&lt;/code&gt; is
+           equal to &lt;code&gt;eventually&lt;/code&gt;, all functions to be removed
+           are returned, including functions to be removed in next
+           version or next major release.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{call, FuncSpec}&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of functions called by some of the given 
+           functions.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{use, FuncSpec}&lt;/code&gt;(*)&lt;/dt&gt;
+          &lt;item&gt;Returns a list of functions that use some of the given 
+           functions.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{module_call, ModSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of modules called by some of the given 
+           modules.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{module_use, ModSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of modules that use some of the given 
+           modules.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{application_call, AppSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of applications called by some of the given 
+           applications.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{application_use, AppSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of applications that use some of the given 
+           applications.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{release_call, RelSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of releases called by some of the given 
+           releases.&lt;/item&gt;
+          &lt;dt&gt;&lt;code&gt;{release_use, RelSpec}&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;Returns a list of releases that use some of the given 
+           releases.&lt;/item&gt;
+        &lt;/taglist&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;d/1&quot;&gt;d(Directory) -&amp;gt; [DebugInfoResult] | [NoDebugInfoResult] | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Directory = directory()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {file_error, file(), error()} | {invalid_filename, term()} | {unrecognized_file, file()} | -&amp;nbsp;error from beam_lib:chunks/2&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The modules found in the given directory are checked for
+          calls to &lt;a href=&quot;#deprecated_function&quot; class=&quot;seealso&quot;&gt;deprecated functions&lt;/a&gt;, calls to &lt;a href=&quot;#undefined_function&quot; class=&quot;seealso&quot;&gt;undefined functions&lt;/a&gt;,
+          and for unused local functions. The code path is used as
+          &lt;a href=&quot;#library_path&quot; class=&quot;seealso&quot;&gt;library path&lt;/a&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;If some of the found BEAM files contain &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt;, then those
+          modules are checked and a list of tuples is returned. The
+          first element of each tuple is one of:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;deprecated&lt;/code&gt;, the second element is a sorted list
+           of calls to deprecated functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;undefined&lt;/code&gt;, the second element is a sorted list
+           of calls to undefined functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;unused&lt;/code&gt;, the second element is a sorted list of
+           unused local functions.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;If no BEAM file contains debug information, then a list of
+          tuples is returned. The first element of each tuple is one
+          of:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;deprecated&lt;/code&gt;, the second element is a sorted list
+           of externally used deprecated functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;undefined&lt;/code&gt;, the second element is a sorted list
+           of undefined functions.&lt;/item&gt;
+        &lt;/list&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;forget/1&quot;&gt;forget(Xref) -&amp;gt; ok&lt;/h3&gt;
+      &lt;h3 id=&quot;forget/2&quot;&gt;forget(Xref, Variables) -&amp;gt; ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {not_user_variable, term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Variables = [variable()] | variable()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;&lt;code&gt;forget/1&lt;/code&gt; and &lt;code&gt;forget/2&lt;/code&gt; remove all or some of
+          the &lt;a href=&quot;#user_variable&quot; class=&quot;seealso&quot;&gt;user variables&lt;/a&gt; of an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;xref server&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;format_error/1&quot;&gt;format_error(Error) -&amp;gt; Chars&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Chars = [char() | Chars]&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Given the error returned by any function of this module, 
+          the function &lt;code&gt;format_error&lt;/code&gt; returns a descriptive string
+          of the error in English. For file errors, the function 
+          &lt;code&gt;format_error/1&lt;/code&gt; in the &lt;code&gt;file&lt;/code&gt; module is called.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_default/1&quot;&gt;get_default(Xref) -&amp;gt; [{Option, Value}]&lt;/h3&gt;
+      &lt;h3 id=&quot;get_default/2&quot;&gt;get_default(Xref, Option) -&amp;gt; {ok, Value} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = builtins | recurse | verbose | warnings&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = bool()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the default values of one or more options.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_library_path/1&quot;&gt;get_library_path(Xref) -&amp;gt; {ok, LibraryPath}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;LibraryPath = library_path()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the &lt;a href=&quot;#library_path&quot; class=&quot;seealso&quot;&gt;library path&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/1&quot;&gt;info(Xref) -&amp;gt; [Info]&lt;/h3&gt;
+      &lt;h3 id=&quot;info/2&quot;&gt;info(Xref, Category) -&amp;gt; [{Item, [Info]}]&lt;/h3&gt;
+      &lt;h3 id=&quot;info/3&quot;&gt;info(Xref, Category, Items) -&amp;gt;  [{Item, [Info]}]&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Application = [] | [application()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Category = modules | applications | releases | libraries&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Info = {application, Application} | {builtins, bool()} | {directory, directory()} | {library_path, library_path()} | {mode, mode()} | {no_analyzed_modules, int()} | {no_applications, int()} | {no_calls, {NoResolved, NoUnresolved}} | {no_function_calls, {NoLocal, NoResolvedExternal, NoUnresolved}} | {no_functions, {NoLocal, NoExternal}} | {no_inter_function_calls, int()} | {no_releases, int()} | {release, Release} | {version, Version}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Item = module() | application() | release() | library()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Items = Item | [Item]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NoLocal = NoExternal = NoResolvedExternal, NoResolved = NoUnresolved = int()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Release = [] | [release()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Version = [int()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;info&lt;/code&gt; functions return information as a list of
+          pairs {Tag,&amp;nbsp;term()} in some order about the state and the 
+          &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; of an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;info/1&lt;/code&gt; returns information with the following tags
+          (tags  marked with (*) are available in &lt;code&gt;functions&lt;/code&gt;
+          mode only):&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;library_path&lt;/code&gt;, the &lt;a href=&quot;#library_path&quot; class=&quot;seealso&quot;&gt;library path&lt;/a&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;mode&lt;/code&gt;, the &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_releases&lt;/code&gt;, number of releases;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_applications&lt;/code&gt;, total number of applications
+           (of all releases);&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_analyzed_modules&lt;/code&gt;, total number of &lt;a href=&quot;#analyzed_module&quot; class=&quot;seealso&quot;&gt;analyzed modules&lt;/a&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_calls&lt;/code&gt; (*), total number of calls (in all
+           modules), regarding instances of one function call in 
+           different lines as separate calls;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_function_calls&lt;/code&gt; (*), total number of &lt;a href=&quot;#local_call&quot; class=&quot;seealso&quot;&gt;local calls&lt;/a&gt;, resolved &lt;a href=&quot;#external_call&quot; class=&quot;seealso&quot;&gt;external calls&lt;/a&gt; and 
+          &lt;a href=&quot;#unresolved_call&quot; class=&quot;seealso&quot;&gt;unresolved calls&lt;/a&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_functions&lt;/code&gt; (*), total number of local and exported
+           functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_inter_function_calls&lt;/code&gt; (*), total number of
+           calls of the &lt;a href=&quot;#inter_call_graph&quot; class=&quot;seealso&quot;&gt;Inter Call Graph&lt;/a&gt;.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;&lt;code&gt;info/2&lt;/code&gt; and &lt;code&gt;info/3&lt;/code&gt; return information about
+          all or some of the analyzed modules, applications, releases
+          or library modules of an Xref server. 
+          The following information is returned for every analyzed module:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;application&lt;/code&gt;, an empty list if the module does 
+           not belong to any application, otherwise a list of 
+           the application name;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;builtins&lt;/code&gt;, whether calls to BIFs are included
+           in the module&#039;s data;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;directory&lt;/code&gt;, the directory where the
+           module&#039;s BEAM file is located;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_calls&lt;/code&gt; (*), number of calls, regarding
+           instances of one function call in different lines as
+           separate calls;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_function_calls&lt;/code&gt; (*), number of local
+           calls, resolved external calls and unresolved calls;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_functions&lt;/code&gt; (*), number of local and exported
+           functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_inter_function_calls&lt;/code&gt; (*), number of calls
+           of the Inter Call Graph;&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following information is returned for every application:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;directory&lt;/code&gt;, the directory where the
+           modules&#039; BEAM files are located;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_analyzed_modules&lt;/code&gt;, number of analyzed
+           modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_calls&lt;/code&gt; (*), number of calls of the
+           application&#039;s modules, regarding instances of
+           one function call in different lines as separate calls;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_function_calls&lt;/code&gt; (*), number of local
+           calls, resolved external calls and unresolved calls of the
+           application&#039;s modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_functions&lt;/code&gt; (*), number of local and exported
+           functions of the application&#039;s modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_inter_function_calls&lt;/code&gt; (*), number of calls
+           of the Inter Call Graph of the
+           application&#039;s modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;release&lt;/code&gt;, an empty list if the application does not
+           belong to any release, otherwise a list of the release name;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;version&lt;/code&gt;, the application&#039;s version as
+           a list of numbers. For instance, the directory &quot;kernel-2.6&quot;
+           results in the application name &lt;code&gt;kernel&lt;/code&gt; and the
+           application version [2,6]; &quot;kernel&quot; yields the name
+          &lt;code&gt;kernel&lt;/code&gt; and the version [].&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following information is returned for every release:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;directory&lt;/code&gt;, the release directory;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_analyzed_modules&lt;/code&gt;, number of analyzed
+           modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_applications&lt;/code&gt;, number of applications;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_calls&lt;/code&gt; (*), number of calls of the
+           release&#039;s modules, regarding
+           instances of one function call in different lines as
+           separate calls;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_function_calls&lt;/code&gt; (*), number of local
+           calls, resolved external calls and unresolved
+           calls of the release&#039;s modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_functions&lt;/code&gt; (*), number of local and exported
+           functions of the release&#039;s modules;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;no_inter_function_calls&lt;/code&gt; (*), number of calls
+           of the Inter Call Graph of the release&#039;s modules.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following information is returned for every library module:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;directory&lt;/code&gt;, the directory where the &lt;a href=&quot;#library_module&quot; class=&quot;seealso&quot;&gt;library module&#039;s&lt;/a&gt; BEAM file is located.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;For every number of calls, functions etc. returned by the
+          &lt;code&gt;no_&lt;/code&gt; tags, there is a query returning the same number.
+          Listed below are examples of such queries. Some of the
+          queries return the sum of a two or more of the &lt;code&gt;no_&lt;/code&gt;
+          tags numbers. &lt;code&gt;mod&lt;/code&gt; (&lt;code&gt;app&lt;/code&gt;, &lt;code&gt;rel&lt;/code&gt;) refers to
+          any module (application, release).
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_analyzed_modules&lt;/code&gt;&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# AM&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (Mod) app:App&quot;&lt;/code&gt; 
+               (application)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (Mod) rel:Rel&quot;&lt;/code&gt; (release)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_applications&lt;/code&gt;&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# A&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_calls&lt;/code&gt;. The sum of the number of resolved and
+              unresolved calls:&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (XLin) E + # (LLin) E&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;T = E | mod:Mod, # (LLin) T + # (XLin) T&quot;&lt;/code&gt; 
+               (module)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;T = E | app:App, # (LLin) T + # (XLin) T&quot;&lt;/code&gt; 
+               (application)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;T = E | rel:Rel, # (LLin) T + # (XLin) T&quot;&lt;/code&gt; 
+               (release)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_functions&lt;/code&gt;. Functions in library modules and
+              the functions &lt;code&gt;module_info/0,1&lt;/code&gt; are not counted by
+              &lt;code&gt;info&lt;/code&gt;. Assuming that &lt;code&gt;&quot;Extra := _:module_info/\&quot;(0|1)\&quot; + LM&quot;&lt;/code&gt; has been evaluated, the
+              sum of the number of local and exported functions are:&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (F - Extra)&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (F * mod:Mod - Extra)&quot;&lt;/code&gt; (module)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (F * app:App - Extra)&quot;&lt;/code&gt; (application)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# (F * rel:Rel - Extra)&quot;&lt;/code&gt; (release)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_function_calls&lt;/code&gt;. The sum of the number of
+              local calls, resolved external calls and unresolved calls:&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# LC + # XC&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# LC | mod:Mod + # XC | mod:Mod&quot;&lt;/code&gt; (module)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# LC | app:App + # XC | app:App&quot;&lt;/code&gt; (application)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# LC | rel:Rel + # XC | mod:Rel&quot;&lt;/code&gt; (release)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_inter_function_calls&lt;/code&gt;&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# EE&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# EE | mod:Mod&quot;&lt;/code&gt; (module)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# EE | app:App&quot;&lt;/code&gt; (application)&lt;/item&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# EE | rel:Rel&quot;&lt;/code&gt; (release)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;no_releases&lt;/code&gt;&lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;&lt;code&gt;&quot;# R&quot;&lt;/code&gt; (info/1)&lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;m/1&quot;&gt;m(Module) -&amp;gt; [DebugInfoResult] | [NoDebugInfoResult] | Error&lt;/h3&gt;
+      &lt;h3 id=&quot;m/1-1&quot;&gt;m(File) -&amp;gt; [DebugInfoResult] | [NoDebugInfoResult] | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;DebugInfoResult = {deprecated, [funcall()]} | {undefined, [funcall()]} | {unused, [mfa()]}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = file()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Module = module()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NoDebugInfoResult = {deprecated, [mfa()]} | {undefined, [mfa()]}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {file_error, file(), error()} | {interpreted, module()} | {invalid_filename, term()} | {cover_compiled, module()} | {no_such_module, module()}  | -&amp;nbsp;error from beam_lib:chunks/2&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The given BEAM file (with or without the &lt;code&gt;.beam&lt;/code&gt;
+          extension) or the file found by calling
+          &lt;code&gt;code:which(Module)&lt;/code&gt; is checked for calls to &lt;a href=&quot;#deprecated_function&quot; class=&quot;seealso&quot;&gt;deprecated functions&lt;/a&gt;, calls to &lt;a href=&quot;#undefined_function&quot; class=&quot;seealso&quot;&gt;undefined functions&lt;/a&gt;,
+          and for unused local functions. The code path is used as
+          &lt;a href=&quot;#library_path&quot; class=&quot;seealso&quot;&gt;library path&lt;/a&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;If the BEAM file contains &lt;a href=&quot;#debug_info&quot; class=&quot;seealso&quot;&gt;debug information&lt;/a&gt;, then a
+          list of tuples is returned. The first element of each tuple
+          is one of:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;deprecated&lt;/code&gt;, the second element is a sorted list
+           of calls to deprecated functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;undefined&lt;/code&gt;, the second element is a sorted list
+           of calls to undefined functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;unused&lt;/code&gt;, the second element is a sorted list of
+           unused local functions.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;If the BEAM file does not contain debug information, then a
+          list of tuples is returned. The first element of each tuple
+          is one of:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;deprecated&lt;/code&gt;, the second element is a sorted list
+           of externally used deprecated functions;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;undefined&lt;/code&gt;, the second element is a sorted list
+           of undefined functions.&lt;/item&gt;
+        &lt;/list&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;q/3&quot;&gt;q(Xref, Query [, Options]) -&amp;gt; {ok, Answer} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Answer = false | [constant()] | [Call] | [Component] | int() | [DefineAt] | [CallAt] | [AllLines]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Call = call() | ComponentCall&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ComponentCall = {Component, Component}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Component = [constant()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;DefineAt = {mfa(), LineNumber}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;CallAt = {funcall(), LineNumbers}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AllLines = {{DefineAt, DefineAt}, LineNumbers}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;LineNumbers = [LineNumber]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;LineNumber = int()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {verbose, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Query = string() | atom()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()} | {parse_error, string_position(), term()} | {type_error, string()} | {type_mismatch, string(), string()} | {unknown_analysis, term()} | {unknown_constant, string()} | {unknown_variable, variable()} | {variable_reassigned, string()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Evaluates a &lt;a href=&quot;#query&quot; class=&quot;seealso&quot;&gt;query&lt;/a&gt; in the
+          context of an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;, and returns the value of the last
+          statement. The syntax of the value depends on the
+          expression:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;A set of calls is represented by a sorted list without
+           duplicates of &lt;code&gt;call()&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of constants is represented by a sorted list
+           without duplicates of &lt;code&gt;constant()&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of strongly connected components is a sorted list
+           without duplicates of &lt;code&gt;Component&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of calls between strongly connected components is
+           a sorted list without duplicates of &lt;code&gt;ComponentCall&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A chain of calls is represented by a list of
+          &lt;code&gt;constant()&lt;/code&gt;. The list contains the From vertex of every
+           call and the To vertex of the last call.&lt;/item&gt;
+          &lt;item&gt;The &lt;code&gt;of&lt;/code&gt; operator returns &lt;code&gt;false&lt;/code&gt; if no chain
+           of calls between the given constants can be found.&lt;/item&gt;
+          &lt;item&gt;The value of the &lt;code&gt;closure&lt;/code&gt; operator (the
+          &lt;code&gt;digraph&lt;/code&gt; representation) is represented by the atom
+          &lt;code&gt;&#039;closure()&#039;&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of line numbered functions is represented by a sorted
+           list without duplicates of &lt;code&gt;DefineAt&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of line numbered function calls is represented by
+           a sorted list without duplicates of &lt;code&gt;CallAt&lt;/code&gt;.&lt;/item&gt;
+          &lt;item&gt;A set of line numbered functions and function calls is
+           represented by a sorted list without duplicates of
+          &lt;code&gt;AllLines&lt;/code&gt;.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;For both &lt;code&gt;CallAt&lt;/code&gt; and &lt;code&gt;AllLines&lt;/code&gt; it holds that for
+          no list element is &lt;code&gt;LineNumbers&lt;/code&gt; an empty list; such
+          elements have been removed. The constants of &lt;code&gt;component&lt;/code&gt;
+          and the integers of &lt;code&gt;LineNumbers&lt;/code&gt; are sorted and without
+          duplicates.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;remove_application/2&quot;&gt;remove_application(Xref, Applications) -&amp;gt; ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Applications = application() | [application()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {no_such_application, application()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Removes applications and their modules and &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; from an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;remove_module/2&quot;&gt;remove_module(Xref, Modules) -&amp;gt; ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Modules = module() | [module()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {no_such_module, module()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Removes &lt;a href=&quot;#analyzed_module&quot; class=&quot;seealso&quot;&gt;analyzed modules&lt;/a&gt; and &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; from an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;remove_release/2&quot;&gt;remove_release(Xref, Releases) -&amp;gt; ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {no_such_release, release()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Releases = release() | [release()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Removes releases and their applications, modules and
+          &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; from an
+          &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;replace_application/4&quot;&gt;replace_application(Xref, Application,  Directory [, Options]) -&amp;gt; {ok, application()} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Application = application()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Directory = directory()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {builtins, bool()} | {verbose, bool()}  | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {no_such_application, application()} | -&amp;nbsp;see&amp;nbsp;also&amp;nbsp;add_application&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Replaces the modules of an application with other modules
+          read from an application directory. Release membership of the
+          application is retained. Note that the name of the
+          application is kept; the name of the given directory is not
+          used.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;replace_module/4&quot;&gt;replace_module(Xref, Module, File [, Options]) -&amp;gt;  {ok, module()} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = file()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Module = module()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {verbose, bool()} | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ReadModule = module()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {module_mismatch, module(), ReadModule} | {no_such_module, module()}  | -&amp;nbsp;see&amp;nbsp;also&amp;nbsp;add_module&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Replaces &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; of an &lt;a href=&quot;#analyzed_module&quot; class=&quot;seealso&quot;&gt;analyzed module&lt;/a&gt; with
+          data read from a BEAM file. Application membership of the
+          module is retained, and so is the value of the
+          &lt;code&gt;builtins&lt;/code&gt; option of the module. An error is returned
+          if the name of the read module differs from the given
+          module.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;update&lt;/code&gt; function is an alternative for updating
+          module data of recompiled modules.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;set_default/3&quot;&gt;set_default(Xref, Option, Value) -&amp;gt; {ok, OldValue} | Error&lt;/h3&gt;
+      &lt;h3 id=&quot;set_default/2&quot;&gt;set_default(Xref, OptionValues) -&amp;gt; ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;OptionValues = [OptionValue] | OptionValue&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;OptionValue = {Option, Value}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = builtins | recurse | verbose | warnings&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = bool()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the default value of one or more options. 
+          The options that can be set this way are:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;builtins&lt;/code&gt;, with initial default value &lt;code&gt;false&lt;/code&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;recurse&lt;/code&gt;, with initial default value &lt;code&gt;false&lt;/code&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;verbose&lt;/code&gt;, with initial default value &lt;code&gt;false&lt;/code&gt;;&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;warnings&lt;/code&gt;, with initial default value &lt;code&gt;true&lt;/code&gt;.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The initial default values are set when creating an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;. 
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;set_library_path/3&quot;&gt;set_library_path(Xref, LibraryPath [, Options]) -&amp;gt;  ok | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;LibraryPath = library_path()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {verbose, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()} | {invalid_path, term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the &lt;a href=&quot;#library_path&quot; class=&quot;seealso&quot;&gt;library path&lt;/a&gt;. If the given path is a list of
+          directories, the set of &lt;a href=&quot;#library_module&quot; class=&quot;seealso&quot;&gt;library modules&lt;/a&gt; is
+          determined by choosing the first module
+          encountered while traversing the directories in
+          the given order, for those modules that occur in more than
+          one directory. By default, the library path is an empty list.
+          &lt;/p&gt;
+        &lt;p&gt;The library path           &lt;span id=&quot;code_path&quot;&gt; &lt;/span&gt;
+&lt;code&gt;code_path&lt;/code&gt; is
+          used by the functions
+          &lt;code&gt;m/1&lt;/code&gt; and &lt;code&gt;d/1&lt;/code&gt;, but can also be set explicitly.
+          Note however that the code path will be traversed once for
+          each used &lt;a href=&quot;#library_module&quot; class=&quot;seealso&quot;&gt;library module&lt;/a&gt; while setting up module data.
+          On the other hand, if there are only a few modules that are
+          used but not analyzed, using &lt;code&gt;code_path&lt;/code&gt; may be faster
+          than setting the library path to &lt;code&gt;code:get_path()&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;If the library path is set to &lt;code&gt;code_path&lt;/code&gt;, the set of
+          library modules is not determined, and the &lt;code&gt;info&lt;/code&gt;
+          functions will return empty lists of library modules.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;start/1&quot;&gt;start(NameOrOptions) -&amp;gt; Return&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameOrOptions = Name | Options&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Name = atom()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {xref_mode, mode()} | term()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Return = {ok, pid()}  | {error, {already_started, pid()}}&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Creates an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.
+          The process may optionally be given a name.
+          The default &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; is &lt;code&gt;functions&lt;/code&gt;.
+          Options that are not recognized by Xref
+          are passed on to &lt;code&gt;gen_server:start/4&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;start/2&quot;&gt;start(Name, Options) -&amp;gt; Return&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Name = atom()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {xref_mode, mode()} | term()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Return = {ok, pid()}  | {error, {already_started, pid()}}&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Creates an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;
+          with a given name. 
+          The default &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; is &lt;code&gt;functions&lt;/code&gt;.
+          Options that are not recognized by Xref
+          are passed on to &lt;code&gt;gen_server:start/4&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;stop/1&quot;&gt;stop(Xref)&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Stops an &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;update/2&quot;&gt;update(Xref [, Options]) -&amp;gt; {ok, Modules} | Error&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = {error, module(), Reason}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Modules = [module()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {verbose, bool()} | {warnings, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()} | {module_mismatch, module(), ReadModule} | -&amp;nbsp;see&amp;nbsp;also&amp;nbsp;add_module&amp;nbsp;-&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Replaces the &lt;a href=&quot;#module_data&quot; class=&quot;seealso&quot;&gt;module data&lt;/a&gt; of all &lt;a href=&quot;#analyzed_module&quot; class=&quot;seealso&quot;&gt;analyzed modules&lt;/a&gt; the BEAM
+          files of which have been modified since last read by an
+          &lt;code&gt;add&lt;/code&gt; function or &lt;code&gt;update&lt;/code&gt;. Application membership
+          of the modules is retained, and so is the value of the
+          &lt;code&gt;builtins&lt;/code&gt; option. Returns a sorted list
+          of the names of the replaced modules.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;variables/2&quot;&gt;variables(Xref [, Options]) -&amp;gt; {ok, [VariableInfo]}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option] | Option&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = predefined | user | {verbose, bool()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {invalid_options, term()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;VariableInfo = {predefined, [variable()]} | {user, [variable()]}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Xref = xref()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a sorted lists of the names of the variables of an
+          &lt;a href=&quot;#xref_server&quot; class=&quot;seealso&quot;&gt;Xref server&lt;/a&gt;. 
+          The default is to return the &lt;a href=&quot;#user_variable&quot; class=&quot;seealso&quot;&gt;user variables&lt;/a&gt; only.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;See Also&lt;/h4&gt;&lt;p&gt;
+      &lt;a href=&quot;../stdlib/beam_lib.html&quot; class=&quot;seealso&quot;&gt;beam_lib(3)&lt;/a&gt;,
+      &lt;a href=&quot;../stdlib/digraph.html&quot; class=&quot;seealso&quot;&gt;digraph(3)&lt;/a&gt;,
+      &lt;a href=&quot;../stdlib/digraph_utils.html&quot; class=&quot;seealso&quot;&gt;digraph_utils(3)&lt;/a&gt;,
+      &lt;a href=&quot;../stdlib/re.html&quot; class=&quot;seealso&quot;&gt;re(3)&lt;/a&gt;,
+      &lt;a href=&quot;xref_chapter.html&quot; class=&quot;seealso&quot;&gt;TOOLS User&#039;s Guide&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#add_application/3&quot;&gt;add_application/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#add_directory/3&quot;&gt;add_directory/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#add_module/3&quot;&gt;add_module/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#add_release/3&quot;&gt;add_release/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#analyze/3&quot;&gt;analyze/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#d/1&quot;&gt;d/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#forget/1&quot;&gt;forget/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#forget/2&quot;&gt;forget/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#format_error/1&quot;&gt;format_error/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_default/1&quot;&gt;get_default/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_default/2&quot;&gt;get_default/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_library_path/1&quot;&gt;get_library_path/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/1&quot;&gt;info/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/2&quot;&gt;info/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/3&quot;&gt;info/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#m/1&quot;&gt;m/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#m/1-1&quot;&gt;m/1-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#q/3&quot;&gt;q/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#remove_application/2&quot;&gt;remove_application/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#remove_module/2&quot;&gt;remove_module/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#remove_release/2&quot;&gt;remove_release/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#replace_application/4&quot;&gt;replace_application/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#replace_module/4&quot;&gt;replace_module/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#set_default/3&quot;&gt;set_default/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#set_default/2&quot;&gt;set_default/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#set_library_path/3&quot;&gt;set_library_path/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start/1&quot;&gt;start/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start/2&quot;&gt;start/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#stop/1&quot;&gt;stop/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#update/2&quot;&gt;update/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#variables/2&quot;&gt;variables/2&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ms_transform (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;ms_transform&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Parse_transform that translates fun syntax into match specifications. &lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;span id=&quot;top&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;This module implements the parse_transform that makes calls to
+      &lt;code&gt;ets&lt;/code&gt; and &lt;code&gt;dbg&lt;/code&gt;:&lt;code&gt;fun2ms/1&lt;/code&gt; translate into literal
+      match specifications. It also implements the back end for the same
+      functions when called from the Erlang shell.&lt;/p&gt;
+    &lt;p&gt;The translations from fun&#039;s to match_specs 
+      is accessed through the two &quot;pseudo
+      functions&quot; &lt;code&gt;ets:fun2ms/1&lt;/code&gt; and &lt;code&gt;dbg:fun2ms/1&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;Actually this introduction is more or less an introduction to the
+      whole concept of match specifications. Since everyone trying to use
+      &lt;code&gt;ets:select&lt;/code&gt; or &lt;code&gt;dbg&lt;/code&gt; seems to end up reading
+      this page, it seems in good place to explain a little more than
+      just what this module does.&lt;/p&gt;
+    &lt;p&gt;There are some caveats one should be aware of, please read through
+      the whole manual page if it&#039;s the first time you&#039;re using the
+      transformations. &lt;/p&gt;
+    &lt;p&gt;Match specifications are used more or less as filters. 
+      They resemble usual Erlang matching in a list comprehension or in
+      a &lt;code&gt;fun&lt;/code&gt; used in conjunction with &lt;code&gt;lists:foldl&lt;/code&gt; etc. The
+      syntax of pure match specifications is somewhat awkward though, as
+      they are made up purely by Erlang terms and there is no syntax in the
+      language to make the match specifications more readable.&lt;/p&gt;
+    &lt;p&gt;As the match specifications execution and structure is quite like
+      that of a fun, it would for most programmers be more straight forward
+      to simply write it using the familiar fun syntax and having that
+      translated into a match specification automatically. Of course a real
+      fun is more powerful than the match specifications allow, but bearing
+      the match specifications in mind, and what they can do, it&#039;s still
+      more convenient to write it all as a fun. This module contains the
+      code that simply translates the fun syntax into match_spec terms.&lt;/p&gt;
+    &lt;p&gt;Let&#039;s start with an ets example. Using &lt;code&gt;ets:select&lt;/code&gt; and
+      a match specification, one can filter out rows of a table and construct
+      a list of tuples containing relevant parts of the data in these
+      rows. Of course one could use &lt;code&gt;ets:foldl&lt;/code&gt; instead, but the
+      select call is far more efficient. Without the translation, one has to
+      struggle with writing match specifications terms to accommodate this,
+      or one has to resort to the less powerful
+      &lt;code&gt;ets:match(_object)&lt;/code&gt; calls, or simply give up and use
+      the more inefficient method of &lt;code&gt;ets:foldl&lt;/code&gt;. Using the
+      &lt;code&gt;ets:fun2ms&lt;/code&gt; transformation, a &lt;code&gt;ets:select&lt;/code&gt; call
+      is at least as easy to write as any of the alternatives.&lt;/p&gt;
+    &lt;p&gt;As an example, consider a simple table of employees:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+-record(emp, {empno,     %Employee number as a string, the key
+              surname,   %Surname of the employee
+              givenname, %Given name of employee
+              dept,      %Department one of {dev,sales,prod,adm}
+              empyear}). %Year the employee was employed    &lt;/pre&gt;
+    &lt;p&gt;We create the table using:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:new(emp_tab,[{keypos,#emp.empno},named_table,ordered_set]).    &lt;/pre&gt;
+    &lt;p&gt;Let&#039;s also fill it with some randomly chosen data for the examples:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+[{emp,&quot;011103&quot;,&quot;Black&quot;,&quot;Alfred&quot;,sales,2000},
+ {emp,&quot;041231&quot;,&quot;Doe&quot;,&quot;John&quot;,prod,2001},
+ {emp,&quot;052341&quot;,&quot;Smith&quot;,&quot;John&quot;,dev,1997},
+ {emp,&quot;076324&quot;,&quot;Smith&quot;,&quot;Ella&quot;,sales,1995},
+ {emp,&quot;122334&quot;,&quot;Weston&quot;,&quot;Anna&quot;,prod,2002},
+ {emp,&quot;535216&quot;,&quot;Chalker&quot;,&quot;Samuel&quot;,adm,1998},
+ {emp,&quot;789789&quot;,&quot;Harrysson&quot;,&quot;Joe&quot;,adm,1996},
+ {emp,&quot;963721&quot;,&quot;Scott&quot;,&quot;Juliana&quot;,dev,2003},
+ {emp,&quot;989891&quot;,&quot;Brown&quot;,&quot;Gabriel&quot;,prod,1999}]    &lt;/pre&gt;
+    &lt;p&gt;Now, the amount of data in the table is of course to small to justify
+      complicated ets searches, but on real tables, using &lt;code&gt;select&lt;/code&gt; to get
+      exactly the data you want will increase efficiency remarkably.&lt;/p&gt;
+    &lt;p&gt;Lets say for example that we&#039;d want the employee numbers of
+      everyone in the sales department. One might use &lt;code&gt;ets:match&lt;/code&gt;
+      in such a situation:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+1&amp;gt; &lt;code&gt;ets:match(emp_tab, {&#039;_&#039;, &#039;$1&#039;, &#039;_&#039;, &#039;_&#039;, sales, &#039;_&#039;}).&lt;/code&gt;
+[[&quot;011103&quot;],[&quot;076324&quot;]]    &lt;/pre&gt;
+    &lt;p&gt;Even though &lt;code&gt;ets:match&lt;/code&gt; does not require a full match
+      specification, but a simpler type, it&#039;s still somewhat unreadable, and
+      one has little control over the returned result, it&#039;s always a list of
+      lists. OK, one might use &lt;code&gt;ets:foldl&lt;/code&gt; or
+      &lt;code&gt;ets:foldr&lt;/code&gt; instead:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:foldr(fun(#emp{empno = E, dept = sales},Acc) -&amp;gt; [E | Acc];
+             (_,Acc) -&amp;gt; Acc
+          end,
+          [],
+          emp_tab).    &lt;/pre&gt;
+    &lt;p&gt;Running that would result in &lt;code&gt;[&quot;011103&quot;,&quot;076324&quot;]&lt;/code&gt;
+      , which at least gets rid of the extra lists. The fun is also quite
+      straightforward, so the only problem is that all the data from the
+      table has to be transferred from the table to the calling process for
+      filtering. That&#039;s inefficient compared to the &lt;code&gt;ets:match&lt;/code&gt;
+      call where the filtering can be done &quot;inside&quot; the emulator and only
+      the result is transferred to the process. Remember that ets tables are
+      all about efficiency, if it wasn&#039;t for efficiency all of ets could be
+      implemented in Erlang, as a process receiving requests and sending
+      answers back. One uses ets because one wants performance, and
+      therefore one wouldn&#039;t want all of the table transferred to the
+      process for filtering. OK, let&#039;s look at a pure
+      &lt;code&gt;ets:select&lt;/code&gt; call that does what the &lt;code&gt;ets:foldr&lt;/code&gt;
+      does:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(emp_tab,[{#emp{empno = &#039;$1&#039;, dept = sales, _=&#039;_&#039;},[],[&#039;$1&#039;]}]).    &lt;/pre&gt;
+    &lt;p&gt;Even though the record syntax is used, it&#039;s still somewhat hard to
+      read and even harder to write. The first element of the tuple,
+      &lt;code&gt;#emp{empno = &#039;$1&#039;, dept = sales, _=&#039;_&#039;}&lt;/code&gt; tells what to
+      match, elements not matching this will not be returned at all, as in
+      the &lt;code&gt;ets:match&lt;/code&gt; example. The second element, the empty list
+      is a list of guard expressions, which we need none, and the third
+      element is the list of expressions constructing the return value (in
+      ets this almost always is a list containing one single term). In our
+      case &lt;code&gt;&#039;$1&#039;&lt;/code&gt; is bound to the employee number in the head
+      (first element of tuple), and hence it is the employee number that is
+      returned. The result is &lt;code&gt;[&quot;011103&quot;,&quot;076324&quot;]&lt;/code&gt;, just as in
+      the &lt;code&gt;ets:foldr&lt;/code&gt; example, but the result is retrieved much
+      more efficiently in terms of execution speed and memory consumption.&lt;/p&gt;
+    &lt;p&gt;We have one efficient but hardly readable way of doing it and one
+      inefficient but fairly readable (at least to the skilled Erlang
+      programmer) way of doing it. With the use of &lt;code&gt;ets:fun2ms&lt;/code&gt;,
+      one could have something that is as efficient as possible but still is
+      written as a filter using the fun syntax:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+-include_lib(&quot;stdlib/include/ms_transform.hrl&quot;).
+
+% ...
+
+ets:select(emp_tab, ets:fun2ms(
+                      fun(#emp{empno = E, dept = sales}) -&amp;gt;
+                              E
+                      end)).    &lt;/pre&gt;
+    &lt;p&gt;This may not be the shortest of the expressions, but it requires no
+      special knowledge of match specifications to read. The fun&#039;s head
+      should simply match what you want to filter out and the body returns
+      what you want returned. As long as the fun can be kept within the
+      limits of the match specifications, there is no need to transfer all
+      data of the table to the process for filtering as in the
+      &lt;code&gt;ets:foldr&lt;/code&gt; example. In fact it&#039;s even easier to read then
+      the &lt;code&gt;ets:foldr&lt;/code&gt; example, as the select call in itself
+      discards anything that doesn&#039;t match, while the fun of the
+      &lt;code&gt;foldr&lt;/code&gt; call needs to handle both the elements matching and
+      the ones not matching.&lt;/p&gt;
+    &lt;p&gt;It&#039;s worth noting in the above &lt;code&gt;ets:fun2ms&lt;/code&gt; example that one
+      needs to include &lt;code&gt;ms_transform.hrl&lt;/code&gt; in the source code, as this is
+      what triggers the parse transformation of the &lt;code&gt;ets:fun2ms&lt;/code&gt; call
+      to a valid match specification. This also implies that the
+      transformation is done at compile time (except when called from the
+      shell of course) and therefore will take no resources at all in
+      runtime. So although you use the more intuitive fun syntax, it gets as
+      efficient in runtime as writing match specifications by hand.&lt;/p&gt;
+    &lt;p&gt;Let&#039;s look at some more &lt;code&gt;ets&lt;/code&gt; examples. Let&#039;s say one
+      wants to get all the employee numbers of any employee hired before the
+      year 2000. Using &lt;code&gt;ets:match&lt;/code&gt; isn&#039;t an alternative here as
+      relational operators cannot be expressed there. Once again, an
+      &lt;code&gt;ets:foldr&lt;/code&gt; could do it (slowly, but correct):&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:foldr(fun(#emp{empno = E, empyear = Y},Acc) when Y &amp;lt; 2000 -&amp;gt; [E | Acc];
+                  (_,Acc) -&amp;gt; Acc
+          end,
+          [],
+          emp_tab).    &lt;/pre&gt;
+    &lt;p&gt;The result will be
+      &lt;code&gt;[&quot;052341&quot;,&quot;076324&quot;,&quot;535216&quot;,&quot;789789&quot;,&quot;989891&quot;]&lt;/code&gt;, as
+      expected. Now the equivalent expression using a handwritten match
+      specification would look something like this:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(emp_tab,[{#emp{empno = &#039;$1&#039;, empyear = &#039;$2&#039;, _=&#039;_&#039;},
+                     [{&#039;&amp;lt;&#039;, &#039;$2&#039;, 2000}],
+                     [&#039;$1&#039;]}]).    &lt;/pre&gt;
+    &lt;p&gt;This gives the same result, the &lt;code&gt;[{&#039;&amp;lt;&#039;, &#039;$2&#039;, 2000}]&lt;/code&gt; is in
+      the guard part and therefore discards anything that does not have a
+      empyear (bound to &#039;$2&#039; in the head) less than 2000, just as the guard
+      in the &lt;code&gt;foldl&lt;/code&gt; example. Lets jump on to writing it using 
+      &lt;code&gt;ets:fun2ms&lt;/code&gt;&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+-include_lib(&quot;stdlib/include/ms_transform.hrl&quot;).
+
+% ...
+
+ets:select(emp_tab, ets:fun2ms(
+                      fun(#emp{empno = E, empyear = Y}) when Y &amp;lt; 2000 -&amp;gt;
+                              E
+                      end)).    &lt;/pre&gt;
+    &lt;p&gt;Obviously readability is gained by using the parse transformation.&lt;/p&gt;
+    &lt;p&gt;I&#039;ll show some more examples without the tiresome
+      comparing-to-alternatives stuff. Let&#039;s say we&#039;d want the whole object
+      matching instead of only one element. We could of course assign a
+      variable to every part of the record and build it up once again in the
+      body of the &lt;code&gt;fun&lt;/code&gt;, but it&#039;s easier to do like this:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(emp_tab, ets:fun2ms(
+                      fun(Obj = #emp{empno = E, empyear = Y}) 
+                         when Y &amp;lt; 2000 -&amp;gt;
+                              Obj
+                      end)).    &lt;/pre&gt;
+    &lt;p&gt;Just as in ordinary Erlang matching, you can bind a variable to the
+      whole matched object using a &quot;match in then match&quot;, i.e. a
+      &lt;code&gt;=&lt;/code&gt;. Unfortunately this is not general in &lt;code&gt;fun&#039;s&lt;/code&gt; translated
+      to match specifications, only on the &quot;top level&quot;, i.e. matching the
+      &lt;em&gt;whole&lt;/em&gt; object arriving to be matched into a separate variable,
+      is it allowed. For the one&#039;s used to writing match specifications by
+      hand, I&#039;ll have to mention that the variable A will simply be
+      translated into &#039;$_&#039;. It&#039;s not general, but it has very common usage,
+      why it is handled as a special, but useful, case. If this bothers you,
+      the pseudo function &lt;code&gt;object&lt;/code&gt; also returns the whole matched
+      object, see the part about caveats and limitations below.&lt;/p&gt;
+    &lt;p&gt;Let&#039;s do something in the &lt;code&gt;fun&lt;/code&gt;&#039;s body too: Let&#039;s say
+      that someone realizes that there are a few people having an employee
+      number beginning with a zero (&lt;code&gt;0&lt;/code&gt;), which shouldn&#039;t be
+      allowed. All those should have their numbers changed to begin with a
+      one (&lt;code&gt;1&lt;/code&gt;) instead  and one wants the
+      list &lt;code&gt;[{&amp;lt;Old empno&amp;gt;,&amp;lt;New empno&amp;gt;}]&lt;/code&gt; created:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(emp_tab, ets:fun2ms(
+                      fun(#emp{empno = [$0 | Rest] }) -&amp;gt;
+                              {[$0|Rest],[$1|Rest]}
+                      end)).    &lt;/pre&gt;
+    &lt;p&gt;As a matter of fact, this query hits the feature of partially bound
+      keys in the table type &lt;code&gt;ordered_set&lt;/code&gt;, so that not the whole
+      table need be searched, only the part of the table containing keys
+      beginning with &lt;code&gt;0&lt;/code&gt; is in fact looked into. &lt;/p&gt;
+    &lt;p&gt;The fun of course can have several clauses, so that if one could do
+      the following: For each employee, if he or she is hired prior to 1997,
+      return the tuple &lt;code&gt;{inventory, &amp;lt;employee number&amp;gt;}&lt;/code&gt;, for each hired 1997
+      or later, but before 2001, return &lt;code&gt;{rookie, &amp;lt;employee number&amp;gt;}&lt;/code&gt;, for all others return &lt;code&gt;{newbie, &amp;lt;employee number&amp;gt;}&lt;/code&gt;. All except for the ones named &lt;code&gt;Smith&lt;/code&gt; as
+      they would be affronted by anything other than the tag
+      &lt;code&gt;guru&lt;/code&gt; and that is also what&#039;s returned for their numbers; 
+      &lt;code&gt;{guru, &amp;lt;employee number&amp;gt;}&lt;/code&gt;:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(emp_tab, ets:fun2ms(
+                      fun(#emp{empno = E, surname = &quot;Smith&quot; }) -&amp;gt;
+                              {guru,E};
+                         (#emp{empno = E, empyear = Y}) when Y &amp;lt; 1997  -&amp;gt;
+                              {inventory, E};
+                         (#emp{empno = E, empyear = Y}) when Y &amp;gt; 2001  -&amp;gt;
+                              {newbie, E};
+                         (#emp{empno = E, empyear = Y}) -&amp;gt; % 1997 -- 2001
+                              {rookie, E}
+                      end)).    &lt;/pre&gt;
+    &lt;p&gt;The result will be:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+[{rookie,&quot;011103&quot;},
+ {rookie,&quot;041231&quot;},
+ {guru,&quot;052341&quot;},
+ {guru,&quot;076324&quot;},
+ {newbie,&quot;122334&quot;},
+ {rookie,&quot;535216&quot;},
+ {inventory,&quot;789789&quot;},
+ {newbie,&quot;963721&quot;},
+ {rookie,&quot;989891&quot;}]    &lt;/pre&gt;
+    &lt;p&gt;and so the Smith&#039;s will be happy...&lt;/p&gt;
+    &lt;p&gt;So, what more can you do? Well, the simple answer would be; look
+      in the documentation of match specifications in ERTS users
+      guide. However let&#039;s briefly go through the most useful &quot;built in
+      functions&quot; that you can use when the &lt;code&gt;fun&lt;/code&gt; is to be
+      translated into a match specification by &lt;code&gt;ets:fun2ms&lt;/code&gt; (it&#039;s
+      worth mentioning, although it might be obvious to some, that calling
+      other functions than the one&#039;s allowed in match specifications cannot
+      be done. No &quot;usual&quot; Erlang code can be executed by the &lt;code&gt;fun&lt;/code&gt; being
+      translated by &lt;code&gt;fun2ms&lt;/code&gt;, the &lt;code&gt;fun&lt;/code&gt; is after all limited
+      exactly to the power of the match specifications, which is
+      unfortunate, but the price one has to pay for the execution speed of
+      an &lt;code&gt;ets:select&lt;/code&gt; compared to &lt;code&gt;ets:foldl/foldr&lt;/code&gt;).&lt;/p&gt;
+    &lt;p&gt;The head of the &lt;code&gt;fun&lt;/code&gt; is obviously a head matching (or mismatching) 
+      &lt;em&gt;one&lt;/em&gt; parameter, one object of the table we &lt;code&gt;select&lt;/code&gt;
+      from. The object is always a single variable (can be &lt;code&gt;_&lt;/code&gt;) or
+      a tuple, as that&#039;s what&#039;s in &lt;code&gt;ets, dets&lt;/code&gt; and
+      &lt;code&gt;mnesia&lt;/code&gt; tables (the match specification returned by
+      &lt;code&gt;ets:fun2ms&lt;/code&gt; can of course be used with
+      &lt;code&gt;dets:select&lt;/code&gt; and &lt;code&gt;mnesia:select&lt;/code&gt; as well as
+      with &lt;code&gt;ets:select&lt;/code&gt;). The use of &lt;code&gt;=&lt;/code&gt; in the head
+      is allowed (and encouraged) on the top level.&lt;/p&gt;
+    &lt;p&gt;The guard section can contain any guard expression of Erlang.
+      Even the &quot;old&quot; type test are allowed on the toplevel of the guard 
+      (&lt;code&gt;integer(X)&lt;/code&gt; instead of &lt;code&gt;is_integer(X)&lt;/code&gt;). As the new type tests (the
+      &lt;code&gt;is_&lt;/code&gt; tests) are in practice just guard bif&#039;s they can also
+      be called from within the body of the fun, but so they can in ordinary
+      Erlang code. Also arithmetics is allowed, as well as ordinary guard
+      bif&#039;s. Here&#039;s a list of bif&#039;s and expressions:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;The type tests: is_atom, is_float, is_integer,
+       is_list, is_number, is_pid, is_port, is_reference, is_tuple,
+       is_binary, is_function, is_record&lt;/item&gt;
+      &lt;item&gt;The boolean operators: not, and, or, andalso, orelse &lt;/item&gt;
+      &lt;item&gt;The relational operators: &amp;gt;, &amp;gt;=, &amp;lt;, =&amp;lt;, =:=, ==, =/=, /=&lt;/item&gt;
+      &lt;item&gt;Arithmetics: +, -, *, div, rem&lt;/item&gt;
+      &lt;item&gt;Bitwise operators: band, bor, bxor, bnot, bsl, bsr&lt;/item&gt;
+      &lt;item&gt;The guard bif&#039;s: abs, element, hd, length, node, round, size, tl, 
+       trunc, self&lt;/item&gt;
+      &lt;item&gt;The obsolete type test (only in guards):
+       atom, float, integer,
+       list, number, pid, port, reference, tuple,
+       binary, function, record&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Contrary to the fact with &quot;handwritten&quot; match specifications, the
+      &lt;code&gt;is_record&lt;/code&gt; guard works as in ordinary Erlang code.&lt;/p&gt;
+    &lt;p&gt;Semicolons (&lt;code&gt;;&lt;/code&gt;) in guards are allowed, the result will be (as
+      expected) one &quot;match_spec-clause&quot; for each semicolon-separated
+      part of the guard. The semantics being identical to the Erlang
+      semantics.&lt;/p&gt;
+    &lt;p&gt;The body of the &lt;code&gt;fun&lt;/code&gt; is used to construct the
+      resulting value. When selecting from tables one usually just construct
+      a suiting term here, using ordinary Erlang term construction, like
+      tuple parentheses, list brackets and variables matched out in the
+      head, possibly in conjunction with the occasional constant. Whatever
+      expressions are allowed in guards are also allowed here, but there are
+      no special functions except &lt;code&gt;object&lt;/code&gt; and
+      &lt;code&gt;bindings&lt;/code&gt; (see further down), which returns the whole
+      matched object and all known variable bindings respectively.&lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;dbg&lt;/code&gt; variants of match specifications have an
+      imperative approach to the match specification body, the ets dialect
+      hasn&#039;t. The fun body for &lt;code&gt;ets:fun2ms&lt;/code&gt; returns the result
+      without side effects, and as matching (&lt;code&gt;=&lt;/code&gt;) in the body of
+      the match specifications is not allowed (for performance reasons) the
+      only thing left, more or less, is term construction...&lt;/p&gt;
+    &lt;p&gt;Let&#039;s move on to the &lt;code&gt;dbg&lt;/code&gt; dialect, the slightly
+      different match specifications translated by &lt;code&gt;dbg:fun2ms&lt;/code&gt;. &lt;/p&gt;
+    &lt;p&gt;The same reasons for using the parse transformation applies to
+      &lt;code&gt;dbg&lt;/code&gt;, maybe even more so as filtering using Erlang code is
+      simply not a good idea when tracing (except afterwards, if you trace
+      to file). The concept is similar to that of &lt;code&gt;ets:fun2ms&lt;/code&gt;
+      except that you usually use it directly from the shell (which can also
+      be done with &lt;code&gt;ets:fun2ms&lt;/code&gt;). &lt;/p&gt;
+    &lt;p&gt;Let&#039;s manufacture a toy module to trace on  &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+-module(toy).
+
+-export([start/1, store/2, retrieve/1]).
+
+start(Args) -&amp;gt;
+    toy_table = ets:new(toy_table,Args).
+
+store(Key, Value) -&amp;gt;
+    ets:insert(toy_table,{Key,Value}).
+
+retrieve(Key) -&amp;gt;
+    [{Key, Value}] = ets:lookup(toy_table,Key),
+    Value.    &lt;/pre&gt;
+    &lt;p&gt;During model testing, the first test bails out with a
+      &lt;code&gt;{badmatch,16}&lt;/code&gt; in &lt;code&gt;{toy,start,1}&lt;/code&gt;, why?&lt;/p&gt;
+    &lt;p&gt;We suspect the ets call, as we match hard on the return value, but
+      want only the particular &lt;code&gt;new&lt;/code&gt; call with
+      &lt;code&gt;toy_table&lt;/code&gt; as first parameter.
+      So we start a default tracer on the node:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+1&amp;gt; &lt;code&gt;dbg:tracer().&lt;/code&gt;
+{ok,&amp;lt;0.88.0&amp;gt;}&lt;/pre&gt;
+    &lt;p&gt;And so we turn on call tracing for all processes, we are going to
+      make a pretty restrictive trace pattern, so there&#039;s no need to call
+      trace only a few processes (it usually isn&#039;t):&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+2&amp;gt; &lt;code&gt;dbg:p(all,call).&lt;/code&gt;
+{ok,[{matched,nonode@nohost,25}]}    &lt;/pre&gt;
+    &lt;p&gt;It&#039;s time to specify the filter. We want to view calls that resemble
+      &lt;code&gt;ets:new(toy_table,&amp;lt;something&amp;gt;)&lt;/code&gt;:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+3&amp;gt; &lt;code&gt;dbg:tp(ets,new,dbg:fun2ms(fun([toy_table,_]) -&amp;gt; true end)).&lt;/code&gt;
+{ok,[{matched,nonode@nohost,1},{saved,1}]}    &lt;/pre&gt;
+    &lt;p&gt;As can be seen, the &lt;code&gt;fun&lt;/code&gt;&#039;s used with
+      &lt;code&gt;dbg:fun2ms&lt;/code&gt; takes a single list as parameter instead of a
+      single tuple. The list matches a list of the parameters to the traced
+      function.  A single variable may also be used of course. The body
+      of the fun expresses in a more imperative way actions to be taken if
+      the fun head (and the guards) matches. I return &lt;code&gt;true&lt;/code&gt; here, but it&#039;s
+      only because the body of a fun cannot be empty, the return value will
+      be discarded. &lt;/p&gt;
+    &lt;p&gt;When we run the test of our module now, we get the following trace
+      output:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+(&amp;lt;0.86.0&amp;gt;) call ets:new(toy_table,[ordered_set])    &lt;/pre&gt;
+    &lt;p&gt;Let&#039;s play we haven&#039;t spotted the problem yet, and want to see what 
+      &lt;code&gt;ets:new&lt;/code&gt; returns. We do a slightly different trace
+      pattern:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+4&amp;gt; &lt;code&gt;dbg:tp(ets,new,dbg:fun2ms(fun([toy_table,_]) -&amp;gt; return_trace() end)).&lt;/code&gt;&lt;/pre&gt;
+    &lt;p&gt;Resulting in the following trace output when we run the test:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+(&amp;lt;0.86.0&amp;gt;) call ets:new(toy_table,[ordered_set])
+(&amp;lt;0.86.0&amp;gt;) returned from ets:new/2 -&amp;gt; 24    &lt;/pre&gt;
+    &lt;p&gt;The call to &lt;code&gt;return_trace&lt;/code&gt;, makes a trace message appear
+      when the function returns. It applies only to the specific function call
+      triggering the match specification (and matching the head/guards of
+      the match specification). This is the by far the most common call in the
+      body of a &lt;code&gt;dbg&lt;/code&gt; match specification.&lt;/p&gt;
+    &lt;p&gt;As the test now fails with &lt;code&gt;{badmatch,24}&lt;/code&gt;, it&#039;s obvious 
+      that the badmatch is because the atom &lt;code&gt;toy_table&lt;/code&gt; does not
+      match the number returned for an unnamed table. So we spotted the
+      problem, the table should be named and the arguments supplied by our
+      test program does not include &lt;code&gt;named_table&lt;/code&gt;. We rewrite the
+      start function to:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+start(Args) -&amp;gt;
+    toy_table = ets:new(toy_table,[named_table |Args]).    &lt;/pre&gt;
+    &lt;p&gt;And with the same tracing turned on, we get the following trace
+      output:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+(&amp;lt;0.86.0&amp;gt;) call ets:new(toy_table,[named_table,ordered_set])
+(&amp;lt;0.86.0&amp;gt;) returned from ets:new/2 -&amp;gt; toy_table    &lt;/pre&gt;
+    &lt;p&gt;Very well. Let&#039;s say the module now passes all testing and goes into
+      the system. After a while someone realizes that the table
+      &lt;code&gt;toy_table&lt;/code&gt; grows while the system is running and that for some
+      reason there are a lot of elements with atom&#039;s as keys. You had
+      expected only integer keys and so does the rest of the system. Well,
+      obviously not all of the system. You turn on call tracing and try to
+      see calls to your module with an atom as the key:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+1&amp;gt; &lt;code&gt;dbg:tracer().&lt;/code&gt;
+{ok,&amp;lt;0.88.0&amp;gt;}
+2&amp;gt; &lt;code&gt;dbg:p(all,call).&lt;/code&gt;
+{ok,[{matched,nonode@nohost,25}]}
+3&amp;gt; &lt;code&gt;dbg:tpl(toy,store,dbg:fun2ms(fun([A,_]) when is_atom(A) -&amp;gt; true end)).&lt;/code&gt;
+{ok,[{matched,nonode@nohost,1},{saved,1}]}&lt;/pre&gt;
+    &lt;p&gt;We use &lt;code&gt;dbg:tpl&lt;/code&gt; here to make sure to catch local calls
+      (let&#039;s say the module has grown since the smaller version and we&#039;re
+      not sure this inserting of atoms is not done locally...). When in
+      doubt always use local call tracing.&lt;/p&gt;
+    &lt;p&gt;Let&#039;s say nothing happens when we trace in this way. Our function
+      is never called with these parameters. We make the conclusion that
+      someone else (some other module) is doing it and we realize that we
+      must trace on ets:insert and want to see the calling function. The
+      calling function may be retrieved using the match specification
+      function &lt;code&gt;caller&lt;/code&gt; and to get it into the trace message, one
+      has to use the match spec function &lt;code&gt;message&lt;/code&gt;. The filter
+      call looks like this (looking for calls to &lt;code&gt;ets:insert&lt;/code&gt;):&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+4&amp;gt; &lt;code&gt;dbg:tpl(ets,insert,dbg:fun2ms(fun([toy_table,{A,_}]) when is_atom(A) -&amp;gt; &lt;/code&gt;
+&lt;code&gt;                                    message(caller()) &lt;/code&gt;
+&lt;code&gt;                                  end)). &lt;/code&gt;
+{ok,[{matched,nonode@nohost,1},{saved,2}]}    &lt;/pre&gt;
+    &lt;p&gt;The caller will now appear in the &quot;additional message&quot; part of the
+      trace output, and so after a while, the following output comes:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+(&amp;lt;0.86.0&amp;gt;) call ets:insert(toy_table,{garbage,can}) ({evil_mod,evil_fun,2})    &lt;/pre&gt;
+    &lt;p&gt;You have found out that the function &lt;code&gt;evil_fun&lt;/code&gt; of the
+      module &lt;code&gt;evil_mod&lt;/code&gt;, with arity &lt;code&gt;2&lt;/code&gt;, is the one
+      causing all this trouble.&lt;/p&gt;
+    &lt;p&gt;This was just a toy example, but it illustrated the most used
+      calls in match specifications for &lt;code&gt;dbg&lt;/code&gt; The other, more
+      esotheric calls are listed and explained in the &lt;em&gt;Users guide of the ERTS application&lt;/em&gt;, they really are beyond the scope of this
+      document.&lt;/p&gt;
+    &lt;p&gt;To end this chatty introduction with something more precise, here
+      follows some parts about caveats and restrictions concerning the fun&#039;s
+      used in conjunction with &lt;code&gt;ets:fun2ms&lt;/code&gt; and
+      &lt;code&gt;dbg:fun2ms&lt;/code&gt;:&lt;/p&gt;
+    &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+      &lt;p&gt;To use the pseudo functions triggering the translation, one
+        &lt;em&gt;has to&lt;/em&gt; include the header file &lt;code&gt;ms_transform.hrl&lt;/code&gt;
+        in the source code. Failure to do so will possibly result in
+        runtime errors rather than compile time, as the expression may
+        be valid as a plain Erlang program without translation.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+      &lt;p&gt;The &lt;code&gt;fun&lt;/code&gt; has to be literally constructed inside the
+        parameter list to the pseudo functions. The &lt;code&gt;fun&lt;/code&gt; cannot
+        be bound to a variable first and then passed to
+        &lt;code&gt;ets:fun2ms&lt;/code&gt; or &lt;code&gt;dbg:fun2ms&lt;/code&gt;, i.e this
+        will work: &lt;code&gt;ets:fun2ms(fun(A) -&amp;gt; A end)&lt;/code&gt; but not this:
+        &lt;code&gt;F = fun(A) -&amp;gt; A end, ets:fun2ms(F)&lt;/code&gt;. The later will result
+        in a compile time error if the header is included, otherwise a
+        runtime error. Even if the later construction would ever
+        appear to work, it really doesn&#039;t, so don&#039;t ever use it.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;Several restrictions apply to the fun that is being translated
+      into a match_spec. To put it simple you cannot use anything in
+      the fun that you cannot use in a match_spec. This means that,
+      among others, the following restrictions apply to the fun itself:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Functions written in Erlang cannot be called, neither
+       local functions, global functions or real fun&#039;s&lt;/item&gt;
+      &lt;item&gt;Everything that is written as a function call will be
+       translated into a match_spec call to a builtin function, so that
+       the call &lt;code&gt;is_list(X)&lt;/code&gt; will be translated to &lt;code&gt;{&#039;is_list&#039;, &#039;$1&#039;}&lt;/code&gt; (&lt;code&gt;&#039;$1&#039;&lt;/code&gt; is just an example, the numbering may
+       vary). If one tries to call a function that is not a match_spec
+       builtin, it will cause an error.&lt;/item&gt;
+      &lt;item&gt;Variables occurring in the head of the &lt;code&gt;fun&lt;/code&gt; will be
+       replaced by match_spec variables in the order of occurrence, so
+       that the fragment &lt;code&gt;fun({A,B,C})&lt;/code&gt; will be replaced by
+      &lt;code&gt;{&#039;$1&#039;, &#039;$2&#039;, &#039;$3&#039;}&lt;/code&gt; etc. Every occurrence of such a
+       variable later in the match_spec will be replaced by a
+       match_spec variable in the same way, so that the fun
+      &lt;code&gt;fun({A,B}) when is_atom(A) -&amp;gt; B end&lt;/code&gt; will be translated into
+      &lt;code&gt;[{{&#039;$1&#039;,&#039;$2&#039;},[{is_atom,&#039;$1&#039;}],[&#039;$2&#039;]}]&lt;/code&gt;.&lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;Variables that are not appearing in the head are imported 
+          from the environment and made into
+          match_spec &lt;code&gt;const&lt;/code&gt; expressions. Example from the shell:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+1&amp;gt; &lt;code&gt;X = 25.&lt;/code&gt;
+25
+2&amp;gt; &lt;code&gt;ets:fun2ms(fun({A,B}) when A &amp;gt; X -&amp;gt; B end).&lt;/code&gt;
+[{{&#039;$1&#039;,&#039;$2&#039;},[{&#039;&amp;gt;&#039;,&#039;$1&#039;,{const,25}}],[&#039;$2&#039;]}]&lt;/pre&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;Matching with &lt;code&gt;=&lt;/code&gt; cannot be used in the body. It can only
+          be used on the top level in the head of the fun. 
+          Example from the shell again:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+1&amp;gt; &lt;code&gt;ets:fun2ms(fun({A,[B|C]} = D) when A &amp;gt; B -&amp;gt; D end).&lt;/code&gt;
+[{{&#039;$1&#039;,[&#039;$2&#039;|&#039;$3&#039;]},[{&#039;&amp;gt;&#039;,&#039;$1&#039;,&#039;$2&#039;}],[&#039;$_&#039;]}]
+2&amp;gt; &lt;code&gt;ets:fun2ms(fun({A,[B|C]=D}) when A &amp;gt; B -&amp;gt; D end).&lt;/code&gt;
+Error: fun with head matching (&#039;=&#039; in head) cannot be translated into 
+match_spec 
+{error,transform_error}
+3&amp;gt; &lt;code&gt;ets:fun2ms(fun({A,[B|C]}) when A &amp;gt; B -&amp;gt; D = [B|C], D end).&lt;/code&gt;
+Error: fun with body matching (&#039;=&#039; in body) is illegal as match_spec
+{error,transform_error}        &lt;/pre&gt;
+        &lt;p&gt;All variables are bound in the head of a match_spec, so the 
+          translator can not allow multiple bindings. The special case
+          when matching is done on the top level makes the variable bind
+          to &lt;code&gt;&#039;$_&#039;&lt;/code&gt; in the resulting match_spec, it is to allow a more
+          natural access to the whole matched object. The pseudo
+          function &lt;code&gt;object()&lt;/code&gt; could be used instead, see below. 
+          The following expressions are translated equally: &lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:fun2ms(fun({a,_} = A) -&amp;gt; A end).
+ets:fun2ms(fun({a,_}) -&amp;gt; object() end).&lt;/pre&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;The special match_spec variables &lt;code&gt;&#039;$_&#039;&lt;/code&gt; and &lt;code&gt;&#039;$*&#039;&lt;/code&gt;
+          can be accessed through the pseudo functions &lt;code&gt;object()&lt;/code&gt;
+          (for &lt;code&gt;&#039;$_&#039;&lt;/code&gt;) and &lt;code&gt;bindings()&lt;/code&gt; (for &lt;code&gt;&#039;$*&#039;&lt;/code&gt;).
+          as an example, one could translate the following
+          &lt;code&gt;ets:match_object/2&lt;/code&gt; call to a &lt;code&gt;ets:select&lt;/code&gt; call:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:match_object(Table, {&#039;$1&#039;,test,&#039;$2&#039;}). &lt;/pre&gt;
+        &lt;p&gt;...is the same as...&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(Table, ets:fun2ms(fun({A,test,B}) -&amp;gt; object() end)).&lt;/pre&gt;
+        &lt;p&gt;(This was just an example, in this simple case the former
+          expression is probably preferable in terms of readability).
+          The &lt;code&gt;ets:select/2&lt;/code&gt; call will conceptually look like this
+          in the resulting code:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+ets:select(Table, [{{&#039;$1&#039;,test,&#039;$2&#039;},[],[&#039;$_&#039;]}]).&lt;/pre&gt;
+        &lt;p&gt;Matching on the top level of the fun head might feel like a
+          more natural way to access &lt;code&gt;&#039;$_&#039;&lt;/code&gt;, see above.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;Term constructions/literals are translated as much as is
+       needed to get them into valid match_specs, so that tuples are
+       made into match_spec tuple constructions (a one element tuple
+       containing the tuple) and constant expressions are used when
+       importing variables from the environment. Records are also
+       translated into plain tuple constructions, calls to element
+       etc. The guard test &lt;code&gt;is_record/2&lt;/code&gt; is translated into
+       match_spec code using the three parameter version that&#039;s built
+       into match_specs, so that &lt;code&gt;is_record(A,t)&lt;/code&gt; is translated
+       into &lt;code&gt;{is_record,&#039;$1&#039;,t,5}&lt;/code&gt; given that the record size of
+       record type &lt;code&gt;t&lt;/code&gt; is 5.&lt;/item&gt;
+      &lt;item&gt;Language constructions like &lt;code&gt;case&lt;/code&gt;, &lt;code&gt;if&lt;/code&gt;,
+      &lt;code&gt;catch&lt;/code&gt; etc that are not present in match_specs are not
+       allowed.&lt;/item&gt;
+      &lt;item&gt;If the header file &lt;code&gt;ms_transform.hrl&lt;/code&gt; is not included,
+       the fun won&#039;t be translated, which may result in a
+      &lt;em&gt;runtime error&lt;/em&gt; (depending on if the fun is valid in a
+       pure Erlang context). Be absolutely sure that the header is
+       included when using &lt;code&gt;ets&lt;/code&gt; and &lt;code&gt;dbg:fun2ms/1&lt;/code&gt; in
+       compiled code.&lt;/item&gt;
+      &lt;item&gt;If the pseudo function triggering the translation is
+      &lt;code&gt;ets:fun2ms/1&lt;/code&gt;, the fun&#039;s head must contain a single
+       variable or a single tuple. If the pseudo function is
+      &lt;code&gt;dbg:fun2ms/1&lt;/code&gt; the fun&#039;s head must contain a single
+       variable or a single list.&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The translation from fun&#039;s to match_specs is done at compile
+      time, so runtime performance is not affected by using these pseudo
+      functions. The compile time might be somewhat longer though. &lt;/p&gt;
+    &lt;p&gt;For more information about match_specs, please read about them
+      in &lt;em&gt;ERTS users guide&lt;/em&gt;.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;parse_transform/2&quot;&gt;parse_transform/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;type_desc&quot;&gt;&lt;code&gt;Options = Option list, required but not used.&lt;/code&gt;&lt;/div&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Implements the actual transformation at compile time. This
+          function is called by the compiler to do the source code
+          transformation if and when the &lt;code&gt;ms_transform.hrl&lt;/code&gt; header
+          file is included in your source code. See the &lt;code&gt;ets&lt;/code&gt; and
+          &lt;code&gt;dbg&lt;/code&gt;:&lt;code&gt;fun2ms/1&lt;/code&gt; function manual pages for
+          documentation on how to use this parse_transform, see the
+          &lt;code&gt;match_spec&lt;/code&gt; chapter in &lt;code&gt;ERTS&lt;/code&gt; users guide for a
+          description of match specifications. &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;transform_from_shell/3&quot;&gt;transform_from_shell/3&lt;/h3&gt;
+      
+      &lt;div class=&quot;type_desc&quot;&gt;&lt;code&gt;BoundEnvironment = List of variable bindings in the shell environment.&lt;/code&gt;&lt;/div&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Implements the actual transformation when the &lt;code&gt;fun2ms&lt;/code&gt;
+          functions are called from the shell. In this case the abstract
+          form is for one single fun (parsed by the Erlang shell), and
+          all imported variables should be in the key-value list passed
+          as &lt;code&gt;&lt;anno&gt;BoundEnvironment&lt;/anno&gt;&lt;/code&gt;. The result is a term, normalized,
+          i.e. not in abstract format.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;format_error/1&quot;&gt;format_error/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Takes an error code returned by one of the other functions
+          in the module and creates a textual description of the
+          error. Fairly uninteresting function actually.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#parse_transform&quot;&gt;parse_transform&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#transform_from_shell&quot;&gt;transform_from_shell&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#format_error&quot;&gt;format_error&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

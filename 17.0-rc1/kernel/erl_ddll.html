@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>erl_ddll (kernel) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;erl_ddll&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Dynamic Driver Loader and Linker&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;The &lt;code&gt;erl_ddll&lt;/code&gt; module provides an interface for loading
+      and unloading &lt;em&gt;erlang linked in drivers&lt;/em&gt; in runtime.&lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;This is a large reference document. For casual use of the
+        module, as well as for most real world applications, the
+        descriptions of the functions &lt;a href=&quot;#load/2&quot; class=&quot;seealso&quot;&gt;load/2&lt;/a&gt; and &lt;a href=&quot;#unload/1&quot; class=&quot;seealso&quot;&gt;unload/1&lt;/a&gt; are enough to get
+        going. &lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;The driver should be provided as a dynamically linked library
+      in a object code format specific for the platform in use,
+      i. e. &lt;code&gt;.so&lt;/code&gt; files on most Unix systems and &lt;code&gt;.ddl&lt;/code&gt;
+      files on windows. An erlang linked in driver has to provide
+      specific interfaces to the emulator, so this module is not
+      designed for loading arbitrary dynamic libraries. For further
+      information about erlang drivers, refer to the ERTS reference
+      manual section &lt;a href=&quot;../erts/erl_driver.html&quot; class=&quot;seealso&quot;&gt;erl_driver&lt;/a&gt;.&lt;/p&gt;
+    &lt;span id=&quot;users&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;When describing a set of functions, (i.e. a module, a part of a
+      module or an application) executing in a process and wanting to
+      use a ddll-driver, we use the term &lt;em&gt;user&lt;/em&gt;. There can be
+      several users in one process (different modules needing the same
+      driver) and several processes running the same code, making up
+      several &lt;em&gt;users&lt;/em&gt; of a driver. In the basic scenario, each
+      user loads the driver before starting to use it and unloads the
+      driver when done. The reference counting keeps track of
+      processes as well as the number of loads by each process, so that
+      the driver will only be unloaded when no one wants it
+      (it has no user). The driver also keeps track of ports that are
+      opened towards it, so that one can delay unloading until all
+      ports are closed or kill all ports using the driver when it is
+      unloaded.  &lt;/p&gt;
+    &lt;span id=&quot;scenarios&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;The interface supports two basic scenarios of loading and
+      unloading. Each scenario can also have the option of either
+      killing ports when the driver is unloading, or waiting for the
+      ports to close themselves. The scenarios are:&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;em&gt;Load and unload on a &quot;when needed basis&quot;&lt;/em&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;This (most common) scenario simply supports that each
+          &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver loads
+          it when it is needed and unloads it when the &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; no longer have any use for
+          it. The driver is always reference counted and as long as a
+          process keeping the driver loaded is still alive, the driver
+          is present in the system.&lt;/p&gt;
+        &lt;p&gt;Each &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver
+          use &lt;em&gt;literally&lt;/em&gt; the same pathname for the driver when
+          demanding load, but the &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; are not really concerned
+          with if the driver is already loaded from the filesystem or
+          if the object code has to be loaded from filesystem.&lt;/p&gt;
+        &lt;p&gt;Two pairs of functions support this scenario:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;load/2 and unload/1&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;When using the &lt;code&gt;load/unload&lt;/code&gt; interfaces, the
+              driver will not &lt;em&gt;actually&lt;/em&gt; get unloaded until the
+              &lt;em&gt;last port&lt;/em&gt; using the driver is closed. The function
+              &lt;code&gt;unload/1&lt;/code&gt; can return immediately, as the &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; are not really concerned
+              with when the actual unloading occurs. The
+              driver will actually get unloaded when no one needs it any longer.&lt;/p&gt;
+            &lt;p&gt;If a process having the driver loaded dies, it will have
+              the same effect as if unloading was done. &lt;/p&gt;
+            &lt;p&gt;When loading, the function &lt;code&gt;load/2&lt;/code&gt; returns
+              &lt;code&gt;ok&lt;/code&gt; as soon as there is any instance of the driver
+              present, so that if a driver is waiting to get unloaded
+              (due to open ports), it will simply change state to no
+              longer need unloading.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;load_driver/2 and unload_driver/1&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;These interfaces is intended to be used when it is considered an
+              error that ports are open towards a driver that no &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt;
+              has loaded. The ports still open when the
+              last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; calls
+              &lt;code&gt;unload_driver/1&lt;/code&gt; or when the last process having the
+              driver loaded dies, will get killed with reason
+              &lt;code&gt;driver_unloaded&lt;/code&gt;.&lt;/p&gt;
+            &lt;p&gt;The function names &lt;code&gt;load_driver&lt;/code&gt; and
+              &lt;code&gt;unload_driver&lt;/code&gt; are kept for backward
+              compatibility.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;em&gt;Loading and reloading for code replacement&lt;/em&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;This scenario occurs when the driver code might need
+          replacement during operation of the Erlang
+          emulator. Implementing driver code replacement is somewhat
+          more tedious than beam code replacement, as one driver
+          cannot be loaded as both &quot;old&quot; and &quot;new&quot; code. All &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; of a driver must have it
+          closed (no open ports) before the old code can be unloaded
+          and the new code can be loaded.&lt;/p&gt;
+        &lt;p&gt;The actual unloading/loading is done as one atomic
+          operation, blocking all processes in the system from using
+          the driver concerned while in progress.&lt;/p&gt;
+        &lt;p&gt;The preferred way to do driver code replacement is to let
+          &lt;em&gt;one single process&lt;/em&gt; keep track of the driver. When
+          the process start, the driver is loaded. When replacement
+          is required, the driver is reloaded. Unload is probably never
+          done, or done when the process exits. If more than one &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; has a driver loaded when code
+          replacement is demanded, the replacement cannot occur until
+          the last &quot;other&quot; &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; has
+          unloaded the driver.&lt;/p&gt;
+        &lt;p&gt;Demanding reload when a reload is already in progress is
+          always an error. Using the high level functions, it is also
+          an error to demand reloading when more than one &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; has the driver loaded. To
+          simplify driver replacement, avoid designing your system so
+          that more than than one &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; has the driver loaded.&lt;/p&gt;
+        &lt;p&gt;The two functions for reloading drivers should be used
+          together with corresponding load functions, to support the two
+          different behaviors concerning open ports:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;load/2 and reload/2&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;This pair of functions is used when reloading should be
+              done after the last open port towards the driver is
+              closed.&lt;/p&gt;
+            &lt;p&gt;As &lt;code&gt;reload/2&lt;/code&gt; actually waits for the reloading to
+              occur, a misbehaving process keeping open ports towards
+              the driver (or keeping the driver loaded) might cause
+              infinite waiting for reload. Timeouts has to be provided
+              outside of the process demanding the reload or by using
+              the low-level interface &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt; in combination
+              with driver monitors (see below).&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;load_driver/2 and reload_driver/2&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;This pair of functions are used when open ports towards
+              the driver should be killed with reason
+              &lt;code&gt;driver_unloaded&lt;/code&gt; to allow for new driver code to
+              get loaded.&lt;/p&gt;
+            &lt;p&gt;If, however, another process has the driver loaded,
+              calling &lt;code&gt;reload_driver&lt;/code&gt; returns the error code
+              &lt;code&gt;pending_process&lt;/code&gt;. As stated earlier,
+              the recommended design is to not allow other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; than the &quot;driver
+              reloader&quot; to actually demand loading of the concerned
+              driver.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+  &lt;datatypes&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;driver&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;path&quot; /&gt;
+    &lt;/datatype&gt;
+  &lt;/datatypes&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;demonitor/1&quot;&gt;demonitor/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Removes a driver monitor in much the same way as 
+          &lt;a href=&quot;../erts/erlang.html#erlangdemonitor/1&quot; class=&quot;seealso&quot;&gt;erlang:demonitor/1&lt;/a&gt; does with process
+          monitors. See &lt;a href=&quot;#monitor/2&quot; class=&quot;seealso&quot;&gt;monitor/2&lt;/a&gt;, &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt; and &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt; for details
+          about how to create driver monitors.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameter is not a reference().  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/0&quot;&gt;info/0&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list of tuples &lt;code&gt;{&lt;anno&gt;DriverName&lt;/anno&gt;, &lt;anno&gt;InfoList&lt;/anno&gt;}&lt;/code&gt;, where
+          &lt;code&gt;&lt;anno&gt;InfoList&lt;/anno&gt;&lt;/code&gt; is the result of calling &lt;a href=&quot;#info/1&quot; class=&quot;seealso&quot;&gt;info/1&lt;/a&gt; for that
+          &lt;code&gt;&lt;anno&gt;DriverName&lt;/anno&gt;&lt;/code&gt;. Only dynamically linked in drivers are
+          included in the list.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/1&quot;&gt;info/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list of tuples &lt;code&gt;{&lt;anno&gt;Tag&lt;/anno&gt;, &lt;anno&gt;Value&lt;/anno&gt;}&lt;/code&gt;, where
+          &lt;code&gt;&lt;anno&gt;Tag&lt;/anno&gt;&lt;/code&gt; is the information item and &lt;code&gt;&lt;anno&gt;Value&lt;/anno&gt;&lt;/code&gt; is the result
+          of calling &lt;a href=&quot;#info/2&quot; class=&quot;seealso&quot;&gt;info/2&lt;/a&gt; with this driver name and
+          this tag. The result being a tuple list containing all
+          information available about a driver. &lt;/p&gt;
+        &lt;p&gt;The different tags that will appear in the list are:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;processes&lt;/item&gt;
+          &lt;item&gt;driver_options&lt;/item&gt;
+          &lt;item&gt;port_count&lt;/item&gt;
+          &lt;item&gt;linked_in_driver&lt;/item&gt;
+          &lt;item&gt;permanent&lt;/item&gt;
+          &lt;item&gt;awaiting_load&lt;/item&gt;
+          &lt;item&gt;awaiting_unload&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;For a detailed description of each value, please read the
+          description of &lt;a href=&quot;#info/2&quot; class=&quot;seealso&quot;&gt;info/2&lt;/a&gt; below.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the driver
+          is not present in the system.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/2&quot;&gt;info/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function returns specific information about one aspect
+          of a driver. The &lt;code&gt;&lt;anno&gt;Tag&lt;/anno&gt;&lt;/code&gt; parameter specifies which aspect
+          to get information about. The &lt;code&gt;&lt;anno&gt;Value&lt;/anno&gt;&lt;/code&gt; return differs
+          between different tags:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;processes&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return all processes containing &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; of the specific drivers
+              as a list of tuples &lt;code&gt;{pid(),integer() &amp;gt;= 0}&lt;/code&gt;, where the
+              &lt;code&gt;integer()&lt;/code&gt; denotes the number of users in the process
+              &lt;code&gt;pid()&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;driver_options&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return a list of the driver options provided when
+              loading, as well as any options set by the driver itself
+              during initialization. The currently only valid option
+              being &lt;code&gt;kill_ports&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;port_count&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return the number of ports (an &lt;code&gt;integer &amp;gt;= 0()&lt;/code&gt;) using the driver.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;linked_in_driver&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return a &lt;code&gt;boolean()&lt;/code&gt;, being &lt;code&gt;true&lt;/code&gt; if the driver is a
+              statically linked in one and &lt;code&gt;false&lt;/code&gt; otherwise.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;permanent&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return a &lt;code&gt;boolean()&lt;/code&gt;, being &lt;code&gt;true&lt;/code&gt; if the driver has made
+              itself permanent (and is &lt;em&gt;not&lt;/em&gt; a statically
+              linked in driver). &lt;code&gt;false&lt;/code&gt; otherwise.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;awaiting_load&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return a list of all processes having monitors for
+              &lt;code&gt;loading&lt;/code&gt; active, each process returned as
+              &lt;code&gt;{pid(),integer() &amp;gt;= 0}&lt;/code&gt;, where the &lt;code&gt;integer()&lt;/code&gt; is the
+              number of monitors held by the process &lt;code&gt;pid()&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;awaiting_unload&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Return a list of all processes having monitors for
+              &lt;code&gt;unloading&lt;/code&gt; active, each process returned as
+              &lt;code&gt;{pid(),integer() &amp;gt;= 0}&lt;/code&gt;, where the &lt;code&gt;integer()&lt;/code&gt; is the
+              number of monitors held by the process &lt;code&gt;pid()&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;If the options &lt;code&gt;linked_in_driver&lt;/code&gt; or &lt;code&gt;permanent&lt;/code&gt;
+          return true, all other options will return the value
+          &lt;code&gt;linked_in_driver&lt;/code&gt; or &lt;code&gt;permanent&lt;/code&gt; respectively.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the driver
+          is not present in the system or the tag is not supported.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;load/2&quot;&gt;load/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Loads and links the dynamic driver &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt;. &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt;
+          is a file path to the directory containing the driver.
+          &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; must be a sharable object/dynamic library. Two
+          drivers with different &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; parameters cannot be
+          loaded under the same name. The &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; is a string or
+          atom containing at least one character.&lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; given should correspond to the filename
+          of the actual dynamically loadable object file residing in
+          the directory given as &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt;, but &lt;em&gt;without&lt;/em&gt; the
+          extension (i.e. &lt;code&gt;.so&lt;/code&gt;). The driver name provided in
+          the driver initialization routine must correspond with the
+          filename, in much the same way as erlang module names
+          correspond to the names of the &lt;code&gt;.beam&lt;/code&gt; files.&lt;/p&gt;
+        &lt;p&gt;If the driver has been previously unloaded, but is still
+          present due to open ports against it, a call to
+          &lt;code&gt;load/2&lt;/code&gt; will stop the unloading and keep the driver
+          (as long as the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; is the same) and &lt;code&gt;ok&lt;/code&gt; is
+          returned. If one actually wants the object code to be
+          reloaded, one uses &lt;a href=&quot;#reload/2&quot; class=&quot;seealso&quot;&gt;reload/2&lt;/a&gt; or the low-level
+          interface &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;
+          instead. Please refer to the description of &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;different scenarios&lt;/a&gt; for
+          loading/unloading in the introduction.&lt;/p&gt;
+        &lt;p&gt;If more than one process tries to load an already loaded
+          driver withe the same &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt;, or if the same process
+          tries to load it several times, the function will return
+          &lt;code&gt;ok&lt;/code&gt;.  The emulator will keep track of the
+          &lt;code&gt;load/2&lt;/code&gt; calls, so that a corresponding number of
+          &lt;code&gt;unload/2&lt;/code&gt; calls will have to be done from the same
+          process before the driver will actually get unloaded. It is
+          therefore safe for an application to load a driver that is
+          shared between processes or applications when needed. It can
+          safely be unloaded without causing trouble for other
+          parts of the system. &lt;/p&gt;
+        &lt;p&gt;It is not allowed to load
+          several drivers with the same name but with different
+          &lt;code&gt;Path&lt;/code&gt; parameters.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Note especially that the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; is interpreted
+            literally, so that all loaders of the same driver needs to
+            give the same &lt;em&gt;literal&lt;/em&gt;&lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; string, even
+            though different paths might point out the same directory
+            in the filesystem (due to use of relative paths and
+            links).&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;p&gt;On success, the function returns &lt;code&gt;ok&lt;/code&gt;. On
+          failure, the return value is &lt;code&gt;{error,&lt;anno&gt;ErrorDesc&lt;/anno&gt;}&lt;/code&gt;,
+          where &lt;code&gt;&lt;anno&gt;ErrorDesc&lt;/anno&gt;&lt;/code&gt; is an opaque term to be
+          translated into human readable form by the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt;
+          function.&lt;/p&gt;
+        &lt;p&gt;For more control over the error handling, again use the
+          &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;
+          interface instead.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;load_driver/2&quot;&gt;load_driver/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Works essentially as &lt;code&gt;load/2&lt;/code&gt;, but will load the driver
+          with other options.  All ports that are using the
+          driver will get killed with the reason
+          &lt;code&gt;driver_unloaded&lt;/code&gt; when the driver is to be unloaded.&lt;/p&gt;
+        &lt;p&gt;The number of loads and unloads by different &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; influence the actual loading
+          and unloading of a driver file. The port killing will
+          therefore only happen when the &lt;em&gt;last&lt;/em&gt; &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; unloads the driver, or the
+          last process having loaded the driver exits.&lt;/p&gt;
+        &lt;p&gt;This interface (or at least the name of the functions) is
+          kept for backward compatibility.  Using &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt; with
+          &lt;code&gt;{driver_options,[kill_ports]} &lt;/code&gt; in the option list will
+          give the same effect regarding the port killing.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;monitor/2&quot;&gt;monitor/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function creates a driver monitor and works in many
+          ways as the function &lt;a href=&quot;../erts/erlang.html#erlangmonitor/2&quot; class=&quot;seealso&quot;&gt;erlang:monitor/2&lt;/a&gt;,
+          does for processes. When a driver changes state, the monitor
+          results in a monitor-message being sent to the calling
+          process. The &lt;code&gt;&lt;anno&gt;MonitorRef&lt;/anno&gt;&lt;/code&gt; returned by this function is
+          included in the message sent.&lt;/p&gt;
+        &lt;p&gt;As with process monitors, each driver monitor set will only
+          generate &lt;em&gt;one single message&lt;/em&gt;. The monitor is
+          &quot;destroyed&quot; after the message is sent and there is then no
+          need to call &lt;a href=&quot;#demonitor/1&quot; class=&quot;seealso&quot;&gt;demonitor/1&lt;/a&gt;.&lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;MonitorRef&lt;/anno&gt;&lt;/code&gt; can also be used in subsequent calls
+          to &lt;a href=&quot;#demonitor/1&quot; class=&quot;seealso&quot;&gt;demonitor/1&lt;/a&gt; to
+          remove a monitor.&lt;/p&gt;
+        &lt;p&gt;The function accepts the following parameters:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;Tag&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The monitor tag is always &lt;code&gt;driver&lt;/code&gt; as this function
+              can only be used to create driver monitors. In the future,
+              driver monitors will be integrated with process monitors,
+              why this parameter has to be given for consistence.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;Item&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The &lt;code&gt;&lt;anno&gt;Item&lt;/anno&gt;&lt;/code&gt; parameter specifies which driver one
+              wants to monitor (the name of the driver) as well as
+              which state change one wants to monitor. The parameter
+              is a tuple of arity two whose first element is the
+              driver name and second element is either of:&lt;/p&gt;
+            &lt;taglist&gt;
+              &lt;dt&gt;&lt;em&gt;loaded&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;Notify me when the driver is reloaded (or loaded if
+                  loading is underway). It only makes sense to monitor
+                  drivers that are in the process of being loaded or
+                  reloaded. One cannot monitor a future-to-be driver
+                  name for loading, that will only result in a
+                  &lt;code&gt;&#039;DOWN&#039;&lt;/code&gt; message being immediately sent.
+                  Monitoring for loading is therefore most useful when
+                  triggered by the &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt; function,
+                  where the monitor is created &lt;em&gt;because&lt;/em&gt; the
+                  driver is in such a pending state.&lt;/p&gt;
+                &lt;p&gt;Setting a driver monitor for &lt;code&gt;loading&lt;/code&gt; will
+                  eventually lead to one of the following messages
+                  being sent:&lt;/p&gt;
+                &lt;taglist&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;UP&#039;, reference(), driver, Name, loaded}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message is sent, either immediately if the
+                      driver is already loaded and no reloading is
+                      pending, or when reloading is executed if
+                      reloading is pending. &lt;/p&gt;
+                    &lt;p&gt;The &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; is
+                      expected to know if reloading is demanded prior
+                      to creating a monitor for loading.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;UP&#039;, reference(), driver, Name, permanent}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message will be sent if reloading was
+                      expected, but the (old) driver made itself
+                      permanent prior to reloading. It will also be
+                      sent if the driver was permanent or statically
+                      linked in when trying to create the monitor.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;DOWN&#039;, reference(), driver, Name, load_cancelled}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message will arrive if reloading was
+                      underway, but the &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; having requested
+                      reload cancelled it by either dying or calling
+                      &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;
+                      (or &lt;code&gt;unload/1&lt;/code&gt;/&lt;code&gt;unload_driver/1&lt;/code&gt;)
+                      again before it was reloaded.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;DOWN&#039;, reference(), driver, Name, {load_failure, Failure}}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message will arrive if reloading was
+                      underway but the loading for some reason
+                      failed. The &lt;code&gt;Failure&lt;/code&gt; term is one of the
+                      errors that can be returned from &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;. The
+                      error term can be passed to &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt;
+                      for translation into human readable form. Note
+                      that the translation has to be done in the same
+                      running erlang virtual machine as the error
+                      was detected in.&lt;/p&gt;
+                  &lt;/item&gt;
+                &lt;/taglist&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;em&gt;unloaded&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;Monitor when a driver gets unloaded. If one
+                  monitors a driver that is not present in the system,
+                  one will immediately get notified that the driver got
+                  unloaded. There is no guarantee that the driver was
+                  actually ever loaded.&lt;/p&gt;
+                &lt;p&gt;A driver monitor for unload will eventually result
+                  in one of the following messages being sent:&lt;/p&gt;
+                &lt;taglist&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;DOWN&#039;, reference(), driver, Name, unloaded}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;The driver instance monitored is now
+                      unloaded. As the unload might have been due to a
+                      &lt;code&gt;reload/2&lt;/code&gt; request, the driver might once
+                      again have been loaded when this message
+                      arrives.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;UP&#039;, reference(), driver, Name, unload_cancelled}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message will be sent if unloading was
+                      expected, but while the driver was waiting for
+                      all ports to get closed, a new &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver
+                      appeared and the unloading was cancelled.&lt;/p&gt;
+                    &lt;p&gt;This message appears when an &lt;code&gt;{ok, pending_driver}&lt;/code&gt;) was returned from &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;)
+                      for the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver and
+                      then a &lt;code&gt;{ok, already_loaded}&lt;/code&gt; is returned
+                      from a call to &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;.&lt;/p&gt;
+                    &lt;p&gt;If one wants to &lt;em&gt;really&lt;/em&gt; monitor when the
+                      driver gets unloaded, this message will distort
+                      the picture, no unloading was really done. 
+                      The &lt;code&gt;unloaded_only&lt;/code&gt; option creates a monitor
+                      similar to an &lt;code&gt;unloaded&lt;/code&gt; monitor, but does
+                      never result in this message.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;{&#039;UP&#039;, reference(), driver, Name, permanent}&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;This message will be sent if unloading was
+                      expected, but the driver made itself
+                      permanent prior to unloading. It will also be
+                      sent if trying to monitor a permanent or
+                      statically linked in driver.&lt;/p&gt;
+                  &lt;/item&gt;
+                &lt;/taglist&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;em&gt;unloaded_only&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;A monitor created as &lt;code&gt;unloaded_only&lt;/code&gt; behaves
+                  exactly as one created as &lt;code&gt;unloaded&lt;/code&gt; with the
+                  exception that the &lt;code&gt;{&#039;UP&#039;, reference(), driver, Name, unload_cancelled}&lt;/code&gt; message will never be
+                  sent, but the monitor instead persists until the
+                  driver &lt;em&gt;really&lt;/em&gt; gets unloaded.&lt;/p&gt;
+              &lt;/item&gt;
+            &lt;/taglist&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;reload/2&quot;&gt;reload/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Reloads the driver named &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; from a possibly
+          different &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; than was previously used. This
+          function is used in the code change &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;scenario&lt;/a&gt; described in the
+          introduction.&lt;/p&gt;
+        &lt;p&gt;If there are other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;
+          of this driver, the function will return &lt;code&gt;{error, pending_process}&lt;/code&gt;, but if there are no more users, the
+          function call will hang until all open ports are closed.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Avoid mixing
+            several &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; 
+            with driver reload requests.&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;p&gt;If one wants to avoid hanging on open ports, one should use
+          the &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;
+          function instead.&lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; and &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; parameters have exactly the
+          same meaning as when calling the plain &lt;a href=&quot;#load/2&quot; class=&quot;seealso&quot;&gt;load/2&lt;/a&gt; function.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Avoid mixing
+            several &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; 
+            with driver reload requests.&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;p&gt;On success, the function returns &lt;code&gt;ok&lt;/code&gt;. On
+          failure, the function returns an opaque error, with the
+          exception of the &lt;code&gt;pending_process&lt;/code&gt; error described
+          above. The opaque errors are to be translated into human
+          readable form by the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt; function.&lt;/p&gt;
+        &lt;p&gt;For more control over the error handling, again use the
+          &lt;a href=&quot;#try_load/3&quot; class=&quot;seealso&quot;&gt;try_load/3&lt;/a&gt;
+          interface instead.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;reload_driver/2&quot;&gt;reload_driver/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Works exactly as &lt;a href=&quot;#reload/2&quot; class=&quot;seealso&quot;&gt;reload/2&lt;/a&gt;, but for drivers
+          loaded with the &lt;a href=&quot;#load_driver/2&quot; class=&quot;seealso&quot;&gt;load_driver/2&lt;/a&gt; interface. &lt;/p&gt;
+        &lt;p&gt;As this interface implies that ports are being killed when
+          the last user disappears, the function wont hang waiting for
+          ports to get closed.&lt;/p&gt;
+        &lt;p&gt;For further details, see the &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;scenarios&lt;/a&gt; in the module
+          description and refer to the &lt;a href=&quot;#reload/2&quot; class=&quot;seealso&quot;&gt;reload/2&lt;/a&gt; function description.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;try_load/3&quot;&gt;try_load/3&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function provides more control than the
+          &lt;code&gt;load/2&lt;/code&gt;/&lt;code&gt;reload/2&lt;/code&gt; and
+          &lt;code&gt;load_driver/2&lt;/code&gt;/&lt;code&gt;reload_driver/2&lt;/code&gt; interfaces. It
+          will never wait for completion of other operations related
+          to the driver, but immediately return the status of the
+          driver as either:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, loaded}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver was actually loaded and is immediately
+              usable.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, already_loaded}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver was already loaded by another process
+              and/or is in use by a living port. The load by you is
+              registered and a corresponding &lt;code&gt;try_unload&lt;/code&gt; is
+              expected sometime in the future.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, pending_driver}&lt;/em&gt;or &lt;em&gt;{ok, pending_driver, reference()}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The load request is registered, but the loading is
+              delayed due to the fact that an earlier instance of the
+              driver is still waiting to get unloaded (there are open
+              ports using it). Still, unload is expected when you are
+              done with the driver. This return value will
+              &lt;em&gt;mostly&lt;/em&gt; happen when the
+              &lt;code&gt;{reload,pending_driver}&lt;/code&gt; or
+              &lt;code&gt;{reload,pending}&lt;/code&gt; options are used, but
+              &lt;em&gt;can&lt;/em&gt; happen when another &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; is unloading a driver in
+              parallel and the &lt;code&gt;kill_ports&lt;/code&gt; driver option is
+              set. In other words, this return value will always need
+              to be handled!&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, pending_process}&lt;/em&gt;or &lt;em&gt;{ok, pending_process, reference()}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The load request is registered, but the loading is
+              delayed due to the fact that an earlier instance of the
+              driver is still waiting to get unloaded by another
+              &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; (not only by a
+              port, in which case &lt;code&gt;{ok,pending_driver}&lt;/code&gt; would
+              have been returned). Still, unload is expected when you
+              are done with the driver. This return value will
+              &lt;em&gt;only&lt;/em&gt; happen when the &lt;code&gt;{reload,pending}&lt;/code&gt;
+              option is used.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;When the function returns &lt;code&gt;{ok, pending_driver}&lt;/code&gt; or
+          &lt;code&gt;{ok, pending_process}&lt;/code&gt;, one might want to get information
+          about when the driver is &lt;em&gt;actually&lt;/em&gt; loaded. This can
+          be achieved by using the &lt;code&gt;{monitor, &lt;anno&gt;MonitorOption&lt;/anno&gt;}&lt;/code&gt; option.&lt;/p&gt;
+        &lt;p&gt;When monitoring is requested, and a corresponding &lt;code&gt;{ok, pending_driver}&lt;/code&gt; or &lt;code&gt;{ok, pending_process}&lt;/code&gt; would be
+          returned, the function will instead return a tuple &lt;code&gt;{ok, &lt;anno&gt;PendingStatus&lt;/anno&gt;, reference()}&lt;/code&gt; and the process will, at a later
+          time when the driver actually gets loaded, get a monitor
+          message. The monitor message one can expect is described in
+          the &lt;a href=&quot;#monitor/2&quot; class=&quot;seealso&quot;&gt;monitor/2&lt;/a&gt;
+          function description. &lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Note that in case of loading, monitoring can
+            &lt;em&gt;not&lt;/em&gt; only get triggered by using the &lt;code&gt;{reload, &lt;anno&gt;ReloadOption&lt;/anno&gt;}&lt;/code&gt; option, but also in special cases where
+            the load-error is transient, why &lt;code&gt;{monitor, pending_driver}&lt;/code&gt; should be used under basically
+            &lt;em&gt;all&lt;/em&gt; real world circumstances!&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;p&gt;The function accepts the following parameters:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The filesystem path to the directory where the driver
+              object file is situated. The filename of the object file
+              (minus extension) must correspond to the driver name
+              (used in the name parameter) and the driver must
+              identify itself with the very same name. The
+              &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; might be provided as an &lt;em&gt;iolist()&lt;/em&gt;,
+              meaning it can be a list of other &lt;code&gt;iolist()&lt;/code&gt;s, characters
+              (eight bit integers) or binaries, all to be flattened
+              into a sequence of characters.&lt;/p&gt;
+            &lt;p&gt;The (possibly flattened) &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; parameter must be
+              consistent throughout the system, a driver should, by
+              all &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;, be loaded
+              using the same &lt;em&gt;literal&lt;/em&gt;&lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt;. The
+              exception is when &lt;em&gt;reloading&lt;/em&gt; is requested, in
+              which case the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; may be specified
+              differently. Note that all &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; trying to load the
+              driver at a later time will need to use the &lt;em&gt;new&lt;/em&gt;&lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; if the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; is changed using a
+              &lt;code&gt;reload&lt;/code&gt; option. This is yet another reason
+              to have &lt;em&gt;only one loader&lt;/em&gt; of a driver one wants to
+              upgrade in a running system!  &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The name parameter is the name of the driver to be used
+              in subsequent calls to &lt;a href=&quot;../erts/erlang.html#open_port/2&quot; class=&quot;seealso&quot;&gt;open_port&lt;/a&gt;. The
+              name can be specified either as an &lt;code&gt;iolist()&lt;/code&gt; or
+              as an &lt;code&gt;atom()&lt;/code&gt;. The name given when loading is used
+              to find the actual object file (with the
+              help of the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; and the system implied
+              extension suffix, i.e. &lt;code&gt;.so&lt;/code&gt;). The name by which
+              the driver identifies itself must also be consistent
+              with this &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; parameter, much as a beam-file&#039;s
+              module name much correspond to its filename.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;OptionList&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;A number of options can be specified to control the
+              loading operation. The options are given as a list of
+              two-tuples, the tuples having the following values and
+              meanings:&lt;/p&gt;
+            &lt;taglist&gt;
+              &lt;dt&gt;&lt;em&gt;{driver_options, &lt;anno&gt;DriverOptionList&lt;/anno&gt;}&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;This option is to provide options that will change
+                  its general behavior and will &quot;stick&quot; to the driver
+                  throughout its lifespan.&lt;/p&gt;
+                &lt;p&gt;The driver options for a given driver name need
+                  always to be consistent, &lt;em&gt;even when the driver is reloaded&lt;/em&gt;, meaning that they are as much a part
+                  of the driver as the actual name.&lt;/p&gt;
+                &lt;p&gt;Currently the only allowed driver option is
+                  &lt;code&gt;kill_ports&lt;/code&gt;, which means that all ports opened
+                  towards the driver are killed with the exit-reason
+                  &lt;code&gt;driver_unloaded&lt;/code&gt; when no process any longer
+                  has the driver loaded. This situation arises either
+                  when the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; calls &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;, or
+                  the last process having loaded the driver exits.&lt;/p&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;em&gt;{monitor, &lt;anno&gt;MonitorOption&lt;/anno&gt;}&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;A &lt;code&gt;&lt;anno&gt;MonitorOption&lt;/anno&gt;&lt;/code&gt; tells &lt;code&gt;try_load/3&lt;/code&gt; to
+                  trigger a driver monitor under certain
+                  conditions. When the monitor is triggered, the
+                  function will return a three-tuple &lt;code&gt;{ok, &lt;anno&gt;PendingStatus&lt;/anno&gt;, reference()}&lt;/code&gt;, where the &lt;code&gt;reference()&lt;/code&gt; is
+                  the monitor ref for the driver monitor.&lt;/p&gt;
+                &lt;p&gt;Only one &lt;code&gt;&lt;anno&gt;MonitorOption&lt;/anno&gt;&lt;/code&gt; can be specified and
+                  it is either the atom &lt;code&gt;pending&lt;/code&gt;, which means
+                  that a monitor should be created whenever a load
+                  operation is delayed, and the atom
+                  &lt;code&gt;pending_driver&lt;/code&gt;, in which a monitor is
+                  created whenever the operation is delayed due to
+                  open ports towards an otherwise unused driver. The
+                  &lt;code&gt;pending_driver&lt;/code&gt; option is of little use, but
+                  is present for completeness, it is very well defined
+                  which reload-options might give rise to which
+                  delays. It might, however, be a good idea to use the
+                  same &lt;code&gt;&lt;anno&gt;MonitorOption&lt;/anno&gt;&lt;/code&gt; as the &lt;code&gt;&lt;anno&gt;ReloadOption&lt;/anno&gt;&lt;/code&gt;
+                  if present.&lt;/p&gt;
+                &lt;p&gt;If reloading is not requested, it might still be
+                  useful to specify the &lt;code&gt;monitor&lt;/code&gt; option, as
+                  forced unloads (&lt;code&gt;kill_ports&lt;/code&gt; driver option or
+                  the &lt;code&gt;kill_ports&lt;/code&gt; option to &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;) will
+                  trigger a transient state where driver loading
+                  cannot be performed until all closing ports are
+                  actually closed. So, as &lt;code&gt;try_unload&lt;/code&gt; can, in
+                  almost all situations, return &lt;code&gt;{ok, pending_driver}&lt;/code&gt;, one should always specify at least
+                  &lt;code&gt;{monitor, pending_driver}&lt;/code&gt; in production
+                  code (see the monitor discussion above). &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;em&gt;{reload,&lt;anno&gt;ReloadOption&lt;/anno&gt;}&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;This option is used when one wants to
+                  &lt;em&gt;reload&lt;/em&gt; a driver from disk, most often in a
+                  code upgrade scenario. Having a &lt;code&gt;reload&lt;/code&gt; option
+                  also implies that the &lt;code&gt;&lt;anno&gt;Path&lt;/anno&gt;&lt;/code&gt; parameter need
+                  &lt;em&gt;not&lt;/em&gt; be consistent with earlier loads of
+                  the driver.&lt;/p&gt;
+                &lt;p&gt;To reload a driver, the process needs to have previously
+                  loaded the driver, i.e there has to be an active &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver in the process. &lt;/p&gt;
+                &lt;p&gt;The &lt;code&gt;reload&lt;/code&gt; option can be either the atom
+                  &lt;code&gt;pending&lt;/code&gt;, in which reloading is requested for
+                  any driver and will be effectuated when &lt;em&gt;all&lt;/em&gt;
+                  ports opened against the driver are closed.  The
+                  replacement of the driver will in this case take
+                  place regardless of if there are still
+                  pending &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;
+                  having the driver loaded!
+                  The option also triggers port-killing (if the
+                  &lt;code&gt;kill_ports&lt;/code&gt; driver option is used) even though
+                  there are pending users, making it usable for forced
+                  driver replacement, but laying a lot of
+                  responsibility on the driver &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;. The pending option is
+                  seldom used as one does not want other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; to have loaded the
+                  driver when code change is underway. &lt;/p&gt;
+                &lt;p&gt;The more useful option is &lt;code&gt;pending_driver&lt;/code&gt;,
+                  which means that reloading will be queued if the
+                  driver is &lt;em&gt;not&lt;/em&gt; loaded by any other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;, but the driver has
+                  opened ports, in which case &lt;code&gt;{ok, pending_driver}&lt;/code&gt; will be returned (a
+                  &lt;code&gt;monitor&lt;/code&gt; option is of course recommended).&lt;/p&gt;
+                &lt;p&gt;If the driver is unloaded (not present in the
+                  system), the error code
+                  &lt;code&gt;not_loaded&lt;/code&gt; will be returned. The
+                  &lt;code&gt;reload&lt;/code&gt; option is intended for when the user
+                  has already loaded the driver in advance.&lt;/p&gt;
+              &lt;/item&gt;
+            &lt;/taglist&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;The function might return numerous errors, of which some
+          only can be returned given a certain combination of options.&lt;/p&gt;
+        &lt;p&gt;A number of errors are opaque and can only be interpreted by
+          passing them to the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt; function,
+          but some can be interpreted directly:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;{error,linked_in_driver}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver with the specified name is an erlang
+              statically linked in driver, which cannot be manipulated
+              with this API.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error,inconsistent}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver has already been loaded with either other
+              &lt;code&gt;&lt;anno&gt;DriverOptionList&lt;/anno&gt;&lt;/code&gt; or a different &lt;em&gt;literal&lt;/em&gt;&lt;code&gt;Path&lt;/code&gt; argument.&lt;/p&gt;
+            &lt;p&gt;This can happen even if a &lt;code&gt;reload&lt;/code&gt; option is given,
+              if the &lt;code&gt;DriverOptionList&lt;/code&gt; differ from the current.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, permanent}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver has requested itself to be permanent, making
+              it behave like an erlang linked in driver and it can no
+              longer be manipulated with this API.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, pending_process}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver is loaded by other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; when the &lt;code&gt;{reload, pending_driver}&lt;/code&gt; option was given.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, pending_reload}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Driver reload is already requested by another &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; when the &lt;code&gt;{reload, &lt;anno&gt;ReloadOption&lt;/anno&gt;}&lt;/code&gt; option was given.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, not_loaded_by_this_process}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Appears when the &lt;code&gt;reload&lt;/code&gt; option is given. The
+              driver &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; is present in the system, but there is no
+              &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of it in this
+              process.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, not_loaded}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Appears when the &lt;code&gt;reload&lt;/code&gt; option is given. The
+              driver &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; is not in the system. Only drivers
+              loaded by this process can be reloaded.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;All other error codes are to be translated by the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt;
+          function. Note that calls to &lt;code&gt;format_error&lt;/code&gt; should be
+          performed from the same running instance of the erlang
+          virtual machine as the error was detected in, due to system
+          dependent behavior concerning error values.&lt;/p&gt;
+        &lt;p&gt;If the arguments or options are malformed, the function will
+          throw a &lt;code&gt;badarg&lt;/code&gt; exception.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;try_unload/2&quot;&gt;try_unload/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This is the low level function to unload (or decrement
+          reference counts of) a driver. It can be used to force port
+          killing, in much the same way as the driver option
+          &lt;code&gt;kill_ports&lt;/code&gt; implicitly does, and it can trigger a
+          monitor either due to other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; still having the driver
+          loaded or that there are open ports using the driver.&lt;/p&gt;
+        &lt;p&gt;Unloading can be described as the process of telling the
+          emulator that this particular part of the code in this
+          particular process (i.e. this &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt;) no longer needs the
+          driver. That can, if there are no other users, trigger
+          actual unloading of the driver, in which case the driver
+          name disappears from the system and (if possible) the memory
+          occupied by the driver executable code is reclaimed. If the
+          driver has the &lt;code&gt;kill_ports&lt;/code&gt; option set, or if
+          &lt;code&gt;kill_ports&lt;/code&gt; was specified as an option to this
+          function, all pending ports using this driver will get
+          killed when unloading is done by the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt;. If no port-killing is
+          involved and there are open ports, the actual unloading
+          is delayed until there are no more open ports using the
+          driver. If, in this case, another &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; (or even this user) loads the
+          driver again before the driver is actually unloaded, the
+          unloading will never take place.&lt;/p&gt;
+        &lt;p&gt;To allow the &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; that
+          &lt;em&gt;requests unloading&lt;/em&gt; to wait for &lt;em&gt;actual unloading&lt;/em&gt; to
+          take place, &lt;code&gt;monitor&lt;/code&gt; triggers can be specified in much
+          the same way as when loading. As &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; of this function however
+          seldom are interested in more than decrementing the
+          reference counts, monitoring is more seldom needed. If the
+          &lt;code&gt;kill_ports&lt;/code&gt; option is used however, monitor trigging is
+          crucial, as the ports are not guaranteed to have been killed
+          until the driver is unloaded, why a monitor should be
+          triggered for at least the &lt;code&gt;pending_driver&lt;/code&gt; case.&lt;/p&gt;
+        &lt;p&gt;The possible monitor messages that can be expected are the
+          same as when using the &lt;code&gt;unloaded&lt;/code&gt; option to the
+          &lt;a href=&quot;#monitor/2&quot; class=&quot;seealso&quot;&gt;monitor/2&lt;/a&gt; function.&lt;/p&gt;
+        &lt;p&gt;The function will return one of the following statuses upon
+          success:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, unloaded}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver was immediately unloaded, meaning that the
+              driver name is now free to use by other drivers and, if
+              the underlying OS permits it, the memory occupied by the
+              driver object code is now reclaimed.&lt;/p&gt;
+            &lt;p&gt;The driver can only be unloaded when there are no open
+              ports using it and there are no more &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; requiring it to be
+              loaded.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, pending_driver}&lt;/em&gt;or &lt;em&gt;{ok, pending_driver, reference()}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;This return value indicates that this call removed the
+              last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; from the
+              driver, but there are still open ports using it.
+              When all ports are closed and no new &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; have arrived, the driver
+              will actually be reloaded and the name and memory
+              reclaimed.&lt;/p&gt;
+            &lt;p&gt;This return value is valid even when the option
+              &lt;code&gt;kill_ports&lt;/code&gt; was used, as killing ports may not be
+              a process that completes immediately. The condition is,
+              in that case, however transient. Monitors are as always
+              useful to detect when the driver is really unloaded.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{ok, pending_process}&lt;/em&gt;or &lt;em&gt;{ok, pending_process, reference()}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The unload request is registered, but there are still
+              other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; holding
+              the driver. Note that the term &lt;code&gt;pending_process&lt;/code&gt;
+              might refer to the running process, there might be more
+              than one &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; in the
+              same process.&lt;/p&gt;
+            &lt;p&gt;This is a normal, healthy return value if the call was
+              just placed to inform the emulator that you have no
+              further use of the driver. It is actually the most
+              common return value in the most common &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;scenario&lt;/a&gt;
+              described in the introduction.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;The function accepts the following parameters:&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The name parameter is the name of the driver to be
+              unloaded. The name can be specified either as an
+              &lt;code&gt;iolist()&lt;/code&gt; or as an &lt;code&gt;atom()&lt;/code&gt;. &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;&lt;anno&gt;OptionList&lt;/anno&gt;&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The &lt;code&gt;&lt;anno&gt;OptionList&lt;/anno&gt;&lt;/code&gt; argument can be used to specify
+              certain behavior regarding ports as well as triggering
+              monitors under certain conditions:&lt;/p&gt;
+            &lt;taglist&gt;
+              &lt;dt&gt;&lt;em&gt;kill_ports&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;Force killing of all ports opened using this driver,
+                  with the exit reason &lt;code&gt;driver_unloaded&lt;/code&gt;, if you are
+                  the &lt;em&gt;last&lt;/em&gt;&lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver.&lt;/p&gt;
+                &lt;p&gt;If there are other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; having the driver
+                  loaded, this option will have no effect.&lt;/p&gt;
+                &lt;p&gt;If one wants the consistent behavior of killing ports
+                  when the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt;
+                  unloads, one should use the driver option
+                  &lt;code&gt;kill_ports&lt;/code&gt; when loading the driver instead.&lt;/p&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;em&gt;{monitor, &lt;anno&gt;MonitorOption&lt;/anno&gt;}&lt;/em&gt;&lt;/dt&gt;
+              &lt;item&gt;
+                &lt;p&gt;This option creates a driver monitor if the condition
+                  given in &lt;code&gt;&lt;anno&gt;MonitorOption&lt;/anno&gt;&lt;/code&gt; is true. The valid
+                  options are:&lt;/p&gt;
+                &lt;taglist&gt;
+                  &lt;dt&gt;&lt;em&gt;pending_driver&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;Create a driver monitor if the return value is to
+                      be &lt;code&gt;{ok, pending_driver}&lt;/code&gt;.&lt;/p&gt;
+                  &lt;/item&gt;
+                  &lt;dt&gt;&lt;em&gt;pending&lt;/em&gt;&lt;/dt&gt;
+                  &lt;item&gt;
+                    &lt;p&gt;Create a monitor if the return value will be either 
+                      &lt;code&gt;{ok, pending_driver}&lt;/code&gt; or &lt;code&gt;{ok, pending_process}&lt;/code&gt;.&lt;/p&gt;
+                  &lt;/item&gt;
+                &lt;/taglist&gt;
+                &lt;p&gt;The &lt;code&gt;pending_driver&lt;/code&gt; &lt;code&gt;&lt;anno&gt;MonitorOption&lt;/anno&gt;&lt;/code&gt; is by far
+                  the most useful and it has to be used to ensure that the
+                  driver has really been unloaded and the ports closed
+                  whenever the &lt;code&gt;kill_ports&lt;/code&gt; option is used or the
+                  driver may have been loaded with the &lt;code&gt;kill_ports&lt;/code&gt;
+                  driver option.&lt;/p&gt;
+                &lt;p&gt;By using the monitor-triggers in the call to
+                  &lt;code&gt;try_unload&lt;/code&gt; one can be sure that the monitor is
+                  actually added before the unloading is executed, meaning
+                  that the monitor will always get properly triggered,
+                  which would not be the case if one called
+                  &lt;code&gt;erl_ddll:monitor/2&lt;/code&gt; separately.&lt;/p&gt;
+              &lt;/item&gt;
+            &lt;/taglist&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;The function may return several error conditions, of which
+          all are well specified (no opaque values):&lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;em&gt;{error, linked_in_driver}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;You were trying to unload an erlang statically linked in
+              driver, which cannot be manipulated with this interface
+              (and cannot be unloaded at all).&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, not_loaded}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; is not present in the system.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, not_loaded_by_this_process}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt; is present in the system, but
+              there is no &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of
+              it in this process. &lt;/p&gt;
+            &lt;p&gt;As a special case, drivers can be unloaded from
+              processes that has done no corresponding call to
+              &lt;code&gt;try_load/3&lt;/code&gt; if, and only if, there are &lt;em&gt;no users of the driver at all&lt;/em&gt;, which may happen if the
+              process containing the last user dies.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;em&gt;{error, permanent}&lt;/em&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;The driver has made itself permanent, in which case it
+              can no longer be manipulated by this interface (much
+              like a statically linked in driver).&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/taglist&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;unload/1&quot;&gt;unload/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Unloads, or at least dereferences the driver named
+          &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt;. If the caller is the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver, and there
+          are no more open ports using the driver, the driver will
+          actually get unloaded. In all other cases, actual unloading
+          will be delayed until all ports are closed and there are no
+          remaining &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;.&lt;/p&gt;
+        &lt;p&gt;If there are other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt; of the driver, the reference
+          counts of the driver is merely decreased, so that the caller
+          is no longer considered a user of the driver. For usage
+          scenarios, see the &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;description&lt;/a&gt; in the beginning
+          of this document. &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;ErrorDesc&lt;/anno&gt;&lt;/code&gt; returned is an opaque value to be
+          passed further on to the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt;
+          function. For more control over the operation, use the
+          &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;
+          interface.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;unload_driver/1&quot;&gt;unload_driver/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Unloads, or at least dereferences the driver named
+          &lt;code&gt;&lt;anno&gt;Name&lt;/anno&gt;&lt;/code&gt;. If the caller is the last &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt; of the driver, all
+          remaining open ports using the driver will get killed with
+          the reason &lt;code&gt;driver_unloaded&lt;/code&gt; and the driver will
+          eventually get unloaded.&lt;/p&gt;
+        &lt;p&gt;If there are other &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;users&lt;/a&gt;
+          of the driver, the reference counts of the driver is merely
+          decreased, so that the caller is no longer considered a
+          &lt;a href=&quot;#users&quot; class=&quot;seealso&quot;&gt;user&lt;/a&gt;. For
+          usage scenarios, see the &lt;a href=&quot;#scenarios&quot; class=&quot;seealso&quot;&gt;description&lt;/a&gt; in the beginning
+          of this document.&lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;ErrorDesc&lt;/anno&gt;&lt;/code&gt; returned is an opaque value to be
+          passed further on to the &lt;a href=&quot;#format_error/1&quot; class=&quot;seealso&quot;&gt;format_error/1&lt;/a&gt;
+          function. For more control over the operation, use the
+          &lt;a href=&quot;#try_unload/2&quot; class=&quot;seealso&quot;&gt;try_unload/2&lt;/a&gt;
+          interface.&lt;/p&gt;
+        &lt;p&gt;The function throws a &lt;code&gt;badarg&lt;/code&gt; exception if the
+          parameters are not given as described above.  &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;loaded_drivers/0&quot;&gt;loaded_drivers/0&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list of all the available drivers, both
+          (statically) linked-in and dynamically loaded ones.&lt;/p&gt;
+        &lt;p&gt;The driver names are returned as a list of strings rather
+          than a list of atoms for historical reasons.&lt;/p&gt;
+        &lt;p&gt;More information about drivers can be obtained using one of
+          the &lt;a href=&quot;#info/0&quot; class=&quot;seealso&quot;&gt;info&lt;/a&gt; functions.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;format_error/1&quot;&gt;format_error/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Takes an &lt;code&gt;&lt;anno&gt;ErrorDesc&lt;/anno&gt;&lt;/code&gt; returned by load, unload or
+          reload functions and returns a string which
+          describes the error or warning.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Due to peculiarities in the dynamic loading interfaces on
+            different platform, the returned string is only guaranteed
+            to describe the correct error &lt;em&gt;if format_error/1 is called in the same instance of the erlang virtual machine as the error appeared in&lt;/em&gt; (meaning the same operating
+            system process)!&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SEE ALSO&lt;/h4&gt;
+    &lt;p&gt;erl_driver(4), driver_entry(4)&lt;/p&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#demonitor&quot;&gt;demonitor&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info&quot;&gt;info&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info-1&quot;&gt;info-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info-2&quot;&gt;info-2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#load&quot;&gt;load&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#load_driver&quot;&gt;load_driver&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#monitor&quot;&gt;monitor&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reload&quot;&gt;reload&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reload_driver&quot;&gt;reload_driver&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#try_load&quot;&gt;try_load&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#try_unload&quot;&gt;try_unload&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#unload&quot;&gt;unload&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#unload_driver&quot;&gt;unload_driver&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#loaded_drivers&quot;&gt;loaded_drivers&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#format_error&quot;&gt;format_error&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

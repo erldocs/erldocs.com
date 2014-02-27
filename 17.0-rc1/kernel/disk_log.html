@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>disk_log (kernel) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;disk_log&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;A disk based term logging facility&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;&lt;code&gt;disk_log&lt;/code&gt; is a disk based term logger which makes
+      it possible to efficiently log items on files. 
+      Two types of logs are supported,
+      &lt;em&gt;halt logs&lt;/em&gt; and &lt;em&gt;wrap logs&lt;/em&gt;. A halt log
+      appends items to a single file, the size of which may or may
+      not be limited by the disk log module, whereas a wrap log utilizes
+      a sequence of wrap log files of limited size. As a wrap log file
+      has been filled up, further items are logged onto to the next 
+      file in the sequence, starting all over with the first file when 
+      the last file has been filled up. For the sake of efficiency, 
+      items are always written to files as binaries.
+      &lt;/p&gt;
+    &lt;p&gt;Two formats of the log files are supported, the &lt;em&gt;internal format&lt;/em&gt; and the &lt;em&gt;external format&lt;/em&gt;. The internal
+      format supports automatic repair of log files that have not been
+      properly closed, and makes it possible to efficiently read
+      logged items in &lt;em&gt;chunks&lt;/em&gt; using a set of functions defined
+      in this module. In fact, this is the only way to read internally
+      formatted logs. The external format leaves it up to the user to
+      read the logged deep byte lists. The disk log module cannot
+      repair externally formatted logs. An item logged to an
+      internally formatted log must not occupy more than 4 GB of disk
+      space (the size must fit in 4 bytes).
+      &lt;/p&gt;
+    &lt;p&gt;For each open disk log there is one process that handles requests 
+      made to the disk log; the disk log process is created when &lt;code&gt;open/1&lt;/code&gt;
+      is called, provided there exists no process handling the disk log.
+      A process that opens a disk log can either be an &lt;em&gt;owner&lt;/em&gt; 
+      or an anonymous &lt;em&gt;user&lt;/em&gt; of the disk log. Each owner is 
+      linked to the disk log 
+      process, and the disk log is closed by the owner should the 
+      owner terminate. Owners can subscribe to &lt;em&gt;notifications&lt;/em&gt;, 
+      messages of the form &lt;code&gt;{disk_log, Node, Log, Info}&lt;/code&gt; that are sent
+      from the disk log process when certain events occur, see 
+      the commands below and in particular the &lt;code&gt;open/1&lt;/code&gt; option 
+      &lt;a href=&quot;#notify&quot; class=&quot;seealso&quot;&gt;notify&lt;/a&gt;. 
+      There can be several owners of a log, but a process cannot own a 
+      log more than once. One and the same process may, however,
+      open the log 
+      as a user more than once. For a disk log process to properly close 
+      its file and terminate, it must be closed by its owners and once by 
+      some non-owner process for each time the log was used anonymously;
+      the users are counted, and there must not be any users left when the
+      disk log process terminates.
+      &lt;/p&gt;
+    &lt;p&gt;Items can be logged &lt;em&gt;synchronously&lt;/em&gt; by using the functions
+      &lt;code&gt;log/2&lt;/code&gt;, &lt;code&gt;blog/2&lt;/code&gt;, &lt;code&gt;log_terms/2&lt;/code&gt; and 
+      &lt;code&gt;blog_terms/2&lt;/code&gt;. For each of these functions, the caller is put
+      on hold until the items have been logged (but not necessarily 
+      written, use &lt;code&gt;sync/1&lt;/code&gt; to ensure that). By adding an &lt;code&gt;a&lt;/code&gt;
+      to each of the mentioned function names we get functions that log
+      items &lt;em&gt;asynchronously&lt;/em&gt;. Asynchronous functions do not wait for
+      the disk log process to actually write the items to the file, but
+      return the control to the caller more or less immediately.
+      &lt;/p&gt;
+    &lt;p&gt;When using the internal format for logs, the functions
+      &lt;code&gt;log/2&lt;/code&gt;, &lt;code&gt;log_terms/2&lt;/code&gt;, &lt;code&gt;alog/2&lt;/code&gt;, and
+      &lt;code&gt;alog_terms/2&lt;/code&gt; should be used. These functions log one or
+      more Erlang terms. By prefixing each of the functions with
+      a &lt;code&gt;b&lt;/code&gt; (for &quot;binary&quot;) we get the corresponding &lt;code&gt;blog&lt;/code&gt; 
+      functions for the external format. These functions log one or 
+      more deep lists of bytes or, alternatively, binaries of deep lists 
+      of bytes. 
+      For example, to log the string &lt;code&gt;&quot;hello&quot;&lt;/code&gt; in ASCII format, we
+      can use &lt;code&gt;disk_log:blog(Log, &quot;hello&quot;)&lt;/code&gt;, or
+      &lt;code&gt;disk_log:blog(Log, list_to_binary(&quot;hello&quot;))&lt;/code&gt;. The two
+      alternatives are equally efficient. The &lt;code&gt;blog&lt;/code&gt; functions
+      can be used for internally formatted logs as well, but in
+      this case they must be called with binaries constructed with
+      calls to &lt;code&gt;term_to_binary/1&lt;/code&gt;. There is no check to ensure
+      this, it is entirely the responsibility of the caller. If these
+      functions are called with binaries that do not correspond to
+      Erlang terms, the &lt;code&gt;chunk/2,3&lt;/code&gt; and automatic repair
+      functions will fail. The corresponding terms (not the binaries)
+      will be returned when &lt;code&gt;chunk/2,3&lt;/code&gt; is called.
+      &lt;/p&gt;
+    &lt;p&gt;A collection of open disk logs with the same name running on
+      different nodes is said to be a &lt;em&gt;a distributed disk log&lt;/em&gt;
+      if requests made to any one of the logs are automatically made to
+      the other logs as well. The members of such a collection will be
+      called individual distributed disk logs, or just distributed
+      disk logs if there is no risk of confusion. There is no order
+      between the members of such a collection. For instance, logged
+      terms are not necessarily written onto the node where the
+      request was made before written onto the other nodes. One could
+      note here that there are a few functions that do not make
+      requests to all members of distributed disk logs, namely
+      &lt;code&gt;info&lt;/code&gt;, &lt;code&gt;chunk&lt;/code&gt;, &lt;code&gt;bchunk&lt;/code&gt;, &lt;code&gt;chunk_step&lt;/code&gt; and
+      &lt;code&gt;lclose&lt;/code&gt;. An open disk log that is not a distributed disk
+      log is said to be a &lt;em&gt;local disk log&lt;/em&gt;. A local disk log is
+      accessible only from the node where the disk log process runs,
+      whereas a distributed disk log is accessible from all nodes in
+      the Erlang system, with exception for those nodes where a local
+      disk log with the same name as the distributed disk log exists.
+      All processes on nodes that have access to a local or
+      distributed disk log can log items or otherwise change, inspect
+      or close the log.
+      &lt;/p&gt;
+    &lt;p&gt;It is not guaranteed that all log files of a distributed disk log 
+      contain the same log items; there is no attempt made to synchronize
+      the contents of the files. However, as long as at least one of 
+      the involved nodes is alive at each time, all items will be logged. 
+      When logging items to a distributed log, or otherwise trying to
+      change the log, the replies from individual logs are
+      ignored. If all nodes are down, the disk log functions
+      reply with a &lt;code&gt;nonode&lt;/code&gt; error.
+      &lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;In some applications it may not be acceptable that
+        replies from individual logs are ignored. An alternative in such
+        situations is to use several local disk logs instead of one
+        distributed disk log, and implement the distribution without use
+        of the disk log module.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;Errors are reported differently for asynchronous log attempts
+      and other uses of the disk log module. When used synchronously
+      the disk log module replies with an error message, but when called
+      asynchronously, the disk log module does not know where to send 
+      the error message. Instead owners subscribing to notifications will 
+      receive an &lt;code&gt;error_status&lt;/code&gt; message. 
+      &lt;/p&gt;
+    &lt;p&gt;The disk log module itself does not report errors to the
+      &lt;code&gt;error_logger&lt;/code&gt; module; it is up to the caller to decide
+      whether the error logger should be employed or not. The function
+      &lt;code&gt;format_error/1&lt;/code&gt; can be used to produce readable messages
+      from error replies. Information events are however sent to the
+      error logger in two situations, namely when a log is repaired,
+      or when a file is missing while reading chunks.
+      &lt;/p&gt;
+    &lt;p&gt;The error message &lt;code&gt;no_such_log&lt;/code&gt; means that the given
+      disk log is not currently open. Nothing is said about 
+      whether the disk log files exist or not.
+      &lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;If an attempt to reopen or truncate a log fails (see
+        &lt;code&gt;reopen&lt;/code&gt; and &lt;code&gt;truncate&lt;/code&gt;) the disk log process
+        immediately terminates. Before the process terminates links to
+        to owners and blocking processes (see &lt;code&gt;block&lt;/code&gt;) are removed.
+        The effect is that the links work in one direction only; any
+        process using a disk log has to check for the error message
+        &lt;code&gt;no_such_log&lt;/code&gt; if some other process might truncate or
+        reopen the log simultaneously.&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;datatypes&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;log&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_size&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_format&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_head_opt&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_byte&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_mode&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;dlog_type&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;continuation&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Chunk continuation returned by
+         &lt;code&gt;chunk/2,3&lt;/code&gt;, &lt;code&gt;bchunk/2,3&lt;/code&gt;, or &lt;code&gt;chunk_step/3&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;bytes&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;invalid_header&quot; /&gt;
+    &lt;/datatype&gt;
+    &lt;datatype&gt;
+      &lt;name name=&quot;file_error&quot; /&gt;
+    &lt;/datatype&gt;
+  &lt;/datatypes&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;accessible_logs/0&quot;&gt;accessible_logs/0&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;accessible_logs/0&lt;/code&gt; function returns
+          the names of the disk logs accessible on the current node.
+          The first list contains local disk logs, and the
+          second list contains distributed disk logs.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;alog/2&quot;&gt;alog/2&lt;/h3&gt;
+      &lt;h3 id=&quot;balog/2&quot;&gt;balog/2&lt;/h3&gt;
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;Term&quot; name_i=&quot;1&quot; /&gt;
+      &lt;type variable=&quot;Bytes&quot; /&gt;
+      &lt;type name=&quot;notify_ret&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;alog/2&lt;/code&gt; and &lt;code&gt;balog/2&lt;/code&gt; functions asynchronously
+          append an item to a disk log. The function &lt;code&gt;alog/2&lt;/code&gt; is 
+          used for internally formatted logs, and the function &lt;code&gt;balog/2&lt;/code&gt;
+          for externally formatted logs. &lt;code&gt;balog/2&lt;/code&gt; can be used
+          for internally formatted logs as well provided the binary was
+          constructed with a call to &lt;code&gt;term_to_binary/1&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will receive the 
+          message &lt;code&gt;read_only&lt;/code&gt;, &lt;code&gt;blocked_log&lt;/code&gt; 
+          or &lt;code&gt;format_external&lt;/code&gt; in case the item cannot be written
+          on the log, and possibly one of the messages &lt;code&gt;wrap&lt;/code&gt;,
+          &lt;code&gt;full&lt;/code&gt; and &lt;code&gt;error_status&lt;/code&gt; if an item was written 
+          on the log. The message &lt;code&gt;error_status&lt;/code&gt; is sent if there
+          is something wrong with the header function or a file error
+          occurred.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;alog_terms/2&quot;&gt;alog_terms/2&lt;/h3&gt;
+      &lt;h3 id=&quot;balog_terms/2&quot;&gt;balog_terms/2&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;TermList&quot; name_i=&quot;1&quot; /&gt;
+      &lt;type variable=&quot;ByteList&quot; /&gt;
+      &lt;type name=&quot;notify_ret&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;alog_terms/2&lt;/code&gt; and &lt;code&gt;balog_terms/2&lt;/code&gt; functions 
+          asynchronously append a list of items to a disk log. 
+          The function &lt;code&gt;alog_terms/2&lt;/code&gt; is used for internally 
+          formatted logs, and the function &lt;code&gt;balog_terms/2&lt;/code&gt;
+          for externally formatted logs. &lt;code&gt;balog_terms/2&lt;/code&gt; can be used
+          for internally formatted logs as well provided the binaries were
+          constructed with calls to &lt;code&gt;term_to_binary/1&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will receive the 
+          message &lt;code&gt;read_only&lt;/code&gt;, &lt;code&gt;blocked_log&lt;/code&gt; 
+          or &lt;code&gt;format_external&lt;/code&gt; in case the items cannot be written
+          on the log, and possibly one or more of the messages &lt;code&gt;wrap&lt;/code&gt;,
+          &lt;code&gt;full&lt;/code&gt; and &lt;code&gt;error_status&lt;/code&gt; if items were written 
+          on the log. The message &lt;code&gt;error_status&lt;/code&gt; is sent if there
+          is something wrong with the header function or a file error 
+          occurred.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;block/1&quot;&gt;block/1&lt;/h3&gt;
+      &lt;h3 id=&quot;block/2&quot;&gt;block/2&lt;/h3&gt;
+      &lt;type name=&quot;block_error_rsn&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;With a call to &lt;code&gt;block/1,2&lt;/code&gt; a process can block a log.
+          If the blocking process is not an owner of the log, a temporary
+          link is created between the disk log process and the blocking
+          process. The link is used to ensure that the disk log is 
+          unblocked should the blocking process terminate without 
+          first closing or unblocking the log.
+          &lt;/p&gt;
+        &lt;p&gt;Any process can probe a blocked log with &lt;code&gt;info/1&lt;/code&gt; or
+          close it with &lt;code&gt;close/1&lt;/code&gt;. The blocking process can also
+          use the functions &lt;code&gt;chunk/2,3&lt;/code&gt;, &lt;code&gt;bchunk/2,3&lt;/code&gt;,
+          &lt;code&gt;chunk_step/3&lt;/code&gt;, and &lt;code&gt;unblock/1&lt;/code&gt; without being
+          affected by the block. Any other attempt than those hitherto
+          mentioned to update or read a blocked log suspends the
+          calling process until the log is unblocked or returns an
+          error message &lt;code&gt;{blocked_log, &lt;anno&gt;Log&lt;/anno&gt;}&lt;/code&gt;, depending on
+          whether the value of &lt;code&gt;&lt;anno&gt;QueueLogRecords&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt;
+          or &lt;code&gt;false&lt;/code&gt;. The default value of &lt;code&gt;&lt;anno&gt;QueueLogRecords&lt;/anno&gt;&lt;/code&gt;
+          is &lt;code&gt;true&lt;/code&gt;, which is used by &lt;code&gt;block/1&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;change_header/2&quot;&gt;change_header/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;change_header/2&lt;/code&gt; function changes the value of 
+          the &lt;code&gt;head&lt;/code&gt; or &lt;code&gt;head_func&lt;/code&gt; option of a disk log.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;change_notify/3&quot;&gt;change_notify/3&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;change_notify/3&lt;/code&gt; function changes the value of the
+          &lt;code&gt;notify&lt;/code&gt; option for an owner of a disk log. &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;change_size/2&quot;&gt;change_size/2&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;change_size/2&lt;/code&gt; function changes the size of an open log. 
+          For a halt log it is always possible to increase the size, 
+          but it is not possible to decrease the size to something less than 
+          the current size of the file.
+          &lt;/p&gt;
+        &lt;p&gt;For a wrap log it is always possible to increase both the
+          size and number of files, as long as the number of files does not 
+          exceed 65000. If the maximum number of files is decreased, the
+          change will not be valid until the current file is full and the 
+          log wraps to the next file.
+          The redundant files will be removed next time the log wraps around, 
+          i.e. starts to log to file number 1.
+          &lt;/p&gt;
+        &lt;p&gt;As an example, assume that the old maximum number of files 
+          is 10 and that the new maximum number of files is 6. If 
+          the current file number is not greater than the new maximum number 
+          of files, the files 7 to 10 will be removed when file number 6 
+          is full and the log starts to write to file number 1 again. 
+          Otherwise the files greater than the current 
+          file will be removed when the current file is full (e.g. if  
+          the current file is 8, the files 9 and 10); the files between 
+          new maximum number of files and the current 
+          file (i.e. files 7 and 8) will be removed next time file number 6
+          is full.
+          &lt;/p&gt;
+        &lt;p&gt;If the size of the files is decreased the change will immediately
+          affect the current log. It will not of course change the 
+          size of log files already full until next time they are used.
+          &lt;/p&gt;
+        &lt;p&gt;If the log size is decreased for instance to save space, 
+          the function &lt;code&gt;inc_wrap_file/1&lt;/code&gt; can be used to force the log 
+          to wrap.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;chunk/2&quot;&gt;chunk/2&lt;/h3&gt;
+      &lt;h3 id=&quot;chunk/3&quot;&gt;chunk/3&lt;/h3&gt;
+      &lt;h3 id=&quot;bchunk/2&quot;&gt;bchunk/2&lt;/h3&gt;
+      &lt;h3 id=&quot;bchunk/3&quot;&gt;bchunk/3&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;Continuation&quot; /&gt;
+      &lt;type variable=&quot;N&quot; /&gt;
+      &lt;type name=&quot;chunk_ret&quot; /&gt;
+      &lt;type name=&quot;bchunk_ret&quot; /&gt;
+      &lt;type name=&quot;chunk_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;chunk/2,3&lt;/code&gt; and &lt;code&gt;bchunk/2,3&lt;/code&gt; functions make
+          it possible to efficiently read the terms which have been
+          appended to an internally formatted log. It minimizes disk
+          I/O by reading 64 kilobyte chunks from the file. The
+          &lt;code&gt;bchunk/2,3&lt;/code&gt; functions return the binaries read from
+          the file; they do not call &lt;code&gt;binary_to_term&lt;/code&gt;. Otherwise
+          the work just like &lt;code&gt;chunk/2,3&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;The first time &lt;code&gt;chunk&lt;/code&gt; (or &lt;code&gt;bchunk&lt;/code&gt;) is called,
+          an initial continuation, the atom &lt;code&gt;start&lt;/code&gt;, must be
+          provided. If there is a disk log process running on the
+          current node, terms are read from that log, otherwise an
+          individual distributed log on some other node is chosen, if
+          such a log exists.
+          &lt;/p&gt;
+        &lt;p&gt;When &lt;code&gt;chunk/3&lt;/code&gt; is called, &lt;code&gt;&lt;anno&gt;N&lt;/anno&gt;&lt;/code&gt; controls the
+          maximum number of terms that are read from the log in each
+          chunk. Default is &lt;code&gt;infinity&lt;/code&gt;, which means that all the
+          terms contained in the 64 kilobyte chunk are read. If less than
+          &lt;code&gt;&lt;anno&gt;N&lt;/anno&gt;&lt;/code&gt; terms are returned, this does not necessarily mean
+          that the end of the file has been reached.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;chunk&lt;/code&gt; function returns a tuple
+          &lt;code&gt;{&lt;anno&gt;Continuation2&lt;/anno&gt;, &lt;anno&gt;Terms&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Terms&lt;/anno&gt;&lt;/code&gt; is a list
+          of terms found in the log. &lt;code&gt;&lt;anno&gt;Continuation2&lt;/anno&gt;&lt;/code&gt; is yet
+          another continuation which must be passed on to any
+          subsequent calls to &lt;code&gt;chunk&lt;/code&gt;. With a series of calls to
+          &lt;code&gt;chunk&lt;/code&gt; it is possible to extract all terms from a log.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;chunk&lt;/code&gt; function returns a tuple
+          &lt;code&gt;{&lt;anno&gt;Continuation2&lt;/anno&gt;, &lt;anno&gt;Terms&lt;/anno&gt;, &lt;anno&gt;Badbytes&lt;/anno&gt;}&lt;/code&gt; if the log is opened
+          in read-only mode and the read chunk is corrupt. &lt;code&gt;&lt;anno&gt;Badbytes&lt;/anno&gt;&lt;/code&gt;
+          is the number of bytes in the file which were found not to be
+          Erlang terms in the chunk. Note also that the log is not repaired.
+          When trying to read chunks from a log opened in read-write mode,
+          the tuple &lt;code&gt;{corrupt_log_file, &lt;anno&gt;FileName&lt;/anno&gt;}&lt;/code&gt; is returned if the
+          read chunk is corrupt.
+          &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;chunk&lt;/code&gt; returns &lt;code&gt;eof&lt;/code&gt; when the end of the log is
+          reached, or &lt;code&gt;{error, &lt;anno&gt;Reason&lt;/anno&gt;}&lt;/code&gt; if an error occurs. Should
+          a wrap log file be missing, a message is output on the error log.
+          &lt;/p&gt;
+        &lt;p&gt;When &lt;code&gt;chunk/2,3&lt;/code&gt; is used with wrap logs, the returned
+          continuation may or may not be valid in the next call to
+          &lt;code&gt;chunk&lt;/code&gt;. This is because the log may wrap and delete
+          the file into which the continuation points. To make sure
+          this does not happen, the log can be blocked during the
+          search.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;chunk_info/1&quot;&gt;chunk_info/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;chunk_info/1&lt;/code&gt; function returns the following pair
+          describing the chunk continuation returned by
+          &lt;code&gt;chunk/2,3&lt;/code&gt;, &lt;code&gt;bchunk/2,3&lt;/code&gt;, or &lt;code&gt;chunk_step/3&lt;/code&gt;:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{node, &lt;anno&gt;Node&lt;/anno&gt;}&lt;/code&gt;. Terms are read from
+              the disk log running on &lt;code&gt;&lt;anno&gt;Node&lt;/anno&gt;&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;chunk_step/3&quot;&gt;chunk_step/3&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The function &lt;code&gt;chunk_step&lt;/code&gt; can be used in conjunction
+          with &lt;code&gt;chunk/2,3&lt;/code&gt; and &lt;code&gt;bchunk/2,3&lt;/code&gt; to search
+          through an internally formatted wrap log. It takes as
+          argument a continuation as returned by &lt;code&gt;chunk/2,3&lt;/code&gt;,
+          &lt;code&gt;bchunk/2,3&lt;/code&gt;, or &lt;code&gt;chunk_step/3&lt;/code&gt;, and steps forward
+          (or backward) &lt;code&gt;&lt;anno&gt;Step&lt;/anno&gt;&lt;/code&gt; files in the wrap log. The
+          continuation returned points to the first log item in the
+          new current file.
+          &lt;/p&gt;
+        &lt;p&gt;If the atom &lt;code&gt;start&lt;/code&gt; is given as continuation, a disk log
+          to read terms from is chosen. A local or distributed disk log
+          on the current node is preferred to an
+          individual distributed log on some other node.
+          &lt;/p&gt;
+        &lt;p&gt;If the wrap log is not full because all files have not been
+          used yet, &lt;code&gt;{error, end_of_log}&lt;/code&gt; is returned if trying to
+          step outside the log.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;close/1&quot;&gt;close/1&lt;/h3&gt;
+      
+      &lt;type name=&quot;close_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;&lt;span id=&quot;close_1&quot;&gt; &lt;/span&gt;The function &lt;code&gt;close/1&lt;/code&gt; closes a
+          local or distributed disk log properly. An internally
+          formatted log must be closed before the Erlang system is
+          stopped, otherwise the log is regarded as unclosed and the
+          automatic repair procedure will be activated next time the
+          log is opened.
+          &lt;/p&gt;
+        &lt;p&gt;The disk log process in not terminated as long as there are
+          owners or users of the log. It should be stressed that each
+          and every owner must close the log, possibly by terminating,
+          and that any other process - not only the processes that have 
+          opened the log anonymously - can decrement the &lt;code&gt;users&lt;/code&gt;
+          counter by closing the log. 
+          Attempts to close a log by a process that is 
+          not an owner are simply ignored if there are no users.
+          &lt;/p&gt;
+        &lt;p&gt;If the log is blocked by the closing process, the log is also
+          unblocked.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;format_error/1&quot;&gt;format_error/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Given the error returned by any function in this module, 
+          the function &lt;code&gt;format_error&lt;/code&gt; returns a descriptive string
+          of the error in English. For file errors, the function 
+          &lt;code&gt;format_error/1&lt;/code&gt; in the &lt;code&gt;file&lt;/code&gt; module is called.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;inc_wrap_file/1&quot;&gt;inc_wrap_file/1&lt;/h3&gt;
+      
+      &lt;type name=&quot;inc_wrap_error_rsn&quot; /&gt;
+      &lt;type name=&quot;invalid_header&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;inc_wrap_file/1&lt;/code&gt; function forces the internally formatted 
+          disk log to start logging to the 
+          next log file. It can be used, for instance, in conjunction with
+          &lt;code&gt;change_size/2&lt;/code&gt; to reduce the amount of disk space allocated
+          by the disk log.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will normally 
+          receive a &lt;code&gt;wrap&lt;/code&gt; message, but in case of 
+          an error with a reason tag of &lt;code&gt;invalid_header&lt;/code&gt; or 
+          &lt;code&gt;file_error&lt;/code&gt; an &lt;code&gt;error_status&lt;/code&gt; message will be sent.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/1&quot;&gt;info/1&lt;/h3&gt;
+      
+      &lt;type name=&quot;dlog_info&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;info/1&lt;/code&gt; function returns a list of &lt;code&gt;{Tag, Value}&lt;/code&gt; 
+          pairs describing the log. If there is a disk log process running
+          on the current node, that log is used as source of information,
+          otherwise an individual distributed log on
+          some other node is chosen, if such a log exists.
+          &lt;/p&gt;
+        &lt;p&gt;The following pairs are returned for all logs:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{name, &lt;anno&gt;Log&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Log&lt;/anno&gt;&lt;/code&gt; is the name of
+              the log as given by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;name&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{file, &lt;anno&gt;File&lt;/anno&gt;}&lt;/code&gt;. For halt logs &lt;code&gt;&lt;anno&gt;File&lt;/anno&gt;&lt;/code&gt; is the
+              filename, and for wrap logs &lt;code&gt;&lt;anno&gt;File&lt;/anno&gt;&lt;/code&gt; is the base name.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{type, &lt;anno&gt;Type&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Type&lt;/anno&gt;&lt;/code&gt; is the type of
+              the log as given by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;type&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{format, &lt;anno&gt;Format&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Format&lt;/anno&gt;&lt;/code&gt; is the format
+              of the log as given by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;format&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{size, &lt;anno&gt;Size&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Size&lt;/anno&gt;&lt;/code&gt; is the size
+              of the log as given by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;size&lt;/code&gt;,
+              or the size set by &lt;code&gt;change_size/2&lt;/code&gt;. The value set by 
+              &lt;code&gt;change_size/2&lt;/code&gt; is reflected immediately.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{mode, &lt;anno&gt;Mode&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Mode&lt;/anno&gt;&lt;/code&gt; is the mode
+              of the log as given by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;mode&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{owners, [{pid(), &lt;anno&gt;Notify&lt;/anno&gt;}]}&lt;/code&gt; where &lt;code&gt;&lt;anno&gt;Notify&lt;/anno&gt;&lt;/code&gt;
+              is the value set by the &lt;code&gt;open/1&lt;/code&gt; option &lt;code&gt;notify&lt;/code&gt;
+              or the function &lt;code&gt;change_notify/3&lt;/code&gt; for the owners of 
+              the log.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{users, &lt;anno&gt;Users&lt;/anno&gt;}&lt;/code&gt; where &lt;code&gt;&lt;anno&gt;Users&lt;/anno&gt;&lt;/code&gt; is the number
+              of anonymous users of the log, see the &lt;code&gt;open/1&lt;/code&gt; option
+              &lt;a href=&quot;#linkto&quot; class=&quot;seealso&quot;&gt;linkto&lt;/a&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{status, &lt;anno&gt;Status&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Status&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;ok&lt;/code&gt;
+              or &lt;code&gt;{blocked, &lt;anno&gt;QueueLogRecords&lt;/anno&gt;}&lt;/code&gt; as set by the functions
+              &lt;code&gt;block/1,2&lt;/code&gt; and &lt;code&gt;unblock/1&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{node, &lt;anno&gt;Node&lt;/anno&gt;}&lt;/code&gt;. The information returned by the
+              current invocation of the &lt;code&gt;info/1&lt;/code&gt; function has been
+              gathered from the disk log process running on &lt;code&gt;&lt;anno&gt;Node&lt;/anno&gt;&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{distributed, &lt;anno&gt;Dist&lt;/anno&gt;}&lt;/code&gt;. If the log is local on
+              the current node, then &lt;code&gt;&lt;anno&gt;Dist&lt;/anno&gt;&lt;/code&gt; has the value &lt;code&gt;local&lt;/code&gt;,
+              otherwise all nodes where the log is distributed
+              are returned as a list.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following pairs are returned for all logs opened in 
+          &lt;code&gt;read_write&lt;/code&gt; mode:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{head, &lt;anno&gt;Head&lt;/anno&gt;}&lt;/code&gt;. Depending of the value of
+              the &lt;code&gt;open/1&lt;/code&gt; options &lt;code&gt;head&lt;/code&gt; and &lt;code&gt;head_func&lt;/code&gt;
+              or set by the function &lt;code&gt;change_header/2&lt;/code&gt;, the value
+              of &lt;code&gt;&lt;anno&gt;Head&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;none&lt;/code&gt; (default),
+              &lt;code&gt;{head, H}&lt;/code&gt; (&lt;code&gt;head&lt;/code&gt; option) or &lt;code&gt;{M,F,A}&lt;/code&gt; 
+              (&lt;code&gt;head_func&lt;/code&gt; option).&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{no_written_items, &lt;anno&gt;NoWrittenItems&lt;/anno&gt;}&lt;/code&gt;, where
+              &lt;code&gt;&lt;anno&gt;NoWrittenItems&lt;/anno&gt;&lt;/code&gt; is the number of items
+              written to the log since the disk log process was created.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following pair is returned for halt logs opened in 
+          &lt;code&gt;read_write&lt;/code&gt; mode:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{full, &lt;anno&gt;Full&lt;/anno&gt;}&lt;/code&gt;, where &lt;code&gt;&lt;anno&gt;Full&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt; or
+              &lt;code&gt;false&lt;/code&gt; depending on whether the halt log is full or not.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The following pairs are returned for wrap logs opened in 
+          &lt;code&gt;read_write&lt;/code&gt; mode:
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{no_current_bytes, integer() &amp;gt;= 0}&lt;/code&gt; is the number
+              of bytes written to the current wrap log file.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{no_current_items, integer() &amp;gt;= 0}&lt;/code&gt; is the number
+              of items written to the current wrap log file, header
+              inclusive.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{no_items, integer() &amp;gt;= 0}&lt;/code&gt; is the total number
+              of items in all wrap log files.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{current_file, integer()}&lt;/code&gt; is the ordinal for
+              the current wrap log file in the range &lt;code&gt;1..MaxNoFiles&lt;/code&gt;,
+              where &lt;code&gt;MaxNoFiles&lt;/code&gt; is given by the &lt;code&gt;open/1&lt;/code&gt; option
+              &lt;code&gt;size&lt;/code&gt; or set by &lt;code&gt;change_size/2&lt;/code&gt;.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{no_overflows, {&lt;anno&gt;SinceLogWasOpened&lt;/anno&gt;, &lt;anno&gt;SinceLastInfo&lt;/anno&gt;}}&lt;/code&gt;,
+              where &lt;code&gt;&lt;anno&gt;SinceLogWasOpened&lt;/anno&gt;&lt;/code&gt; (&lt;code&gt;&lt;anno&gt;SinceLastInfo&lt;/anno&gt;&lt;/code&gt;) is
+              the number of times a wrap log file has been filled up and a 
+              new one opened or &lt;code&gt;inc_wrap_file/1&lt;/code&gt; has been called since 
+              the disk log was last opened (&lt;code&gt;info/1&lt;/code&gt; 
+              was last called). The first time &lt;code&gt;info/2&lt;/code&gt; is called 
+              after a log was (re)opened or truncated, the two values 
+              are equal.&lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;Note that the &lt;code&gt;chunk/2,3&lt;/code&gt;, &lt;code&gt;bchunk/2,3&lt;/code&gt;, and
+          &lt;code&gt;chunk_step/3&lt;/code&gt; functions do not affect any value
+          returned by &lt;code&gt;info/1&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;lclose/1&quot;&gt;lclose/1&lt;/h3&gt;
+      &lt;h3 id=&quot;lclose/2&quot;&gt;lclose/2&lt;/h3&gt;
+      &lt;type name=&quot;lclose_error_rsn&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The function &lt;code&gt;lclose/1&lt;/code&gt; closes a local log or an
+          individual distributed log on the current node.
+          The function &lt;code&gt;lclose/2&lt;/code&gt; closes an individual
+          distributed log on the specified node if the node
+          is not the current one.
+          &lt;code&gt;lclose(&lt;anno&gt;Log&lt;/anno&gt;)&lt;/code&gt; is equivalent to
+          &lt;code&gt;lclose(&lt;anno&gt;Log&lt;/anno&gt;,&amp;nbsp;node())&lt;/code&gt;.
+          See also &lt;a href=&quot;#close_1&quot; class=&quot;seealso&quot;&gt;close/1&lt;/a&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;If there is no log with the given name
+          on the specified node, &lt;code&gt;no_such_log&lt;/code&gt; is returned. 
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;log/2&quot;&gt;log/2&lt;/h3&gt;
+      &lt;h3 id=&quot;blog/2&quot;&gt;blog/2&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;Term&quot; name_i=&quot;1&quot; /&gt;
+      &lt;type variable=&quot;Bytes&quot; /&gt;
+      &lt;type name=&quot;log_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;log/2&lt;/code&gt; and &lt;code&gt;blog/2&lt;/code&gt; functions synchronously
+          append a term to a disk log. They return &lt;code&gt;ok&lt;/code&gt; or
+          &lt;code&gt;{error, &lt;anno&gt;Reason&lt;/anno&gt;}&lt;/code&gt; when the term has been written to
+          disk. If the log is distributed, &lt;code&gt;ok&lt;/code&gt; is always
+          returned, unless all nodes are down. Terms are written by
+          means of the ordinary &lt;code&gt;write()&lt;/code&gt; function of the
+          operating system. Hence, there is no guarantee that the term
+          has actually been written to the disk, it might linger in
+          the operating system kernel for a while. To make sure the
+          item is actually written to disk, the &lt;code&gt;sync/1&lt;/code&gt; function
+          must be called.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;log/2&lt;/code&gt; function is used for internally formatted logs,
+          and &lt;code&gt;blog/2&lt;/code&gt; for externally formatted logs. 
+          &lt;code&gt;blog/2&lt;/code&gt; can be used
+          for internally formatted logs as well provided the binary was
+          constructed with a call to &lt;code&gt;term_to_binary/1&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will be notified 
+          of an error with an &lt;code&gt;error_status&lt;/code&gt; message if the error 
+          reason tag is &lt;code&gt;invalid_header&lt;/code&gt; or &lt;code&gt;file_error&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;log_terms/2&quot;&gt;log_terms/2&lt;/h3&gt;
+      &lt;h3 id=&quot;blog_terms/2&quot;&gt;blog_terms/2&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;TermList&quot; name_i=&quot;1&quot; /&gt;
+      &lt;type variable=&quot;BytesList&quot; /&gt;
+      &lt;type name=&quot;log_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;log_terms/2&lt;/code&gt; and &lt;code&gt;blog_terms/2&lt;/code&gt; functions
+          synchronously append a list of items to the log. The benefit
+          of using these functions rather than the &lt;code&gt;log/2&lt;/code&gt; and
+          &lt;code&gt;blog/2&lt;/code&gt; functions is that of efficiency: the given
+          list is split into as large sublists as possible (limited by
+          the size of wrap log files), and each sublist is logged as
+          one single item, which reduces the overhead.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;log_terms/2&lt;/code&gt; function is used for internally formatted
+          logs, and &lt;code&gt;blog_terms/2&lt;/code&gt; for externally formatted logs.
+          &lt;code&gt;blog_terms/2&lt;/code&gt; can be used
+          for internally formatted logs as well provided the binaries were
+          constructed with calls to &lt;code&gt;term_to_binary/1&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will be notified 
+          of an error with an &lt;code&gt;error_status&lt;/code&gt; message if the error 
+          reason tag is &lt;code&gt;invalid_header&lt;/code&gt; or &lt;code&gt;file_error&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;open/1&quot;&gt;open/1&lt;/h3&gt;
+      &lt;type name=&quot;dlog_options&quot; /&gt;
+      &lt;type name=&quot;dlog_option&quot; /&gt;
+      &lt;type name=&quot;open_ret&quot; /&gt;
+      &lt;type name=&quot;ret&quot; /&gt;
+      &lt;type name=&quot;dist_open_ret&quot; /&gt;
+      &lt;type name=&quot;dist_error_rsn&quot; /&gt;
+      &lt;type name=&quot;open_error_rsn&quot; /&gt;
+      &lt;type name=&quot;dlog_optattr&quot; /&gt;
+      &lt;type name=&quot;dlog_size&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;&lt;anno&gt;ArgL&lt;/anno&gt;&lt;/code&gt; parameter is a list of options which have
+          the following meanings:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{name, &lt;anno&gt;Log&lt;/anno&gt;}&lt;/code&gt; specifies the name of the log.
+              This is the name which must be passed on as a parameter in
+              all subsequent logging operations. A name must always
+              be supplied.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{file, &lt;anno&gt;FileName&lt;/anno&gt;}&lt;/code&gt; specifies the name of the
+              file which will be used for logged terms. If this value is
+              omitted and the name of the log is either an atom or a string, 
+              the file name will default to &lt;code&gt;lists:concat([&lt;anno&gt;Log&lt;/anno&gt;, &quot;.LOG&quot;])&lt;/code&gt; for halt logs. For wrap logs, this will be
+              the base name of the files. Each file in a wrap log
+              will be called &lt;code&gt;&amp;lt;base_name&amp;gt;.N&lt;/code&gt;, where &lt;code&gt;N&lt;/code&gt; is an
+              integer. Each wrap log will also have two files called
+              &lt;code&gt;&amp;lt;base_name&amp;gt;.idx&lt;/code&gt; and &lt;code&gt;&amp;lt;base_name&amp;gt;.siz&lt;/code&gt;.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{linkto, &lt;anno&gt;LinkTo&lt;/anno&gt;}&lt;/code&gt;.               &lt;span id=&quot;linkto&quot;&gt; &lt;/span&gt;
+If
+              &lt;code&gt;&lt;anno&gt;LinkTo&lt;/anno&gt;&lt;/code&gt; is a pid, that pid becomes an owner of the
+              log. If &lt;code&gt;&lt;anno&gt;LinkTo&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;none&lt;/code&gt; the log records
+              that it is used anonymously by some process by
+              incrementing the &lt;code&gt;users&lt;/code&gt; counter. By default, the
+              process which calls &lt;code&gt;open/1&lt;/code&gt; owns the log.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{repair, &lt;anno&gt;Repair&lt;/anno&gt;}&lt;/code&gt;. If &lt;code&gt;&lt;anno&gt;Repair&lt;/anno&gt;&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt;,
+              the current log file will be repaired, if needed. As the
+              restoration is initiated, a message is output on the error log.
+              If &lt;code&gt;false&lt;/code&gt; is given,
+              no automatic repair will be attempted. Instead, the
+              tuple &lt;code&gt;{error, {need_repair, &lt;anno&gt;Log&lt;/anno&gt;}}&lt;/code&gt; is returned if an
+              attempt is made to open a corrupt log file. 
+              If &lt;code&gt;truncate&lt;/code&gt; is given, the log file will
+              be truncated, creating an empty log. Default is 
+              &lt;code&gt;true&lt;/code&gt;, which has no effect on logs opened in 
+              read-only mode.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{type, &lt;anno&gt;Type&lt;/anno&gt;}&lt;/code&gt; is the type of the log. Default
+              is &lt;code&gt;halt&lt;/code&gt;.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{format, &lt;anno&gt;Format&lt;/anno&gt;}&lt;/code&gt; specifies the format of the
+              disk log. Default is &lt;code&gt;internal&lt;/code&gt;. 
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{size, &lt;anno&gt;Size&lt;/anno&gt;}&lt;/code&gt; specifies the size of the log.
+              When a halt log has reached its maximum size, all attempts to 
+              log more items are rejected. The default size is 
+              &lt;code&gt;infinity&lt;/code&gt;, which for halt implies that there is no
+              maximum size. For wrap logs, the &lt;code&gt;&lt;anno&gt;Size&lt;/anno&gt;&lt;/code&gt; parameter
+              may be either a pair
+              &lt;code&gt;{&lt;anno&gt;MaxNoBytes&lt;/anno&gt;, &lt;anno&gt;MaxNoFiles&lt;/anno&gt;}&lt;/code&gt; or &lt;code&gt;infinity&lt;/code&gt;. In the
+              latter case, if the files of an already existing wrap log
+              with the same name can be found, the size is read
+              from the existing wrap log, otherwise an error is returned. 
+              Wrap logs write at most &lt;code&gt;&lt;anno&gt;MaxNoBytes&lt;/anno&gt;&lt;/code&gt; bytes on each file
+              and use &lt;code&gt;&lt;anno&gt;MaxNoFiles&lt;/anno&gt;&lt;/code&gt; files before starting all over with
+              the first wrap log file. Regardless of &lt;code&gt;&lt;anno&gt;MaxNoBytes&lt;/anno&gt;&lt;/code&gt;,
+              at least the header (if there is one) and one
+              item is written on each wrap log file before
+              wrapping to the next file.
+              When opening an existing wrap log, it is not
+              necessary to supply a value for the option &lt;code&gt;Size&lt;/code&gt;, but any
+              supplied value must equal the current size of the log, otherwise
+              the tuple &lt;code&gt;{error, {size_mismatch, &lt;anno&gt;CurrentSize&lt;/anno&gt;, &lt;anno&gt;NewSize&lt;/anno&gt;}}&lt;/code&gt;
+              is returned.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{distributed, &lt;anno&gt;Nodes&lt;/anno&gt;}&lt;/code&gt;. This option can be used for
+              adding members to a distributed disk log. The
+              default value is &lt;code&gt;[]&lt;/code&gt;, which means that
+              the log is local on the current node.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;span id=&quot;notify&quot;&gt; &lt;/span&gt;
+            &lt;p&gt;&lt;code&gt;{notify, bool()}&lt;/code&gt;. If &lt;code&gt;true&lt;/code&gt;, the owners of the
+              log are notified when certain events occur in the log.
+              Default is &lt;code&gt;false&lt;/code&gt;. The owners are sent one of the
+              following messages when an event occurs:
+              &lt;/p&gt;
+            &lt;list type=&quot;bulleted&quot;&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {wrap, NoLostItems}}&lt;/code&gt; is sent when a wrap log has
+                  filled up one of its files and a new file is
+                  opened. &lt;code&gt;NoLostItems&lt;/code&gt; is the number of
+                  previously logged items that have been lost when
+                  truncating existing files.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {truncated, NoLostItems}}&lt;/code&gt; is sent when a log has been
+                  truncated or reopened. For halt logs &lt;code&gt;NoLostItems&lt;/code&gt;
+                  is the number of items written on the log since the 
+                  disk log process was created. For wrap logs 
+                  &lt;code&gt;NoLostItems&lt;/code&gt; is the number of items on all 
+                  wrap log files.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {read_only, Items}}&lt;/code&gt; 
+                  is sent when an asynchronous log attempt is made to 
+                  a log file opened in read-only mode. 
+                  &lt;code&gt;Items&lt;/code&gt; is the items from the log attempt.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {blocked_log, Items}}&lt;/code&gt; 
+                  is sent when an asynchronous log attempt is made to
+                  a blocked log that does not queue log attempts.
+                  &lt;code&gt;Items&lt;/code&gt; is the items from the log attempt.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {format_external, Items}}&lt;/code&gt; 
+                  is sent when &lt;code&gt;alog/2&lt;/code&gt; or &lt;code&gt;alog_terms/2&lt;/code&gt; is 
+                  used for internally formatted logs. &lt;code&gt;Items&lt;/code&gt; is the 
+                  items from the log attempt.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, full}&lt;/code&gt; is sent when
+                  an attempt to log items to a wrap log would write more
+                  bytes than the limit set by the &lt;code&gt;size&lt;/code&gt; option.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+              &lt;item&gt;
+                &lt;p&gt;&lt;code&gt;{disk_log, Node, Log, {error_status, Status}}&lt;/code&gt; 
+                  is sent when the error status changes. The error status
+                  is defined by the outcome of the last attempt to log
+                  items to a the log or to truncate the log or the last
+                  use of &lt;code&gt;sync/1&lt;/code&gt;, &lt;code&gt;inc_wrap_file/1&lt;/code&gt; or
+                  &lt;code&gt;change_size/2&lt;/code&gt;. &lt;code&gt;Status&lt;/code&gt; is one of &lt;code&gt;ok&lt;/code&gt; and
+                  &lt;code&gt;{error, Error}&lt;/code&gt;, the former being the initial value.
+                  &lt;/p&gt;
+              &lt;/item&gt;
+            &lt;/list&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{head, &lt;anno&gt;Head&lt;/anno&gt;}&lt;/code&gt; specifies a header to be
+              written first on the log file. If the log is a wrap
+              log, the item &lt;code&gt;&lt;anno&gt;Head&lt;/anno&gt;&lt;/code&gt; is written first in each new file.
+              &lt;code&gt;&lt;anno&gt;Head&lt;/anno&gt;&lt;/code&gt; should be a term if the format is
+              &lt;code&gt;internal&lt;/code&gt;, and a deep list of bytes (or a binary)
+              otherwise. Default is &lt;code&gt;none&lt;/code&gt;, which means that
+              no header is written first on the file.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{head_func, {M,F,A}}&lt;/code&gt; specifies a function
+              to be called each time a new log file is opened.
+              The call &lt;code&gt;M:F(A)&lt;/code&gt; is assumed to return &lt;code&gt;{ok, Head}&lt;/code&gt;.
+              The item &lt;code&gt;Head&lt;/code&gt; is written first in each file.
+              &lt;code&gt;Head&lt;/code&gt; should be a term if the format is
+              &lt;code&gt;internal&lt;/code&gt;, and a deep list of bytes (or a binary)
+              otherwise.
+              &lt;/p&gt;
+          &lt;/item&gt;
+          &lt;item&gt;
+            &lt;p&gt;&lt;code&gt;{mode, &lt;anno&gt;Mode&lt;/anno&gt;}&lt;/code&gt; specifies if the log is to be
+              opened in read-only or read-write mode. It defaults to
+              &lt;code&gt;read_write&lt;/code&gt;.
+              &lt;/p&gt;
+          &lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;The &lt;code&gt;open/1&lt;/code&gt; function returns &lt;code&gt;{ok, &lt;anno&gt;Log&lt;/anno&gt;}&lt;/code&gt; if the
+          log file was successfully opened. If the file was
+          successfully repaired, the tuple &lt;code&gt;{repaired, &lt;anno&gt;Log&lt;/anno&gt;, {recovered, &lt;anno&gt;Rec&lt;/anno&gt;}, {badbytes, &lt;anno&gt;Bad&lt;/anno&gt;}}&lt;/code&gt; is returned, where
+          &lt;code&gt;&lt;anno&gt;Rec&lt;/anno&gt;&lt;/code&gt; is the number of whole Erlang terms found in the
+          file and &lt;code&gt;&lt;anno&gt;Bad&lt;/anno&gt;&lt;/code&gt; is the number of bytes in the file which
+          were non-Erlang terms. If the &lt;code&gt;distributed&lt;/code&gt; parameter
+          was given, &lt;code&gt;open/1&lt;/code&gt; returns a list of
+          successful replies and a list of erroneous replies. Each
+          reply is tagged with the node name.
+          &lt;/p&gt;
+        &lt;p&gt;When a disk log is opened in read-write mode, any existing
+          log file is checked for. If there is none a new empty
+          log is created, otherwise the existing file is opened at the
+          position after the last logged item, and the logging of items
+          will commence from there. If the format is &lt;code&gt;internal&lt;/code&gt;
+          and the existing file is not recognized as an internally
+          formatted log, a tuple &lt;code&gt;{error, {not_a_log_file, &lt;anno&gt;FileName&lt;/anno&gt;}}&lt;/code&gt;
+          is returned.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;open/1&lt;/code&gt; function cannot be used for changing the
+          values of options of an already open log; when there are prior
+          owners or users of a log, all option values except &lt;code&gt;name&lt;/code&gt;, 
+          &lt;code&gt;linkto&lt;/code&gt; and &lt;code&gt;notify&lt;/code&gt; are just checked against 
+          the values that have been supplied before as option values
+          to &lt;code&gt;open/1&lt;/code&gt;, &lt;code&gt;change_header/2&lt;/code&gt;, &lt;code&gt;change_notify/3&lt;/code&gt;
+          or &lt;code&gt;change_size/2&lt;/code&gt;. As a consequence,
+          none of the options except &lt;code&gt;name&lt;/code&gt; is mandatory. If some
+          given value differs from the current value, a tuple
+          &lt;code&gt;{error, {arg_mismatch, &lt;anno&gt;OptionName&lt;/anno&gt;, &lt;anno&gt;CurrentValue&lt;/anno&gt;, &lt;anno&gt;Value&lt;/anno&gt;}}&lt;/code&gt;
+          is returned. Caution: an owner&#039;s attempt to open a log 
+          as owner once again is acknowledged with the return value 
+          &lt;code&gt;{ok, &lt;anno&gt;Log&lt;/anno&gt;}&lt;/code&gt;, but the state of the disk log is not
+          affected in any way.
+          &lt;/p&gt;
+        &lt;p&gt;If a log with a given name is local on some node,
+          and one tries to open the log distributed on the same node,
+          then the tuple &lt;code&gt;{error, {node_already_open, &lt;anno&gt;Log&lt;/anno&gt;}}&lt;/code&gt; is
+          returned. The same tuple is returned if the log is distributed on
+          some node, and one tries to open the log locally on the same node.
+          Opening individual distributed disk logs for the first time
+          adds those logs to a (possibly empty) distributed disk log.
+          The option values supplied are used 
+          on all nodes mentioned by the &lt;code&gt;distributed&lt;/code&gt; option. 
+          Individual distributed logs know nothing
+          about each other&#039;s option values, so each node can be
+          given unique option values by creating a distributed
+          log with several calls to &lt;code&gt;open/1&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;It is possible to open a log file more than once by giving
+          different values to the option &lt;code&gt;name&lt;/code&gt; or by using the
+          same file when distributing a log on different nodes.
+          It is up to the user of the &lt;code&gt;disk_log&lt;/code&gt;
+          module to ensure that no more than one
+          disk log process has write access to any file, or the 
+          the file may be corrupted.
+          &lt;/p&gt;
+        &lt;p&gt;If an attempt to open a log file for the first time fails, 
+          the disk log process terminates with the EXIT message 
+          &lt;code&gt;{{failed,Reason},[{disk_log,open,1}]}&lt;/code&gt;.
+          The function returns &lt;code&gt;{error, Reason}&lt;/code&gt; for all other errors.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;pid2name/1&quot;&gt;pid2name/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;pid2name/1&lt;/code&gt; function returns the name of the log
+          given the pid of a disk log process on the current node, or
+          &lt;code&gt;undefined&lt;/code&gt; if the given pid is not a disk log process.
+          &lt;/p&gt;
+        &lt;p&gt;This function is meant to be used for debugging only.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;reopen/2&quot;&gt;reopen/2&lt;/h3&gt;
+      &lt;h3 id=&quot;reopen/3&quot;&gt;reopen/3&lt;/h3&gt;
+      &lt;h3 id=&quot;breopen/3&quot;&gt;breopen/3&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;File&quot; name_i=&quot;1&quot; /&gt;
+      &lt;type variable=&quot;Head&quot; name_i=&quot;2&quot; /&gt;
+      &lt;type variable=&quot;BHead&quot; /&gt;
+      &lt;type name=&quot;reopen_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;reopen&lt;/code&gt; functions first rename the log file 
+          to &lt;code&gt;&lt;anno&gt;File&lt;/anno&gt;&lt;/code&gt; and then re-create a new log file.
+          In case of a wrap log, &lt;code&gt;&lt;anno&gt;File&lt;/anno&gt;&lt;/code&gt; is used as the base name
+          of the renamed files.
+          By default the header given to &lt;code&gt;open/1&lt;/code&gt; is written first in
+          the newly opened log file, but if the &lt;code&gt;&lt;anno&gt;Head&lt;/anno&gt;&lt;/code&gt; or the
+          &lt;code&gt;&lt;anno&gt;BHead&lt;/anno&gt;&lt;/code&gt; argument is given, this item is used instead.
+          The header argument is used once only; next time a wrap log file
+          is opened, the header given to &lt;code&gt;open/1&lt;/code&gt; is used.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;reopen/2,3&lt;/code&gt; functions are used for internally formatted 
+          logs, and &lt;code&gt;breopen/3&lt;/code&gt; for externally formatted logs.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will receive 
+          a &lt;code&gt;truncate&lt;/code&gt; message.
+          &lt;/p&gt;
+        &lt;p&gt;Upon failure to reopen the log, the disk log process terminates
+          with the EXIT message &lt;code&gt;{{failed,Error},[{disk_log,Fun,Arity}]}&lt;/code&gt;,
+          and other processes that have requests queued receive the message 
+          &lt;code&gt;{disk_log, Node, {error, disk_log_stopped}}&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;sync/1&quot;&gt;sync/1&lt;/h3&gt;
+      &lt;type name=&quot;sync_error_rsn&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;sync/1&lt;/code&gt; function ensures that the contents of the 
+          log are actually written to the disk. 
+          This is usually a rather expensive operation.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;truncate/1&quot;&gt;truncate/1&lt;/h3&gt;
+      &lt;h3 id=&quot;truncate/2&quot;&gt;truncate/2&lt;/h3&gt;
+      &lt;h3 id=&quot;btruncate/2&quot;&gt;btruncate/2&lt;/h3&gt;
+      
+      &lt;type variable=&quot;Log&quot; /&gt;
+      &lt;type variable=&quot;Head&quot; name_i=&quot;2&quot; /&gt;
+      &lt;type variable=&quot;BHead&quot; /&gt;
+      &lt;type name=&quot;trunc_error_rsn&quot; /&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;truncate&lt;/code&gt; functions remove all items from a disk log.
+          If the &lt;code&gt;&lt;anno&gt;Head&lt;/anno&gt;&lt;/code&gt; or the &lt;code&gt;&lt;anno&gt;BHead&lt;/anno&gt;&lt;/code&gt; argument is
+          given, this item is written first in the newly truncated
+          log, otherwise the header given to &lt;code&gt;open/1&lt;/code&gt; is used.
+          The header argument is only used once; next time a wrap log file 
+          is opened, the header given to &lt;code&gt;open/1&lt;/code&gt; is used.
+          &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;truncate/1,2&lt;/code&gt; functions are used for internally 
+          formatted logs, and &lt;code&gt;btruncate/2&lt;/code&gt; for externally formatted
+          logs.
+          &lt;/p&gt;
+        &lt;p&gt;The owners that subscribe to notifications will receive 
+          a &lt;code&gt;truncate&lt;/code&gt; message.
+          &lt;/p&gt;
+        &lt;p&gt;If the attempt to truncate the log fails, the disk log process
+          terminates with the EXIT message 
+          &lt;code&gt;{{failed,Reason},[{disk_log,Fun,Arity}]}&lt;/code&gt;, and 
+          other processes that have requests queued receive the message 
+          &lt;code&gt;{disk_log, Node, {error, disk_log_stopped}}&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;unblock/1&quot;&gt;unblock/1&lt;/h3&gt;
+      &lt;type name=&quot;unblock_error_rsn&quot; /&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;The &lt;code&gt;unblock/1&lt;/code&gt; function unblocks a log. 
+          A log can only be unblocked by the blocking process.
+          &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;See Also&lt;/h4&gt;
+    &lt;p&gt;&lt;a href=&quot;file.html&quot; class=&quot;seealso&quot;&gt;file(3)&lt;/a&gt;, 
+      &lt;a href=&quot;pg2.html&quot; class=&quot;seealso&quot;&gt;pg2(3)&lt;/a&gt;, 
+      &lt;a href=&quot;wrap_log_reader.html&quot; class=&quot;seealso&quot;&gt;wrap_log_reader(3)&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#accessible_logs&quot;&gt;accessible_logs&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#alog&quot;&gt;alog&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#balog&quot;&gt;balog&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#alog_terms&quot;&gt;alog_terms&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#balog_terms&quot;&gt;balog_terms&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#block&quot;&gt;block&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#block-1&quot;&gt;block-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#change_header&quot;&gt;change_header&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#change_notify&quot;&gt;change_notify&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#change_size&quot;&gt;change_size&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#chunk&quot;&gt;chunk&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#chunk-1&quot;&gt;chunk-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#bchunk&quot;&gt;bchunk&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#bchunk-1&quot;&gt;bchunk-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#chunk_info&quot;&gt;chunk_info&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#chunk_step&quot;&gt;chunk_step&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#close&quot;&gt;close&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#format_error&quot;&gt;format_error&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#inc_wrap_file&quot;&gt;inc_wrap_file&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info&quot;&gt;info&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#lclose&quot;&gt;lclose&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#lclose-1&quot;&gt;lclose-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#log&quot;&gt;log&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#blog&quot;&gt;blog&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#log_terms&quot;&gt;log_terms&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#blog_terms&quot;&gt;blog_terms&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open&quot;&gt;open&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#pid2name&quot;&gt;pid2name&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reopen&quot;&gt;reopen&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reopen-1&quot;&gt;reopen-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#breopen&quot;&gt;breopen&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#sync&quot;&gt;sync&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#truncate&quot;&gt;truncate&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#truncate-1&quot;&gt;truncate-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#btruncate&quot;&gt;btruncate&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#unblock&quot;&gt;unblock&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>snmp_index (snmp) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;snmp_index&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Abstract Data Type for SNMP Indexing&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;The module &lt;code&gt;snmp_index&lt;/code&gt; implements an Abstract
+      Data Type (ADT) for an SNMP
+      index structure for SNMP tables.  It is implemented as an ets
+      table of the ordered_set data-type, which means that all operations are
+      O(log n).  In the table, the key is an ASN.1 OBJECT
+      IDENTIFIER.
+      &lt;/p&gt;
+    &lt;p&gt;This index is used to separate the implementation of the SNMP
+      ordering from the actual implementation of the table.  The SNMP
+      ordering, that is implementation of GET NEXT, is implemented in this
+      module.
+      &lt;/p&gt;
+    &lt;p&gt;For example, suppose there is an SNMP table, which is best
+      implemented in Erlang as one process per SNMP table row.  Suppose
+      further that the INDEX in the SNMP table is an OCTET STRING.  The
+      index structure would be created as follows:
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+snmp_index:new(string)
+    &lt;/pre&gt;
+    &lt;p&gt;For each new process we create, we insert an item in an
+      &lt;code&gt;snmp_index&lt;/code&gt; structure:
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+new_process(Name, SnmpIndex) -&amp;gt;
+  Pid = start_process(),
+  NewSnmpIndex = 
+    snmp_index:insert(SnmpIndex, Name, Pid),
+  &amp;lt;...&amp;gt;
+    &lt;/pre&gt;
+    &lt;p&gt;With this structure, we can now map an OBJECT IDENTIFIER in
+      e.g. a GET NEXT request, to the correct process:
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+get_next_pid(Oid, SnmpIndex) -&amp;gt;
+  {ok, {_, Pid}} = snmp_index:get_next(SnmpIndex, Oid),
+  Pid.
+    &lt;/pre&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Common data types&lt;/h4&gt;
+    &lt;p&gt;The following data types are used in the functions below:
+      &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;index()&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;oid() = [byte()]&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;key_types = type_spec()  |  {type_spec(), type_spec(), ...}&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;type_spec() = fix_string | string | integer&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;key() = key_spec() | {key_spec(), key_spec(), ...}&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;key_spec() = string() | integer()&lt;/code&gt;&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;The &lt;code&gt;index()&lt;/code&gt; type denotes an snmp index structure.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;oid()&lt;/code&gt; type is used to represent an ASN.1 OBJECT
+      IDENTIFIER.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;key_types()&lt;/code&gt; type is used when creating the
+      index structure, and the &lt;code&gt;key()&lt;/code&gt; type is used when inserting
+      and deleting items from the structure.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;key_types()&lt;/code&gt; type defines the types of the SNMP INDEX
+      columns for the table.  If the table has one single INDEX column,
+      this type should be a single atom, but if the table has multiple
+      INDEX columns, it should be a tuple with atoms.
+      &lt;/p&gt;
+    &lt;p&gt;If the INDEX column is of type INTEGER, or derived from
+      INTEGER, the corresponding type should be &lt;code&gt;integer&lt;/code&gt;.  If it
+      is a variable length type (e.g. OBJECT IDENTIFIER, OCTET STRING),
+      the corresponding type should be &lt;code&gt;string&lt;/code&gt;.  Finally, if the
+      type is of variable length, but with a fixed size restriction
+      (e.g. IpAddress), the corresponding type should be
+      &lt;code&gt;fix_string&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;For example, if the SNMP table has two INDEX columns, the first
+      one an OCTET STRING with size 2, and the second one an OBJECT
+      IDENTIFER, the corresponding &lt;code&gt;key_types&lt;/code&gt; parameter would be
+      &lt;code&gt;{fix_string, string}&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;key()&lt;/code&gt; type correlates to the &lt;code&gt;key_types()&lt;/code&gt;
+      type. If the &lt;code&gt;key_types()&lt;/code&gt; is a single atom, the
+      corresponding &lt;code&gt;key()&lt;/code&gt; is a single type as well, but if the
+      &lt;code&gt;key_types()&lt;/code&gt; is a tuple, &lt;code&gt;key&lt;/code&gt; must be a tuple of the
+      same size.
+      &lt;/p&gt;
+    &lt;p&gt;In the example above, valid &lt;code&gt;keys&lt;/code&gt; could be &lt;code&gt;{&quot;hi&quot;, &quot;mom&quot;}&lt;/code&gt; and &lt;code&gt;{&quot;no&quot;, &quot;thanks&quot;}&lt;/code&gt;, whereas &lt;code&gt;&quot;hi&quot;&lt;/code&gt;,
+      &lt;code&gt;{&quot;hi&quot;, 42}&lt;/code&gt; and &lt;code&gt;{&quot;hello&quot;, &quot;there&quot;}&lt;/code&gt; would be invalid.&lt;/p&gt;
+    &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+      &lt;span id=&quot;1&quot;&gt; &lt;/span&gt;
+      &lt;p&gt;All API functions that update the index return a &lt;code&gt;NewIndex&lt;/code&gt;
+        term. This is for backward compatibility with a previous
+        implementation that used a B+ tree written purely in Erlang for 
+        the index. The &lt;code&gt;NewIndex&lt;/code&gt; return value can now be ignored. 
+        The return value is now the unchanged table identifier for the 
+        ets table.&lt;/p&gt;
+      &lt;p&gt;The implementation using ets tables introduces a semantic
+        incompatibility with older implementations. In those older 
+        implementations, using pure Erlang terms, the index was garbage 
+        collected like any other Erlang term and did not have to be 
+        deleted when discarded. An ets table is deleted only when the 
+        process creating it explicitly deletes it or when the creating 
+        process terminates.&lt;/p&gt;
+      &lt;p&gt;A new interface &lt;code&gt;delete/1&lt;/code&gt; is now added to
+        handle the case when a process wants to discard an index table
+        (i.e. to build a completely new). Any application using
+        transient snmp indexes has to be modified to handle this.&lt;/p&gt;
+      &lt;p&gt;As an snmp adaption usually keeps the index for the whole of the
+        systems lifetime, this is rarely a problem.&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;delete/1&quot;&gt;delete(Index) -&amp;gt; true&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = NewIndex = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Key = key()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Deletes a complete index structure (i.e. the ets table
+          holding the index). The index can no longer be referenced
+          after this call. See the &lt;a href=&quot;#1&quot; class=&quot;seealso&quot;&gt;warning note&lt;/a&gt;
+          above.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;delete/2&quot;&gt;delete(Index, Key) -&amp;gt; NewIndex&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = NewIndex = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Key = key()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Deletes a key and its value from the index structure.
+          Returns a new structure.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get/2&quot;&gt;get(Index, KeyOid) -&amp;gt; {ok, {KeyOid, Value}} | undefined&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;KeyOid = oid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the item with key &lt;code&gt;KeyOid&lt;/code&gt;.  Could be used from
+          within an SNMP instrumentation function.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_last/1&quot;&gt;get_last(Index) -&amp;gt; {ok, {KeyOid, Value}} | undefined&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;KeyOid = oid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the last item in the index structure.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_next/2&quot;&gt;get_next(Index, KeyOid) -&amp;gt; {ok, {NextKeyOid, Value}} | undefined&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;KeyOid = NextKeyOid = oid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the next item in the SNMP lexicographic ordering,
+          after &lt;code&gt;KeyOid&lt;/code&gt; in the index structure.  &lt;code&gt;KeyOid&lt;/code&gt;
+          does not have to refer to an existing item in the index.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;insert/3&quot;&gt;insert(Index, Key, Value) -&amp;gt; NewIndex&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = NewIndex = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Key = key()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Inserts a new key value tuple into the index structure.  If
+          an item with the same key already exists, the new &lt;code&gt;Value&lt;/code&gt;
+          overwrites the old value.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;key_to_oid/2&quot;&gt;key_to_oid(Index, Key) -&amp;gt; KeyOid&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Index = index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Key = key()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;KeyOid = NextKeyOid = oid()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Converts &lt;code&gt;Key&lt;/code&gt; to an OBJECT IDENTIFIER.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;new/1&quot;&gt;new(KeyTypes) -&amp;gt; Index&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;KeyTypes = key_types()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Index = index()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Creates a new snmp index structure.  The &lt;code&gt;key_types()&lt;/code&gt;
+          type is described above.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#delete/1&quot;&gt;delete/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#delete/2&quot;&gt;delete/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get/2&quot;&gt;get/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_last/1&quot;&gt;get_last/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_next/2&quot;&gt;get_next/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#insert/3&quot;&gt;insert/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#key_to_oid/2&quot;&gt;key_to_oid/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#new/1&quot;&gt;new/1&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

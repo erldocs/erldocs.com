@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>httpd (inets) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;httpd&lt;/h1&gt; 
+  &lt;h2 class=&quot;modsummary&quot;&gt;An implementation of an HTTP
+    1.1 compliant Web server, as defined in RFC 2616.
+  &lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;Documents the HTTP server start options, some administrative
+      functions and also specifies the Erlang Web server callback
+      API&lt;/p&gt;
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;COMMON DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;Type definitions that are used more than once in
+      this module:&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;boolean() = true | false &lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;string() = list of ASCII characters&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;path() = string() - representing a file or directory path.&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt; ip_address() = {N1,N2,N3,N4}  % IPv4
+       | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;hostname() = string() - representing a host ex &quot;foo.bar.com&quot;&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;property() = atom()&lt;/code&gt;&lt;/p&gt;
+    
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERLANG HTTP SERVER SERVICE START/STOP &lt;/h4&gt;
+    &lt;p&gt;A web server can be configured to start when starting the inets
+    application or started dynamically in runtime by calling the
+    Inets application API &lt;code&gt;inets:start(httpd, ServiceConfig)&lt;/code&gt;, or
+    &lt;code&gt;inets:start(httpd, ServiceConfig, How)&lt;/code&gt;,
+    see &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt; Below follows a
+    description of the available configuration options, also called
+    properties.&lt;/p&gt;
+
+    &lt;span id=&quot;props_file&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;File properties&lt;/em&gt;&lt;/p&gt;
+
+    &lt;p&gt;When the web server is started
+    at application start time the properties should be fetched from a
+    configuration file that could consist of a regular erlang property
+    list, e.i.  &lt;code&gt;[{Option, Value}] &lt;/code&gt; where &lt;code&gt; Option = property()
+    &lt;/code&gt; and &lt;code&gt;Value = term()&lt;/code&gt;, followed by a full stop, or for
+    backwards compatibility an Apache like configuration file. If the
+    web server is started dynamically at runtime you may still specify
+    a file but you could also just specify the complete property
+    list.&lt;/p&gt;
+    
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_proplist_file&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{proplist_file, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;If this property is defined inets will expect to find
+	all other properties defined in this file. Note that the
+	file must include all properties listed under mandatory
+	properties. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_file&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{file, path()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;If this property is defined inets will expect to find all 
+	other properties defined in this file, that uses Apache like 
+	syntax. Note that the file must include all properties listed 
+	under mandatory properties. The Apache like syntax is the property, 
+	written as one word where each new word begins with a capital, 
+	followed by a white-space followed by the value followed by a 
+	new line. Ex: &lt;/p&gt;
+
+	&lt;code&gt;
+{server_root, &quot;/urs/local/www&quot;} -&amp;gt; ServerRoot /usr/local/www
+	&lt;/code&gt;
+	  
+	&lt;p&gt;With a few exceptions, that are documented
+	  for each property that behaves differently,
+	  and the special case {directory, {path(), PropertyList}} and
+	  {security_directory, {Dir, PropertyList}} that are represented
+	  as:&lt;/p&gt;
+	&lt;pre class=&quot;sh_erlang&quot;&gt;
+	  
+&amp;lt;Directory Dir&amp;gt;
+ &amp;lt;Properties handled as described above&amp;gt; 
+&amp;lt;/Directory&amp;gt;
+         
+	&lt;/pre&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;The properties proplist_file and file are mutually exclusive.&lt;/p&gt;
+    &lt;/div&gt;
+
+    &lt;span id=&quot;props_mand&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Mandatory properties&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_port&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{port, integer()} &lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;The port that the HTTP server shall listen on.
+	If zero is specified as port, an arbitrary available port
+	will be picked and you can use the httpd:info/2 function to find
+	out which port was picked. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_server_name&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{server_name, string()} &lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;The name of your server, normally a fully qualified domain name. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_server_root&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{server_root, path()} &lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;Defines the servers home directory where log files etc can
+	be stored. Relative paths specified in other properties refer
+	to this directory. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_doc_root&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{document_root, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	Defines the top directory for the documents that
+	are available on the HTTP server.
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_comm&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Communication properties&lt;/em&gt; &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_bind_address&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{bind_address, ip_address() | hostname() | any} &lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defaults to &lt;code&gt;any&lt;/code&gt;. Note that &lt;code&gt;any&lt;/code&gt; is denoted &lt;em&gt;*&lt;/em&gt; 
+	in the apache like configuration file. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_socket_type&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{socket_type, ip_comm | {essl, Config::proplist()}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt; For ssl configuration options see &lt;a href=&quot;../ssl/ssl.html#listen-2&quot; class=&quot;seealso&quot;&gt;ssl:listen/2&lt;/a&gt; &lt;/p&gt;
+	&lt;p&gt;Defaults to &lt;code&gt;ip_comm&lt;/code&gt;. &lt;/p&gt; 
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_ipfamily&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{ipfamily, inet | inet6 | inet6fb4}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defaults to &lt;code&gt;inet6fb4. &lt;/code&gt; &lt;/p&gt;
+        &lt;p&gt;Note that this option is only used when the option 
+	&lt;code&gt;socket_type&lt;/code&gt; has the value &lt;code&gt;ip_comm&lt;/code&gt;. &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;span id=&quot;prop_minimum_bytes_per_second&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{minimum_bytes_per_second, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;If given, sets a minimum bytes per second value for connections.&lt;/p&gt;
+	&lt;p&gt;If the value is not reached, the socket will close for that connection.&lt;/p&gt;
+	&lt;p&gt;The option is good for reducing the risk of &quot;slow dos&quot; attacks.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_api_modules&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Erlang Web server API modules&lt;/em&gt; &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_modules&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{modules, [atom()]} &lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines which modules the HTTP server will use to handle
+	requests. Defaults to: &lt;code&gt;[mod_alias, mod_auth, mod_esi,
+	mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log,
+	mod_disk_log] &lt;/code&gt; 
+	Note that some mod-modules are dependent on
+	others, so the order can not be entirely arbitrary. See the
+	&lt;a href=&quot;http_server.html&quot; class=&quot;seealso&quot;&gt; Inets Web server Modules in the
+	Users guide&lt;/a&gt; for more information. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+    
+    &lt;span id=&quot;props_limit&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Limit properties&lt;/em&gt; &lt;/p&gt;
+    &lt;taglist&gt;  
+      &lt;span id=&quot;prop_disable_chunked_encoding&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{disable_chunked_transfer_encoding_send, boolean()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;This property allows you to disable chunked
+	transfer-encoding when sending a response to a HTTP/1.1
+	client, by default this is false. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_keep_alive&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{keep_alive, boolean()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Instructs the server whether or not to use persistent
+	connections when the client claims to be HTTP/1.1
+	compliant, default is true. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_keep_alive_timeout&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{keep_alive_timeout, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;The number of seconds the server will wait for a
+	subsequent request from the client before closing the
+	connection. Default is 150. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_max_body_size&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_body_size, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Limits the size of the message body of HTTP request.
+	By the default there is no limit. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_max_clients&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_clients, integer()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;Limits the number of simultaneous requests that can be
+	supported. Defaults to 150. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_max_header_size&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_header_size, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Limits the size of the message header of HTTP request.
+	Defaults to 10240. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_max_uri&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_uri_size, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Limits the size of the HTTP request URI. By
+	default there is no limit. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_max_keep_alive_req&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_keep_alive_request, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;The number of request that a client can do on one
+	connection. When the server has responded to the number of
+	requests defined by max_keep_alive_requests the server close the
+	connection. The server will close it even if there are queued
+	request. Defaults to no limit. &lt;/p&gt;
+      &lt;/item&gt;   
+    &lt;/taglist&gt;
+    
+    &lt;span id=&quot;props_admin&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Administrative properties&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt; 
+      &lt;span id=&quot;prop_mime_types&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{mime_types, [{MimeType, Extension}] | path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where MimeType = string() and Extension = string().
+	  Files delivered to the client are MIME typed according to RFC
+          1590. File suffixes are mapped to MIME types before file delivery.
+          The mapping between file suffixes and MIME types can be specified
+	  as an Apache like file as well as directly in the property list. Such
+          a file may look like:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+# MIME type	Extension  
+text/html	html htm
+text/plain	asc txt
+        &lt;/pre&gt;
+	
+	&lt;p&gt;Defaults to  [{&quot;html&quot;,&quot;text/html&quot;},{&quot;htm&quot;,&quot;text/html&quot;}]&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_mime_type&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{mime_type, string()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;When the server is asked to provide a document type which
+	cannot be determined by the MIME Type Settings, the server will
+	use this default type. &lt;/p&gt;
+      &lt;/item&gt;
+  
+      &lt;span id=&quot;prop_server_admin&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{server_admin, string()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;ServerAdmin defines the email-address of the server
+	administrator, to be included in any error messages returned by
+	the server. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_server_tokens&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{server_tokens, prod|major|minor|minimal|os|full|{private, string()}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;ServerTokens defines how the value of the server header 
+	should look. &lt;/p&gt;
+	&lt;p&gt;Example: Assuming the version of inets is 5.8.1, 
+	here is what the server header string could look like for
+	the different values of server-tokens:  &lt;/p&gt;
+	&lt;pre class=&quot;sh_erlang&quot;&gt;
+prod                  &quot;inets&quot;
+major                 &quot;inets/5&quot;
+minor                 &quot;inets/5.8&quot;
+minimal               &quot;inets/5.8.1&quot;
+os                    &quot;inets/5.8.1 (unix)&quot;
+full                  &quot;inets/5.8.1 (unix/linux) OTP/R15B&quot;
+{private, &quot;foo/bar&quot;}  &quot;foo/bar&quot;
+	&lt;/pre&gt;
+	&lt;p&gt;By default, the value is as before, which is &lt;code&gt;minimal&lt;/code&gt;. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_log_format&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{log_format, common | combined}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines if access logs should be written according to the common
+	log format or to the extended common log format.
+	The &lt;code&gt;common&lt;/code&gt; format is one line that looks like this:
+        &lt;code&gt;remotehost rfc931 authuser [date] &quot;request&quot; status bytes&lt;/code&gt;&lt;/p&gt; 
+
+	&lt;pre class=&quot;sh_erlang&quot;&gt;
+remotehost
+	Remote
+rfc931
+	The client&#039;s remote username (RFC 931). 
+authuser
+	The username with which the user authenticated 
+        himself. 
+[date]
+	Date and time of the request (RFC 1123). 
+&quot;request&quot;
+	The request line exactly as it came from the client
+        (RFC 1945). 
+status
+	The HTTP status code returned to the client 
+        (RFC 1945). 
+bytes
+	The content-length of the document transferred. 
+        &lt;/pre&gt;
+
+	&lt;p&gt;The &lt;code&gt;combined&lt;/code&gt; format is on line that look like this:
+	&lt;code&gt;remotehost rfc931 authuser [date] &quot;request&quot; status bytes &quot;referer&quot; &quot;user_agent&quot; &lt;/code&gt;&lt;/p&gt;
+	
+	&lt;pre class=&quot;sh_erlang&quot;&gt;
+&quot;referer&quot;
+	The url the client was on before
+	requesting your url. (If it could not be determined 
+	a minus sign will be placed in this field)
+&quot;user_agent&quot;
+	The software the client claims to be using. (If it
+	could not be determined a minus sign will be placed in
+	this field)
+	&lt;/pre&gt;
+	
+	&lt;p&gt;This affects the access logs written by mod_log and mod_disk_log.
+	&lt;/p&gt;
+	
+      &lt;/item&gt;      
+
+      &lt;span id=&quot;prop_elog_format&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{error_log_format, pretty | compact}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defaults to pretty.  If the error log is meant to be read
+	directly by a human &lt;code&gt;pretty&lt;/code&gt; will be the best
+	option. &lt;code&gt;pretty&lt;/code&gt; has the format corresponding to:
+	&lt;/p&gt;
+	
+	&lt;code&gt;io:format(&quot;[~s] ~s, reason: ~n ~p ~n~n&quot;, [Date, Msg, Reason]).
+	&lt;/code&gt;
+
+	&lt;p&gt;&lt;code&gt;compact&lt;/code&gt; has the format corresponding to:&lt;/p&gt;
+	
+	&lt;code&gt;io:format(&quot;[~s] ~s, reason: ~w ~n&quot;, [Date, Msg, Reason]).
+	&lt;/code&gt;
+
+	&lt;p&gt;This affects the error logs written by mod_log and mod_disk_log.
+	&lt;/p&gt;
+      &lt;/item&gt;
+      
+    &lt;/taglist&gt;
+   
+    &lt;span id=&quot;props_alias&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;URL aliasing properties - requires mod_alias&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_alias&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{alias, {Alias, RealName}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where Alias = string() and RealName = string(). 
+	The Alias property allows documents to be stored in the local file
+	system instead of the document_root location. URLs with a path that
+	begins with url-path is mapped to local files that begins with
+	directory-filename, for example:
+	
+	&lt;code&gt;{alias, {&quot;/image&quot;, &quot;/ftp/pub/image&quot;}}&lt;/code&gt;
+	
+	and an access to http://your.server.org/image/foo.gif would refer to
+	the file /ftp/pub/image/foo.gif. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_re_write&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{re_write, {Re, Replacement}}&lt;/dt&gt;      
+      &lt;item&gt;
+	&lt;p&gt;Where Re = string() and Replacement = string(). 
+	The ReWrite property allows documents to be stored in the local file
+	system instead of the document_root location. URLs are rewritten
+        by re:replace/3 to produce a path in the local filesystem.
+        For example:
+	
+	&lt;code&gt;{re_write, {&quot;^/[~]([^/]+)(.*)$&quot;, &quot;/home/\\1/public\\2&quot;}}&lt;/code&gt;
+	
+	and an access to http://your.server.org/~bob/foo.gif would refer to
+	the file /home/bob/public/foo.gif.
+
+        In an Apache like configuration file the Re is separated
+        from Replacement with one single space, and as expected
+        backslashes do not need to be backslash escaped so the
+        same example would become:
+
+        &lt;code&gt;ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2&lt;/code&gt;
+
+        Beware of trailing space in Replacement that will be used.
+        If you must have a space in Re use e.g the character encoding
+        &lt;code&gt;\040&lt;/code&gt; see &lt;a href=&quot;../stdlib/re.html&quot; class=&quot;seealso&quot;&gt;re(3)&lt;/a&gt;. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_dir_idx&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{directory_index, [string()]}&lt;/dt&gt;      
+      &lt;item&gt; 
+	&lt;p&gt;DirectoryIndex specifies a list of resources to look for
+	if a client requests a directory using a / at the end of the
+	directory name. file depicts the name of a file in the
+	directory. Several files may be given, in which case the server
+	will return the first it finds, for example:
+	
+	&lt;code&gt;{directory_index, [&quot;index.hml&quot;, &quot;welcome.html&quot;]}&lt;/code&gt;
+	
+	and access to http://your.server.org/docs/ would return
+	http://your.server.org/docs/index.html or
+	http://your.server.org/docs/welcome.html if index.html do not
+	exist. &lt;/p&gt;
+      &lt;/item&gt; 
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_cgi&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;CGI properties - requires mod_cgi&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt; 
+      &lt;span id=&quot;prop_script_alias&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{script_alias, {Alias, RealName}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where Alias = string() and RealName = string().
+	Has the same behavior as the Alias property, except that
+	it also marks the target directory as containing CGI
+	scripts. URLs with a path beginning with url-path are mapped to
+	scripts beginning with directory-filename, for example:
+	
+	&lt;code&gt;{script_alias, {&quot;/cgi-bin/&quot;, &quot;/web/cgi-bin/&quot;}}&lt;/code&gt;
+	
+	and an access to http://your.server.org/cgi-bin/foo would cause
+	the server to run the script /web/cgi-bin/foo. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_script_re_write&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{script_re_write, {Re, Replacement}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where Re = string() and Replacement = string().
+	Has the same behavior as the ReWrite property, except that
+	it also marks the target directory as containing CGI
+	scripts. URLs with a path beginning with url-path are mapped to
+	scripts beginning with directory-filename, for example:
+	
+	&lt;code&gt;{script_re_write, {&quot;^/cgi-bin/(\\d+)/&quot;, &quot;/web/\\1/cgi-bin/&quot;}}&lt;/code&gt;
+	
+	and an access to http://your.server.org/cgi-bin/17/foo would cause
+	the server to run the script /web/17/cgi-bin/foo. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_script_nocache&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{script_nocache, boolean()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;If ScriptNoCache is set to true the HTTP server will by
+	default add the header fields necessary to prevent proxies from
+	caching the page. Generally this is something you want. Defaults
+	to false. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_script_timeout&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{script_timeout, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;The time in seconds the web server will wait between each
+	chunk of data from the script. If the CGI-script not delivers
+	any data before the timeout the connection to the client will be
+	closed. Defaults to 15. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_action&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{action, {MimeType, CgiScript}} - requires mod_action&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where MimeType = string() and CgiScript = string().
+	Action adds an action, which will activate a cgi-script
+	whenever a file of a certain mime-type is requested. It
+	propagates the URL and file path of the requested document using
+	the standard CGI PATH_INFO and PATH_TRANSLATED environment
+	variables.
+
+	&lt;code&gt;{action, {&quot;text/plain&quot;, &quot;/cgi-bin/log_and_deliver_text&quot;}}&lt;/code&gt;
+	&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_script&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{script, {Method, CgiScript}} - requires mod_action&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where Method = string() and CgiScript = string().
+	Script adds an action, which will activate a cgi-script
+	whenever a file is requested using a certain HTTP method. The
+	method is either GET or POST as defined in RFC 1945. It
+	propagates the URL and file path of the requested document using
+	the standard CGI PATH_INFO and PATH_TRANSLATED environment
+	variables.
+	
+	&lt;code&gt;{script, {&quot;PUT&quot;, &quot;/cgi-bin/put&quot;}}&lt;/code&gt;
+	&lt;/p&gt;
+	
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+    
+    &lt;span id=&quot;props_esi&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;ESI properties - requires mod_esi&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_esi_alias&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{erl_script_alias, {URLPath, [AllowedModule]}}&lt;/dt&gt;      
+      &lt;item&gt;
+	&lt;p&gt;Where URLPath = string() and AllowedModule = atom().
+	erl_script_alias marks all URLs matching url-path as erl
+	scheme scripts. A matching URL is mapped into a specific module
+	and function. For example:
+	
+	&lt;code&gt;{erl_script_alias, {&quot;/cgi-bin/example&quot;, [httpd_example]}}
+	&lt;/code&gt;
+	
+	and a request to
+	http://your.server.org/cgi-bin/example/httpd_example:yahoo
+	would refer to httpd_example:yahoo/3 or, if that did not exist,
+	httpd_example:yahoo/2 and
+	http://your.server.org/cgi-bin/example/other:yahoo would
+	not be allowed to execute. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_esi_nocache&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{erl_script_nocache, boolean()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;If erl_script_nocache is set to true the server will add
+	http header fields that prevents proxies from caching the
+	page. This is generally a good idea for dynamic content, since
+	the content often vary between each request. 
+	Defaults to false. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_esi_timeout&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{erl_script_timeout, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;If erl_script_timeout sets the time in seconds the server will
+	wait between each chunk of data to be delivered through
+	mod_esi:deliver/2. Defaults to 15. This is only relevant
+	for scripts that uses the erl scheme. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_esi_timeout&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{eval_script_alias, {URLPath, [AllowedModule]}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where URLPath = string() and AllowedModule = atom().
+	Same as erl_script_alias but for scripts
+	using the eval scheme. Note that this is only supported
+	for backwards compatibility. The eval scheme is deprecated. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_log&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Log properties - requires mod_log&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_elog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{error_log, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines the filename of the error log file to be used to log
+	server errors. If the filename does not begin with a slash (/)
+	it is assumed to be relative to the server_root. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_slog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{security_log, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines the filename of the access log file to be used to
+	log security events. If the filename does not begin with a slash
+	(/) it is assumed to be relative to the server_root. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_tlog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{transfer_log, path()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;Defines the filename of the access log file to be used to
+	log incoming requests. If the filename does not begin with a
+	slash (/) it is assumed to be relative to the server_root. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_dlog&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Disk Log properties - requires mod_disk_log&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_dlog_format&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{disk_log_format, internal | external}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines the file-format of the log files see disk_log for
+	more information. If the internal file-format is used, the
+	logfile will be repaired after a crash. When a log file is
+	repaired data might get lost. When the external file-format is
+	used httpd will not start if the log file is broken. Defaults to
+	external. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_edlog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{error_disk_log, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines the filename of the (disk_log(3)) error log file
+	to be used to log server errors. If the filename does not begin
+	with a slash (/) it is assumed to be relative to the server_root. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_edlog_size&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{error_disk_log_size, {MaxBytes, MaxFiles}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where MaxBytes = integer() and MaxFiles = integer().
+	Defines the properties of the (disk_log(3)) error log
+	file. The disk_log(3) error log file is of type wrap log and
+	max-bytes will be written to each file and max-files will be
+	used before the first file is truncated and reused. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_sdlog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{security_disk_log, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines the filename of the (disk_log(3)) access log file
+	which logs incoming security events i.e authenticated
+	requests. If the filename does not begin with a slash (/) it
+	is assumed to be relative to the server_root. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_sdlog_size&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{security_disk_log_size, {MaxBytes, MaxFiles}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where MaxBytes = integer() and MaxFiles = integer(). 
+	Defines the properties of the disk_log(3) access log
+	file. The disk_log(3) access log file is of type wrap log and
+	max-bytes will be written to each file and max-files will be
+	used before the first file is truncated and reused. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_tdlog&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{transfer_disk_log, path()}&lt;/dt&gt; 
+      &lt;item&gt;
+	&lt;p&gt;Defines the filename of the (disk_log(3)) access log file
+	which logs incoming requests. If the filename does not begin
+	with a slash (/) it is assumed to be relative to the
+	server_root. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_tdlog_size&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{transfer_disk_log_size, {MaxBytes, MaxFiles}}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Where MaxBytes = integer() and MaxFiles = integer().  
+	Defines the properties of the disk_log(3) access log
+	file. The disk_log(3) access log file is of type wrap log and
+	max-bytes will be written to each file and max-files will be
+	used before the first file is truncated and reused. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_auth&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Authentication properties - requires mod_auth&lt;/em&gt;&lt;/p&gt;
+
+    &lt;span id=&quot;prop_dri&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;{directory, {path(), [{property(), term()}]}}&lt;/em&gt;&lt;/p&gt;
+
+    &lt;span id=&quot;props_dir&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;Here follows the valid properties for directories &lt;/p&gt;
+    
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_allow_from&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{allow_from,  all | [RegxpHostString]}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines a set of hosts which should be granted access to a
+	given directory.
+	
+	For example:
+	
+	&lt;code&gt;{allow_from, [&quot;123.34.56.11&quot;, &quot;150.100.23&quot;]}&lt;/code&gt;
+          
+	The host 123.34.56.11 and all machines on the 150.100.23
+	subnet are allowed access. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_deny_from&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{deny_from,  all | [RegxpHostString]}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines a set of hosts
+	which should be denied access to a given directory.
+	For example:
+	
+	&lt;code&gt;{deny_from, [&quot;123.34.56.11&quot;, &quot;150.100.23&quot;]}&lt;/code&gt;
+          
+	The host 123.34.56.11 and all machines on the 150.100.23
+	subnet are not allowed access. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_auth_type&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_type,  plain | dets | mnesia}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Sets the type of authentication database that is used for the
+	directory.The key difference between the different methods is
+	that dynamic data can be saved when Mnesia and Dets is used.
+	This property is called AuthDbType in the Apache like
+	configuration files. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_auth_user_file&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_user_file, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Sets the name of a file which contains the list of users and
+	passwords for user authentication. filename can be either
+	absolute or relative to the &lt;code&gt;server_root&lt;/code&gt;. If using the
+	plain storage method, this file is a plain text file, where
+	each line contains a user name followed by a colon, followed
+	by the non-encrypted password. If user names are duplicated,
+	the behavior is undefined. For example:
+	
+	&lt;code&gt; ragnar:s7Xxv7
+ edward:wwjau8 &lt;/code&gt; 
+
+	If using the dets storage method, the user database is
+	maintained by dets and should not be edited by hand. Use the
+	API functions in mod_auth module to create / edit the user
+	database.  This directive is ignored if using the mnesia
+	storage method.  For security reasons, make sure that the
+	&lt;code&gt;auth_user_file&lt;/code&gt; is stored outside the document tree of the Web
+	server. If it is placed in the directory which it protects,
+	clients will be able to download it. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_auth_group_file&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_group_file, path()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Sets the name of a file which contains the list of user
+	groups for user authentication. Filename can be either
+	absolute or relative to the &lt;code&gt;server_root&lt;/code&gt;.  If you use the plain
+	storage method, the group file is a plain text file, where
+	each line contains a group name followed by a colon, followed
+	by the member user names separated by spaces. For example:
+	
+	&lt;code&gt;group1: bob joe ante&lt;/code&gt;
+          
+	If using the dets storage method, the group database is
+	maintained by dets and should not be edited by hand. Use the
+	API for mod_auth module to create / edit the group database.
+	This directive is ignored if using the mnesia storage method.
+	For security reasons, make sure that the &lt;code&gt;auth_group_file&lt;/code&gt; is
+	stored outside the document tree of the Web server. If it is
+	placed in the directory which it protects, clients will be
+	able to download it. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_auth_name&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_name, string()}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;Sets the name of the authorization realm (auth-domain) for
+	a directory. This string informs the client about which user
+	name and password to use. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_auth_access_passwd&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_access_password, string()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;If set to other than &quot;NoPassword&quot; the password is required
+	for all API calls. If the password is set to &quot;DummyPassword&quot; the
+	password must be changed before any other API calls. To secure
+	the authenticating data the password must be changed after the
+	web server is started since it otherwise is written in clear
+	text in the configuration file. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_req_user&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{require_user, [string()]}&lt;/dt&gt;
+      &lt;item&gt; 
+	&lt;p&gt;Defines users which should be granted access to a given
+	directory using a secret password. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;span id=&quot;prop_req_grp&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{require_group, [string()]}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Defines users which should be granted access to a given
+	directory using a secret password. &lt;/p&gt;
+      &lt;/item&gt;
+      
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_htaccess&quot;&gt; &lt;/span&gt; 
+    &lt;p&gt;&lt;em&gt;Htaccess authentication properties - requires mod_htaccess&lt;/em&gt;&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_access_files&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{access_files, [path()]}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Specify which filenames that are used for
+	access-files. When a request comes every directory in the path
+	to the requested asset will be searched after files with the
+	names specified by this parameter. If such a file is found the
+	file will be parsed and the restrictions specified in it will
+	be applied to the request. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;props_sec&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;Security properties - requires mod_security &lt;/em&gt;&lt;/p&gt;
+ 
+    &lt;span id=&quot;prop_sec_dir&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;&lt;em&gt;{security_directory, {path(), [{property(), term()}]}}&lt;/em&gt;&lt;/p&gt;
+       
+    &lt;span id=&quot;props_sdir&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;Here follows the valid properties for security directories&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;span id=&quot;prop_data_file&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{data_file, path()}&lt;/dt&gt;      
+      &lt;item&gt;
+	&lt;p&gt;Name of the security data file.  The filename can either
+	absolute or relative to the server_root. This file is used to
+	store persistent data for the mod_security module. &lt;/p&gt;
+      &lt;/item&gt;
+	  
+      &lt;span id=&quot;prop_max_retries&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{max_retries, integer()}&lt;/dt&gt;	  
+      &lt;item&gt;
+	&lt;p&gt;Specifies the maximum number of tries to authenticate a
+	user has before the user is blocked out. If a user
+	successfully authenticates when the user has been blocked, the
+	user will receive a 403 (Forbidden) response from the
+	server. If the user makes a failed attempt while blocked the
+	server will return 401 (Unauthorized), for security
+	reasons. 
+	Defaults to 3 may also be set to infinity. &lt;/p&gt;
+      &lt;/item&gt;
+	
+      &lt;span id=&quot;prop_block_time&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{block_time, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Specifies the number of minutes a user is blocked. After
+	this amount of time, he automatically regains access.
+	Defaults to 60. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_fail_exp_time&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{fail_expire_time, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	&lt;p&gt;Specifies the number of minutes a failed user authentication
+	is remembered. If a user authenticates after this amount of
+	time, his previous failed authentications are
+	forgotten. 
+	Defaults to 30. &lt;/p&gt;
+      &lt;/item&gt;
+      
+      &lt;span id=&quot;prop_auth_timeout&quot;&gt; &lt;/span&gt;
+      &lt;dt&gt;{auth_timeout, integer()}&lt;/dt&gt;
+      &lt;item&gt;
+	Specifies the number of seconds a successful user
+	authentication is remembered. After this time has passed, the
+	authentication will no longer be reported. Defaults to 30.
+      &lt;/item&gt;
+    &lt;/taglist&gt;    
+  &lt;/div&gt;
+
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;info1&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;info/1&quot;&gt;info(Pid) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;info/2&quot;&gt;info(Pid, Properties) -&amp;gt; [{Option, Value}]&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Properties = [property()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Option =  property()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Fetches information about the HTTP server. When called
+	with only the pid all properties are fetched, when called
+	with a list of specific properties they are fetched.
+	Available properties are the same as the servers start options. 
+	&lt;/p&gt;
+	
+	&lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;Pid is the pid returned from inets:start/[2,3]. 
+	    Can also be retrieved form inets:services/0, inets:services_info/0
+	    see &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt;
+	  &lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;info2&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;info/2-1&quot;&gt;info(Address, Port) -&amp;gt;  &lt;/h3&gt;
+      &lt;h3 id=&quot;info/3&quot;&gt;info(Address, Port, Properties) -&amp;gt; [{Option, Value}] &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Address = ip_address()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Port = integer()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Properties = [property()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = property()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Fetches information about the HTTP server. When called with
+	only the Address and Port all properties are fetched, when
+	called with a list of specific properties they are fetched.
+	Available properties are the same as the servers start
+	options.
+	&lt;/p&gt;
+
+	&lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt; Address has to be the ip-address and can not be
+	    the hostname.
+	  &lt;/p&gt;&lt;/div&gt;	
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;reload_config&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;reload_config/2&quot;&gt;reload_config(Config, Mode) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Config = path() | [{Option, Value}]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Option = property()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Mode = non_disturbing | disturbing&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;Reloads the HTTP server configuration without restarting the
+	  server. Incoming requests will be answered with a temporary
+	  down message during the time the it takes to reload.&lt;/p&gt;
+	
+	&lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;Available properties are the same as the servers
+	    start options, although the properties bind_address and
+	    port can not be changed.&lt;/p&gt;&lt;/div&gt;
+	
+	&lt;p&gt;If mode is disturbing, the server is blocked forcefully and
+	  all ongoing requests are terminated and the reload will
+	  start immediately. If mode is non-disturbing, no new
+	  connections are accepted, but the ongoing requests are
+	  allowed to complete before the reload is done.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERLANG WEB SERVER API DATA TYPES &lt;/h4&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+      ModData = #mod{}
+
+      -record(mod, {
+		data = [],
+		socket_type = ip_comm,
+		socket, 
+		config_db,
+		method,
+		absolute_uri,
+		request_uri,
+		http_version,
+		request_line,
+		parsed_header = [],
+		entity_body,
+		connection
+	}).
+    &lt;/pre&gt;
+
+    &lt;p&gt;To acess the record in your callback-module use &lt;/p&gt;
+    &lt;code&gt; -include_lib(&quot;inets/include/httpd.hrl&quot;). &lt;/code&gt;
+
+    &lt;p&gt;The fields of the &lt;code&gt;mod&lt;/code&gt; record has the following meaning:
+      &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;data&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Type &lt;code&gt;[{InteractionKey,InteractionValue}]&lt;/code&gt; is used to
+       propagate data between modules. Depicted
+      &lt;code&gt;interaction_data()&lt;/code&gt; in function type declarations.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;socket_type&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;&lt;code&gt;socket_type()&lt;/code&gt;,
+       Indicates whether it is an ip  socket or a  ssl socket.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;socket&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The actual socket in &lt;code&gt;ip_comm&lt;/code&gt; or &lt;code&gt;ssl&lt;/code&gt; format
+       depending on the &lt;code&gt;socket_type&lt;/code&gt;.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;config_db&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The config file directives stored as key-value tuples in
+       an ETS-table. Depicted &lt;code&gt;config_db()&lt;/code&gt; in function type
+       declarations.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;method&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Type &lt;code&gt;&quot;GET&quot; | &quot;POST&quot; | &quot;HEAD&quot; | &quot;TRACE&quot;&lt;/code&gt;, that is the
+       HTTP method.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;absolute_uri&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;If the request is a HTTP/1.1
+       request the URI might be in the absolute URI format.  In that
+       case httpd will save the absolute URI in this field.  An Example
+       of an absolute URI could
+       be&lt;code&gt;&quot;http://ServerName:Part/cgi-bin/find.pl?person=jocke&quot;&lt;/code&gt;&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;request_uri&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The &lt;code&gt;Request-URI&lt;/code&gt; as defined
+       in RFC 1945, for example &lt;code&gt;&quot;/cgi-bin/find.pl?person=jocke&quot;&lt;/code&gt;&lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;http_version&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The &lt;code&gt;HTTP&lt;/code&gt; version of the
+       request, that is &quot;HTTP/0.9&quot;, &quot;HTTP/1.0&quot;, or &quot;HTTP/1.1&quot;.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;request_line&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The &lt;code&gt;Request-Line&lt;/code&gt; as
+       defined in RFC 1945, for example &lt;code&gt;&quot;GET /cgi-bin/find.pl?person=jocke HTTP/1.0&quot;&lt;/code&gt;.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;parsed_header&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;Type &lt;code&gt;[{HeaderKey,HeaderValue}]&lt;/code&gt;,
+      &lt;code&gt;parsed_header&lt;/code&gt; contains all HTTP header fields from the
+      HTTP-request stored in a list as key-value tuples. See RFC 2616
+      for a listing of all header fields. For example the date field
+      would be stored as: &lt;code&gt;{&quot;date&quot;,&quot;Wed, 15 Oct 1997 14:35:17 GMT&quot;} &lt;/code&gt;.
+      RFC 2616 defines that HTTP is a case insensitive protocol and
+      the header fields may be in lower case or upper case. Httpd will
+      ensure that all header field names are in lower case.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;entity_body&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;The &lt;code&gt;Entity-Body&lt;/code&gt; as defined
+       in RFC 2616, for example data sent from a CGI-script using the
+       POST method.
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;connection&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;&lt;code&gt;true | false&lt;/code&gt; If set to true the connection to the
+       client is a persistent connection and will not be closed when
+       the request is served.&lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERLANG WEB SERVER API CALLBACK FUNCTIONS&lt;/h4&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;module_do&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;do/1&quot;&gt;Module:do(ModData)-&amp;gt; {proceed, OldData} | {proceed, NewData} | {break, NewData} | done&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;OldData = list()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NewData = [{response,{StatusCode,Body}}] | [{response,{response,Head,Body}}] |  [{response,{already_sent,Statuscode,Size}}] &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;StausCode = integer()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Body = io_list() | nobody | {Fun, Arg}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Head = [HeaderOption]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;HeaderOption = {Option, Value} | {code, StatusCode}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option =  accept_ranges | allow | cache_control | content_MD5 | content_encoding | content_language | content_length | content_location | content_range | content_type | date | etag | expires | last_modified | location | pragma | retry_after | server | trailer | transfer_encoding&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Fun = fun( Arg ) -&amp;gt; sent| close | Body &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Arg = [term()]&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;When a valid request reaches httpd it calls &lt;code&gt;do/1&lt;/code&gt; in
+          each module defined by the Modules configuration
+          option. The function may generate data for other modules
+          or a response that can be sent back to the client.&lt;/p&gt;
+        &lt;p&gt;The field &lt;code&gt;data&lt;/code&gt; in ModData is a list. This list will be
+          the list returned from the last call to
+          &lt;code&gt;do/1&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;Body&lt;/code&gt; is the body of the http-response that will be
+          sent back to the client an appropriate header will be
+          appended to the message. &lt;code&gt;StatusCode&lt;/code&gt; will be the
+          status code of the response see RFC2616 for the appropriate
+          values.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;Head&lt;/code&gt; is a key value list of HTTP header fields. The
+          server will construct a HTTP header from this data. See RFC
+          2616 for the appropriate value for each header field. If the
+          client is a HTTP/1.0 client then the server will filter the
+          list so that only HTTP/1.0 header fields will be sent back
+          to the client.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;Body&lt;/code&gt; is returned and equal to &lt;code&gt;{Fun,Arg}&lt;/code&gt;,
+          the Web server will try &lt;code&gt;apply/2&lt;/code&gt; on &lt;code&gt;Fun&lt;/code&gt; with
+          &lt;code&gt;Arg&lt;/code&gt; as argument and expect that the fun either
+          returns a list &lt;code&gt;(Body)&lt;/code&gt; that is a HTTP-repsonse or the
+          atom sent if the HTTP-response is sent back to the
+          client. If close is returned from the fun something has gone
+          wrong and the server will signal this to the client by
+          closing the connection.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;module_load&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;load/2&quot;&gt;Module:load(Line, AccIn)-&amp;gt; eof | ok | {ok, AccOut} |  {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}  &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Line = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;AccIn = [{Option, Value}]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;AccOut = [{Option, Value}]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = property()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;Load is used to convert a line in a Apache like
+	  configuration file to a &lt;code&gt;{Option, Value}&lt;/code&gt; tuple.  Some
+	  more complex configuration options such as &lt;code&gt;directory&lt;/code&gt;
+	  and &lt;code&gt;security_directory&lt;/code&gt; will create an
+	  accumulator.This function does only need clauses for the
+	  options implemented by this particular callback module.
+	&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;module_store&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;store/3&quot;&gt;Module:store({Option, Value}, Config)-&amp;gt; {ok, {Option, NewValue}} | {error, Reason}  &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Line = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = property()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Config = [{Option, Value}]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;This function is used to check the validity of the
+	  configuration options before saving them in the internal
+	  database. This function may also have a side effect
+	  e.i. setup necessary extra resources implied by the
+	  configuration option. It can also
+	  resolve possible dependencies among
+	  configuration options by changing the value of the option.
+	  This function does only need clauses for the options
+	  implemented by this particular callback module.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;module_remove&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;remove/1&quot;&gt;Module:remove(ConfigDB) -&amp;gt; ok | {error, Reason}  &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;ConfigDB = ets_table()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;When httpd is shutdown it will try to execute
+          &lt;code&gt;remove/1&lt;/code&gt; in each Erlang web server callback module. The
+          programmer may use this function to clean up resources
+          that may have been created in the store function.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERLANG WEB SERVER API HELP FUNCTIONS&lt;/h4&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;span id=&quot;parse_query&quot;&gt; &lt;/span&gt;
+      &lt;h3 id=&quot;parse_query/1&quot;&gt;parse_query(QueryString) -&amp;gt;  [{Key,Value}]&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;QueryString = string()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Key = string()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Value = string()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;&lt;code&gt;parse_query/1&lt;/code&gt; parses incoming data to &lt;code&gt;erl&lt;/code&gt; and
+          &lt;code&gt;eval&lt;/code&gt; scripts (See &lt;a href=&quot;mod_esi.html&quot; class=&quot;seealso&quot;&gt;mod_esi(3)&lt;/a&gt;) as defined in the standard
+          URL format, that is &#039;+&#039; becomes &#039;space&#039; and decoding of
+          hexadecimal characters (&lt;code&gt;%xx&lt;/code&gt;).&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SEE ALSO&lt;/h4&gt;
+    &lt;p&gt;RFC 2616, &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt;,
+      &lt;a href=&quot;../ssl/ssl.html&quot; class=&quot;seealso&quot;&gt;ssl(3)&lt;/a&gt;
+    &lt;/p&gt;
+  &lt;/div&gt;
+
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#info/1&quot;&gt;info/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/2&quot;&gt;info/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/2-1&quot;&gt;info/2-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/3&quot;&gt;info/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reload_config/2&quot;&gt;reload_config/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#do/1&quot;&gt;do/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#load/2&quot;&gt;load/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#store/3&quot;&gt;store/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#remove/1&quot;&gt;remove/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#parse_query/1&quot;&gt;parse_query/1&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

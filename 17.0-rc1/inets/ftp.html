@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ftp (inets) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;ftp&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;A File Transfer Protocol client&lt;/h2&gt;
+
+  &lt;div class=&quot;description&quot;&gt;
+
+    &lt;p&gt;The &lt;code&gt;ftp&lt;/code&gt; module implements a client for file transfer
+      according to a subset of the File Transfer Protocol (see RFC959). &lt;/p&gt;
+
+    &lt;p&gt;Starting from inets version 4.4.1 the ftp
+      client will always try to use passive ftp mode and only resort
+      to active ftp mode if this fails. There is a start option 
+      &lt;a href=&quot;#mode&quot; class=&quot;seealso&quot;&gt;mode&lt;/a&gt; where this default behavior 
+      may be changed. &lt;/p&gt;
+
+    &lt;span id=&quot;two_start&quot;&gt; &lt;/span&gt;
+
+    &lt;p&gt;There are two ways to start an ftp client. One is using the 
+      &lt;a href=&quot;#service_start&quot; class=&quot;seealso&quot;&gt;Inets service framework&lt;/a&gt;
+      and the other is to start it directy as a standalone process 
+      using the &lt;a href=&quot;#open&quot; class=&quot;seealso&quot;&gt;open&lt;/a&gt; function. &lt;/p&gt;
+
+    &lt;p&gt;For a simple example of an ftp session see 
+      &lt;a href=&quot;ftp_client.html&quot; class=&quot;seealso&quot;&gt;Inets User&#039;s Guide.&lt;/a&gt;&lt;/p&gt;
+
+    &lt;p&gt;In addition to the ordinary functions for receiving and sending
+      files (see &lt;code&gt;recv/2&lt;/code&gt;, &lt;code&gt;recv/3&lt;/code&gt;, &lt;code&gt;send/2&lt;/code&gt; and
+      &lt;code&gt;send/3&lt;/code&gt;) there are functions for receiving remote files as
+      binaries (see &lt;code&gt;recv_bin/2&lt;/code&gt;) and for sending binaries to to be
+      stored as remote files (see &lt;code&gt;send_bin/3&lt;/code&gt;).&lt;/p&gt;
+
+    &lt;p&gt;There is also a set of functions for sending and receiving
+      contiguous parts of a file to be stored in a remote file (for send
+      see &lt;code&gt;send_chunk_start/2&lt;/code&gt;, &lt;code&gt;send_chunk/2&lt;/code&gt; and
+      &lt;code&gt;send_chunk_end/1&lt;/code&gt; and for receive see
+      &lt;code&gt;recv_chunk_start/2&lt;/code&gt; and &lt;code&gt;recv_chunk/&lt;/code&gt;).&lt;/p&gt;
+
+    &lt;p&gt;The particular return values of the functions below depend very
+      much on the implementation of the FTP server at the remote
+      host. In particular the results from &lt;code&gt;ls&lt;/code&gt; and &lt;code&gt;nlist&lt;/code&gt;
+      varies. Often real errors are not reported as errors by &lt;code&gt;ls&lt;/code&gt;,
+      even if for instance a file or directory does not
+      exist. &lt;code&gt;nlist&lt;/code&gt; is usually more strict, but some
+      implementations have the peculiar behaviour of responding with an
+      error, if the request is a listing of the contents of directory
+      which exists but is empty.&lt;/p&gt;
+
+    &lt;span id=&quot;service_start&quot;&gt; &lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;FTP CLIENT SERVICE START/STOP &lt;/h4&gt;
+    
+    &lt;p&gt;The FTP client can be started and stopped dynamically in runtime by
+      calling the Inets application API 
+      &lt;code&gt;inets:start(ftpc, ServiceConfig)&lt;/code&gt;,
+      or &lt;code&gt;inets:start(ftpc, ServiceConfig, How)&lt;/code&gt;, and
+      &lt;code&gt;inets:stop(ftpc, Pid)&lt;/code&gt;. 
+      See &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt; for more info. &lt;/p&gt;
+    &lt;p&gt;Below follows a description of
+      the available configuration options.&lt;/p&gt;
+    
+    &lt;taglist&gt;
+      &lt;dt&gt;{host, Host}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;host&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Host = &lt;code&gt;string() | ip_address()&lt;/code&gt; &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{port, Port}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;port&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Port = &lt;code&gt;integer() &amp;gt; 0&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Default is 21.&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{mode, Mode}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;mode&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Mode = &lt;code&gt;active | passive&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Default is &lt;code&gt;passive&lt;/code&gt;. &lt;/p&gt; 
+      &lt;/item&gt;
+
+      &lt;dt&gt;{verbose, Verbose}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;verbose&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Verbose = &lt;code&gt;boolean()&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;This determines if the FTP communication should be
+	  verbose or not. &lt;/p&gt;
+	&lt;p&gt;Default is &lt;code&gt;false&lt;/code&gt;. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{debug, Debug}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;debug&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Debug = &lt;code&gt;trace | debug | disable&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Debugging using the dbg toolkit. &lt;/p&gt;
+	&lt;p&gt;Default is &lt;code&gt;disable&lt;/code&gt;. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{ipfamily, IpFamily}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;ipfamily&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;IpFamily = &lt;code&gt;inet | inet6 | inet6fb4&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;With &lt;code&gt;inet6fb4&lt;/code&gt; the client behaves as before 
+	  (it tries to use IPv6 and only if that does not work, it 
+          uses IPv4). &lt;/p&gt;
+	&lt;p&gt;Default is &lt;code&gt;inet&lt;/code&gt; (IPv4). &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{timeout, Timeout}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;timeout&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Timeout = &lt;code&gt;non_neg_integer()&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Connection timeout. &lt;/p&gt;
+	&lt;p&gt;Default is 60000 (milliseconds). &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{dtimeout, DTimeout}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;dtimeout&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;DTimeout = &lt;code&gt;non_neg_integer() | infinity&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Data Connect timeout. 
+	The time the client will wait for the server to connect to the 
+	data socket. &lt;/p&gt;
+	&lt;p&gt;Default is infinity. &lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;{progress, Progress}&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;span id=&quot;progress&quot;&gt; &lt;/span&gt;
+	&lt;p&gt;Progress = &lt;code&gt;ignore | {CBModule, CBFunction, InitProgress}&lt;/code&gt;&lt;/p&gt;
+	&lt;p&gt;CBModule = &lt;code&gt;atom()&lt;/code&gt;, CBFunction = &lt;code&gt;atom()&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;InitProgress = &lt;code&gt;term()&lt;/code&gt; &lt;/p&gt;
+	&lt;p&gt;Default is &lt;code&gt;ignore&lt;/code&gt;. &lt;/p&gt;
+      &lt;/item&gt;  
+
+    &lt;/taglist&gt;
+  
+    &lt;p&gt;The progress option is intended to be used by applications that
+      want to create some type of progress report such as a progress bar in
+      a GUI.  The default value for the progress option is ignore
+      e.i. the option is not used.  When the progress option is
+      specified the following will happen when ftp:send/[3,4] or
+      ftp:recv/[3,4] are called.&lt;/p&gt;
+    
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;
+	&lt;p&gt;Before a file is transfered the following call will
+	  be made to indicate the start of the file transfer and how big
+	  the file is. The return value of the callback function
+	  should be a new value for the UserProgressTerm that will
+	  bu used as input next time the callback function is
+	  called.&lt;/p&gt;
+	&lt;br  /&gt;
+	&lt;p&gt;&lt;code&gt;
+	  CBModule:CBFunction(InitProgress, File, {file_size, FileSize})
+	&lt;/code&gt;&lt;/p&gt;
+	&lt;br  /&gt;
+      &lt;/item&gt;
+      
+      &lt;item&gt;
+	&lt;p&gt;Every time a chunk of bytes is transfered the
+	  following call will be made:&lt;/p&gt;
+	&lt;br  /&gt;
+	&lt;p&gt;&lt;code&gt;
+	    CBModule:CBFunction(UserProgressTerm, File, {transfer_size, TransferSize})             &lt;/code&gt;&lt;/p&gt;
+	&lt;br  /&gt;
+      &lt;/item&gt;
+
+      &lt;item&gt;
+	&lt;p&gt;At the end of the file the following call will be
+	  made to indicate the end of the transfer.&lt;/p&gt;
+	&lt;br  /&gt;
+	&lt;p&gt;&lt;code&gt;
+	    CBModule:CBFunction(UserProgressTerm, File, {transfer_size, 0})             &lt;/code&gt;&lt;/p&gt;
+	&lt;br  /&gt;
+      &lt;/item&gt;
+    &lt;/list&gt;
+    
+    &lt;p&gt;The callback function should be defined as &lt;/p&gt;
+
+    &lt;p&gt;&lt;code&gt;
+	CBModule:CBFunction(UserProgressTerm, File, Size) -&amp;gt; UserProgressTerm        &lt;/code&gt;&lt;/p&gt;
+    
+    &lt;p&gt;&lt;code&gt;
+	CBModule = CBFunction = atom()
+      &lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;code&gt;
+	UserProgressTerm = term()
+      &lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;code&gt;
+	File = string()
+      &lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;code&gt;
+	Size = {transfer_size, integer()} | {file_size, integer()} | {file_size, unknown}        &lt;/code&gt;&lt;/p&gt;
+    
+    &lt;p&gt;Alas for remote files it is not possible for ftp to determine the
+      file size in a platform independent way. In this case the size
+      will be &lt;code&gt;unknown&lt;/code&gt; and it is left to the application to find
+      out the size. &lt;/p&gt;
+    
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;The callback is made by a middleman process, hence the
+	file transfer will not be affected by the code in the progress
+	callback function. If the callback should crash this will be
+	detected by the ftp connection process that will print an
+	info-report and then go one as if the progress option was set
+	to ignore. &lt;/p&gt;
+    &lt;/div&gt;
+    
+    &lt;p&gt;The file transfer type is set to the default of the FTP server
+      when the session is opened. This is usually ASCCI-mode.
+    &lt;/p&gt;
+    
+    &lt;p&gt;The current local working directory (cf. &lt;code&gt;lpwd/1&lt;/code&gt;) is set to
+      the value reported by &lt;code&gt;file:get_cwd/1&lt;/code&gt;. the wanted
+      local directory.
+    &lt;/p&gt;
+    
+    &lt;p&gt;The return value &lt;code&gt;Pid&lt;/code&gt; is used as a reference to the
+      newly created ftp client in all other functions, and they should
+      be called by the process that created the connection. The ftp
+      client process monitors the process that created it and
+      will terminate if that process terminates.&lt;/p&gt;   
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;COMMON DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;Here follows type definitions that are used by more than one
+      function in the FTP client API. &lt;/p&gt;
+    &lt;p&gt;&lt;code&gt; pid() - identifier of an ftp connection.&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt; string() = list of ASCII characters.&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt; shortage_reason() = etnospc | epnospc&lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt; restriction_reason() = epath | efnamena | elogin | enotbinary
+      - note not all restrictions may always relevant to all functions
+    &lt;/code&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;common_reason() = econn | eclosed | term() - some kind of
+      explanation of what went wrong.&lt;/code&gt;&lt;/p&gt;
+
+    &lt;span id=&quot;account&quot;&gt; &lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;account/2&quot;&gt;account(Pid, Account) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Account = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = eacct | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;If an account is needed for an operation set the account
+          with this operation.&lt;/p&gt;
+
+       &lt;span id=&quot;append&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;append2&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;append3&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;append/2&quot;&gt;append(Pid, LocalFile) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;append/3&quot;&gt;append(Pid, LocalFile, RemoteFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;LocalFile = RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = epath | elogin | etnospc | epnospc | efnamena | common_reason&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfers the file &lt;code&gt;LocalFile&lt;/code&gt; to the remote server. If 
+          &lt;code&gt;RemoteFile&lt;/code&gt; is specified, the name of the remote file that the
+          file will be appended to is set to &lt;code&gt;RemoteFile&lt;/code&gt;; otherwise 
+          the name is set to &lt;code&gt;LocalFile&lt;/code&gt; If the file does not exists the
+          file will be created.&lt;/p&gt;
+
+       &lt;span id=&quot;append_bin&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;append_bin/3&quot;&gt;append_bin(Pid, Bin, RemoteFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason =  restriction_reason()| shortage_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfers the binary &lt;code&gt;Bin&lt;/code&gt; to the remote server and append 
+          it to the file &lt;code&gt;RemoteFile&lt;/code&gt;. If the file does not exists it 
+          will be created.&lt;/p&gt;
+
+       &lt;span id=&quot;append_chunk&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;append_chunk/2&quot;&gt;append_chunk(Pid, Bin) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = echunk | restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfer the chunk &lt;code&gt;Bin&lt;/code&gt; to the remote server, which 
+          append it into the file specified in the call to 
+          &lt;code&gt;append_chunk_start/2&lt;/code&gt;. &lt;/p&gt;
+        &lt;p&gt;Note that for some errors, e.g. file system full, it is 
+          necessary to to call &lt;code&gt;append_chunk_end&lt;/code&gt; to get the 
+          proper reason.&lt;/p&gt;
+
+       &lt;span id=&quot;append_chunk_start&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;append_chunk_start/2&quot;&gt;append_chunk_start(Pid, File) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Start the transfer of chunks for appending to the file 
+          &lt;code&gt;File&lt;/code&gt; at the remote server. If the file does not exists 
+          it will be created.&lt;/p&gt;
+
+       &lt;span id=&quot;append_chunk_end&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;append_chunk_end/1&quot;&gt;append_chunk_end(Pid) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = echunk | restriction_reason() | shortage_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Stops transfer of chunks for appending to the remote server. 
+          The file at the remote server, specified in the call to 
+          &lt;code&gt;append_chunk_start/2&lt;/code&gt; is closed by the server.&lt;/p&gt;
+
+       &lt;span id=&quot;cd&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;cd/2&quot;&gt;cd(Pid, Dir) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Dir = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Changes the working directory at the remote server to 
+          &lt;code&gt;Dir&lt;/code&gt;.&lt;/p&gt;
+
+       &lt;span id=&quot;close&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;close/1&quot;&gt;close(Pid) -&amp;gt; ok&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;Ends an ftp session, created using the 
+          &lt;a href=&quot;#open&quot; class=&quot;seealso&quot;&gt;open&lt;/a&gt; function. &lt;/p&gt;
+
+       &lt;span id=&quot;delete&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;delete/2&quot;&gt;delete(Pid, File) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Deletes the file &lt;code&gt;File&lt;/code&gt; at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;append&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;formaterror/1&quot;&gt;formaterror(Tag) -&amp;gt; string()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Tag = {error, atom()} | atom()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Given an error return value &lt;code&gt;{error, AtomReason}&lt;/code&gt;,
+          this function returns a readable string describing the error.&lt;/p&gt;
+
+       &lt;span id=&quot;lcd&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;lcd/2&quot;&gt;lcd(Pid, Dir) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Dir = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Changes the working directory to &lt;code&gt;Dir&lt;/code&gt; for the local client. &lt;/p&gt;
+
+       &lt;span id=&quot;lpwd&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;lpwd/1&quot;&gt;lpwd(Pid) -&amp;gt; {ok, Dir}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the current working directory at the local client.&lt;/p&gt;
+
+       &lt;span id=&quot;ls&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;ls1&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;ls2&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;ls/1&quot;&gt;ls(Pid) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;ls/2&quot;&gt;ls(Pid, Pathname) -&amp;gt; {ok, Listing} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Pathname = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Listing = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list of files in long format. &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;Pathname&lt;/code&gt; can be a directory, a group of files or 
+          even a file. The &lt;code&gt;Pathname&lt;/code&gt; string can contain wildcard(s). &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;ls/1&lt;/code&gt; implies the user&#039;s current remote directory. &lt;/p&gt;
+        &lt;p&gt;The format of &lt;code&gt;Listing&lt;/code&gt; is operating system dependent 
+          (on UNIX it is typically produced from the output of the 
+          &lt;code&gt;ls -l&lt;/code&gt; shell command).&lt;/p&gt;
+
+       &lt;span id=&quot;mkdir&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;mkdir/2&quot;&gt;mkdir(Pid, Dir) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Dir = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Creates the directory &lt;code&gt;Dir&lt;/code&gt; at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;nlist&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;nlist1&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;nlist2&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;nlist/1&quot;&gt;nlist(Pid) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;nlist/2&quot;&gt;nlist(Pid, Pathname) -&amp;gt; {ok, Listing} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Pathname = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Listing = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list of files in short format. &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;Pathname&lt;/code&gt; can be a directory, a group of files or 
+          even a file. The &lt;code&gt;Pathname&lt;/code&gt; string can contain wildcard(s). &lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;nlist/1&lt;/code&gt; implies the user&#039;s current remote directory. &lt;/p&gt;
+        &lt;p&gt;The format of &lt;code&gt;Listing&lt;/code&gt; is a stream of
+          file names, where each name is separated by &amp;lt;CRLF&amp;gt; or
+          &amp;lt;NL&amp;gt;. Contrary to the &lt;code&gt;ls&lt;/code&gt; function, the purpose of
+          &lt;code&gt;nlist&lt;/code&gt; is to make it possible for a program to
+          automatically process file name information.&lt;/p&gt;
+
+       &lt;span id=&quot;open&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;open/1&quot;&gt;open(Host) -&amp;gt; {ok, Pid} | {error, Reason}&lt;/h3&gt;
+      &lt;h3 id=&quot;open/2&quot;&gt;open(Host, Opts) -&amp;gt; {ok, Pid} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Host = string() | ip_address()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Opts = options()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;options() = [option()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;option() = start_option() | open_option()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;start_option() = {verbose, verbose()} | {debug, debug()}&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;verbose() = boolean() (defaults to false)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;debug() = disable | debug | trace (defaults to disable)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {tls, tls_options()} | {timeout, timeout()} | {dtimeout, dtimeout()} | {progress, progress()}&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;port() = integer() &amp;gt; 0 (defaults to 21)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;mode() = active | passive (defaults to passive)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;tls_options() = [&lt;a href=&quot;../ssl/ssl.html#type-ssloption&quot; class=&quot;seealso&quot;&gt;ssl:ssloption()&lt;/a&gt;]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;timeout() = integer() &amp;gt; 0 (defaults to 60000 milliseconds)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;dtimeout() = integer() &amp;gt; 0 | infinity (defaults to infinity)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;pogress() = ignore | {module(), function(), initial_data()} (defaults to ignore)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;module() = atom()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;function() = atom()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;initial_data() = term()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Reason = ehost | term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;This function is used to start a standalone ftp client process 
+          (without the inets service framework) and 
+          open a session with the FTP server at &lt;code&gt;Host&lt;/code&gt;. &lt;/p&gt;
+
+	&lt;p&gt;If the option &lt;code&gt;{tls, tls_options()}&lt;/code&gt; is present, the ftp session will be transported over tls (ftps, see 
+&lt;url href=&quot;http://www.ietf.org/rfc/rfc4217.txt&quot;&gt;RFC 4217&lt;/url&gt;). The list &lt;code&gt;tls_options()&lt;/code&gt; may be empty. The function &lt;a href=&quot;../ssl/ssl.html#connect/3&quot; class=&quot;seealso&quot;&gt;&lt;code&gt;ssl:connect/3&lt;/code&gt;&lt;/a&gt; is used for securing both the control connection and the data sessions.
+	&lt;/p&gt;
+
+        &lt;p&gt;A session opened in this way, is closed using the 
+          &lt;a href=&quot;#close&quot; class=&quot;seealso&quot;&gt;close&lt;/a&gt; function. &lt;/p&gt;
+
+       &lt;span id=&quot;pwd&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;pwd/1&quot;&gt;pwd(Pid) -&amp;gt; {ok, Dir} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;Returns the current working directory at the remote server. &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;pwd/1-1&quot;&gt;pwd(Pid) -&amp;gt; {ok, Dir} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the current working directory at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;recv&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;recv2&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;recv3&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;recv/2&quot;&gt;recv(Pid, RemoteFile) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;recv/3&quot;&gt;recv(Pid, RemoteFile, LocalFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RemoteFile = LocalFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() | file_write_error_reason() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;file_write_error_reason() = see file:write/2&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfer the file &lt;code&gt;RemoteFile&lt;/code&gt; from the remote server
+          to the the file system of the local client. If
+          &lt;code&gt;LocalFile&lt;/code&gt; is specified, the local file will be
+          &lt;code&gt;LocalFile&lt;/code&gt;; otherwise it will be
+          &lt;code&gt;RemoteFile&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;If the file write fails
+          (e.g. enospc), then the command is aborted and &lt;code&gt;{error, file_write_error_reason()}&lt;/code&gt; is returned. The file is
+          however &lt;em&gt;not&lt;/em&gt; removed.&lt;/p&gt;
+
+       &lt;span id=&quot;recv_bin&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;recv_bin/2&quot;&gt;recv_bin(Pid, RemoteFile) -&amp;gt; {ok, Bin} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfers the file &lt;code&gt;RemoteFile&lt;/code&gt; from the remote server and 
+          receives it as a binary.&lt;/p&gt;
+
+       &lt;span id=&quot;recv_chunk_start&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;recv_chunk_start/2&quot;&gt;recv_chunk_start(Pid, RemoteFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Start transfer of the file &lt;code&gt;RemoteFile&lt;/code&gt; from the
+          remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;recv_chunk&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;recv_chunk/1&quot;&gt;recv_chunk(Pid) -&amp;gt; ok | {ok, Bin} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Receive a chunk of the remote file (&lt;code&gt;RemoteFile&lt;/code&gt; of 
+          &lt;code&gt;recv_chunk_start&lt;/code&gt;). The return values has the following 
+          meaning:&lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;&lt;code&gt;ok&lt;/code&gt; the transfer is complete.&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;{ok, Bin}&lt;/code&gt; just another chunk of the file.&lt;/item&gt;
+          &lt;item&gt;&lt;code&gt;{error, Reason}&lt;/code&gt; transfer failed.&lt;/item&gt;
+        &lt;/list&gt;
+
+       &lt;span id=&quot;rename&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;rename/3&quot;&gt;rename(Pid, Old, New) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;CurrFile = NewFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Renames &lt;code&gt;Old&lt;/code&gt; to &lt;code&gt;New&lt;/code&gt; at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;rmdir&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;rmdir/2&quot;&gt;rmdir(Pid, Dir) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Dir = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Removes directory &lt;code&gt;Dir&lt;/code&gt; at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;send&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;send2&quot;&gt; &lt;/span&gt;
+       &lt;span id=&quot;send3&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;send/2&quot;&gt;send(Pid, LocalFile) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;send/3&quot;&gt;send(Pid, LocalFile, RemoteFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;LocalFile = RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() | shortage_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfers the file &lt;code&gt;LocalFile&lt;/code&gt; to the remote server. If 
+          &lt;code&gt;RemoteFile&lt;/code&gt; is specified, the name of the remote file is set
+          to &lt;code&gt;RemoteFile&lt;/code&gt;; otherwise the name is set to &lt;code&gt;LocalFile&lt;/code&gt;.&lt;/p&gt;
+
+       &lt;span id=&quot;send_bin&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;send_bin/3&quot;&gt;send_bin(Pid, Bin, RemoteFile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RemoteFile = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() | shortage_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfers the binary &lt;code&gt;Bin&lt;/code&gt; into the file &lt;code&gt;RemoteFile&lt;/code&gt; 
+          at the remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;send_chunk&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;send_chunk/2&quot;&gt;send_chunk(Pid, Bin) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Bin = binary()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = echunk | restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Transfer the chunk &lt;code&gt;Bin&lt;/code&gt; to the remote server, which 
+          writes it into the file specified in the call to 
+          &lt;code&gt;send_chunk_start/2&lt;/code&gt;. &lt;/p&gt;
+        &lt;p&gt;Note that for some errors, e.g. file system full, it is 
+          necessary to to call &lt;code&gt;send_chunk_end&lt;/code&gt; to get the 
+          proper reason.&lt;/p&gt;
+
+       &lt;span id=&quot;send_chunk_start&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;send_chunk_start/2&quot;&gt;send_chunk_start(Pid, File) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;File = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Start transfer of chunks into the file &lt;code&gt;File&lt;/code&gt; at the 
+          remote server.&lt;/p&gt;
+
+       &lt;span id=&quot;send_chunk_end&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;send_chunk_end/1&quot;&gt;send_chunk_end(Pid) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = restriction_reason() | common_reason() | shortage_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Stops transfer of chunks to the remote server. The file at the
+          remote server, specified in the call to &lt;code&gt;send_chunk_start/2&lt;/code&gt; 
+          is closed by the server.&lt;/p&gt;
+
+       &lt;span id=&quot;type&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;type/2&quot;&gt;type(Pid, Type) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Type = ascii | binary&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = etype | restriction_reason() | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the file transfer type to &lt;code&gt;ascii&lt;/code&gt; or &lt;code&gt;binary&lt;/code&gt;. When
+          an ftp session is opened, the default transfer type of the
+          server is used, most often &lt;code&gt;ascii&lt;/code&gt;, which is the default
+          according to &lt;url href=&quot;http://www.ietf.org/rfc/rfc959.txt&quot;&gt;RFC 959&lt;/url&gt;.&lt;/p&gt;
+       &lt;span id=&quot;user3&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;user/3&quot;&gt;user(Pid, User, Password) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;User = Password = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = euser | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Performs login of &lt;code&gt;User&lt;/code&gt; with &lt;code&gt;Password&lt;/code&gt;.&lt;/p&gt;
+
+       &lt;span id=&quot;user4&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;user/4&quot;&gt;user(Pid, User, Password, Account) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;User = Password = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = euser | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Performs login of &lt;code&gt;User&lt;/code&gt; with &lt;code&gt;Password&lt;/code&gt; to the account 
+          specified by &lt;code&gt;Account&lt;/code&gt;.&lt;/p&gt;
+
+       &lt;span id=&quot;quote&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;quote/2&quot;&gt;quote(Pid, Command) -&amp;gt; [FTPLine]&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Command = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;FTPLine = string() - Note the telnet end of line characters, from the ftp protocol definition, CRLF e.g. &quot;\\r\\n&quot; has been removed.&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sends an arbitrary FTP command and returns verbatimly a list
+          of the lines sent back by the FTP server. This functions is
+          intended to give an application accesses to FTP commands
+          that are server specific or that may not be provided by
+          this FTP client. &lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;FTP commands that require a data connection can not be
+            successfully issued with this function. &lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERRORS&lt;/h4&gt;
+    &lt;p&gt;The possible error reasons and the corresponding diagnostic strings 
+      returned by &lt;code&gt;formaterror/1&lt;/code&gt; are as follows:
+      &lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;echunk&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Synchronisation error during chunk sending. 
+          &lt;/p&gt;
+        &lt;p&gt;A call has been made to &lt;code&gt;send_chunk/2&lt;/code&gt; or
+          &lt;code&gt;send_chunk_end/1&lt;/code&gt;, before a call to
+          &lt;code&gt;send_chunk_start/2&lt;/code&gt;; or a call has been made to another
+          transfer function during chunk sending, i.e. before a call
+          to &lt;code&gt;send_chunk_end/1&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;eclosed&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;The session has been closed.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;econn&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Connection to remote server prematurely closed.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;ehost&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Host not found, FTP server not found, or connection rejected
+          by FTP server.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;elogin&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;User not logged in.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;enotbinary&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Term is not a binary.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;epath&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;No such file or directory, or directory already exists, or
+          permission denied.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;etype&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;No such type.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;euser&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;User name or password not valid.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;etnospc&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Insufficient storage space in system [452].&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;epnospc&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Exceeded storage allocation (for current directory or
+          dataset) [552].&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;efnamena&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;File name not allowed [553].&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SEE ALSO&lt;/h4&gt;
+    &lt;p&gt;file, filename, J. Postel and J. Reynolds: File Transfer Protocol
+      (&lt;url href=&quot;http://www.ietf.org/rfc/rfc959.txt&quot;&gt;RFC 959&lt;/url&gt;).
+      &lt;/p&gt;
+  &lt;/div&gt;
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#account/2&quot;&gt;account/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append/2&quot;&gt;append/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append/3&quot;&gt;append/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append_bin/3&quot;&gt;append_bin/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append_chunk/2&quot;&gt;append_chunk/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append_chunk_start/2&quot;&gt;append_chunk_start/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#append_chunk_end/1&quot;&gt;append_chunk_end/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cd/2&quot;&gt;cd/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#close/1&quot;&gt;close/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#delete/2&quot;&gt;delete/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#formaterror/1&quot;&gt;formaterror/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#lcd/2&quot;&gt;lcd/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#lpwd/1&quot;&gt;lpwd/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#ls/1&quot;&gt;ls/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#ls/2&quot;&gt;ls/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#mkdir/2&quot;&gt;mkdir/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#nlist/1&quot;&gt;nlist/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#nlist/2&quot;&gt;nlist/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open/1&quot;&gt;open/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open/2&quot;&gt;open/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#pwd/1&quot;&gt;pwd/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#pwd/1-1&quot;&gt;pwd/1-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#recv/2&quot;&gt;recv/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#recv/3&quot;&gt;recv/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#recv_bin/2&quot;&gt;recv_bin/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#recv_chunk_start/2&quot;&gt;recv_chunk_start/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#recv_chunk/1&quot;&gt;recv_chunk/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#rename/3&quot;&gt;rename/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#rmdir/2&quot;&gt;rmdir/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send/2&quot;&gt;send/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send/3&quot;&gt;send/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send_bin/3&quot;&gt;send_bin/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send_chunk/2&quot;&gt;send_chunk/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send_chunk_start/2&quot;&gt;send_chunk_start/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send_chunk_end/1&quot;&gt;send_chunk_end/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#type/2&quot;&gt;type/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#user/3&quot;&gt;user/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#user/4&quot;&gt;user/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#quote/2&quot;&gt;quote/2&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>os_sup (os_mon) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;os_sup&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Interface to OS System Messages&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;&lt;code&gt;os_sup&lt;/code&gt; is a process providing a message passing service
+      from the operating system to the error logger in the Erlang
+      runtime system. It is part of the OS_Mon application, see
+      &lt;a href=&quot;os_mon_app.html&quot; class=&quot;seealso&quot;&gt;os_mon(6)&lt;/a&gt;. Available for
+      Solaris and Windows.&lt;/p&gt;
+    &lt;p&gt;Messages received from the operating system results in an
+      user defined callback function being called. This function can do
+      whatever filtering and formatting is necessary and then deploy any
+      type of logging suitable for the user&#039;s application.&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Solaris Operation&lt;/h4&gt;
+    &lt;p&gt;The Solaris (SunOS 5.x) messages are retrieved from
+      the syslog-daemon, &lt;code&gt;syslogd&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;Enabling the service includes actions which require root
+      privileges, such as change of ownership and file privileges of an
+      executable binary file, and creating a modified copy of
+      the configuration file for &lt;code&gt;syslogd&lt;/code&gt;. When &lt;code&gt;os_sup&lt;/code&gt; is
+      terminated, the service must be disabled, meaning the original
+      configuration must be restored. Enabling/disabling can be done
+      either outside or inside &lt;code&gt;os_sup&lt;/code&gt;, see
+      &lt;a href=&quot;#config&quot; class=&quot;seealso&quot;&gt;Configuration&lt;/a&gt; below.&lt;/p&gt;
+    &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;
+      &lt;p&gt;This process cannot run in multiple instances on the same
+        hardware. OS_Mon must be configured to start &lt;code&gt;os_sup&lt;/code&gt; on
+        one node only if two or more Erlang nodes execute on the same
+        machine.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;The format of received events is not defined.&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Windows Operation&lt;/h4&gt;
+    &lt;p&gt;The Windows messages are retrieved from the eventlog file.&lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;nteventlog&lt;/code&gt; module is used to implement &lt;code&gt;os_sup&lt;/code&gt;.
+      See &lt;a href=&quot;nteventlog.html&quot; class=&quot;seealso&quot;&gt;nteventlog(3)&lt;/a&gt;. Note
+      that the start functions of &lt;code&gt;nteventlog&lt;/code&gt; does not need to be
+      used, in this case the process is started automatically as part of
+      the OS_Mon supervision tree.&lt;/p&gt;
+    &lt;p&gt;OS messages are formatted as a tuple
+      &lt;code&gt;{Time, Category, Facility, Severity, Message}&lt;/code&gt;:&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;Time = {MegaSecs, Secs, MicroSecs}&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;A time stamp as returned by the BIF &lt;code&gt;now()&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;Category = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Usually one of &lt;code&gt;&quot;System&quot;&lt;/code&gt;, &lt;code&gt;&quot;Application&quot;&lt;/code&gt; or
+          &lt;code&gt;&quot;Security&quot;&lt;/code&gt;. Note that the NT eventlog viewer has
+          another notion of category, which in most cases is totally
+          meaningless and therefore not imported into Erlang. What is
+          called a category here is one of the main three types of
+          events occurring in a normal NT system.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;Facility = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;The source of the message, usually the name of
+          the application that generated it. This could be almost any
+          string. When matching messages from certain applications,
+          the version number of the application may have to be
+          accounted for. This is what the NT event viewer calls
+          &quot;source&quot;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;Severity = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;One of &lt;code&gt;&quot;Error&quot;&lt;/code&gt;, &lt;code&gt;&quot;Warning&quot;&lt;/code&gt;,
+          &lt;code&gt;&quot;Informational&quot;&lt;/code&gt;, &lt;code&gt;&quot;Audit_Success&quot;&lt;/code&gt;,
+          &lt;code&gt;&quot;Audit_Faulure&quot;&lt;/code&gt; or, in case of a currently unknown
+          Windows NT version &lt;code&gt;&quot;Severity_Unknown&quot;&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;Message = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Formatted exactly as it would be in the NT eventlog viewer.
+          Binary data is not imported into Erlang.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;span id=&quot;config&quot;&gt; &lt;/span&gt;
+    &lt;h4&gt;Configuration&lt;/h4&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;os_sup_mfa = {Module, Function, Args}&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;The callback function to use. &lt;code&gt;Module&lt;/code&gt; and
+          &lt;code&gt;Function&lt;/code&gt; are atoms and &lt;code&gt;Args&lt;/code&gt; is a list of terms.
+          When an OS message &lt;code&gt;Msg&lt;/code&gt; is received, this function is
+          called as &lt;code&gt;apply(Module, Function, [Msg | Args])&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Default is &lt;code&gt;{os_sup, error_report, [Tag]}&lt;/code&gt; which will
+          send the event to the error logger using
+          &lt;a href=&quot;../kernel/error_logger.html#error_report/2&quot; class=&quot;seealso&quot;&gt;error_logger:error_report(Tag, Msg)&lt;/a&gt;. &lt;code&gt;Tag&lt;/code&gt; is the value of
+          &lt;code&gt;os_sup_errortag&lt;/code&gt;, see below.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;os_sup_errortag = atom()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;This parameter defines the error report type used when
+          messages are sent to error logger using the default callback
+          function. Default is &lt;code&gt;std_error&lt;/code&gt;, which means the events
+          are handled by the standard event handler.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;os_sup_enable = bool()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Solaris only. Defines if the service should be enabled (and
+          disabled) inside (&lt;code&gt;true&lt;/code&gt;) or outside (&lt;code&gt;false&lt;/code&gt;)
+          &lt;code&gt;os_sup&lt;/code&gt;. For backwards compatibility reasons,
+          the default is &lt;code&gt;true&lt;/code&gt;. The recommended value is
+          &lt;code&gt;false&lt;/code&gt;, as the Erlang emulator should normally not be
+          run with &lt;code&gt;root&lt;/code&gt; privileges, as is required for enabling
+          the service.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;os_sup_own = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Solaris only. Defines the directory which contains
+          the backup copy and the Erlang specific configuration files
+          for &lt;code&gt;syslogd&lt;/code&gt;, and a named pipe to receive the messages
+          from &lt;code&gt;syslogd&lt;/code&gt;. Default is &lt;code&gt;&quot;/etc&quot;&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;os_sup_syslogconf = string()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Solaris only. Defines the full name of the configuration file
+          for &lt;code&gt;syslogd&lt;/code&gt;. Default is &lt;code&gt;&quot;/etc/syslog.conf&quot;&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;enable/0&quot;&gt;enable() -&amp;gt; ok | {error, Res}&lt;/h3&gt;
+      &lt;h3 id=&quot;enable/2&quot;&gt;enable(Dir, Conf) -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Dir = Conf = Res = string()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Enables the &lt;code&gt;os_sup&lt;/code&gt; service. Needed on Solaris only.&lt;/p&gt;
+        &lt;p&gt;If the configuration parameter &lt;code&gt;os_sup_enable&lt;/code&gt; is
+          &lt;code&gt;false&lt;/code&gt;, this function is called automatically by
+          &lt;code&gt;os_sup&lt;/code&gt;, using the values of &lt;code&gt;os_sup_own&lt;/code&gt; and
+          &lt;code&gt;os_sup_syslogconf&lt;/code&gt; as arguments.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;os_sup_enable&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt;, this function must
+          be called &lt;em&gt;before&lt;/em&gt; OS_Mon/&lt;code&gt;os_sup&lt;/code&gt; is started.
+          &lt;code&gt;Dir&lt;/code&gt; defines the directory which contains the backup
+          copy and the Erlang specific configuration files for
+          &lt;code&gt;syslogd&lt;/code&gt;, and a named pipe to receive the messages
+          from &lt;code&gt;syslogd&lt;/code&gt;. Defaults to &lt;code&gt;&quot;/etc&quot;&lt;/code&gt;. &lt;code&gt;Conf&lt;/code&gt;
+          defines the full name of the configuration file for
+          &lt;code&gt;syslogd&lt;/code&gt;. Default is &lt;code&gt;&quot;/etc/syslog.conf&quot;&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Results in a OS call to:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+&amp;lt;PRIVDIR&amp;gt;/bin/mod_syslog otp Dir Conf
+        &lt;/pre&gt;
+        &lt;p&gt;where &lt;code&gt;&amp;lt;PRIVDIR&amp;gt;&lt;/code&gt; is the &lt;code&gt;priv&lt;/code&gt; directory of
+          OS_Mon, &lt;code&gt;code:priv_dir(os_mon)&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Returns &lt;code&gt;ok&lt;/code&gt; if this yields the expected result
+          &lt;code&gt;&quot;0&quot;&lt;/code&gt;, and &lt;code&gt;{error, Res}&lt;/code&gt; if it yields anything
+          else.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;This function requires root privileges to succeed.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;disable/0&quot;&gt;disable() -&amp;gt; ok | {error, Res}&lt;/h3&gt;
+      &lt;h3 id=&quot;disable/2&quot;&gt;disable(Dir, Conf) -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Dir = Conf = Res = string()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Disables the &lt;code&gt;os_sup&lt;/code&gt; service. Needed on Solaris only.&lt;/p&gt;
+        &lt;p&gt;If the configuration parameter &lt;code&gt;os_sup_enable&lt;/code&gt; is
+          &lt;code&gt;false&lt;/code&gt;, this function is called automatically by
+          &lt;code&gt;os_sup&lt;/code&gt;, using the same arguments as when
+          &lt;code&gt;enable/2&lt;/code&gt; was called.&lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;os_sup_enable&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt;, this function must
+          be called &lt;em&gt;after&lt;/em&gt; OS_Mon/&lt;code&gt;os_sup&lt;/code&gt; is stopped.
+          &lt;code&gt;Dir&lt;/code&gt; defines the directory which contains the backup
+          copy and the Erlang specific configuration files for
+          &lt;code&gt;syslogd&lt;/code&gt;, and a named pipe to receive the messages
+          from &lt;code&gt;syslogd&lt;/code&gt;. Defaults to &lt;code&gt;&quot;/etc&quot;&lt;/code&gt;. &lt;code&gt;Conf&lt;/code&gt;
+          defines the full name of the configuration file for
+          &lt;code&gt;syslogd&lt;/code&gt;. Default is &lt;code&gt;&quot;/etc/syslog.conf&quot;&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Results in a OS call to:&lt;/p&gt;
+        &lt;pre class=&quot;sh_erlang&quot;&gt;
+&amp;lt;PRIVDIR&amp;gt;/bin/mod_syslog nootp Dir Conf
+        &lt;/pre&gt;
+        &lt;p&gt;where &lt;code&gt;&amp;lt;PRIVDIR&amp;gt;&lt;/code&gt; is the &lt;code&gt;priv&lt;/code&gt; directory of
+          OS_Mon, &lt;code&gt;code:priv_dir(os_mon)&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Returns &lt;code&gt;ok&lt;/code&gt; if this yields the expected result
+          &lt;code&gt;&quot;0&quot;&lt;/code&gt;, and &lt;code&gt;{error, Res}&lt;/code&gt; if it yields anything
+          else.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;This function requires root privileges to succeed.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;See also&lt;/h4&gt;
+    &lt;p&gt;&lt;a href=&quot;../kernel/error_logger.html&quot; class=&quot;seealso&quot;&gt;error_logger(3)&lt;/a&gt;,
+      &lt;a href=&quot;os_mon_app.html&quot; class=&quot;seealso&quot;&gt;os_mon(3)&lt;/a&gt;&lt;/p&gt;
+    &lt;p&gt;&lt;code&gt;syslogd(1M)&lt;/code&gt;, &lt;code&gt;syslog.conf(4)&lt;/code&gt; in the Solaris
+      documentation.&lt;/p&gt;
+    &lt;p  /&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#enable/0&quot;&gt;enable/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#enable/2&quot;&gt;enable/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#disable/0&quot;&gt;disable/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#disable/2&quot;&gt;disable/2&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>erts_alloc_config (runtime_tools) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;erts_alloc_config&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Configuration tool for erts_alloc&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;&lt;code&gt;erts_alloc_config&lt;/code&gt; is currently an experimental
+        tool and might be subject to backward incompatible
+        changes.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;&lt;a href=&quot;../erts/erts_alloc.html&quot; class=&quot;seealso&quot;&gt;erts_alloc(3)&lt;/a&gt; is an
+      Erlang Run-Time System internal memory allocator library.
+      &lt;code&gt;erts_alloc_config&lt;/code&gt; is intended to be used to aid creation
+      of an &lt;a href=&quot;../erts/erts_alloc.html&quot; class=&quot;seealso&quot;&gt;erts_alloc(3)&lt;/a&gt;
+      configuration that is suitable for a limited number of runtime
+      scenarios. The configuration that &lt;code&gt;erts_alloc_config&lt;/code&gt;
+      produce is intended as a suggestion, and may need to be
+      adjusted manually.&lt;/p&gt;
+    &lt;p&gt;The configuration is created based on information about a number
+      of runtime scenarios. It is obviously impossible to foresee every
+      runtime scenario that can occur. The important scenarios are
+      those that cause maximum or minimum load on specific memory
+      allocators. Load in this context is total size of memory blocks
+      allocated.&lt;/p&gt;
+    &lt;p&gt;The current implementation of &lt;code&gt;erts_alloc_config&lt;/code&gt; concentrate
+      on configuration of multi-block carriers. Information gathered
+      when a runtime scenario is saved is mainly current and maximum use
+      of multi-block carriers. If a parameter that change the use of
+      multi-block carriers is changed, a previously generated
+      configuration is invalid and &lt;code&gt;erts_alloc_config&lt;/code&gt; needs
+      to be run again. It is mainly the single block carrier threshold
+      that effects the use of multi-block carriers, but other
+      single-block carrier parameters might as well. If another value of
+      a single block carrier parameter than the default is desired, use
+      the desired value when running &lt;code&gt;erts_alloc_config&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;A configuration is created in the following way:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;
+        &lt;p&gt;Pass the &lt;a href=&quot;../erts/erts_alloc.html#Mea&quot; class=&quot;seealso&quot;&gt;+Mea config&lt;/a&gt;
+	   command-line flag to the Erlang runtime system you are going
+	   to use for creation of the allocator configuration. It will
+	   disable features that prevent &lt;code&gt;erts_alloc_config&lt;/code&gt; from
+	   doing its job. Note, you should &lt;em&gt;not&lt;/em&gt; use this flag
+	   when using the created configuration. Also note that it is
+	   important that you use the same
+	   &lt;a href=&quot;../erts/erl.html#+S&quot; class=&quot;seealso&quot;&gt;amount of schedulers&lt;/a&gt;
+	   when creating the configuration as you are going the use on
+	   the system using the configuration.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;Run your applications with different scenarios (the more
+          the better) and save information about each scenario by calling
+          &lt;a href=&quot;#save_scenario/0&quot; class=&quot;seealso&quot;&gt;save_scenario/0&lt;/a&gt;.
+          It may be hard to know when the applications are at an (for
+          &lt;code&gt;erts_alloc_config&lt;/code&gt;) important runtime scenario. A good
+          approach may therefore be to call
+          &lt;a href=&quot;#save_scenario/0&quot; class=&quot;seealso&quot;&gt;save_scenario/0&lt;/a&gt;
+          repeatedly, e.g. once every tenth second. Note that it is
+          important that your applications reach the runtime scenarios
+          that are important for &lt;code&gt;erts_alloc_config&lt;/code&gt; when you are
+          saving scenarios; otherwise, the configuration may perform
+          bad.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;When you have covered all scenarios, call
+          &lt;a href=&quot;#make_config/1&quot; class=&quot;seealso&quot;&gt;make_config/1&lt;/a&gt;
+          in order to create a configuration. The configuration is
+          written to a file that you have chosen. This configuration
+          file can later be read by an Erlang runtime-system at
+          startup. Pass the command line argument 
+          &lt;a href=&quot;../erts/erl.html#args_file&quot; class=&quot;seealso&quot;&gt;-args_file FileName&lt;/a&gt;
+          to the &lt;a href=&quot;../erts/erl.html&quot; class=&quot;seealso&quot;&gt;erl(1)&lt;/a&gt; command.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;item&gt;
+        &lt;p&gt;The configuration produced by &lt;code&gt;erts_alloc_config&lt;/code&gt; may
+          need to be manually adjusted as already stated. Do not modify the
+          file produced by &lt;code&gt;erts_alloc_config&lt;/code&gt;; instead, put your
+          modifications in another file and load this file after the
+          file produced by &lt;code&gt;erts_alloc_config&lt;/code&gt;. That is, put the
+          &lt;a href=&quot;../erts/erl.html#args_file&quot; class=&quot;seealso&quot;&gt;-args_file FileName&lt;/a&gt;
+          argument that reads your modification file later on the
+          command-line than the 
+          &lt;a href=&quot;../erts/erl.html#args_file&quot; class=&quot;seealso&quot;&gt;-args_file FileName&lt;/a&gt;
+          argument that reads the configuration file produced by
+          &lt;code&gt;erts_alloc_config&lt;/code&gt;. If a memory allocation parameter
+          appear multiple times, the last version of will be used, i.e.,
+          you can override parameters in the configuration file produced
+          by &lt;code&gt;erts_alloc_config&lt;/code&gt;. Doing it this way simplifies
+          things when you want to rerun &lt;code&gt;erts_alloc_config&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/list&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;The configuration created by &lt;code&gt;erts_alloc_config&lt;/code&gt; may
+        perform bad, ever horrible, for runtime scenarios that are very
+        different from the ones saved when creating the
+        configuration. You are, therefore, advised to rerun
+        &lt;code&gt;erts_alloc_config&lt;/code&gt; if the applications run when the
+        configuration was made are changed, or if the load on the
+        applications have changed since the configuration was made. You
+        are also advised to rerun &lt;code&gt;erts_alloc_config&lt;/code&gt; if the Erlang
+        runtime system used is changed.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;&lt;code&gt;erts_alloc_config&lt;/code&gt; saves information about runtime scenarios
+      and performs computations in a server that is automatically
+      started. The server register itself under the name
+      &lt;code&gt;&#039;__erts_alloc_config__&#039;&lt;/code&gt;.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;save_scenario/0&quot;&gt;save_scenario() -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;&lt;code&gt;save_scenario/0&lt;/code&gt; saves information about the current
+          runtime scenario. This information will later be used when
+          &lt;a href=&quot;#make_config/0&quot; class=&quot;seealso&quot;&gt;make_config/0&lt;/a&gt;,
+          or &lt;a href=&quot;#make_config/1&quot; class=&quot;seealso&quot;&gt;make_config/1&lt;/a&gt;
+          is called.&lt;/p&gt;
+        &lt;p&gt;The first time &lt;code&gt;save_scenario/0&lt;/code&gt; is called a server
+          will be started. This server will save runtime scenarios. All
+          saved scenarios can be removed by calling
+          &lt;a href=&quot;#make_config/0&quot; class=&quot;seealso&quot;&gt;stop/0&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;make_config/0&quot;&gt;make_config() -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This is the same as calling
+          &lt;a href=&quot;#make_config/1&quot; class=&quot;seealso&quot;&gt;make_config(group_leader())&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;make_config/1&quot;&gt;make_config(FileNameOrIODev) -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;FileNameOrIODev = string() | io_device()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Error = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;&lt;code&gt;make_config/1&lt;/code&gt; uses the information previously saved by
+          &lt;a href=&quot;#save_scenario/0&quot; class=&quot;seealso&quot;&gt;save_scenario/0&lt;/a&gt;
+          in order to produce an &lt;code&gt;erts_alloc&lt;/code&gt; configuration. At
+          least one scenario have had to be saved. All scenarios
+          previously saved will be used when creating the
+          configuration.  &lt;/p&gt;
+        &lt;p&gt;If &lt;code&gt;FileNameOrIODev&lt;/code&gt; is a &lt;code&gt;string()&lt;/code&gt;,
+          &lt;code&gt;make_config/1&lt;/code&gt; will use &lt;code&gt;FileNameOrIODev&lt;/code&gt; as a
+          filename. A file named &lt;code&gt;FileNameOrIODev&lt;/code&gt; is created and
+          the configuration will be written to that file. If
+          &lt;code&gt;FileNameOrIODev&lt;/code&gt; is an
+          &lt;a href=&quot;../stdlib/io.html&quot; class=&quot;seealso&quot;&gt;io_device()&lt;/a&gt; (see the
+          documentation of the module
+          &lt;a href=&quot;../stdlib/io.html&quot; class=&quot;seealso&quot;&gt;io&lt;/a&gt;), the configuration
+          will be written to the io device.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;stop/0&quot;&gt;stop() -&amp;gt; ok | {error, Error}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Error = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Stops the server that saves runtime scenarios.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;See Also&lt;/h4&gt;
+    &lt;p&gt;&lt;a href=&quot;../erts/erts_alloc.html&quot; class=&quot;seealso&quot;&gt;erts_alloc(3)&lt;/a&gt;,
+      &lt;a href=&quot;../erts/erl.html&quot; class=&quot;seealso&quot;&gt;erl(1)&lt;/a&gt;,
+      &lt;a href=&quot;../stdlib/io.html&quot; class=&quot;seealso&quot;&gt;io(3)&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#save_scenario/0&quot;&gt;save_scenario/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#make_config/0&quot;&gt;make_config/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#make_config/1&quot;&gt;make_config/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#stop/0&quot;&gt;stop/0&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

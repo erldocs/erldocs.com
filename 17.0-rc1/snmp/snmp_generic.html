@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>snmp_generic (snmp) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;snmp_generic&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Generic Functions for Implementing SNMP Objects in a Database&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;span id=&quot;description&quot;&gt; &lt;/span&gt;
+    &lt;p&gt;The module &lt;code&gt;snmp_generic&lt;/code&gt; contains generic functions for 
+    implementing tables (and variables) using the SNMP built-in database 
+    or Mnesia. These default functions are used if no instrumentation 
+    function is provided for a managed object in a MIB. Sometimes, 
+    it might be necessary to customize the behaviour of the default 
+    functions. For example, in some situations a trap should be sent 
+    if a row is deleted or modified, or some hardware is to be informed, 
+    when information is changed. &lt;/p&gt;
+
+    &lt;p&gt;The overall structure is shown in the following figure:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+         +---------------+
+         |   SNMP Agent  |
+         +- - - - - - - -+
+         |      MIB      |
+         +---------------+
+                 |
+         Association file       (associates a MIB object with
+                 |               snmp_generic:table_funct
+                 |               snmp_generic:variable_func)
++--------------------------------------+
+|           snmp_generic               |  Support for get-next,
+|                                      |  RowStatus operations
++----------------------+---------------+
+|    snmpa_local_db    |    Mnesia     |  Database
++--------------+-------+---------------+
+|     dets     |  ets  | 
+| (persistent) |       | 
++--------------+-------+     &lt;/pre&gt;
+    &lt;p&gt;Each function takes the argument &lt;code&gt;NameDb&lt;/code&gt;, which is a
+      tuple &lt;code&gt;{Name, Db}&lt;/code&gt;, to identify which database the
+      functions should use. &lt;code&gt;Name&lt;/code&gt; is the symbolic name of the
+      managed object as defined in the MIB, and &lt;code&gt;Db&lt;/code&gt; is either
+      &lt;code&gt;volatile&lt;/code&gt;, &lt;code&gt;persistent&lt;/code&gt;, or &lt;code&gt;mnesia&lt;/code&gt;. If it is
+      &lt;code&gt;mnesia&lt;/code&gt;, all variables are stored in the Mnesia table
+      &lt;code&gt;snmp_variables&lt;/code&gt; which must be a table with two attributes
+      (not a Mnesia SNMP table). The SNMP tables are stored in Mnesia
+      tables with the same names as the SNMP tables.  All functions
+      assume that a Mnesia table exists with the correct name and
+      attributes. It is the programmer&#039;s responsibility to ensure
+      this. Specifically, if variables are stored in Mnesia, the table
+      &lt;code&gt;snmp_variables&lt;/code&gt; must be created by the programmer.  The
+      record definition for this table is defined in the file
+      &lt;code&gt;snmp/include/snmp_types.hrl&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;If an instrumentation function in the association file for a
+      variable &lt;code&gt;myVar&lt;/code&gt; does not have a name when compiling an
+      MIB, the compiler generates an entry.
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+{myVar, {snmp_generic, variable_func, [{myVar, Db]}}.
+    &lt;/pre&gt;
+    &lt;p&gt;And for a table:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+{myTable, {snmp_generic, table_func, [{myTable, Db]}}.
+    &lt;/pre&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;span id=&quot;data_types&quot;&gt; &lt;/span&gt;
+    &lt;h4&gt;DATA TYPES&lt;/h4&gt;
+    &lt;p&gt;In the functions defined below, the following types are used:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+name_db() = {name(), db()} 
+name() = atom()
+db() = volatile | persistent | mnesia
+row_index() = [int()]
+columns() = [column()] | [{column(), value()}]
+column() = int()
+value() = term()
+    &lt;/pre&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;row_index()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Denotes the last part of the OID which specifies the 
+          index of the row in the table (see RFC1212, 4.1.6 for 
+          more information about INDEX).  &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;columns()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Is a list of column numbers in the case of a &lt;code&gt;get&lt;/code&gt; 
+          operation, and a list of column numbers and values in the 
+          case of a &lt;code&gt;set&lt;/code&gt; operation. &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;span id=&quot;get_status_col2&quot;&gt; &lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_status_col/2&quot;&gt;get_status_col(Name, Cols)&lt;/h3&gt;
+      &lt;h3 id=&quot;get_status_col/2-1&quot;&gt;get_status_col(NameDb, Cols) -&amp;gt; {ok, StatusVal} | false&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Name = name()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Cols = columns()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;StatusVal = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the value of the status column from &lt;code&gt;Cols&lt;/code&gt;.
+          &lt;/p&gt;
+        &lt;p&gt;This function can be used in instrumentation functions for
+          &lt;code&gt;is_set_ok&lt;/code&gt;, &lt;code&gt;undo&lt;/code&gt; or &lt;code&gt;set&lt;/code&gt; to check if the
+          status column of a table is modified.&lt;/p&gt;
+	  
+	  &lt;span id=&quot;get_index_types&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_index_types/1&quot;&gt;get_index_types(Name)&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Name = name()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the index types of &lt;code&gt;Name&lt;/code&gt;&lt;/p&gt;
+        &lt;p&gt;This function can be used in instrumentation functions to
+	retrieve the index types part of the table info.&lt;/p&gt;
+	
+	&lt;span id=&quot;get_table_info&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_table_info/2&quot;&gt;get_table_info(Name, Item) -&amp;gt; table_info_result()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Name = name()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Item = table_item() | all&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;table_item() = nbr_of_cols | defvals | status_col | not_accessible | 
+	index_types | first_accessible | first_own_index&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;table_info_result() = Value | [{table_item(), Value}]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Get a specific table info item or, if &lt;code&gt;Item&lt;/code&gt; has the
+	value &lt;code&gt;all&lt;/code&gt;, a two tuple list (property list) is instead 
+	returned with all the items and their respctive values of the 
+	given table. &lt;/p&gt;
+
+        &lt;p&gt;This function can be used in instrumentation functions to
+	retrieve a given part of the table info.&lt;/p&gt;
+	
+	&lt;span id=&quot;table_func&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;table_func/2&quot;&gt;table_func(Op1, NameDb)&lt;/h3&gt;
+      &lt;h3 id=&quot;table_func/4&quot;&gt;table_func(Op2, RowIndex, Cols, NameDb) -&amp;gt; Ret&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Op1 = new | delete &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Op2 = get | next | is_set_ok | set | undo&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RowIndex = row_index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Cols = columns()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Ret = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This is the default instrumentation function for tables.
+          &lt;/p&gt;
+        &lt;list type=&quot;bulleted&quot;&gt;
+          &lt;item&gt;The &lt;code&gt;new&lt;/code&gt; function creates the table if it does
+           not exist, but only if the database is the SNMP internal db.&lt;/item&gt;
+          &lt;item&gt;The &lt;code&gt;delete&lt;/code&gt; function does not delete the table
+           from the database since unloading an MIB does not
+           necessarily mean that the table should be destroyed.&lt;/item&gt;
+          &lt;item&gt;The &lt;code&gt;is_set_ok&lt;/code&gt; function checks that a row which
+           is to be modified or deleted exists, and that a row which
+           is to be created does not exist.&lt;/item&gt;
+          &lt;item&gt;The &lt;code&gt;undo&lt;/code&gt; function does nothing.&lt;/item&gt;
+          &lt;item&gt;The &lt;code&gt;set&lt;/code&gt; function checks if it has enough
+           information to make the row change its status from
+          &lt;code&gt;notReady&lt;/code&gt; to &lt;code&gt;notInService&lt;/code&gt; (when a row has
+           been been set to &lt;code&gt;createAndWait&lt;/code&gt;). If a row is set to
+          &lt;code&gt;createAndWait&lt;/code&gt;, columns without a value are set to
+          &lt;code&gt;noinit&lt;/code&gt;. If Mnesia is used, the set functionality is
+           handled within a transaction.&lt;/item&gt;
+        &lt;/list&gt;
+        &lt;p&gt;If it is possible for a manager to create or delete rows in
+          the table, there must be a &lt;code&gt;RowStatus&lt;/code&gt; column for
+          &lt;code&gt;is_set_ok&lt;/code&gt;, &lt;code&gt;set&lt;/code&gt; and &lt;code&gt;undo&lt;/code&gt; to work properly.
+          &lt;/p&gt;
+        &lt;p&gt;The function returns according to the specification of an
+          instrumentation function.
+          &lt;/p&gt;
+	
+	&lt;span id=&quot;table_get_elements&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;table_get_elements/3&quot;&gt;table_get_elements(NameDb, RowIndex, Cols) -&amp;gt; Values&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RowIndex = row_index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Cols = columns()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Values = [value() | noinit]&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns a list with values for all columns in &lt;code&gt;Cols&lt;/code&gt;.
+          If a column is undefined, its value is &lt;code&gt;noinit&lt;/code&gt;.&lt;/p&gt;
+	
+	&lt;span id=&quot;table_next&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;table_next/2&quot;&gt;table_next(NameDb, RestOid) -&amp;gt; RowIndex | endOfTable&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RestOid = [int()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RowIndex = row_index()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Finds the indices of the next row in the table.  &lt;code&gt;RestOid&lt;/code&gt;
+          does not have to specify an existing row.&lt;/p&gt;
+	
+	&lt;span id=&quot;table_row_exists&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;table_row_exists/2&quot;&gt;table_row_exists(NameDb, RowIndex) -&amp;gt; bool()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RowIndex = row_index()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Checks if a row in a table exists.&lt;/p&gt;
+	
+	&lt;span id=&quot;table_set_elements&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;table_set_elements/3&quot;&gt;table_set_elements(NameDb, RowIndex, Cols) -&amp;gt; bool()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;RowIndex = row_index()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Cols = columns()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the elements in &lt;code&gt;Cols&lt;/code&gt; to the row specified by
+          &lt;code&gt;RowIndex&lt;/code&gt;.  No checks are performed on the new values.
+          &lt;/p&gt;
+        &lt;p&gt;If the Mnesia database is used, this function calls
+          &lt;code&gt;mnesia:write&lt;/code&gt; to store the values.  This means that
+          this function must be called from within a transaction
+          (&lt;code&gt;mnesia:transaction/1&lt;/code&gt; or &lt;code&gt;mnesia:dirty/1&lt;/code&gt;).&lt;/p&gt;
+	
+	&lt;span id=&quot;variable_func&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;variable_func/2&quot;&gt;variable_func(Op1, NameDb)&lt;/h3&gt;
+      &lt;h3 id=&quot;variable_func/3&quot;&gt;variable_func(Op2, Val, NameDb) -&amp;gt; Ret&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Op1 = new | delete | get&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Op2 = is_set_ok | set | undo&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Val = value()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Ret = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This is the default instrumentation function for variables.&lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;new&lt;/code&gt; function creates a new variable in the
+          database with a default value as defined in the MIB, or a zero
+          value (depending on the type).  &lt;/p&gt;
+        &lt;p&gt;The &lt;code&gt;delete&lt;/code&gt; function does not delete the variable from 
+          the database. &lt;/p&gt;
+        &lt;p&gt;The function returns according to the specification of an 
+          instrumentation function. &lt;/p&gt;
+	
+	&lt;span id=&quot;variable_get&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;variable_get/1&quot;&gt;variable_get(NameDb) -&amp;gt; {value, Value} | undefined&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Value = value()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Gets the value of a variable.&lt;/p&gt;
+	
+	&lt;span id=&quot;variable_set&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;variable_set/2&quot;&gt;variable_set(NameDb, NewVal) -&amp;gt; true | false&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;NameDb = name_db()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NewVal = value()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets a new value to a variable.  The variable is created if
+          it does not exist.  No checks are made on the type of the
+          new value.  &lt;/p&gt;
+        &lt;p&gt;Returns &lt;code&gt;false&lt;/code&gt; if the &lt;code&gt;NameDb&lt;/code&gt; argument
+          is incorrectly specified, otherwise &lt;code&gt;true&lt;/code&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;span id=&quot;example&quot;&gt; &lt;/span&gt;
+    &lt;h4&gt;Example&lt;/h4&gt;
+    &lt;p&gt;The following example shows an implementation of a table which is
+      stored in Mnesia, but with some checks performed at set-request
+      operations.
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+myTable_func(new, NameDb) -&amp;gt;   % pass unchanged
+  snmp_generic:table_func(new, NameDb).
+
+myTable_func(delete, NameDb) -&amp;gt;   % pass unchanged
+  snmp_generic:table_func(delete, NameDb).
+
+%% change row
+myTable_func(is_set_ok, RowIndex, Cols, NameDb) -&amp;gt;
+  case snmp_generic:table_func(is_set_ok, RowIndex,
+                               Cols, NameDb) of
+    {noError, 0} -&amp;gt; 
+      myApplication:is_set_ok(RowIndex, Cols);
+    Err -&amp;gt;
+      Err
+  end;
+
+myTable_func(set, RowIndex, Cols, NameDb) -&amp;gt;
+  case snmp_generic:table_func(set, RowIndex, Cols,
+                               NameDb),
+    {noError, 0} -&amp;gt;
+      % Now the row is updated, tell the application
+      myApplication:update(RowIndex, Cols);
+    Err -&amp;gt;
+      Err
+  end;
+
+myTable_func(Op, RowIndex, Cols, NameDb) -&amp;gt;   % pass unchanged
+  snmp_generic:table_func(Op, RowIndex, Cols, NameDb).
+    &lt;/pre&gt;
+    &lt;p&gt;The &lt;code&gt;.funcs&lt;/code&gt; file would look like:
+      &lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+{myTable, {myModule, myTable_func, [{myTable, mnesia}]}}.
+    &lt;/pre&gt;
+  &lt;/div&gt;
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#get_status_col/2&quot;&gt;get_status_col/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_status_col/2-1&quot;&gt;get_status_col/2-1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_index_types/1&quot;&gt;get_index_types/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_table_info/2&quot;&gt;get_table_info/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_func/2&quot;&gt;table_func/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_func/4&quot;&gt;table_func/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_get_elements/3&quot;&gt;table_get_elements/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_next/2&quot;&gt;table_next/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_row_exists/2&quot;&gt;table_row_exists/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#table_set_elements/3&quot;&gt;table_set_elements/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#variable_func/2&quot;&gt;variable_func/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#variable_func/3&quot;&gt;variable_func/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#variable_get/1&quot;&gt;variable_get/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#variable_set/2&quot;&gt;variable_set/2&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

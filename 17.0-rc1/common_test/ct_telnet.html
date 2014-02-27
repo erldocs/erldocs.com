@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ct_telnet (common_test) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+&lt;h1&gt;ct_telnet&lt;/h1&gt;
+&lt;h2 class=&quot;modsummary&quot;&gt;Common Test specific layer on top of telnet client ct_telnet_client.erl&lt;/h2&gt;
+&lt;div class=&quot;description&quot;&gt;
+&lt;p&gt;Common Test specific layer on top of telnet client &lt;code&gt;ct_telnet_client.erl&lt;/code&gt;&lt;/p&gt;
+ 
+  &lt;p&gt;Use this module to set up telnet connections, send commands and
+  perform string matching on the result.
+  See the &lt;code&gt;unix_telnet&lt;/code&gt; manual page for information about how to use
+  &lt;code&gt;ct_telnet&lt;/code&gt;, and configure connections, specifically for unix hosts.&lt;/p&gt;
+  &lt;p&gt;The following default values are defined in &lt;code&gt;ct_telnet&lt;/code&gt;:&lt;/p&gt;
+  &lt;pre class=&quot;sh_erlang&quot;&gt;
+  Connection timeout = 10 sec (time to wait for connection)
+  Command timeout = 10 sec (time to wait for a command to return)
+  Max no of reconnection attempts = 3
+  Reconnection interval = 5 sek (time to wait in between reconnection attempts)
+  Keep alive = true (will send NOP to the server every 10 sec if connection is idle)&lt;/pre&gt;
+  &lt;p&gt;These parameters can be altered by the user with the following
+  configuration term:&lt;/p&gt;
+  &lt;pre class=&quot;sh_erlang&quot;&gt;
+  {telnet_settings, [{connect_timeout,Millisec},
+                     {command_timeout,Millisec},
+                     {reconnection_attempts,N},
+                     {reconnection_interval,Millisec},
+                     {keep_alive,Bool}]}.&lt;/pre&gt;
+  &lt;p&gt;&lt;code&gt;Millisec = integer(), N = integer()&lt;/code&gt;&lt;/p&gt;
+  &lt;p&gt;Enter the &lt;code&gt;telnet_settings&lt;/code&gt; term in a configuration
+  file included in the test and ct_telnet will retrieve the information
+  automatically. Note that &lt;code&gt;keep_alive&lt;/code&gt; may be specified per connection if
+  required. See &lt;code&gt;unix_telnet&lt;/code&gt; for details.&lt;/p&gt;
+ 
+  &lt;p&gt;&lt;em&gt;&lt;marker id=&quot;Logging&quot;&gt;Logging&lt;/marker&gt;&lt;/em&gt;&lt;/p&gt;
+ 
+  &lt;p&gt;&lt;code&gt;ct_telnet&lt;/code&gt; can be configured to uses the &lt;code&gt;error_logger&lt;/code&gt; for logging telnet
+  traffic. A special purpose error handler is implemented in
+  &lt;code&gt;ct_conn_log_h&lt;/code&gt;. To use this error handler, add the &lt;code&gt;cth_conn_log&lt;/code&gt;  
+hook in your test suite, e.g:&lt;/p&gt;
+ 
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  suite() -&amp;gt;
+     [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].&lt;/pre&gt;
+ 
+  &lt;p&gt;&lt;code&gt;conn_mod()&lt;/code&gt; is the name of the common_test module implementing
+  the connection protocol, i.e. &lt;code&gt;ct_telnet&lt;/code&gt;.&lt;/p&gt;
+ 
+  &lt;p&gt;The hook option &lt;code&gt;log_type&lt;/code&gt; specifies the type of logging:&lt;/p&gt;
+ 
+  &lt;taglist&gt;
+    &lt;dt&gt;&lt;code&gt;raw&lt;/code&gt;&lt;/dt&gt;
+    &lt;item&gt;&lt;p&gt;The sent and received telnet data is logged to a separate
+    text file as is, without any formatting. A link to the file is
+    added to the test case HTML log.&lt;/p&gt;&lt;/item&gt;
+ 
+    &lt;dt&gt;&lt;code&gt;html (default)&lt;/code&gt;&lt;/dt&gt;
+    &lt;item&gt;&lt;p&gt;The sent and received telnet traffic is pretty printed
+    directly in the test case HTML log.&lt;/p&gt;&lt;/item&gt;
+ 
+    &lt;dt&gt;&lt;code&gt;silent&lt;/code&gt;&lt;/dt&gt;
+    &lt;item&gt;&lt;p&gt;Telnet traffic is not logged.&lt;/p&gt;&lt;/item&gt;
+  &lt;/taglist&gt;
+ 
+  &lt;p&gt;By default, all telnet traffic is logged in one single log
+  file. However, it is possible to have different connections logged
+  in separate files. To do this, use the hook option &lt;code&gt;hosts&lt;/code&gt; and
+  list the names of the servers/connections that will be used in the
+  suite. Note that the connections must be named for this to work
+  (see the &lt;code&gt;open&lt;/code&gt; function below).&lt;/p&gt;
+ 
+  &lt;p&gt;The &lt;code&gt;hosts&lt;/code&gt; option has no effect if &lt;code&gt;log_type&lt;/code&gt; is set to &lt;code&gt;html&lt;/code&gt; or
+  &lt;code&gt;silent&lt;/code&gt;.&lt;/p&gt;
+ 
+  &lt;p&gt;The hook options can also be specified in a configuration file with
+  the configuration variable &lt;code&gt;ct_conn_log&lt;/code&gt;:&lt;/p&gt;
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  {ct_conn_log,[{conn_mod(),hook_options()}]}.&lt;/pre&gt;
+ 
+  &lt;p&gt;For example:&lt;/p&gt;
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  {ct_conn_log,[{ct_telnet,[{log_type,raw},
+                            {hosts,[key_or_name()]}]}]}&lt;/pre&gt;
+ 
+  &lt;p&gt;&lt;em&gt;Note&lt;/em&gt; that hook options specified in a configuration file  
+will overwrite any hardcoded hook options in the test suite.&lt;/p&gt;
+ 
+  &lt;p&gt;&lt;em&gt;&lt;marker id=&quot;Logging_example_1&quot;&gt;Logging example 1&lt;/marker&gt;&lt;/em&gt;&lt;/p&gt;
+ 
+  &lt;p&gt;The following &lt;code&gt;ct_hooks&lt;/code&gt; statement will cause raw printing of
+  telnet traffic to separate logs for the connections named
+  &lt;code&gt;server1&lt;/code&gt; and &lt;code&gt;server2&lt;/code&gt;. Any other connections will be logged  
+to default telnet log.&lt;/p&gt;
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  suite() -&amp;gt;
+     [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
+                                              {hosts,[server1,server2]}]}
+                                 ]}]}].&lt;/pre&gt;
+ 
+  &lt;p&gt;&lt;em&gt;&lt;marker id=&quot;Logging_example_2&quot;&gt;Logging example 2&lt;/marker&gt;&lt;/em&gt;&lt;/p&gt;
+ 
+  &lt;p&gt;The following configuration file will cause raw logging of all  
+telnet traffic into one single text file.&lt;/p&gt;
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.&lt;/pre&gt;
+ 
+  &lt;p&gt;The &lt;code&gt;ct_hooks&lt;/code&gt; statement must look like this:&lt;/p&gt;
+ 
+  &lt;pre class=&quot;sh_erlang&quot;&gt;  suite() -&amp;gt;
+     [{ct_hooks, [{cth_conn_log, []}]}].&lt;/pre&gt;
+ 
+  &lt;p&gt;The same &lt;code&gt;ct_hooks&lt;/code&gt; statement without the configuration file would  
+cause HTML logging of all telnet connections into the test case  
+HTML log.&lt;/p&gt;
+ 
+  &lt;p&gt;&lt;em&gt;Note&lt;/em&gt; that if the &lt;code&gt;cth_conn_log&lt;/code&gt; hook is not added, telnet
+  traffic is still logged in the test case HTML log file (on the legacy
+  &lt;code&gt;ct_telnet&lt;/code&gt; format).&lt;/p&gt;&lt;/div&gt;
+&lt;div class=&quot;section&quot;&gt;&lt;h4&gt;DATA TYPES&lt;/h4&gt;&lt;span id=&quot;types&quot;&gt; &lt;/span&gt;
+
+&lt;taglist&gt;
+&lt;dt&gt;&lt;code&gt;connection() = handle() | {target_name() (see module ct), connection_type()} | target_name() (see module ct)&lt;/code&gt;&lt;/dt&gt;
+&lt;item&gt;&lt;span id=&quot;type-connection&quot;&gt; &lt;/span&gt; &lt;/item&gt;
+&lt;dt&gt;&lt;code&gt;connection_type() = telnet | ts1 | ts2&lt;/code&gt;&lt;/dt&gt;
+&lt;item&gt;&lt;span id=&quot;type-connection_type&quot;&gt; &lt;/span&gt; &lt;/item&gt;
+&lt;dt&gt;&lt;code&gt;handle() = handle() (see module ct_gen_conn)&lt;/code&gt;&lt;/dt&gt;
+&lt;item&gt;&lt;span id=&quot;type-handle&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Handle for a
+  specific telnet connection.&lt;/p&gt;
+&lt;/item&gt;
+&lt;dt&gt;&lt;code&gt;prompt_regexp() = string()&lt;/code&gt;&lt;/dt&gt;
+&lt;item&gt;&lt;span id=&quot;type-prompt_regexp&quot;&gt; &lt;/span&gt;
+&lt;p&gt;A regular expression which
+  matches all possible prompts for a specific type of target. The
+  regexp must not have any groups i.e. when matching, re:run/3 shall
+  return a list with one single element.
+ &lt;/p&gt;
+&lt;/item&gt;
+&lt;/taglist&gt;&lt;/div&gt;
+&lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;open/1&quot;&gt;open(Name) -&amp;gt; {ok, Handle} | {error, Reason}&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;open-1&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Equivalent to &lt;a href=&quot;#open-2&quot; class=&quot;seealso&quot;&gt;open(Name, telnet)&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;open/2&quot;&gt;open(Name, ConnType) -&amp;gt; {ok, Handle} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Name = target_name()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;ConnType = connection_type() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Handle = handle() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;open-2&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Open a telnet connection to the specified target host.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;open/3&quot;&gt;open(KeyOrName, ConnType, TargetMod) -&amp;gt; {ok, Handle} | {error, Reason}&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;open-3&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Equivalent to &lt;a href=&quot;#open-4&quot; class=&quot;seealso&quot;&gt;open(KeyOrName, ConnType, TargetMod, [])&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;open/4&quot;&gt;open(KeyOrName, ConnType, TargetMod, Extra) -&amp;gt; {ok, Handle} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;KeyOrName = Key | Name&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Key = atom()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Name = target_name() (see module ct)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;ConnType = connection_type()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;TargetMod = atom()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Extra = term()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Handle = handle()&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;open-4&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Open a telnet connection to the specified target host.&lt;/p&gt;
+  
+   &lt;p&gt;The target data must exist in a configuration file. The connection
+   may be associated with either &lt;code&gt;Name&lt;/code&gt; and/or the returned
+   &lt;code&gt;Handle&lt;/code&gt;. To allocate a name for the target,
+   use &lt;code&gt;ct:require/2&lt;/code&gt; in a test case, or use a
+   &lt;code&gt;require&lt;/code&gt; statement in the suite info function
+   (&lt;code&gt;suite/0&lt;/code&gt;), or in a test case info function.
+   If you want the connection to be associated with &lt;code&gt;Handle&lt;/code&gt; only
+   (in case you need to open multiple connections to a host for example),
+   simply use &lt;code&gt;Key&lt;/code&gt;, the configuration variable name, to
+   specify the target. Note that a connection that has no associated target
+   name can only be closed with the handle value.&lt;/p&gt;
+  
+   &lt;p&gt;&lt;code&gt;TargetMod&lt;/code&gt; is a module which exports the functions
+   &lt;code&gt;connect(Ip,Port,KeepAlive,Extra)&lt;/code&gt; and &lt;code&gt;get_prompt_regexp()&lt;/code&gt;
+   for the given &lt;code&gt;TargetType&lt;/code&gt; (e.g. &lt;code&gt;unix_telnet&lt;/code&gt;).&lt;/p&gt;
+  
+&lt;p&gt;&lt;em&gt;See also:&lt;/em&gt; &lt;a href=&quot;ct.html#require-2&quot; class=&quot;seealso&quot;&gt;ct:require/2&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;close/1&quot;&gt;close(Connection) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;close-1&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Close the telnet connection and stop the process managing it.&lt;/p&gt;
+  
+   &lt;p&gt;A connection may be associated with a target name and/or a handle.
+   If &lt;code&gt;Connection&lt;/code&gt; has no associated target name, it may only
+   be closed with the handle value (see the &lt;code&gt;open/4&lt;/code&gt;
+   function).&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;cmd/2&quot;&gt;cmd(Connection, Cmd) -&amp;gt; {ok, Data} | {error, Reason}&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;cmd-2&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Equivalent to &lt;a href=&quot;#cmd-3&quot; class=&quot;seealso&quot;&gt;cmd(Connection, Cmd, DefaultTimeout)&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;cmd/3&quot;&gt;cmd(Connection, Cmd, Timeout) -&amp;gt; {ok, Data} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Cmd = string()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Timeout = integer()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Data = [string()]&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;cmd-3&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Send a command via telnet and wait for prompt.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;cmdf/3&quot;&gt;cmdf(Connection, CmdFormat, Args) -&amp;gt; {ok, Data} | {error, Reason}&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;cmdf-3&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Equivalent to &lt;a href=&quot;#cmdf-4&quot; class=&quot;seealso&quot;&gt;cmdf(Connection, CmdFormat, Args, DefaultTimeout)&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;cmdf/4&quot;&gt;cmdf(Connection, CmdFormat, Args, Timeout) -&amp;gt; {ok, Data} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;CmdFormat = string()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Args = list()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Timeout = integer()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Data = [string()]&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;cmdf-4&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Send a telnet command and wait for prompt
+        (uses a format string and list of arguments to build the command).&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;get_data/1&quot;&gt;get_data(Connection) -&amp;gt; {ok, Data} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Data = [string()]&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;get_data-1&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Get all data which has been received by the telnet client
+   since last command was sent.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;send/2&quot;&gt;send(Connection, Cmd) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Cmd = string()&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;send-2&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Send a telnet command and return immediately.&lt;/p&gt;
+  
+   &lt;p&gt;The resulting output from the command can be read with
+   &lt;code&gt;get_data/1&lt;/code&gt; or &lt;code&gt;expect/2/3&lt;/code&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;sendf/3&quot;&gt;sendf(Connection, CmdFormat, Args) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;CmdFormat = string()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Args = list()&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;sendf-3&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Send a telnet command and return immediately (uses a format
+   string and a list of arguments to build the command).&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;expect/2&quot;&gt;expect(Connection, Patterns) -&amp;gt; term()&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;expect-2&quot;&gt; &lt;/span&gt;
+&lt;p&gt;Equivalent to &lt;a href=&quot;#expect-3&quot; class=&quot;seealso&quot;&gt;expect(Connections, Patterns, [])&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;expect/3&quot;&gt;expect(Connection, Patterns, Opts) -&amp;gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}&lt;/h3&gt;
+
+&lt;ul class=&quot;type&quot;&gt;
+&lt;li&gt;&lt;code&gt;Connection = connection() (see module ct_telnet)&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Patterns = Pattern | [Pattern]&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Pattern = string() | {Tag, string()} | prompt | {prompt, Prompt}&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Prompt = string()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Tag = term()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Opts = [Opt]&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Opt = {timeout, Timeout} | repeat | {repeat, N} | sequence | {halt, HaltPatterns} | ignore_prompt | no_prompt_check&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Timeout = integer()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;N = integer()&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;HaltPatterns = Patterns&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;MatchList = [Match]&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Match = RxMatch | {Tag, RxMatch} | {prompt, Prompt}&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;RxMatch = [string()]&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;HaltReason = done | Match&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;Reason = timeout | {prompt, Prompt}&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;expect-3&quot;&gt; &lt;/span&gt;
+
+&lt;p&gt;Get data from telnet and wait for the expected pattern.&lt;/p&gt;
+  
+   &lt;p&gt;&lt;code&gt;Pattern&lt;/code&gt; can be a POSIX regular expression. If more
+   than one pattern is given, the function returns when the first
+   match is found.&lt;/p&gt;
+  
+   &lt;p&gt;&lt;code&gt;RxMatch&lt;/code&gt; is a list of matched strings. It looks
+   like this: &lt;code&gt;[FullMatch, SubMatch1, SubMatch2, ...]&lt;/code&gt;
+   where &lt;code&gt;FullMatch&lt;/code&gt; is the string matched by the whole
+   regular expression and &lt;code&gt;SubMatchN&lt;/code&gt; is the string that
+   matched subexpression no &lt;code&gt;N&lt;/code&gt;. Subexpressions are
+   denoted with &#039;(&#039; &#039;)&#039; in the regular expression&lt;/p&gt;
+  
+   &lt;p&gt;If a &lt;code&gt;Tag&lt;/code&gt; is given, the returned &lt;code&gt;Match&lt;/code&gt;
+   will also include the matched &lt;code&gt;Tag&lt;/code&gt;. Else, only
+   &lt;code&gt;RxMatch&lt;/code&gt; is returned.&lt;/p&gt;
+  
+   &lt;p&gt;The &lt;code&gt;timeout&lt;/code&gt; option indicates that the function
+   shall return if the telnet client is idle (i.e. if no data is
+   received) for more than &lt;code&gt;Timeout&lt;/code&gt; milliseconds. Default
+   timeout is 10 seconds.&lt;/p&gt;
+  
+   &lt;p&gt;The function will always return when a prompt is found, unless
+   any of the &lt;code&gt;ignore_prompt&lt;/code&gt; or
+   &lt;code&gt;no_prompt_check&lt;/code&gt; options are used, in which case it
+   will return when a match is found or after a timeout.&lt;/p&gt;
+  
+   &lt;p&gt;If the &lt;code&gt;ignore_prompt&lt;/code&gt; option is used,
+   &lt;code&gt;ct_telnet&lt;/code&gt; will ignore any prompt found. This option
+   is useful if data sent by the server could include a pattern that
+   would match the prompt regexp (as returned by
+   &lt;code&gt;TargedMod:get_prompt_regexp/0&lt;/code&gt;), but which should not
+   cause the function to return.&lt;/p&gt;
+  
+   &lt;p&gt;If the &lt;code&gt;no_prompt_check&lt;/code&gt; option is used,
+   &lt;code&gt;ct_telnet&lt;/code&gt; will not search for a prompt at all. This
+   is useful if, for instance, the &lt;code&gt;Pattern&lt;/code&gt; itself
+   matches the prompt.&lt;/p&gt;
+  
+   &lt;p&gt;The &lt;code&gt;repeat&lt;/code&gt; option indicates that the pattern(s)
+   shall be matched multiple times. If &lt;code&gt;N&lt;/code&gt; is given, the
+   pattern(s) will be matched &lt;code&gt;N&lt;/code&gt; times, and the function
+   will return with &lt;code&gt;HaltReason = done&lt;/code&gt;.&lt;/p&gt;
+  
+   &lt;p&gt;The &lt;code&gt;sequence&lt;/code&gt; option indicates that all patterns
+   shall be matched in a sequence. A match will not be concluded
+   untill all patterns are matched.&lt;/p&gt;
+  
+   &lt;p&gt;Both &lt;code&gt;repeat&lt;/code&gt; and &lt;code&gt;sequence&lt;/code&gt; can be
+   interrupted by one or more &lt;code&gt;HaltPatterns&lt;/code&gt;. When
+   &lt;code&gt;sequence&lt;/code&gt; or &lt;code&gt;repeat&lt;/code&gt; is used, there will
+   always be a &lt;code&gt;MatchList&lt;/code&gt; returned, i.e. a list of
+   &lt;code&gt;Match&lt;/code&gt; instead of only one &lt;code&gt;Match&lt;/code&gt;. There
+   will also be a &lt;code&gt;HaltReason&lt;/code&gt; returned.&lt;/p&gt;
+  
+   &lt;p&gt;&lt;em&gt;Examples:&lt;/em&gt;&lt;br  /&gt;
+   &lt;code&gt;expect(Connection,[{abc,&quot;ABC&quot;},{xyz,&quot;XYZ&quot;}],&lt;/code&gt;
+   &lt;code&gt;[sequence,{halt,[{nnn,&quot;NNN&quot;}]}]).&lt;/code&gt;&lt;br  /&gt; will try to match
+   &quot;ABC&quot; first and then &quot;XYZ&quot;, but if &quot;NNN&quot; appears the function will
+   return &lt;code&gt;{error,{nnn,[&quot;NNN&quot;]}}&lt;/code&gt;. If both &quot;ABC&quot; and &quot;XYZ&quot;
+   are matched, the function will return
+   &lt;code&gt;{ok,[AbcMatch,XyzMatch]}&lt;/code&gt;.&lt;/p&gt;
+  
+   &lt;p&gt;&lt;code&gt;expect(Connection,[{abc,&quot;ABC&quot;},{xyz,&quot;XYZ&quot;}],&lt;/code&gt;
+   &lt;code&gt;[{repeat,2},{halt,[{nnn,&quot;NNN&quot;}]}]).&lt;/code&gt;&lt;br  /&gt; will try to match
+   &quot;ABC&quot; or &quot;XYZ&quot; twice. If &quot;NNN&quot; appears the function will return
+   with &lt;code&gt;HaltReason = {nnn,[&quot;NNN&quot;]}&lt;/code&gt;.&lt;/p&gt;
+  
+   &lt;p&gt;The &lt;code&gt;repeat&lt;/code&gt; and &lt;code&gt;sequence&lt;/code&gt; options can be
+   combined in order to match a sequence multiple times.&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;log/4&quot;&gt;log(State, Action, String, Args) -&amp;gt; term()
+&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;log-4&quot;&gt; &lt;/span&gt;
+ &lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;log/3&quot;&gt;log(Name, String, Args) -&amp;gt; term()
+&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;log-3&quot;&gt; &lt;/span&gt;
+ &lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;start_gen_log/1&quot;&gt;start_gen_log(Heading) -&amp;gt; term()
+&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;start_gen_log-1&quot;&gt; &lt;/span&gt;
+ &lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;end_gen_log/0&quot;&gt;end_gen_log() -&amp;gt; term()
+&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;end_gen_log-0&quot;&gt; &lt;/span&gt;
+ &lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;function&quot;&gt;
+&lt;h3 id=&quot;format_data/2&quot;&gt;format_data(How, X2) -&amp;gt; term()
+&lt;/h3&gt;
+
+
+&lt;div class=&quot;description&quot;&gt;&lt;span id=&quot;format_data-2&quot;&gt; &lt;/span&gt;
+ &lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;section&quot;&gt;&lt;h4&gt;See also&lt;/h4&gt;&lt;p&gt;&lt;a href=&quot;unix_telnet.html&quot; class=&quot;seealso&quot;&gt;unix_telnet&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;
+&lt;authors&gt;
+&lt;aname&gt; &lt;/aname&gt;
+&lt;email&gt; &lt;/email&gt;&lt;/authors&gt;
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#open/1&quot;&gt;open/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open/2&quot;&gt;open/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open/3&quot;&gt;open/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#open/4&quot;&gt;open/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#close/1&quot;&gt;close/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cmd/2&quot;&gt;cmd/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cmd/3&quot;&gt;cmd/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cmdf/3&quot;&gt;cmdf/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cmdf/4&quot;&gt;cmdf/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_data/1&quot;&gt;get_data/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#send/2&quot;&gt;send/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#sendf/3&quot;&gt;sendf/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#expect/2&quot;&gt;expect/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#expect/3&quot;&gt;expect/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#log/4&quot;&gt;log/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#log/3&quot;&gt;log/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start_gen_log/1&quot;&gt;start_gen_log/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#end_gen_log/0&quot;&gt;end_gen_log/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#format_data/2&quot;&gt;format_data/2&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

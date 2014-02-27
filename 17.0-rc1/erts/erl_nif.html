@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>erl_nif (erts) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;erl_nif&lt;/h1&gt;
+  &lt;libsummary&gt;API functions for an Erlang NIF library&lt;/libsummary&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;A NIF library contains native implementation of some functions
+    of an Erlang module. The native implemented functions (NIFs) are
+    called like any other functions without any difference to the
+    caller. Each NIF must also have an implementation in Erlang that
+    will be invoked if the function is called before the NIF library
+    has been successfully loaded. A typical such stub implementation
+    is to throw an exception. But it can also be used as a fallback
+    implementation if the NIF library is not implemented for some
+    architecture.&lt;/p&gt;     
+    &lt;span id=&quot;WARNING&quot;&gt; &lt;/span&gt;
+      &lt;div class=&quot;warning&quot;&gt;&lt;h2&gt;Warning!&lt;/h2&gt;&lt;p&gt;&lt;em&gt;Use this functionality with extreme care!&lt;/em&gt;&lt;/p&gt;
+      &lt;p&gt;A native function is executed as a direct extension of the
+      native code of the VM. Execution is not made in a safe environment.
+      The VM can &lt;em&gt;not&lt;/em&gt; provide the same services as provided when
+      executing Erlang code, such as preemptive scheduling or memory
+      protection. If the native function doesn&#039;t behave well, the whole
+      VM will misbehave.&lt;/p&gt;
+      &lt;list&gt;
+	&lt;item&gt;&lt;p&gt;A native function that crash will crash the whole VM.&lt;/p&gt;&lt;/item&gt;
+	&lt;item&gt;&lt;p&gt;An erroneously implemented native function might cause
+	a VM internal state inconsistency which may cause a crash of the VM,
+	or miscellaneous misbehaviors of the VM at any point after the call
+	to the native function.&lt;/p&gt;&lt;/item&gt;
+	&lt;item&gt;&lt;p&gt;A native function that do &lt;a href=&quot;#lengthy_work&quot; class=&quot;seealso&quot;&gt;lengthy
+	work&lt;/a&gt; before returning will degrade responsiveness of the VM,
+	and may cause miscellaneous strange behaviors. Such strange behaviors
+	include, but are not limited to, extreme memory usage, and bad load
+	balancing between schedulers. Strange behaviors that might occur due
+	to lengthy work may also vary between OTP releases.&lt;/p&gt;&lt;/item&gt;
+      &lt;/list&gt;
+      &lt;/div&gt;
+
+     &lt;p&gt;The NIF concept is officially supported from R14B. NIF source code
+     written for earlier experimental versions might need adaption to run on R14B
+     or later versions:&lt;/p&gt;
+     &lt;list&gt;
+       &lt;item&gt;No incompatible changes between &lt;em&gt;R14B&lt;/em&gt; and R14A.&lt;/item&gt;
+       &lt;item&gt;Incompatible changes between &lt;em&gt;R14A&lt;/em&gt; and R13B04:
+       &lt;list&gt;
+	 &lt;item&gt;Environment argument removed for &lt;code&gt;enif_alloc&lt;/code&gt;,
+	 &lt;code&gt;enif_realloc&lt;/code&gt;, &lt;code&gt;enif_free&lt;/code&gt;, &lt;code&gt;enif_alloc_binary&lt;/code&gt;,
+	 &lt;code&gt;enif_realloc_binary&lt;/code&gt;, &lt;code&gt;enif_release_binary&lt;/code&gt;,
+	 &lt;code&gt;enif_alloc_resource&lt;/code&gt;, &lt;code&gt;enif_release_resource&lt;/code&gt;,
+	 &lt;code&gt;enif_is_identical&lt;/code&gt; and &lt;code&gt;enif_compare&lt;/code&gt;.&lt;/item&gt;
+	 &lt;item&gt;Character encoding argument added to &lt;code&gt;enif_get_atom&lt;/code&gt;
+	 and &lt;code&gt;enif_make_existing_atom&lt;/code&gt;.&lt;/item&gt;
+	 &lt;item&gt;Module argument added to &lt;code&gt;enif_open_resource_type&lt;/code&gt;
+	 while changing name spaces of resource types from global to module local.&lt;/item&gt;
+       &lt;/list&gt;
+     &lt;/item&gt;
+     &lt;item&gt;Incompatible changes between &lt;em&gt;R13B04&lt;/em&gt; and R13B03:
+     &lt;list&gt;
+       &lt;item&gt;The function prototypes of the NIFs have  changed to expect &lt;code&gt;argc&lt;/code&gt; and &lt;code&gt;argv&lt;/code&gt;
+       arguments. The arity of a NIF is by that no longer limited to 3.&lt;/item&gt;
+       &lt;item&gt;&lt;code&gt;enif_get_data&lt;/code&gt; renamed as &lt;code&gt;enif_priv_data&lt;/code&gt;.&lt;/item&gt;
+       &lt;item&gt;&lt;code&gt;enif_make_string&lt;/code&gt; got a third argument for character encoding.&lt;/item&gt;
+     &lt;/list&gt;
+     &lt;/item&gt;
+    &lt;/list&gt;
+
+    &lt;p&gt;A minimal example of a NIF library can look like this:&lt;/p&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+/* niftest.c */
+#include &quot;erl_nif.h&quot;
+
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_string(env, &quot;Hello world!&quot;, ERL_NIF_LATIN1);
+}
+
+static ErlNifFunc nif_funcs[] =
+{
+    {&quot;hello&quot;, 0, hello}
+};
+
+ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)
+&lt;/pre&gt;
+
+    &lt;p&gt;and the Erlang module would have to look something like
+    this:&lt;/p&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+-module(niftest).
+
+-export([init/0, hello/0]).
+
+init() -&amp;gt;
+      erlang:load_nif(&quot;./niftest&quot;, 0).
+
+hello() -&amp;gt;
+      &quot;NIF library not loaded&quot;.
+&lt;/pre&gt;
+    &lt;p&gt;and compile and test something like this (on Linux):&lt;/p&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+$&amp;gt; gcc -fPIC -shared -o niftest.so niftest.c -I $ERL_ROOT/usr/include/
+$&amp;gt; erl
+
+1&amp;gt; c(niftest).
+{ok,niftest}
+2&amp;gt; niftest:hello().
+&quot;NIF library not loaded&quot;
+3&amp;gt; niftest:init().
+ok
+4&amp;gt; niftest:hello().
+&quot;Hello world!&quot;
+&lt;/pre&gt;
+
+     &lt;p&gt;A better solution for a real module is to take advantage of
+     the new directive &lt;a href=&quot;../doc/reference_manual/code_loading.html#on_load&quot; class=&quot;seealso&quot;&gt;on_load&lt;/a&gt; to automatically
+     load the NIF library when the module is loaded.&lt;/p&gt;
+     &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;A NIF does not have to be exported, it can be local to the module.
+     Note however that unused local stub functions will be optimized
+     away by the compiler causing loading of the NIF library to fail.&lt;/p&gt;
+    &lt;/div&gt;
+     &lt;p&gt;A loaded NIF library is tied to the Erlang module code version
+     that loaded it. If the module is upgraded with a new version, the
+     new Erlang code will have to load its own NIF library (or maybe choose not
+     to). The new code version can however choose to load the exact
+     same NIF library as the old code if it wants to. Sharing the same
+     dynamic library will mean that static data defined by the library
+     will be shared as well. To avoid unintentionally shared static
+     data, each Erlang module code can keep its own private data. This
+     private data can be set when the NIF library is loaded and
+     then retrieved by calling &lt;a href=&quot;#enif_priv_data&quot; class=&quot;seealso&quot;&gt;enif_priv_data&lt;/a&gt;.&lt;/p&gt;
+    &lt;p&gt;There is no way to explicitly unload a NIF library. A library will be
+     automatically unloaded when the module code that it belongs to is purged
+     by the code server.&lt;/p&gt;
+
+     &lt;p&gt;&lt;span id=&quot;lengthy_work&quot;&gt; &lt;/span&gt;
+     As mentioned in the &lt;a href=&quot;#WARNING&quot; class=&quot;seealso&quot;&gt;warning&lt;/a&gt; text at
+     the beginning of this document it is of vital importance that a native function
+     does return relatively fast. It is hard to give an exact maximum amount
+     of time that a native function is allowed to work, but as a rule of thumb
+     a well behaving native function should return to its caller before a
+     millisecond has passed. This can be achieved using different approaches.
+     If you have full control over the code that are to execute in the native
+     function, the best approach is to divide the work into multiple chunks of
+     work and call the native function multiple times. Function 
+     &lt;a href=&quot;#enif_consume_timeslice&quot; class=&quot;seealso&quot;&gt;enif_consume_timeslice&lt;/a&gt; can be
+     used this facilitate such work division. In some cases, however, this might not
+     be possible, e.g. when calling third party libraries. Then you typically want
+     to dispatch the work to another thread, return
+     from the native function, and wait for the result. The thread can send
+     the result back to the calling thread using message passing. Information
+     about thread primitives can be found below. If you have built your system
+     with &lt;em&gt;the currently experimental&lt;/em&gt; support for dirty schedulers,
+     you may want to try out this functionality by dispatching the work to a
+     &lt;a href=&quot;#dirty_nifs&quot; class=&quot;seealso&quot;&gt;dirty NIF&lt;/a&gt;,
+     which does not have the same duration restriction as a normal NIF.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;section&quot;&gt;
+  &lt;h4&gt;FUNCTIONALITY&lt;/h4&gt;
+  &lt;p&gt;All functions that a NIF library needs to do with Erlang are
+      performed through the NIF API functions. There are functions
+      for the following functionality:&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;Read and write Erlang terms&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;Any Erlang terms can be passed to a NIF as function arguments and
+      be returned as function return values. The terms are of C-type
+      &lt;a href=&quot;#ERL_NIF_TERM&quot; class=&quot;seealso&quot;&gt;ERL_NIF_TERM&lt;/a&gt;
+      and can only be read or written using API functions. Most functions to read
+      the content of a term are prefixed &lt;code&gt;enif_get_&lt;/code&gt; and usually return
+      true (or false) if the term was of the expected type (or not).    
+      The functions to write terms are all prefixed &lt;code&gt;enif_make_&lt;/code&gt; and usually
+      return the created &lt;code&gt;ERL_NIF_TERM&lt;/code&gt;. There are also some functions
+      to query terms, like &lt;code&gt;enif_is_atom&lt;/code&gt;, &lt;code&gt;enif_is_identical&lt;/code&gt; and
+      &lt;code&gt;enif_compare&lt;/code&gt;.&lt;/p&gt;
+      &lt;p&gt;All terms of type &lt;code&gt;ERL_NIF_TERM&lt;/code&gt; belong to an environment of type
+      &lt;a href=&quot;#ErlNifEnv&quot; class=&quot;seealso&quot;&gt;ErlNifEnv&lt;/a&gt;. The lifetime of a term is
+      controlled by the lifetime of its environment object. All API functions that read
+      or write terms has the environment, that the term belongs to, as the first
+      function argument.&lt;/p&gt;&lt;/item&gt;
+      &lt;dt&gt;Binaries&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;Terms of type binary are accessed with the help of the struct type
+      &lt;a href=&quot;#ErlNifBinary&quot; class=&quot;seealso&quot;&gt;ErlNifBinary&lt;/a&gt;    
+      that contains a pointer (&lt;code&gt;data&lt;/code&gt;) to the raw binary data and the length
+      (&lt;code&gt;size&lt;/code&gt;) of the data in bytes. Both &lt;code&gt;data&lt;/code&gt; and &lt;code&gt;size&lt;/code&gt; are
+      read-only and should only be written using calls to API functions.
+      Instances of &lt;code&gt;ErlNifBinary&lt;/code&gt; are however always allocated by the user
+      (usually as local variables).&lt;/p&gt;
+      &lt;p&gt;The raw data pointed to by &lt;code&gt;data&lt;/code&gt; is only mutable after a call to
+      &lt;a href=&quot;#enif_alloc_binary&quot; class=&quot;seealso&quot;&gt;enif_alloc_binary&lt;/a&gt; or
+      &lt;a href=&quot;#enif_realloc_binary&quot; class=&quot;seealso&quot;&gt;enif_realloc_binary&lt;/a&gt;.
+      All other functions that operates on a binary will leave the data as read-only.
+      A mutable binary must in the end either be freed with
+      &lt;a href=&quot;#enif_release_binary&quot; class=&quot;seealso&quot;&gt;enif_release_binary&lt;/a&gt;
+      or made read-only by transferring it to an Erlang term with
+      &lt;a href=&quot;#enif_make_binary&quot; class=&quot;seealso&quot;&gt;enif_make_binary&lt;/a&gt;.
+      But it does not have to happen in the same NIF call. Read-only binaries
+      do not have to be released.&lt;/p&gt;
+      &lt;p&gt;&lt;a href=&quot;#enif_make_new_binary&quot; class=&quot;seealso&quot;&gt;enif_make_new_binary&lt;/a&gt;
+      can be used as a shortcut to allocate and return a binary in the same NIF call.&lt;/p&gt;
+      &lt;p&gt;Binaries are sequences of whole bytes. Bitstrings with an arbitrary
+      bit length have no support yet.&lt;/p&gt;
+       &lt;/item&gt;
+      &lt;dt&gt;Resource objects&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;The use of resource objects is a safe way to return pointers to
+      native data structures from a NIF. A resource object is
+      just a block of memory allocated with
+      &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.
+      A handle (&quot;safe pointer&quot;) to this memory block can then be returned to Erlang by the use of
+      &lt;a href=&quot;#enif_make_resource&quot; class=&quot;seealso&quot;&gt;enif_make_resource&lt;/a&gt;.
+      The term returned by &lt;code&gt;enif_make_resource&lt;/code&gt;
+      is totally opaque in nature. It can be stored and passed between processes
+      on the same node, but the only real end usage is to pass it back as an argument to a NIF.
+      The NIF can then call &lt;a href=&quot;#enif_get_resource&quot; class=&quot;seealso&quot;&gt;enif_get_resource&lt;/a&gt;
+      and get back a pointer to the memory block that is guaranteed to still be
+      valid. A resource object will not be deallocated until the last handle term
+      has been garbage collected by the VM and the resource has been
+      released with &lt;a href=&quot;#enif_release_resource&quot; class=&quot;seealso&quot;&gt;enif_release_resource&lt;/a&gt;
+      (not necessarily in that order).&lt;/p&gt;      
+      &lt;p&gt;All resource objects are created as instances of some &lt;em&gt;resource type&lt;/em&gt;.
+      This makes resources from different modules to be distinguishable. 
+      A resource type is created by calling
+      &lt;a href=&quot;#enif_open_resource_type&quot; class=&quot;seealso&quot;&gt;enif_open_resource_type&lt;/a&gt;
+      when a library is loaded. Objects of that resource type can then later be allocated
+      and &lt;code&gt;enif_get_resource&lt;/code&gt; verifies that the resource is of the expected type.
+      A resource type can have a user supplied destructor function that is
+      automatically called when resources of that type are released (by either
+      the garbage collector or &lt;code&gt;enif_release_resource&lt;/code&gt;). Resource types
+      are uniquely identified by a supplied name string and the name of the
+      implementing module.&lt;/p&gt;
+      &lt;span id=&quot;enif_resource_example&quot;&gt; &lt;/span&gt;&lt;p&gt;Here is a template example of how to create and return a resource object.&lt;/p&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+    ERL_NIF_TERM term;
+    MyStruct* obj = enif_alloc_resource(my_resource_type, sizeof(MyStruct));
+
+    /* initialize struct ... */
+
+    term = enif_make_resource(env, obj);
+
+    if (keep_a_reference_of_our_own) {
+        /* store &#039;obj&#039; in static variable, private data or other resource object */
+    }
+    else {
+        enif_release_resource(obj);
+        /* resource now only owned by &quot;Erlang&quot; */
+    }
+    return term;
+    &lt;/pre&gt;
+      &lt;p&gt;Note that once &lt;code&gt;enif_make_resource&lt;/code&gt; creates the term to
+      return to Erlang, the code can choose to either keep its own
+      native pointer to the allocated struct and release it later, or
+      release it immediately and rely solely on the garbage collector
+      to eventually deallocate the resource object when it collects
+      the term.&lt;/p&gt; 
+      &lt;p&gt;Another usage of resource objects is to create binary terms with
+      user defined memory management.
+      &lt;a href=&quot;#enif_make_resource_binary&quot; class=&quot;seealso&quot;&gt;enif_make_resource_binary&lt;/a&gt;
+      will create a binary term that is connected to a resource object. The
+      destructor of the resource will be called when the binary is garbage
+      collected, at which time the binary data can be released. An example of
+      this can be a binary term consisting of data from a &lt;code&gt;mmap&lt;/code&gt;&#039;ed file.
+      The destructor can then do &lt;code&gt;munmap&lt;/code&gt; to release the memory
+      region.&lt;/p&gt;
+      &lt;p&gt;Resource types support upgrade in runtime by allowing a loaded NIF
+      library to takeover an already existing resource type and thereby
+      &quot;inherit&quot; all existing objects of that type. The destructor of the new
+      library will thereafter be called for the inherited objects and the
+      library with the old destructor function can be safely unloaded. Existing
+      resource objects, of a module that is upgraded, must either be deleted
+      or taken over by the new NIF library. The unloading of a library will be
+      postponed as long as there exist resource objects with a destructor
+      function in the library.
+      &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;Threads and concurrency&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;A NIF is thread-safe without any explicit synchronization as
+      long as it acts as a pure function and only reads the supplied
+      arguments. As soon as you write towards a shared state either through
+      static variables or &lt;a href=&quot;#enif_priv_data&quot; class=&quot;seealso&quot;&gt;enif_priv_data&lt;/a&gt;
+      you need to supply your own explicit synchronization. This includes terms
+      in process independent environments that are shared between threads.
+      Resource objects will also require synchronization if you treat them as
+      mutable.&lt;/p&gt;
+      &lt;p&gt;The library initialization callbacks &lt;code&gt;load&lt;/code&gt;, &lt;code&gt;reload&lt;/code&gt; and
+      &lt;code&gt;upgrade&lt;/code&gt; are all thread-safe even for shared state data.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;Dirty NIFs&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;&lt;span id=&quot;dirty_nifs&quot;&gt; &lt;/span&gt;&lt;em&gt;Note that the dirty NIF functionality
+      is experimental&lt;/em&gt; and that you have to enable support for dirty
+      schedulers when building OTP in order to try the functionality out. Native functions
+      &lt;a href=&quot;#lengthy_work&quot; class=&quot;seealso&quot;&gt;
+      must normally run quickly&lt;/a&gt;, as explained earlier in this document. They
+      generally should execute for no more than a millisecond. But not all native functions
+      can execute so quickly; for example, functions that encrypt large blocks of data or
+      perform lengthy file system operations can often run for tens of seconds or more.&lt;/p&gt;
+      &lt;p&gt;A NIF that cannot execute in a millisecond or less is called a &quot;dirty NIF&quot; since
+      it performs work that the Erlang runtime cannot handle cleanly. Applications
+      that make use of such functions must indicate to the runtime that the functions are
+      dirty so they can be handled specially. To schedule a dirty NIF for execution, the
+      application calls &lt;a href=&quot;#enif_schedule_dirty_nif&quot; class=&quot;seealso&quot;&gt;enif_schedule_dirty_nif&lt;/a&gt;,
+      passing to it a pointer to the dirty NIF to be executed and indicating with a flag
+      argument whether it expects the operation to be CPU-bound or I/O-bound.&lt;/p&gt;
+      &lt;p&gt;All dirty NIFs must ultimately invoke the &lt;a href=&quot;#enif_schedule_dirty_nif_finalizer&quot; class=&quot;seealso&quot;&gt;
+      enif_schedule_dirty_nif_finalizer&lt;/a&gt; as their final action, passing to it the
+      result they wish to return to the original caller. A finalizer function can either
+      receive the result and return it directly, or it can return a different value instead.
+      For convenience, the NIF API provides the &lt;a href=&quot;#enif_dirty_nif_finalizer&quot; class=&quot;seealso&quot;&gt;
+      enif_dirty_nif_finalizer&lt;/a&gt; function that applications can use as a finalizer;
+      it simply returns its result argument.&lt;/p&gt;
+      &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;Dirty NIF support is available only when the emulator is configured with dirty
+      schedulers enabled. This feature is currently disabled by default. To determine whether
+      the dirty NIF API is available, native code can check to see if the C preprocessor macro
+      &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined. Also, if the Erlang runtime was built
+      without threading support, dirty schedulers are disabled. To check at runtime for the presence
+      of dirty scheduler threads, code can call the &lt;a href=&quot;#enif_have_dirty_schedulers&quot; class=&quot;seealso&quot;&gt;&lt;code&gt;
+      enif_have_dirty_schedulers()&lt;/code&gt;&lt;/a&gt; API function, which returns true if dirty
+      scheduler threads are present, false otherwise.&lt;/p&gt;&lt;/div&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;INITIALIZATION&lt;/h4&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;span id=&quot;ERL_NIF_INIT&quot;&gt; &lt;/span&gt;ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, reload, upgrade, unload)&lt;/dt&gt;
+      &lt;item&gt;&lt;p&gt;This is the magic macro to initialize a NIF library. It
+      should be evaluated in global file scope.&lt;/p&gt;
+      &lt;p&gt;&lt;code&gt;MODULE&lt;/code&gt; is the name of the Erlang module as an
+      identifier without string quotations. It will be stringified by
+      the macro.&lt;/p&gt;
+      &lt;p&gt;&lt;code&gt;funcs&lt;/code&gt; is a static array of function descriptors for
+      all the implemented NIFs in this library.&lt;/p&gt;
+      &lt;p&gt;&lt;code&gt;load&lt;/code&gt;, &lt;code&gt;reload&lt;/code&gt;, &lt;code&gt;upgrade&lt;/code&gt; and &lt;code&gt;unload&lt;/code&gt;
+      are pointers to functions. One of &lt;code&gt;load&lt;/code&gt;, &lt;code&gt;reload&lt;/code&gt; or
+      &lt;code&gt;upgrade&lt;/code&gt; will be called to initialize the library.
+      &lt;code&gt;unload&lt;/code&gt; is called to release the library. They are all
+      described individually below.&lt;/p&gt;
+      &lt;p&gt;If compiling a nif for static inclusion via --enable-static-nifs you
+      have to define STATIC_ERLANG_NIF before the ERL_NIF_INIT declaration.&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;&lt;span id=&quot;load&quot;&gt; &lt;/span&gt;int (*load)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)&lt;/dt&gt;
+       &lt;item&gt;&lt;p&gt;&lt;code&gt;load&lt;/code&gt; is called when the NIF library is loaded
+        and there is no previously loaded library for this module.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;*priv_data&lt;/code&gt; can be set to point to some private data
+           that the library needs in order to keep a state between NIF
+           calls. &lt;code&gt;enif_priv_data&lt;/code&gt; will return this pointer.
+           &lt;code&gt;*priv_data&lt;/code&gt; will be initialized to NULL when &lt;code&gt;load&lt;/code&gt; is
+           called.&lt;/p&gt; 
+        &lt;p&gt;&lt;code&gt;load_info&lt;/code&gt; is the second argument to &lt;a href=&quot;erlang.html#load_nif-2&quot; class=&quot;seealso&quot;&gt;erlang:load_nif/2&lt;/a&gt;.&lt;/p&gt;
+        &lt;p&gt;The library will fail to load if &lt;code&gt;load&lt;/code&gt; returns
+           anything other than 0. &lt;code&gt;load&lt;/code&gt; can be NULL in case no
+           initialization is needed.&lt;/p&gt; 
+       &lt;/item&gt;
+
+      &lt;dt&gt;&lt;span id=&quot;upgrade&quot;&gt; &lt;/span&gt;int (*upgrade)(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)&lt;/dt&gt;
+       &lt;item&gt;&lt;p&gt;&lt;code&gt;upgrade&lt;/code&gt; is called when the NIF library is loaded
+        and there is old code of this module with a loaded NIF library.&lt;/p&gt;
+        &lt;p&gt;Works the same as &lt;code&gt;load&lt;/code&gt;. The only difference is that
+        &lt;code&gt;*old_priv_data&lt;/code&gt; already contains the value set by the
+         last call to &lt;code&gt;load&lt;/code&gt; or &lt;code&gt;reload&lt;/code&gt; for the old module
+         code. &lt;code&gt;*priv_data&lt;/code&gt; will be initialized to NULL when &lt;code&gt;upgrade&lt;/code&gt;
+         is called. It is allowed to write to both *priv_data and *old_priv_data.&lt;/p&gt; 
+        &lt;p&gt;The library will fail to load if &lt;code&gt;upgrade&lt;/code&gt; returns
+           anything other than 0 or if &lt;code&gt;upgrade&lt;/code&gt; is NULL.&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;&lt;span id=&quot;unload&quot;&gt; &lt;/span&gt;void (*unload)(ErlNifEnv* env, void* priv_data)&lt;/dt&gt;
+       &lt;item&gt;&lt;p&gt;&lt;code&gt;unload&lt;/code&gt; is called when the module code that
+       the NIF library belongs to is purged as old. New code
+       of the same module may or may not exist. Note that &lt;code&gt;unload&lt;/code&gt; is not
+       called for a replaced library as a consequence of &lt;code&gt;reload&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+
+      &lt;dt&gt;&lt;span id=&quot;reload&quot;&gt; &lt;/span&gt;int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)&lt;/dt&gt;
+     &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;The reload mechanism is &lt;em&gt;deprecated&lt;/em&gt;. It was only intended
+     as a development feature. Do not use it as an upgrade method for
+     live production systems. It might be removed in future releases. Be sure
+     to pass &lt;code&gt;reload&lt;/code&gt; as &lt;code&gt;NULL&lt;/code&gt; to &lt;a href=&quot;#ERL_NIF_INIT&quot; class=&quot;seealso&quot;&gt;ERL_NIF_INIT&lt;/a&gt;
+     to disable it when not used.&lt;/p&gt;
+     &lt;/div&gt;
+       &lt;item&gt;&lt;p&gt;&lt;code&gt;reload&lt;/code&gt; is called when the NIF library is loaded
+        and there is already a previously loaded library for this
+        module code.&lt;/p&gt;
+        &lt;p&gt;Works the same as &lt;code&gt;load&lt;/code&gt;. The only difference is that
+        &lt;code&gt;*priv_data&lt;/code&gt; already contains the value set by the
+        previous call to &lt;code&gt;load&lt;/code&gt; or &lt;code&gt;reload&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;The library will fail to load if &lt;code&gt;reload&lt;/code&gt; returns
+           anything other than 0 or if &lt;code&gt;reload&lt;/code&gt; is NULL.&lt;/p&gt; 
+      &lt;/item&gt;
+
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;DATA TYPES&lt;/h4&gt;
+
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;span id=&quot;ERL_NIF_TERM&quot;&gt; &lt;/span&gt;ERL_NIF_TERM&lt;/dt&gt;
+       &lt;item&gt;
+        &lt;p&gt;Variables of type &lt;code&gt;ERL_NIF_TERM&lt;/code&gt; can refer to any Erlang term.
+        This is an opaque type and values of it can only by used either as
+        arguments to API functions or as return values from NIFs. All
+        &lt;code&gt;ERL_NIF_TERM&lt;/code&gt;&#039;s belong to an environment
+        (&lt;a href=&quot;#ErlNifEnv&quot; class=&quot;seealso&quot;&gt;ErlNifEnv&lt;/a&gt;). A term can not be
+        destructed individually, it is valid until its environment is destructed.&lt;/p&gt;
+      &lt;/item&gt;
+     &lt;dt&gt;&lt;span id=&quot;ErlNifEnv&quot;&gt; &lt;/span&gt;ErlNifEnv&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;&lt;code&gt;ErlNifEnv&lt;/code&gt; represents an environment that can host Erlang terms.
+        All terms in an environment are valid as long as the environment is valid.
+        &lt;code&gt;ErlNifEnv&lt;/code&gt; is an opaque type and pointers to it can only be passed
+        on to API functions. There are two types of environments; process
+        bound and process independent.&lt;/p&gt;
+        &lt;p&gt;A &lt;em&gt;process bound environment&lt;/em&gt; is passed as the first argument to all NIFs.
+        All function arguments passed to a NIF will belong to that environment.
+        The return value from a NIF must also be a term belonging to the same
+        environment.
+        In addition a process bound environment contains transient information
+        about the calling Erlang process. The environment is only valid in the 
+        thread where it was supplied as argument until the NIF returns. It is
+        thus useless and dangerous to store pointers to process bound
+        environments between NIF calls. &lt;/p&gt;
+        &lt;p&gt;A &lt;em&gt;process independent environment&lt;/em&gt; is created by calling
+        &lt;a href=&quot;#enif_alloc_env&quot; class=&quot;seealso&quot;&gt;enif_alloc_env&lt;/a&gt;. It can be
+        used to store terms between NIF calls and to send terms with
+        &lt;a href=&quot;#enif_send&quot; class=&quot;seealso&quot;&gt;enif_send&lt;/a&gt;. A process
+        independent environment with all its terms is valid until you explicitly
+        invalidates it with &lt;a href=&quot;#enif_free_env&quot; class=&quot;seealso&quot;&gt;enif_free_env&lt;/a&gt;
+        or &lt;code&gt;enif_send&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;All elements of a list/tuple must belong to the same environment as the
+        list/tuple itself. Terms can be copied between environments with
+        &lt;a href=&quot;#enif_make_copy&quot; class=&quot;seealso&quot;&gt;enif_make_copy&lt;/a&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;dt&gt;&lt;span id=&quot;ErlNifFunc&quot;&gt; &lt;/span&gt;ErlNifFunc&lt;/dt&gt;
+     &lt;item&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef struct {
+    const char* &lt;em&gt;name&lt;/em&gt;;
+    unsigned &lt;em&gt;arity&lt;/em&gt;;
+    ERL_NIF_TERM (*&lt;em&gt;fptr&lt;/em&gt;)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+} ErlNifFunc;
+&lt;/pre&gt;
+        &lt;p&gt;Describes a NIF by its name, arity and implementation.
+        &lt;code&gt;fptr&lt;/code&gt; is a pointer to the function that implements the
+        NIF. The argument &lt;code&gt;argv&lt;/code&gt; of a NIF will contain the
+        function arguments passed to the NIF and &lt;code&gt;argc&lt;/code&gt; is the
+        length of the array, i.e. the function arity. &lt;code&gt;argv[N-1]&lt;/code&gt;
+        will thus denote the Nth argument to the NIF. Note that the
+        &lt;code&gt;argc&lt;/code&gt; argument allows for the same C function to
+        implement several Erlang functions with different arity (but
+        same name probably).&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;dt&gt;&lt;span id=&quot;ErlNifBinary&quot;&gt; &lt;/span&gt;ErlNifBinary&lt;/dt&gt;
+     &lt;item&gt;
+      &lt;p  /&gt;
+      &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef struct {
+    unsigned &lt;em&gt;size&lt;/em&gt;;
+    unsigned char* &lt;em&gt;data&lt;/em&gt;;
+} ErlNifBinary;
+&lt;/pre&gt;
+        &lt;p&gt;&lt;code&gt;ErlNifBinary&lt;/code&gt; contains transient information about an
+          inspected binary term. &lt;code&gt;data&lt;/code&gt; is a pointer to a buffer
+          of &lt;code&gt;size&lt;/code&gt; bytes with the raw content of the binary.&lt;/p&gt;
+          &lt;p&gt;Note that &lt;code&gt;ErlNifBinary&lt;/code&gt; is a semi-opaque type and you are
+          only allowed to read fields &lt;code&gt;size&lt;/code&gt; and &lt;code&gt;data&lt;/code&gt;.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;span id=&quot;ErlNifPid&quot;&gt; &lt;/span&gt;ErlNifPid&lt;/dt&gt;
+       &lt;item&gt;
+          &lt;p&gt;&lt;code&gt;ErlNifPid&lt;/code&gt; is a process identifier (pid). In contrast to
+          pid terms (instances of &lt;code&gt;ERL_NIF_TERM&lt;/code&gt;), &lt;code&gt;ErlNifPid&lt;/code&gt;&#039;s are self
+          contained and not bound to any
+          &lt;a href=&quot;#ErlNifEnv&quot; class=&quot;seealso&quot;&gt;environment&lt;/a&gt;. &lt;code&gt;ErlNifPid&lt;/code&gt;
+          is an opaque type.&lt;/p&gt;
+        &lt;/item&gt;
+
+      &lt;dt&gt;&lt;span id=&quot;ErlNifResourceType&quot;&gt; &lt;/span&gt;ErlNifResourceType&lt;/dt&gt;
+       &lt;item&gt;
+          &lt;p&gt;Each instance of &lt;code&gt;ErlNifResourceType&lt;/code&gt; represent a class of
+          memory managed resource objects that can be garbage collected.
+          Each resource type has a unique name and a destructor function that
+          is called when objects of its type are released.&lt;/p&gt;
+        &lt;/item&gt;
+        &lt;dt&gt;&lt;span id=&quot;ErlNifResourceDtor&quot;&gt; &lt;/span&gt;ErlNifResourceDtor&lt;/dt&gt;
+         &lt;item&gt;
+           &lt;p  /&gt;
+           &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
+&lt;/pre&gt;
+            &lt;p&gt;The function prototype of a resource destructor function.
+            A destructor function is not allowed to call any term-making functions.&lt;/p&gt;
+          &lt;/item&gt;
+          &lt;dt&gt;&lt;span id=&quot;ErlNifCharEncoding&quot;&gt; &lt;/span&gt;ErlNifCharEncoding&lt;/dt&gt;
+           &lt;item&gt;
+             &lt;p  /&gt;
+             &lt;pre class=&quot;sh_erlang&quot;&gt;
+typedef enum {
+    ERL_NIF_LATIN1
+}ErlNifCharEncoding;
+&lt;/pre&gt;
+              &lt;p&gt;The character encoding used in strings and atoms. The only
+              supported encoding is currently &lt;code&gt;ERL_NIF_LATIN1&lt;/code&gt; for
+              iso-latin-1 (8-bit ascii).&lt;/p&gt;
+            &lt;/item&gt;
+            &lt;dt&gt;&lt;span id=&quot;ErlNifSysInfo&quot;&gt; &lt;/span&gt;ErlNifSysInfo&lt;/dt&gt;
+             &lt;item&gt;
+                &lt;p&gt;Used by &lt;a href=&quot;#enif_system_info&quot; class=&quot;seealso&quot;&gt;enif_system_info&lt;/a&gt;
+                to return information about the runtime system. Contains currently
+                the exact same content as &lt;a href=&quot;erl_driver.html#ErlDrvSysInfo&quot; class=&quot;seealso&quot;&gt;ErlDrvSysInfo&lt;/a&gt;.&lt;/p&gt;
+              &lt;/item&gt;
+              &lt;dt&gt;&lt;span id=&quot;ErlNifSInt64&quot;&gt; &lt;/span&gt;ErlNifSInt64&lt;/dt&gt;
+               &lt;item&gt;&lt;p&gt;A native signed 64-bit integer type.&lt;/p&gt;&lt;/item&gt;
+              &lt;dt&gt;&lt;span id=&quot;ErlNifUInt64&quot;&gt; &lt;/span&gt;ErlNifUInt64&lt;/dt&gt;
+               &lt;item&gt;&lt;p&gt;A native unsigned 64-bit integer type.&lt;/p&gt;&lt;/item&gt;
+
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void * enif_alloc(size_t size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Allocate memory of &lt;code&gt;size&lt;/code&gt; bytes. Return NULL if allocation failed.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_alloc_binary(size_t size, ErlNifBinary* bin)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Allocate a new binary of size &lt;code&gt;size&lt;/code&gt;
+      bytes. Initialize the structure pointed to by &lt;code&gt;bin&lt;/code&gt; to
+      refer to the allocated binary. The binary must either be released by 
+      &lt;a href=&quot;#enif_release_binary&quot; class=&quot;seealso&quot;&gt;enif_release_binary&lt;/a&gt; 
+      or ownership transferred to an Erlang term with 
+      &lt;a href=&quot;#enif_make_binary&quot; class=&quot;seealso&quot;&gt;enif_make_binary&lt;/a&gt;. 
+      An allocated (and owned) &lt;code&gt;ErlNifBinary&lt;/code&gt; can be kept between NIF
+      calls.&lt;/p&gt;
+        &lt;p&gt;Return true on success or false if allocation failed.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifEnv * enif_alloc_env()&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Allocate a new process independent environment. The environment can
+      be used to hold terms that is not bound to any process. Such terms can
+      later be copied to a process environment with
+      &lt;a href=&quot;#enif_make_copy&quot; class=&quot;seealso&quot;&gt;enif_make_copy&lt;/a&gt;
+      or be sent to a process as a message with &lt;a href=&quot;#enif_send&quot; class=&quot;seealso&quot;&gt;enif_send&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;Return pointer to the new environment.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void * enif_alloc_resource(ErlNifResourceType* type, unsigned size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Allocate a memory managed resource object of type &lt;code&gt;type&lt;/code&gt; and size &lt;code&gt;size&lt;/code&gt; bytes.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_clear_env(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Free all terms in an environment and clear it for reuse. The environment must
+      have been allocated with &lt;a href=&quot;#enif_alloc_env&quot; class=&quot;seealso&quot;&gt;enif_alloc_env&lt;/a&gt;.
+      &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return an integer less than, equal to, or greater than
+      zero if &lt;code&gt;lhs&lt;/code&gt; is found, respectively, to be less than,
+      equal, or greater than &lt;code&gt;rhs&lt;/code&gt;. Corresponds to the Erlang
+      operators &lt;code&gt;==&lt;/code&gt;, &lt;code&gt;/=&lt;/code&gt;, &lt;code&gt;=&amp;lt;&lt;/code&gt;, &lt;code&gt;&amp;lt;&lt;/code&gt;,
+      &lt;code&gt;&amp;gt;=&lt;/code&gt; and &lt;code&gt;&amp;gt;&lt;/code&gt; (but &lt;em&gt;not&lt;/em&gt; &lt;code&gt;=:=&lt;/code&gt; or &lt;code&gt;=/=&lt;/code&gt;).&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_cond_broadcast(ErlNifCond *cnd)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_cond_broadcast&quot; class=&quot;seealso&quot;&gt;erl_drv_cond_broadcast&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifCond * enif_cond_create(char *name)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_cond_create&quot; class=&quot;seealso&quot;&gt;erl_drv_cond_create&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_cond_destroy(ErlNifCond *cnd)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_cond_destroy&quot; class=&quot;seealso&quot;&gt;erl_drv_cond_destroy&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_cond_signal(ErlNifCond *cnd)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_cond_signal&quot; class=&quot;seealso&quot;&gt;erl_drv_cond_signal&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_cond_wait&quot; class=&quot;seealso&quot;&gt;erl_drv_cond_wait&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_consume_timeslice(ErlNifEnv *env, int percent)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Give the runtime system a hint about how much CPU time the current NIF call has consumed
+    since last hint, or since the start of the NIF if no previous hint has been given.
+    The time is given as a &lt;code&gt;percent&lt;/code&gt; of the timeslice that a process is allowed to execute Erlang
+    code until it may be suspended to give time for other runnable processes.
+    The scheduling timeslice is not an exact entity, but can usually be
+    approximated to about 1 millisecond.&lt;/p&gt;
+    &lt;p&gt;Note that it is up to the runtime system to determine if and how to use this information.
+    Implementations on some platforms may use other means in order to determine consumed
+    CPU time. Lengthy NIFs should regardless of this frequently call &lt;code&gt;enif_consume_timeslice&lt;/code&gt;
+    in order to determine if it is allowed to continue execution or not.&lt;/p&gt;
+
+    &lt;p&gt;Returns 1 if the timeslice is exhausted, or 0 otherwise. If 1 is returned the NIF should return
+    as soon as possible in order for the process to yield.&lt;/p&gt;
+    &lt;p&gt;Argument &lt;code&gt;percent&lt;/code&gt; must be an integer between 1 and 100. This function
+    must only be called from a NIF-calling thread and argument &lt;code&gt;env&lt;/code&gt; must be
+    the environment of the calling process.&lt;/p&gt;
+    &lt;p&gt;This function is provided to better support co-operative scheduling, improve system responsiveness,
+    and make it easier to prevent misbehaviors of the VM due to a NIF monopolizing a scheduler thread.
+    It can be used to divide &lt;a href=&quot;#lengthy_work&quot; class=&quot;seealso&quot;&gt;length work&lt;/a&gt; into
+    a number of repeated NIF-calls without the need to create threads.
+    See also the &lt;a href=&quot;#WARNING&quot; class=&quot;seealso&quot;&gt;warning&lt;/a&gt; text at the beginning of this document.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+          &lt;p&gt;A convenience function that a dirty NIF can use as a finalizer that simply
+          return its &lt;code&gt;result&lt;/code&gt; argument as its return value. This function is provided
+          for dirty NIFs with results that should be returned directly to the original caller.&lt;/p&gt;
+          &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;This function is available only when the emulator is configured with dirty
+          schedulers enabled. This feature is currently disabled by default. To determine whether
+          the dirty NIF API is available, native code can check to see if the C preprocessor macro
+          &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined.&lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_equal_tids&quot; class=&quot;seealso&quot;&gt;erl_drv_equal_tids&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_free(void* ptr)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Free memory allocated by &lt;code&gt;enif_alloc&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_free_env(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Free an environment allocated with &lt;a href=&quot;#enif_alloc_env&quot; class=&quot;seealso&quot;&gt;enif_alloc_env&lt;/a&gt;.
+      All terms created in the environment will be freed as well.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM term, char* buf, unsigned size, ErlNifCharEncoding encode)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Write a null-terminated string, in the buffer pointed to by
+              &lt;code&gt;buf&lt;/code&gt; of size &lt;code&gt;size&lt;/code&gt;, consisting of the string 
+              representation of the atom &lt;code&gt;term&lt;/code&gt; with encoding
+              &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encode&lt;/a&gt;. Return
+              the number of bytes written (including terminating null character) or 0 if
+              &lt;code&gt;term&lt;/code&gt; is not an atom with maximum length of 
+              &lt;code&gt;size-1&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*len&lt;/code&gt; to the length (number of bytes excluding
+      terminating null character) of the atom &lt;code&gt;term&lt;/code&gt; with encoding
+      &lt;code&gt;encode&lt;/code&gt;. Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not an
+      atom.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*dp&lt;/code&gt; to the floating point value of
+      &lt;code&gt;term&lt;/code&gt;. Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not a float.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the integer value of
+      &lt;code&gt;term&lt;/code&gt;. Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not an
+      integer or is outside the bounds of type &lt;code&gt;int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the integer value of
+      &lt;code&gt;term&lt;/code&gt;. Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not an
+      integer or is outside the bounds of a signed 64-bit integer.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;If &lt;code&gt;term&lt;/code&gt; is the pid of a node local process, initialize the
+    pid variable &lt;code&gt;*pid&lt;/code&gt; from it and return true. Otherwise return false.
+    No check if the process is alive is done.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*head&lt;/code&gt; and &lt;code&gt;*tail&lt;/code&gt; from
+      &lt;code&gt;list&lt;/code&gt; and return true, or return false if &lt;code&gt;list&lt;/code&gt; is not a
+      non-empty list.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*len&lt;/code&gt; to the length of list &lt;code&gt;term&lt;/code&gt; and return true,
+      or return false if &lt;code&gt;term&lt;/code&gt; is not a list.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the long integer value of &lt;code&gt;term&lt;/code&gt; and
+      return true, or return false if &lt;code&gt;term&lt;/code&gt; is not an integer or is
+      outside the bounds of type &lt;code&gt;long int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*objp&lt;/code&gt; to point to the resource object referred to by &lt;code&gt;term&lt;/code&gt;.&lt;/p&gt;
+      &lt;p&gt;Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not a handle to a resource object
+      of type &lt;code&gt;type&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_string(ErlNifEnv* env, 
+                                ERL_NIF_TERM list, char* buf, unsigned size,
+                                ErlNifCharEncoding encode)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Write a null-terminated string, in the buffer pointed to by
+              &lt;code&gt;buf&lt;/code&gt; with size &lt;code&gt;size&lt;/code&gt;, consisting of the characters
+              in the string &lt;code&gt;list&lt;/code&gt;. The characters are written using encoding
+              &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encode&lt;/a&gt;.
+              Return the number of bytes written (including terminating null
+              character), or &lt;code&gt;-size&lt;/code&gt; if the string was truncated due to
+              buffer space, or 0 if &lt;code&gt;list&lt;/code&gt; is not a string that can be
+              encoded with &lt;code&gt;encode&lt;/code&gt; or if &lt;code&gt;size&lt;/code&gt; was less than 1.              
+              The written string is always null-terminated unless buffer
+              &lt;code&gt;size&lt;/code&gt; is less than 1.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;If &lt;code&gt;term&lt;/code&gt; is a tuple, set &lt;code&gt;*array&lt;/code&gt; to point
+      to an array containing the elements of the tuple and set
+      &lt;code&gt;*arity&lt;/code&gt; to the number of elements. Note that the array
+      is read-only and &lt;code&gt;(*array)[N-1]&lt;/code&gt; will be the Nth element of
+      the tuple. &lt;code&gt;*array&lt;/code&gt; is undefined if the arity of the tuple
+      is zero.&lt;/p&gt;&lt;p&gt;Return true on success or false if &lt;code&gt;term&lt;/code&gt; is not a
+      tuple.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the unsigned integer value of &lt;code&gt;term&lt;/code&gt; and
+      return true, or return false if &lt;code&gt;term&lt;/code&gt; is not an unsigned integer or
+      is outside the bounds of type &lt;code&gt;unsigned int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the unsigned integer value of &lt;code&gt;term&lt;/code&gt; and
+      return true, or return false if &lt;code&gt;term&lt;/code&gt; is not an unsigned integer or
+      is outside the bounds of an unsigned 64-bit integer.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*ip&lt;/code&gt; to the unsigned long integer value of &lt;code&gt;term&lt;/code&gt;
+      and return true, or return false if &lt;code&gt;term&lt;/code&gt; is not an unsigned integer or is
+      outside the bounds of type &lt;code&gt;unsigned long&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_have_dirty_schedulers()&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+          &lt;p&gt;Check at runtime for the presence of dirty scheduler threads. If the emulator is
+          built with threading support, dirty scheduler threads are available and
+          &lt;code&gt;enif_have_dirty_schedulers()&lt;/code&gt; returns true. If the emulator was built without
+          threading support, &lt;code&gt;enif_have_dirty_schedulers()&lt;/code&gt; returns false.&lt;/p&gt;
+          &lt;p&gt;If dirty scheduler threads are not available in the emulator, calls to
+          &lt;code&gt;enif_schedule_dirty_nif&lt;/code&gt; and &lt;code&gt;enif_schedule_dirty_nif_finalizer&lt;/code&gt; result in
+          the NIF and finalizer functions being called directly within the calling thread.&lt;/p&gt;
+          &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;This function is available only when the emulator is configured with dirty
+          schedulers enabled. This feature is currently disabled by default. To determine whether
+          the dirty NIF API is available, native code can check to see if the C preprocessor macro
+          &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined.&lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Initialize the structure pointed to by &lt;code&gt;bin&lt;/code&gt; with 
+              information about the binary term
+      &lt;code&gt;bin_term&lt;/code&gt;. Return true on success or false if &lt;code&gt;bin_term&lt;/code&gt; is not a binary.&lt;/p&gt;&lt;/div&gt; 
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_inspect_iolist_as_binary(ErlNifEnv* 
+                                env, ERL_NIF_TERM term, ErlNifBinary* bin)
+                              &lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Initialize the structure pointed to by &lt;code&gt;bin&lt;/code&gt; with one
+      continuous buffer with the same byte content as &lt;code&gt;iolist&lt;/code&gt;. As with 
+      inspect_binary, the data pointed to by &lt;code&gt;bin&lt;/code&gt; is transient and does 
+      not need to be released. Return true on success or false if &lt;code&gt;iolist&lt;/code&gt; is not an
+      iolist.&lt;/p&gt;
+      &lt;/div&gt; 
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is an atom.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a binary&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is an empty list.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;span id=&quot;enif_is_exception&quot;&gt; &lt;/span&gt;&lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is an exception.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a number.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a fun.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_identical(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if the two terms are identical. Corresponds to the
+      Erlang operators &lt;code&gt;=:=&lt;/code&gt; and
+      &lt;code&gt;=/=&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt; 
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_on_dirty_scheduler(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+          &lt;p&gt;Check to see if the current NIF is executing on a dirty scheduler thread. If the
+          emulator is built with threading support, calling &lt;code&gt;enif_is_on_dirty_scheduler&lt;/code&gt;
+          from within a dirty NIF returns true. It returns false when the calling NIF is a regular
+          NIF or a NIF finalizer, both of which run on normal scheduler threads, or when the emulator
+          is built without threading support.&lt;/p&gt;
+          &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;This function is available only when the emulator is configured with dirty
+          schedulers enabled. This feature is currently disabled by default. To determine whether
+          the dirty NIF API is available, native code can check to see if the C preprocessor macro
+          &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined.&lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a pid.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a port.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a reference.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a tuple.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return true if &lt;code&gt;term&lt;/code&gt; is a list.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_keep_resource(void* obj)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Add a reference to resource object &lt;code&gt;obj&lt;/code&gt; obtained from
+      &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.
+      Each call to &lt;code&gt;enif_keep_resource&lt;/code&gt; for an object must be balanced by
+      a call to &lt;a href=&quot;#enif_release_resource&quot; class=&quot;seealso&quot;&gt;enif_release_resource&lt;/a&gt;
+      before the object will be destructed.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an atom term from the null-terminated C-string &lt;code&gt;name&lt;/code&gt;
+      with iso-latin-1 encoding.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an atom term from the string &lt;code&gt;name&lt;/code&gt; with length &lt;code&gt;len&lt;/code&gt;.
+      Null-characters are treated as any other characters.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Make a badarg exception to be returned from a NIF, and set
+      an associated exception reason in &lt;code&gt;env&lt;/code&gt;. If
+      &lt;code&gt;enif_make_badarg&lt;/code&gt; is called, the term it returns &lt;em&gt;must&lt;/em&gt;
+      be returned from the function that called it. No other return value
+      is allowed. Also, the term returned from &lt;code&gt;enif_make_badarg&lt;/code&gt; may
+      be passed only to
+      &lt;a href=&quot;#enif_is_exception&quot; class=&quot;seealso&quot;&gt;enif_is_exception&lt;/a&gt; and
+      not to any other NIF API function.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Make a binary term from &lt;code&gt;bin&lt;/code&gt;. Any ownership of 
+              the binary data will be transferred to the created term and
+              &lt;code&gt;bin&lt;/code&gt; should be considered read-only for the rest of the NIF
+              call and then as released.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Make a copy of term &lt;code&gt;src_term&lt;/code&gt;. The copy will be created in
+      environment &lt;code&gt;dst_env&lt;/code&gt;. The source term may be located in any
+      environment.&lt;/p&gt;&lt;/div&gt;        
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a floating-point term from a &lt;code&gt;double&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Try to create the term of an already existing atom from
+      the null-terminated C-string &lt;code&gt;name&lt;/code&gt; with encoding
+      &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encode&lt;/a&gt;. If the atom
+      already exists store the term in &lt;code&gt;*atom&lt;/code&gt; and return true, otherwise
+      return false.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Try to create the term of an already existing atom from the
+      string &lt;code&gt;name&lt;/code&gt; with length &lt;code&gt;len&lt;/code&gt; and encoding
+      &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encode&lt;/a&gt;. Null-characters
+      are treated as any other characters. If the atom already exists store the term
+      in &lt;code&gt;*atom&lt;/code&gt; and return true, otherwise return false.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term from a signed 64-bit integer.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an ordinary list term of length &lt;code&gt;cnt&lt;/code&gt;. Expects
+      &lt;code&gt;cnt&lt;/code&gt; number of arguments (after &lt;code&gt;cnt&lt;/code&gt;) of type ERL_NIF_TERM as the
+      elements of the list. An empty list is returned if &lt;code&gt;cnt&lt;/code&gt; is 0.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_list9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an ordinary list term with length indicated by the
+      function name. Prefer these functions (macros) over the variadic
+      &lt;code&gt;enif_make_list&lt;/code&gt;  to get a compile time error if the number of
+      arguments does not match.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a list cell &lt;code&gt;[head | tail]&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an ordinary list containing the elements of array &lt;code&gt;arr&lt;/code&gt;
+      of length &lt;code&gt;cnt&lt;/code&gt;. An empty list is returned if &lt;code&gt;cnt&lt;/code&gt; is 0.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Set &lt;code&gt;*list&lt;/code&gt; to the reverse list of the list &lt;code&gt;term&lt;/code&gt; and return true,
+      or return false if &lt;code&gt;term&lt;/code&gt; is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long int i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term from a &lt;code&gt;long int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;unsigned char * enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Allocate a binary of size &lt;code&gt;size&lt;/code&gt; bytes and create an owning
+      term. The binary data is mutable until the calling NIF returns. This is a
+      quick way to create a new binary without having to use
+      &lt;a href=&quot;#ErlNifBinary&quot; class=&quot;seealso&quot;&gt;ErlNifBinary&lt;/a&gt;. The drawbacks are
+      that the binary can not be kept between NIF calls and it can not be
+      reallocated.&lt;/p&gt;&lt;p&gt;Return a pointer to the raw binary data and set
+      &lt;code&gt;*termp&lt;/code&gt; to the binary term.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Make a pid term from &lt;code&gt;*pid&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a reference like &lt;a href=&quot;erlang.html#make_ref-0&quot; class=&quot;seealso&quot;&gt;erlang:make_ref/0&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an opaque handle to a memory managed resource object
+      obtained by &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.
+      No ownership transfer is done, as the resource object still needs to be released by
+      &lt;a href=&quot;#enif_release_resource&quot; class=&quot;seealso&quot;&gt;enif_release_resource&lt;/a&gt;,
+      but note that the call to &lt;code&gt;enif_release_resource&lt;/code&gt; can occur
+      immediately after obtaining the term from &lt;code&gt;enif_make_resource&lt;/code&gt;,
+      in which case the resource object will be deallocated when the
+      term is garbage collected. See the
+      &lt;a href=&quot;#enif_resource_example&quot; class=&quot;seealso&quot;&gt;example of creating and
+      returning a resource object&lt;/a&gt; for more details.&lt;/p&gt; 
+      &lt;p&gt;Note that the only defined behaviour of using a resource term in
+      an Erlang program is to store it and send it between processes on the
+      same node. Other operations such as matching or &lt;code&gt;term_to_binary&lt;/code&gt;
+      will have unpredictable (but harmless) results.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj, const void* data, size_t size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a binary term that is memory managed by a resource object
+      &lt;code&gt;obj&lt;/code&gt; obtained by &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.
+      The returned binary term will consist of &lt;code&gt;size&lt;/code&gt; bytes pointed to
+      by &lt;code&gt;data&lt;/code&gt;. This raw binary data must be kept readable and unchanged
+      until the destructor of the resource is called. The binary data may be
+      stored external to the resource object in which case it is the responsibility
+      of the destructor to release the data.&lt;/p&gt;
+      &lt;p&gt;Several binary terms may be managed by the same resource object. The
+      destructor will not be called until the last binary is garbage collected.
+      This can be useful as a way to return different parts of a larger binary
+      buffer.&lt;/p&gt;
+      &lt;p&gt;As with &lt;a href=&quot;#enif_make_resource&quot; class=&quot;seealso&quot;&gt;enif_make_resource&lt;/a&gt;,
+      no ownership transfer is done. The resource still needs to be released with
+      &lt;a href=&quot;#enif_release_resource&quot; class=&quot;seealso&quot;&gt;enif_release_resource&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a list containing the characters of the
+      null-terminated string &lt;code&gt;string&lt;/code&gt; with encoding &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encoding&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a list containing the characters of the string &lt;code&gt;string&lt;/code&gt; with
+      length &lt;code&gt;len&lt;/code&gt; and encoding &lt;a href=&quot;#ErlNifCharEncoding&quot; class=&quot;seealso&quot;&gt;encoding&lt;/a&gt;.
+      Null-characters are treated as any other characters.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_sub_binary(ErlNifEnv* 
+      env, ERL_NIF_TERM bin_term, size_t pos, size_t size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Make a subbinary of binary &lt;code&gt;bin_term&lt;/code&gt;, starting at 
+              zero-based position &lt;code&gt;pos&lt;/code&gt; with a length of &lt;code&gt;size&lt;/code&gt; bytes. 
+              &lt;code&gt;bin_term&lt;/code&gt; must be a binary or bitstring and
+              &lt;code&gt;pos+size&lt;/code&gt; must be less or equal to the number of whole
+              bytes in &lt;code&gt;bin_term&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a tuple term of arity &lt;code&gt;cnt&lt;/code&gt;. Expects
+      &lt;code&gt;cnt&lt;/code&gt; number of arguments (after &lt;code&gt;cnt&lt;/code&gt;) of type ERL_NIF_TERM as the
+      elements of the tuple.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_tuple1(ErlNifEnv* env, ERL_NIF_TERM e1)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)&lt;/pre&gt;
+    &lt;pre&gt;ERL_NIF_TERM enif_make_tuple9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a tuple term with length indicated by the
+      function name. Prefer these functions (macros) over the variadic
+      &lt;code&gt;enif_make_tuple&lt;/code&gt;  to get a compile time error if the number of
+      arguments does not match.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create a tuple containing the elements of array &lt;code&gt;arr&lt;/code&gt;
+      of length &lt;code&gt;cnt&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned int i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term from an &lt;code&gt;unsigned int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term from an unsigned 64-bit integer.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create an integer term from an &lt;code&gt;unsigned long int&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifMutex * enif_mutex_create(char *name)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_mutex_create&quot; class=&quot;seealso&quot;&gt;erl_drv_mutex_create&lt;/a&gt;.
+    &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_mutex_destroy(ErlNifMutex *mtx)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_mutex_destroy&quot; class=&quot;seealso&quot;&gt;erl_drv_mutex_destroy&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_mutex_lock(ErlNifMutex *mtx)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_mutex_lock&quot; class=&quot;seealso&quot;&gt;erl_drv_mutex_lock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_mutex_trylock(ErlNifMutex *mtx)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_mutex_trylock&quot; class=&quot;seealso&quot;&gt;erl_drv_mutex_trylock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_mutex_unlock(ErlNifMutex *mtx)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_mutex_unlock&quot; class=&quot;seealso&quot;&gt;erl_drv_mutex_unlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifResourceType * enif_open_resource_type(ErlNifEnv* env,
+                             const char* module_str, const char* name,
+                             ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Create or takeover a resource type identified by the string
+      &lt;code&gt;name&lt;/code&gt; and give it the destructor function pointed to by &lt;a href=&quot;#ErlNifResourceDtor&quot; class=&quot;seealso&quot;&gt;dtor&lt;/a&gt;.
+      Argument &lt;code&gt;flags&lt;/code&gt; can have the following values:&lt;/p&gt;
+      &lt;taglist&gt;
+        &lt;dt&gt;&lt;code&gt;ERL_NIF_RT_CREATE&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;Create a new resource type that does not already exist.&lt;/item&gt;
+        &lt;dt&gt;&lt;code&gt;ERL_NIF_RT_TAKEOVER&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;Open an existing resource type and take over ownership of all its instances.
+               The supplied destructor &lt;code&gt;dtor&lt;/code&gt; will be called both for existing instances
+               as well as new instances not yet created by the calling NIF library.&lt;/item&gt;            
+      &lt;/taglist&gt;
+      &lt;p&gt;The two flag values can be combined with bitwise-or. The name of the
+      resource type is local to the calling module. Argument &lt;code&gt;module_str&lt;/code&gt;
+      is not (yet) used and must be NULL. The &lt;code&gt;dtor&lt;/code&gt; may  be &lt;code&gt;NULL&lt;/code&gt;
+      in case no destructor is needed.&lt;/p&gt;
+      &lt;p&gt;On success, return a pointer to the resource type and &lt;code&gt;*tried&lt;/code&gt;
+      will be set to either &lt;code&gt;ERL_NIF_RT_CREATE&lt;/code&gt; or
+      &lt;code&gt;ERL_NIF_RT_TAKEOVER&lt;/code&gt; to indicate what was actually done.
+       On failure, return &lt;code&gt;NULL&lt;/code&gt; and set &lt;code&gt;*tried&lt;/code&gt; to &lt;code&gt;flags&lt;/code&gt;.
+       It is allowed to set &lt;code&gt;tried&lt;/code&gt; to &lt;code&gt;NULL&lt;/code&gt;.&lt;/p&gt;
+       &lt;p&gt;Note that &lt;code&gt;enif_open_resource_type&lt;/code&gt; is only allowed to be called in the three callbacks
+       &lt;a href=&quot;#load&quot; class=&quot;seealso&quot;&gt;load&lt;/a&gt;, &lt;a href=&quot;#reload&quot; class=&quot;seealso&quot;&gt;reload&lt;/a&gt;
+       and &lt;a href=&quot;#upgrade&quot; class=&quot;seealso&quot;&gt;upgrade&lt;/a&gt;.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void * enif_priv_data(ErlNifEnv* env)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Return the pointer to the private data that was set by &lt;code&gt;load&lt;/code&gt;,
+      &lt;code&gt;reload&lt;/code&gt; or &lt;code&gt;upgrade&lt;/code&gt;.&lt;/p&gt;
+      &lt;p&gt;Was previously named &lt;code&gt;enif_get_data&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_realloc_binary(ErlNifBinary* bin, size_t size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Change the size of a binary &lt;code&gt;bin&lt;/code&gt;. The source binary
+      may be read-only, in which case it will be left untouched and
+      a mutable copy is allocated and assigned to &lt;code&gt;*bin&lt;/code&gt;. Return true on success,
+      false if memory allocation failed.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_release_binary(ErlNifBinary* bin)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Release a binary obtained from &lt;code&gt;enif_alloc_binary&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_release_resource(void* obj)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Remove a reference to resource object &lt;code&gt;obj&lt;/code&gt;obtained from
+      &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.
+      The resource object will be destructed when the last reference is removed.
+      Each call to &lt;code&gt;enif_release_resource&lt;/code&gt; must correspond to a previous
+      call to &lt;code&gt;enif_alloc_resource&lt;/code&gt; or
+      &lt;a href=&quot;#enif_keep_resource&quot; class=&quot;seealso&quot;&gt;enif_keep_resource&lt;/a&gt;.
+      References made by &lt;a href=&quot;#enif_make_resource&quot; class=&quot;seealso&quot;&gt;enif_make_resource&lt;/a&gt;
+      can only be removed by the garbage collector.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifRWLock * enif_rwlock_create(char *name)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_create&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_create&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_rwlock_destroy(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_destroy&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_destroy&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_rwlock_rlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_rlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_rlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_rwlock_runlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_runlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_runlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_rwlock_rwlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_rwlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_rwlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_rwlock_rwunlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_rwunlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_rwunlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_rwlock_tryrlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_tryrlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_tryrlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_rwlock_tryrwlock&quot; class=&quot;seealso&quot;&gt;erl_drv_rwlock_tryrwlock&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_schedule_dirty_nif(ErlNifEnv* env, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM argv[])&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+          &lt;p&gt;Schedule dirty NIF &lt;code&gt;fp&lt;/code&gt; to execute a long-running operation. The &lt;code&gt;flags&lt;/code&gt;
+          argument must be set to either &lt;code&gt;ERL_NIF_DIRTY_JOB_CPU_BOUND&lt;/code&gt; if the job is expected to
+          be primarily CPU-bound, or &lt;code&gt;ERL_NIF_DIRTY_JOB_IO_BOUND&lt;/code&gt; for jobs that will be
+          I/O-bound. The &lt;code&gt;argc&lt;/code&gt; and &lt;code&gt;argv&lt;/code&gt; arguments can either be the originals passed
+          into the calling NIF, or they can be values created by the calling NIF. The calling
+          NIF must use the return value of &lt;code&gt;enif_schedule_dirty_nif&lt;/code&gt; as its own return value.&lt;/p&gt;
+          &lt;p&gt;Be aware that &lt;code&gt;enif_schedule_dirty_nif&lt;/code&gt;, as its name implies, only schedules the
+          dirty NIF for future execution. The calling NIF does not block waiting for the dirty NIF to
+          execute and return, which means that the calling NIF can&#039;t expect to receive the dirty NIF
+          return value and use it for further operations.&lt;/p&gt;
+          &lt;p&gt;A dirty NIF may not invoke the &lt;a href=&quot;#enif_make_badarg&quot; class=&quot;seealso&quot;&gt;enif_make_badarg&lt;/a&gt;
+          to raise an exception. If it wishes to return an exception, the dirty NIF should pass a
+          regular result indicating the exception details to its finalizer, and allow the finalizer
+          to raise the exception on its behalf.&lt;/p&gt;
+          &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;This function is available only when the emulator is configured with dirty schedulers
+          enabled. This feature is currently disabled by default. To determine whether the dirty NIF API
+          is available, native code can check to see if the C preprocessor macro
+          &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined.&lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ERL_NIF_TERM enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result, ERL_NIF_TERM (*fp)(ErlNifEnv* env, ERL_NIF_TERM result))&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+          &lt;p&gt;When a dirty NIF finishes executing, it must schedule a finalizer function to return
+          its result to the original NIF caller. The dirty NIF passes &lt;code&gt;result&lt;/code&gt; as the value it
+          wants the finalizer to use as the return value. The &lt;code&gt;fp&lt;/code&gt; argument is a pointer to the
+          finalizer function. The NIF API provides the &lt;a href=&quot;#enif_dirty_nif_finalizer&quot; class=&quot;seealso&quot;&gt;
+          enif_dirty_nif_finalizer&lt;/a&gt; function that can be used as a finalizer that simply
+          returns its &lt;code&gt;result&lt;/code&gt; argument. You are also free to write your own custom finalizer
+          that uses &lt;code&gt;result&lt;/code&gt; to derive a different return value, or ignores &lt;code&gt;result&lt;/code&gt;
+          entirely and returns a completely different value.&lt;/p&gt;
+          &lt;p&gt;Without exception, all dirty NIFs must invoke &lt;code&gt;enif_schedule_dirty_nif_finalizer&lt;/code&gt;
+          to complete their execution.&lt;/p&gt;
+          &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;This function is available only when the emulator is configured with dirty
+          schedulers enabled. This feature is currently disabled by default. To determine whether
+          the dirty NIF API is available, native code can check to see if the C preprocessor macro
+          &lt;code&gt;ERL_NIF_DIRTY_SCHEDULER_SUPPORT&lt;/code&gt; is defined.&lt;/p&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifPid * enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Initialize the pid variable &lt;code&gt;*pid&lt;/code&gt; to represent the
+      calling process. Return &lt;code&gt;pid&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Send a message to a process.&lt;/p&gt;
+      &lt;taglist&gt;
+        &lt;dt&gt;&lt;code&gt;env&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;The environment of the calling process. Must be NULL if and
+              only if calling from a created thread.&lt;/item&gt;
+        &lt;dt&gt;&lt;code&gt;*to_pid&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;The pid of the receiving process. The pid should refer to a process on the local node.&lt;/item&gt;
+        &lt;dt&gt;&lt;code&gt;msg_env&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;The environment of the message term. Must be a process
+              independent environment allocated with
+               &lt;a href=&quot;#enif_alloc_env&quot; class=&quot;seealso&quot;&gt;enif_alloc_env&lt;/a&gt;.&lt;/item&gt;
+        &lt;dt&gt;&lt;code&gt;msg&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;The message term to send.&lt;/item&gt;
+      &lt;/taglist&gt;
+      &lt;p&gt;Return true on success, or false if &lt;code&gt;*to_pid&lt;/code&gt; does not refer to an alive local process.&lt;/p&gt;
+      &lt;p&gt;The message environment &lt;code&gt;msg_env&lt;/code&gt; with all its terms (including
+      &lt;code&gt;msg&lt;/code&gt;) will be invalidated by a successful call to &lt;code&gt;enif_send&lt;/code&gt;. The environment
+      should either be freed with &lt;a href=&quot;#enif_free_env&quot; class=&quot;seealso&quot;&gt;enif_free_env&lt;/a&gt;
+      of cleared for reuse with &lt;a href=&quot;#enif_clear_env&quot; class=&quot;seealso&quot;&gt;enif_clear_env&lt;/a&gt;.&lt;/p&gt;
+      &lt;p&gt;This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;unsigned enif_sizeof_resource(void* obj)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Get the byte size of a resource object &lt;code&gt;obj&lt;/code&gt; obtained by
+      &lt;a href=&quot;#enif_alloc_resource&quot; class=&quot;seealso&quot;&gt;enif_alloc_resource&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;pre&gt;void enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)&lt;/pre&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#driver_system_info&quot; class=&quot;seealso&quot;&gt;driver_system_info&lt;/a&gt;.
+            &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_create&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_create&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_thread_exit(void *resp)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_exit&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_exit&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_thread_join(ErlNifTid, void **respp)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_join&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_join &lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifThreadOpts * enif_thread_opts_create(char *name)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_opts_create&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_opts_create&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_thread_opts_destroy(ErlNifThreadOpts *opts)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_opts_destroy&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_opts_destroy&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;ErlNifTid enif_thread_self(void)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_thread_self&quot; class=&quot;seealso&quot;&gt;erl_drv_thread_self&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;int enif_tsd_key_create(char *name, ErlNifTSDKey *key)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_tsd_key_create&quot; class=&quot;seealso&quot;&gt;erl_drv_tsd_key_create&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_tsd_key_destroy(ErlNifTSDKey key)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_tsd_key_destroy&quot; class=&quot;seealso&quot;&gt;erl_drv_tsd_key_destroy&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void * enif_tsd_get(ErlNifTSDKey key)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_tsd_get&quot; class=&quot;seealso&quot;&gt;erl_drv_tsd_get&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;&lt;pre&gt;void enif_tsd_set(ErlNifTSDKey key, void *data)&lt;/pre&gt;
+    
+    &lt;div class=&quot;description&quot;&gt;&lt;p&gt;Same as &lt;a href=&quot;erl_driver.html#erl_drv_tsd_set&quot; class=&quot;seealso&quot;&gt;erl_drv_tsd_set&lt;/a&gt;.
+          &lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SEE ALSO&lt;/h4&gt;
+    &lt;p&gt;&lt;a href=&quot;erlang.html#load_nif-2&quot; class=&quot;seealso&quot;&gt;erlang:load_nif/2&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot; /&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

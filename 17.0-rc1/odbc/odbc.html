@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>odbc (odbc) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;odbc&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;Erlang ODBC application&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;This application provides an Erlang interface to communicate
+      with relational SQL-databases. It is built on top of Microsofts
+      ODBC interface and therefore requires that you have an ODBC driver
+      to the database that you want to connect to.&lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;The functions &lt;code&gt;first/[1,2]&lt;/code&gt;, &lt;code&gt;last/[1,2]&lt;/code&gt;,
+        &lt;code&gt;next/[1,2]&lt;/code&gt;, &lt;code&gt;prev[1,2]&lt;/code&gt; and &lt;code&gt;select/[3,4]&lt;/code&gt;
+        assumes there is a result set associated with the connection to
+        work on. Calling the function &lt;code&gt;select_count/[2,3]&lt;/code&gt;
+        associates such a result set with the connection. Calling
+        select_count again will remove the current result set
+        association and create a new one. Calling a function which dose
+        not operate on an associated result sets, such as
+        &lt;code&gt;sql_query/[2,3]&lt;/code&gt;, will remove the current result set
+        association.&lt;/p&gt;
+      &lt;p&gt;Alas some drivers only support sequential traversal of the
+        result set, e.i. they do not support what in the ODBC world is
+        known as scrollable cursors. This will have the effect that
+        functions such as &lt;code&gt;first/[1,2]&lt;/code&gt;, &lt;code&gt;last/[1,2]&lt;/code&gt;,
+        &lt;code&gt;prev[1,2]&lt;/code&gt;, etc will return &lt;code&gt;{error, driver_does_not_support_function}&lt;/code&gt;&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;COMMON DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;Here follows type definitions that are used by more than one
+      function in the ODBC API. &lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;The type &lt;code&gt;TimeOut&lt;/code&gt; has the default value
+        &lt;code&gt;infinity&lt;/code&gt;, so for instance:        &lt;br  /&gt;
+
+        commit(Ref, CommitMode) is the same as
+        commit(Ref, CommitMode, infinity). If the
+        timeout expires the client will exit with the reason
+        timeout. &lt;/p&gt;
+    &lt;/div&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ connection_reference() - as returned by connect/2    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ time_out() = milliseconds() | infinity    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ milliseconds() = integer() &amp;gt;= 0     &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ common_reason() = connection_closed | extended_error() | term() - some kind of
+ explanation of what went wrong    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ extended_error() = {string(), integer(), Reason} - extended error type with ODBC
+ and native database error codes, as well as the base reason that would have been
+ returned had extended_errors not been enabled. &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ string() = list of ASCII characters    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ col_name() = string() - Name of column in the result set    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ col_names() - [col_name()] - e.g. a list of the names of the
+           selected columns in the result set.     &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ row() = {value()} - Tuple of column values e.g. one row of the
+           result set.     &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ value() = null | term() - A column value.     &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ rows() = [row()] - A list of rows from the result set.    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ result_tuple() =
+      {updated, n_rows()} | {selected, col_names(), rows()}    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ n_rows() = integer() - The number of affected rows for UPDATE,
+           INSERT, or DELETE queries. For other query types the value
+           is driver defined, and hence should be ignored.    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
+      {sql_decimal, precision(), scale()} |
+      {sql_numeric, precision(), scale()} |
+      {sql_char, size()} |
+      {sql_wchar, size()} |
+      {sql_varchar, size()} |
+      {sql_wvarchar, size()}|
+      {sql_float, precision()} |
+      {sql_wlongvarchar, size()} |
+      {sql_float, precision()} |
+      sql_real | sql_double | sql_bit | atom()
+    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ precision() = integer()    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ scale() = integer()    &lt;/pre&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+ size() = integer()    &lt;/pre&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;ERROR HANDLING &lt;/h4&gt;
+    &lt;p&gt;The error handling strategy and possible errors sources are
+      described in the Erlang ODBC &lt;a href=&quot;error_handling.html&quot; class=&quot;seealso&quot;&gt;User&#039;s Guide.&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;commit/2&quot;&gt;commit(Ref, CommitMode) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;commit/3&quot;&gt;commit(Ref, CommitMode, TimeOut) -&amp;gt; ok | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;CommitMode = commit | rollback&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = not_an_explicit_commit_connection | process_not_owner_of_odbc_connection | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Commits or rollbacks a transaction. Needed on connections
+          where automatic commit is turned off.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;connect/2&quot;&gt;connect(ConnectStr, Options) -&amp;gt; {ok, Ref} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;ConnectStr = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;An example of a connection string: &lt;code&gt;&quot;DSN=sql-server;UID=aladdin;PWD=sesame&quot;&lt;/code&gt; where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example &lt;code&gt;&quot;DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame&quot;&lt;/code&gt; where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;Options = [] | [option()]&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;All options has default values. &lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;option() = {auto_commit, on | off} | {timeout, milliseconds()}
+	| {binary_strings, on | off} | {tuple_row, on | off} | {scrollable_cursors, on | off} |
+	{trace_driver, on | off} | {extended_errors, on | off} &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference() - should be used to access the connection. &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = port_program_executable_not_found | common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Opens a connection to the database. The connection is
+          associated with the process that created it and can only be
+          accessed through it. This function may spawn new processes
+          to handle the connection. These processes will terminate if
+          the process that created the connection dies or if you call
+          disconnect/1.&lt;/p&gt;
+	    
+	  &lt;p&gt;If automatic commit mode is turned on, each query will be
+          considered as an individual transaction and will be
+          automatically committed after it has been executed. If you want
+          more than one query to be part of the same transaction the automatic
+          commit mode should be turned off. Then you will have to call
+          commit/3 explicitly to end a transaction. &lt;/p&gt;
+
+	  &lt;p&gt;The default timeout is infinity &lt;/p&gt;
+	  
+	  &lt;p&gt; &amp;gt;If the option binary_strings is turned on all strings
+	  will be returned as binaries and strings inputed to
+	  param_query will be expected to be binaries. The user needs
+	  to ensure that the binary is in an encoding that the
+	  database expects. By default this option is turned off.&lt;/p&gt;
+	  
+        &lt;p&gt;As default result sets are returned as a lists of
+          tuples. The &lt;code&gt;TupleMode&lt;/code&gt; option still exists to keep some
+          degree of backwards compatibility. If the option is set to
+          off, result sets will be returned as a lists of lists
+          instead of a lists of tuples.&lt;/p&gt;
+	  
+        &lt;p&gt;Scrollable cursors are nice but causes some overhead. For
+          some connections speed might be more important than flexible
+          data access and then you can disable scrollable cursor for a
+          connection, limiting the API but gaining speed.&lt;/p&gt;
+
+	  &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;&lt;p&gt;Turning the scrollable_cursors option off is noted
+	  to make old odbc-drivers able to connect that will otherwhise fail.&lt;/p&gt;&lt;/div&gt;
+	  
+        &lt;p&gt;If trace mode is turned on this tells the ODBC driver to
+          write a trace log to the file SQL.LOG that is placed in the
+          current directory of the erlang emulator. This information
+          may be useful if you suspect there might be a bug in the
+          erlang ODBC application, and it might be relevant for you to
+          send this file to our support. Otherwise you will probably
+          not have much use of this.&lt;/p&gt;
+	  
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;For more information about the &lt;code&gt;ConnectStr&lt;/code&gt; see
+            description of the function SQLDriverConnect in [1].&lt;/p&gt;
+        &lt;/div&gt;
+
+		  &lt;p&gt;The &lt;code&gt;extended_errors&lt;/code&gt; option enables extended ODBC error
+			  information when an operation fails. Rather than returning &lt;code&gt;{error, Reason}&lt;/code&gt;,
+			  the failing function will reutrn &lt;code&gt;{error, {ODBCErrorCode, NativeErrorCode, Reason}}&lt;/code&gt;.
+			  Note that this information is probably of little use when writing database-independent code,
+			  but can be of assistance in providing more sophisticated error handling when dealing with
+			  a known underlying database.
+	           &lt;/p&gt;
+			 &lt;list type=&quot;bulleted&quot;&gt;
+				  &lt;item&gt;&lt;code&gt;ODBCErrorCode&lt;/code&gt; is the ODBC error string returned by the ODBC driver.&lt;/item&gt;
+				  &lt;item&gt;&lt;code&gt;NativeErrorCode&lt;/code&gt; is the numberic error code returned by the underlying database. The possible values
+					  and their meanings are dependent on the database being used.&lt;/item&gt;
+				  &lt;item&gt;&lt;code&gt;Reason&lt;/code&gt; is as per the &lt;code&gt;Reason&lt;/code&gt; field when extended errors are not enabled.&lt;/item&gt;
+		  &lt;/list&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;disconnect/1&quot;&gt;disconnect(Ref) -&amp;gt; ok | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = process_not_owner_of_odbc_connection | extended_error()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Closes a connection to a database. This will also
+          terminate all processes that may have been spawned 
+          when the connection was opened. This call will always succeed.
+          If the connection can not be disconnected gracefully it will
+          be brutally killed. However you may receive an error message
+          as result if you try to disconnect a connection started by another
+          process.
+                    &lt;span id=&quot;describe_table&quot;&gt; &lt;/span&gt;
+&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;describe_table/2&quot;&gt;describe_table(Ref, Table) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;describe_table/3&quot;&gt;describe_table(Ref, Table, Timeout) -&amp;gt; {ok, Description} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Table = string() - Name of databas table.&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Description = [{col_name(), odbc_data_type()}]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = common_reason()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Queries the database to find out the ODBC data types of the
+          columns of the table &lt;code&gt;Table&lt;/code&gt;. &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;first/1&quot;&gt;first(Ref) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;first/2&quot;&gt;first(Ref, Timeout) -&amp;gt; {selected, ColNames, Rows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ColNames = col_names() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Rows = rows()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the first row of the result set and positions a
+          cursor at this row.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;last/1&quot;&gt;last(Ref) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;last/2&quot;&gt;last(Ref, TimeOut) -&amp;gt; {selected, ColNames, Rows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ColNames = col_names() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Rows = rows()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the last row of the result set and positions a
+          cursor at this row.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;next/1&quot;&gt;next(Ref) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;next/2&quot;&gt;next(Ref, TimeOut) -&amp;gt; {selected, ColNames, Rows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ColNames = col_names() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Rows = rows()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = result_set_does_not_exist | process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the next row of the result set relative the
+          current cursor position and positions the cursor at this
+          row. If the cursor is positioned at the last row of the
+          result set when this function is called the returned value
+          will be &lt;code&gt;{selected, ColNames,[]}&lt;/code&gt; e.i. the list of row
+          values is empty indicating that there is no more data to fetch.
+                    &lt;span id=&quot;param_query&quot;&gt; &lt;/span&gt;
+&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;param_query/3&quot;&gt;param_query(Ref, SQLQuery, Params) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;param_query/4&quot;&gt;param_query(Ref, SQLQuery, Params, TimeOut) -&amp;gt; ResultTuple | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;SQLQuery = string() - a SQL query with parameter markers/place holders in form of question marks.&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Params = [{odbc_data_type(), [value()]}] |[{odbc_data_type(), in_or_out(), [value()]}]  &lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;in_or_out = in | out | inout&lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Defines IN, OUT, and IN OUT Parameter Modes for stored procedures.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Values = term() - Must be consistent with the Erlang data type that corresponds to the ODBC data type ODBCDataType&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Executes a parameterized SQL query. For an
+          example see the &lt;a href=&quot;getting_started.html#param_query&quot; class=&quot;seealso&quot;&gt;&quot;Using the Erlang API&quot;&lt;/a&gt; in the Erlang ODBC 
+          User&#039;s Guide.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Use the function describe_table/[2,3] to find out which
+            ODBC data type that is expected for each column of that
+            table. If a column has a data type that is described with
+            capital letters, alas it is not currently supported by the
+            param_query function. Too know which Erlang data type
+            corresponds to an ODBC data type see the Erlang to ODBC
+            data type &lt;a href=&quot;databases.html#type&quot; class=&quot;seealso&quot;&gt;mapping&lt;/a&gt; in the User&#039;s Guide.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;prev/1&quot;&gt;prev(Ref) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;prev/2&quot;&gt;prev(ConnectionReference, TimeOut) -&amp;gt; {selected, ColNames, Rows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ColNames = col_names() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Rows = rows()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the previous row of the result set relative the
+          current cursor position and positions the
+          cursor at this row.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;start/0&quot;&gt;start() -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;start/1&quot;&gt;start(Type) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Type =  permanent | transient | temporary
+	&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt; Starts the odbc application. Default type
+	  is temporary.
+	  &lt;a href=&quot;../kernel/application.html&quot; class=&quot;seealso&quot;&gt;See application(3)&lt;/a&gt;
+	&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;stop/0&quot;&gt;stop() -&amp;gt; ok &lt;/h3&gt;
+      
+      
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt; Stops the odbc application.
+	  &lt;a href=&quot;../kernel/application.html&quot; class=&quot;seealso&quot;&gt;See application(3)&lt;/a&gt;
+	&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;sql_query/2&quot;&gt;sql_query(Ref, SQLQuery) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;sql_query/3&quot;&gt;sql_query(Ref, SQLQuery, TimeOut) -&amp;gt; ResultTuple | [ResultTuple] |{error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;SQLQuery = string() - The string may be composed by several SQL-queries separated by a &quot;;&quot;, this is called a batch. &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;ResultTuple = result_tuple() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Executes a SQL query or a batch of SQL queries. If it
+          is a SELECT query the result set is returned, on the format
+          &lt;code&gt;{selected, ColNames, Rows}&lt;/code&gt;. For other query types the
+          tuple &lt;code&gt;{updated, NRows}&lt;/code&gt; is returned, and for batched
+          queries, if the driver supports them, this function can also
+          return a list of result tuples.&lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Some drivers may not have the information of the number
+            of affected rows available and then the return value may
+            be &lt;code&gt;{updated, undefined} &lt;/code&gt;. &lt;/p&gt;
+          &lt;p&gt;The list of column names is ordered in the same way as the
+            list of values of a row, e.g. the first &lt;code&gt;ColName&lt;/code&gt; is
+            associated with the first &lt;code&gt;Value&lt;/code&gt; in a &lt;code&gt;Row&lt;/code&gt;.&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;br  /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;select_count/2&quot;&gt;select_count(Ref, SelectQuery) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;select_count/3&quot;&gt;select_count(Ref, SelectQuery, TimeOut) -&amp;gt; {ok, NrRows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;SelectQuery = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;SQL SELECT query.&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NrRows = n_rows()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Executes a SQL SELECT query and associates the result set
+          with the connection. A cursor is positioned before the first
+          row in the result set and the tuple &lt;code&gt;{ok, NrRows}&lt;/code&gt; is
+          returned. &lt;/p&gt;
+        &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+          &lt;p&gt;Some drivers may not have the information of the number of
+            rows in the result set, then &lt;code&gt;NrRows&lt;/code&gt; will have the value
+            &lt;code&gt;undefined&lt;/code&gt;. &lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;select/3&quot;&gt;select(Ref, Position, N) -&amp;gt;&lt;/h3&gt;
+      &lt;h3 id=&quot;select/4&quot;&gt;select(Ref, Position, N, TimeOut) -&amp;gt; {selected, ColNames, Rows} | {error, Reason} &lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Ref = connection_reference()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Position = next | {relative, Pos} | {absolute, Pos} &lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;Selection strategy, determines at which row in the result set to start the selection.&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;Pos = integer() &lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;Should indicate a row number in the result set. When used together with the option &lt;code&gt;relative&lt;/code&gt;it will be used as an offset from the current cursor position, when used together with the option &lt;code&gt;absolute&lt;/code&gt;it will be interpreted as a row number.&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;N = integer() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;TimeOut = time_out()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = result_set_does_not_exist | driver_does_not_support_function | scrollable_cursors_disabled | process_not_owner_of_odbc_connection | common_reason() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Selects &lt;code&gt;N&lt;/code&gt; consecutive rows of the result set. If
+          &lt;code&gt;Position&lt;/code&gt; is &lt;code&gt;next&lt;/code&gt; it is semantically equivalent
+          of calling &lt;code&gt;next/[1,2]&lt;/code&gt; &lt;code&gt;N&lt;/code&gt; times. If
+          &lt;code&gt;Position&lt;/code&gt; is &lt;code&gt;{relative, Pos}&lt;/code&gt;, &lt;code&gt;Pos&lt;/code&gt; will be
+          used as an offset from the current cursor position to
+          determine the first selected row. If &lt;code&gt;Position&lt;/code&gt; is
+          &lt;code&gt;{absolute, Pos}&lt;/code&gt;, &lt;code&gt;Pos&lt;/code&gt; will be the number of the
+          first row selected. After this function has returned the
+          cursor is positioned at the last selected row. If there is
+          less then &lt;code&gt;N&lt;/code&gt; rows left of the result set the length of
+          &lt;code&gt;Rows&lt;/code&gt; will be less than &lt;code&gt;N&lt;/code&gt;. If the first row to
+          select happens to be beyond the last row of the result set,
+          the returned value will be &lt;code&gt;{selected, ColNames,[]}&lt;/code&gt;
+          e.i. the list of row values is empty indicating that there
+          is no more data to fetch.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;REFERENCES&lt;/h4&gt;
+    &lt;p&gt;[1]: Microsoft ODBC 3.0, Programmer&#039;s Reference and SDK Guide      &lt;br  /&gt;
+
+      See also http://msdn.microsoft.com/&lt;/p&gt;
+  &lt;/div&gt;
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#commit/2&quot;&gt;commit/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#commit/3&quot;&gt;commit/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#connect/2&quot;&gt;connect/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#disconnect/1&quot;&gt;disconnect/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#describe_table/2&quot;&gt;describe_table/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#describe_table/3&quot;&gt;describe_table/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#first/1&quot;&gt;first/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#first/2&quot;&gt;first/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#last/1&quot;&gt;last/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#last/2&quot;&gt;last/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#next/1&quot;&gt;next/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#next/2&quot;&gt;next/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#param_query/3&quot;&gt;param_query/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#param_query/4&quot;&gt;param_query/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#prev/1&quot;&gt;prev/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#prev/2&quot;&gt;prev/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start/0&quot;&gt;start/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start/1&quot;&gt;start/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#stop/0&quot;&gt;stop/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#sql_query/2&quot;&gt;sql_query/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#sql_query/3&quot;&gt;sql_query/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#select_count/2&quot;&gt;select_count/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#select_count/3&quot;&gt;select_count/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#select/3&quot;&gt;select/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#select/4&quot;&gt;select/4&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

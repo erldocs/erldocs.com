@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>shell (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  &lt;h1&gt;shell&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;The Erlang Shell&lt;/h2&gt;
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;The module &lt;code&gt;shell&lt;/code&gt; implements an Erlang shell.
+      &lt;/p&gt;
+    &lt;p&gt;The shell is a user interface program 
+      for entering expression sequences. The expressions are
+      evaluated and a value is returned. 
+      A history mechanism saves previous commands and their
+      values, which can then be incorporated in later commands.
+      How many commands and results to save can be determined by the user,
+      either interactively, by calling &lt;code&gt;shell:history/1&lt;/code&gt; and
+      &lt;code&gt;shell:results/1&lt;/code&gt;, or by setting the application configuration
+      parameters &lt;code&gt;shell_history_length&lt;/code&gt; and
+      &lt;code&gt;shell_saved_results&lt;/code&gt; for the application STDLIB.
+      &lt;/p&gt;
+    &lt;p&gt;The shell uses a helper process for evaluating commands in
+      order to protect the history mechanism from exceptions. By
+      default the evaluator process is killed when an exception
+      occurs, but by calling &lt;code&gt;shell:catch_exception/1&lt;/code&gt; or by
+      setting the application configuration parameter
+      &lt;code&gt;shell_catch_exception&lt;/code&gt; for the application STDLIB
+      this behavior can be changed. See also the example below.
+      &lt;/p&gt;
+    &lt;p&gt;Variable bindings, and local process dictionary changes
+      which are generated in user expressions are preserved, and the variables
+      can be used in later commands to access their values. The
+      bindings can also be forgotten so the variables can be re-used.
+      &lt;/p&gt;
+    &lt;p&gt;The special shell commands all have the syntax of (local)
+      function calls. They are evaluated as
+      normal function calls and many commands can be used in one
+      expression sequence.
+      &lt;/p&gt;
+    &lt;p&gt;If a command (local function call) is not recognized by the
+      shell, an attempt is first made to find the function in the
+      module &lt;code&gt;user_default&lt;/code&gt;, where customized local commands
+      can be placed. If found, then the function is evaluated.
+      Otherwise, an attempt is made to evaluate the function in the
+      module &lt;code&gt;shell_default&lt;/code&gt;. The module
+      &lt;code&gt;user_default&lt;/code&gt; must be explicitly loaded.
+      &lt;/p&gt;
+    &lt;p&gt;The shell also permits the user to start multiple concurrent
+      jobs. A job can be regarded as a set of processes which can
+      communicate with the shell.
+      &lt;/p&gt;
+    &lt;p&gt;There is some support for reading and printing records in
+      the shell. During compilation record expressions are translated
+      to tuple expressions. In runtime it is not known whether a tuple
+      actually represents a record. Nor are the record definitions
+      used by compiler available at runtime. So in order to read the
+      record syntax and print tuples as records when possible, record
+      definitions have to be maintained by the shell itself. The shell
+      commands for reading, defining, forgetting, listing, and
+      printing records are described below. Note that each job has its
+      own set of record definitions. To facilitate matters record
+      definitions in the modules &lt;code&gt;shell_default&lt;/code&gt; and
+      &lt;code&gt;user_default&lt;/code&gt; (if loaded) are read each time a new job is
+      started. For instance, adding the line&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+          -include_lib(&quot;kernel/include/file.hrl&quot;).&lt;/pre&gt;
+    &lt;p&gt;to &lt;code&gt;user_default&lt;/code&gt; makes the definition of &lt;code&gt;file_info&lt;/code&gt;
+      readily available in the shell.
+      &lt;/p&gt;
+    &lt;p&gt;The shell runs in two modes: &lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;&lt;code&gt;Normal (possibly restricted)&lt;/code&gt; mode, in which
+       commands can be edited and expressions evaluated.
+      &lt;/item&gt;
+      &lt;item&gt;Job Control Mode &lt;code&gt;JCL&lt;/code&gt;, in which jobs can be
+       started, killed, detached and connected.
+      &lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Only the currently connected job can &#039;talk&#039; to the shell.&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Shell Commands&lt;/h4&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;b()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Prints the current variable bindings.&lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;f()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Removes all variable bindings.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;f(X)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Removes the binding of variable &lt;code&gt;X&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;h()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Prints the history list.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;history(N)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Sets the number of previous commands to keep in the
+          history list to &lt;code&gt;N&lt;/code&gt;. The previous number is returned.
+          The default number is 20.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;results(N)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Sets the number of results from previous commands to keep in
+          the history list to &lt;code&gt;N&lt;/code&gt;. The previous number is returned.
+          The default number is 20.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;e(N)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Repeats the command &lt;code&gt;N&lt;/code&gt;, if &lt;code&gt;N&lt;/code&gt; is positive. If
+          it is negative, the &lt;code&gt;N&lt;/code&gt;th previous command is repeated
+          (i.e., &lt;code&gt;e(-1)&lt;/code&gt; repeats the previous command).
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;v(N)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Uses the return value of the command &lt;code&gt;N&lt;/code&gt; in the
+          current command, if &lt;code&gt;N&lt;/code&gt; is positive. If it is negative,
+          the return value of the &lt;code&gt;N&lt;/code&gt;th previous command is used
+          (i.e., &lt;code&gt;v(-1)&lt;/code&gt; uses the value of the previous command).
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;help()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Evaluates &lt;code&gt;shell_default:help()&lt;/code&gt;.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;c(File)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Evaluates &lt;code&gt;shell_default:c(File)&lt;/code&gt;. This compiles
+          and loads code in &lt;code&gt;File&lt;/code&gt; and purges old versions of
+          code, if necessary. Assumes that the file and module names
+          are the same.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;catch_exception(Bool)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Sets the exception handling of the evaluator process. The
+          previous exception handling is returned. The default
+          (&lt;code&gt;false&lt;/code&gt;) is to kill the evaluator process when an
+          exception occurs, which causes the shell to create a new
+          evaluator process. When the exception handling is set to
+          &lt;code&gt;true&lt;/code&gt; the evaluator process lives on which means that
+          for instance ports and ETS tables as well as processes
+          linked to the evaluator process survive the exception.
+        &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rd(RecordName, RecordDefinition)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Defines a record in the shell. &lt;code&gt;RecordName&lt;/code&gt; is
+          an atom and &lt;code&gt;RecordDefinition&lt;/code&gt; lists the field names
+          and the default values. Usually record definitions are made
+          known to the shell by use of the &lt;code&gt;rr&lt;/code&gt; commands
+          described below, but sometimes it is handy to define records
+          on the fly.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rf()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Removes all record definitions, then reads record
+          definitions from the modules &lt;code&gt;shell_default&lt;/code&gt; and
+          &lt;code&gt;user_default&lt;/code&gt; (if loaded). Returns the names of the
+          records defined.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rf(RecordNames)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Removes selected record definitions.
+          &lt;code&gt;RecordNames&lt;/code&gt; is a record name or a list of record names.
+          Use &lt;code&gt;&#039;_&#039;&lt;/code&gt; to remove all record definitions.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rl()&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Prints all record definitions.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rl(RecordNames)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Prints selected record definitions.
+          &lt;code&gt;RecordNames&lt;/code&gt; is a record name or a list of record names.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rp(Term)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Prints a term using the record definitions known to the
+          shell. All of &lt;code&gt;Term&lt;/code&gt; is printed; the depth is not
+          limited as is the case when a return value is printed.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rr(Module)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Reads record definitions from a module&#039;s BEAM file. If
+          there are no record definitions in the BEAM file, the
+          source file is located and read instead. Returns the names
+          of the record definitions read. &lt;code&gt;Module&lt;/code&gt; is an atom.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rr(Wildcard)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Reads record definitions from files. Existing
+          definitions of any of the record names read are replaced.
+          &lt;code&gt;Wildcard&lt;/code&gt; is a wildcard string as defined in
+          &lt;code&gt;filelib(3)&lt;/code&gt; but not an atom.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rr(WildcardOrModule, RecordNames)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Reads record definitions from files but
+          discards record names not mentioned in &lt;code&gt;RecordNames&lt;/code&gt; (a
+          record name or a list of record names).
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;rr(WildcardOrModule, RecordNames, Options)&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Reads record definitions from files. The compiler
+          options &lt;code&gt;{i,&amp;nbsp;Dir}&lt;/code&gt;, &lt;code&gt;{d,&amp;nbsp;Macro}&lt;/code&gt;, and
+          &lt;code&gt;{d,&amp;nbsp;Macro,&amp;nbsp;Value}&lt;/code&gt; are recognized and used
+          for setting up the include path and macro definitions. Use
+          &lt;code&gt;&#039;_&#039;&lt;/code&gt; as value of &lt;code&gt;RecordNames&lt;/code&gt; to read all record
+          definitions.
+          &lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Example&lt;/h4&gt;
+    &lt;p&gt;The following example is a long dialogue with the shell. Commands
+      starting with &lt;code&gt;&amp;gt;&lt;/code&gt; are inputs to the shell. All other lines
+      are output from the shell. All commands in this example are explained at the end of the dialogue.
+      .&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+strider 1&amp;gt; &lt;code&gt;erl&lt;/code&gt;
+Erlang (BEAM) emulator version 5.3 [hipe] [threads:0]
+
+Eshell V5.3  (abort with ^G)
+1&amp;gt;&lt;code&gt;Str = &quot;abcd&quot;.&lt;/code&gt;
+&quot;abcd&quot;
+2&amp;gt; &lt;code&gt;L = length(Str).&lt;/code&gt;
+4
+3&amp;gt; &lt;code&gt;Descriptor = {L, list_to_atom(Str)}.&lt;/code&gt;
+{4,abcd}
+4&amp;gt; &lt;code&gt;L.&lt;/code&gt; 
+4
+5&amp;gt; &lt;code&gt;b().&lt;/code&gt;
+Descriptor = {4,abcd}
+L = 4
+Str = &quot;abcd&quot;
+ok
+6&amp;gt; &lt;code&gt;f(L).&lt;/code&gt; 
+ok
+7&amp;gt; &lt;code&gt;b().&lt;/code&gt;
+Descriptor = {4,abcd}
+Str = &quot;abcd&quot;
+ok
+8&amp;gt; &lt;code&gt;f(L).&lt;/code&gt;
+ok
+9&amp;gt; &lt;code&gt;{L, _} = Descriptor.&lt;/code&gt;
+{4,abcd}
+10&amp;gt; &lt;code&gt;L.&lt;/code&gt;
+4
+11&amp;gt; &lt;code&gt;{P, Q, R} = Descriptor.&lt;/code&gt;
+** exception error: no match of right hand side value {4,abcd}
+12&amp;gt; &lt;code&gt;P.&lt;/code&gt;
+* 1: variable &#039;P&#039; is unbound **
+13&amp;gt; &lt;code&gt;Descriptor.&lt;/code&gt;
+{4,abcd}
+14&amp;gt;&lt;code&gt;{P, Q} = Descriptor.&lt;/code&gt;
+{4,abcd}
+15&amp;gt; &lt;code&gt;P.&lt;/code&gt;
+4
+16&amp;gt; &lt;code&gt;f().&lt;/code&gt;
+ok
+17&amp;gt; &lt;code&gt;put(aa, hello).&lt;/code&gt;
+undefined
+18&amp;gt; &lt;code&gt;get(aa).&lt;/code&gt;
+hello
+19&amp;gt; &lt;code&gt;Y = test1:demo(1).&lt;/code&gt;
+11
+20&amp;gt; &lt;code&gt;get().&lt;/code&gt;
+[{aa,worked}]
+21&amp;gt; &lt;code&gt;put(aa, hello).&lt;/code&gt;
+worked
+22&amp;gt; &lt;code&gt;Z = test1:demo(2).&lt;/code&gt;
+** exception error: no match of right hand side value 1
+     in function  test1:demo/1
+23&amp;gt; &lt;code&gt;Z.&lt;/code&gt;
+* 1: variable &#039;Z&#039; is unbound **
+24&amp;gt; &lt;code&gt;get(aa).&lt;/code&gt;
+hello
+25&amp;gt; &lt;code&gt;erase(), put(aa, hello).&lt;/code&gt;
+undefined
+26&amp;gt; &lt;code&gt;spawn(test1, demo, [1]).&lt;/code&gt;
+&amp;lt;0.57.0&amp;gt;
+27&amp;gt; &lt;code&gt;get(aa).&lt;/code&gt;
+hello
+28&amp;gt; &lt;code&gt;io:format(&quot;hello hello\n&quot;).&lt;/code&gt;
+hello hello
+ok
+29&amp;gt; &lt;code&gt;e(28).&lt;/code&gt;
+hello hello
+ok
+30&amp;gt; &lt;code&gt;v(28).&lt;/code&gt;
+ok
+31&amp;gt; &lt;code&gt;c(ex).&lt;/code&gt;
+{ok,ex}
+32&amp;gt; &lt;code&gt;rr(ex).&lt;/code&gt;
+[rec]
+33&amp;gt; &lt;code&gt;rl(rec).&lt;/code&gt;
+-record(rec,{a,b = val()}).
+ok
+34&amp;gt; &lt;code&gt;#rec{}.&lt;/code&gt;
+** exception error: undefined shell command val/0
+35&amp;gt; &lt;code&gt;#rec{b = 3}.&lt;/code&gt;
+#rec{a = undefined,b = 3}
+36&amp;gt; &lt;code&gt;rp(v(-1)).&lt;/code&gt;
+#rec{a = undefined,b = 3}
+ok
+37&amp;gt; &lt;code&gt;rd(rec, {f = orddict:new()}).&lt;/code&gt;
+rec
+38&amp;gt; &lt;code&gt;#rec{}.&lt;/code&gt;
+#rec{f = []}
+ok
+39&amp;gt; &lt;code&gt;rd(rec, {c}), A.&lt;/code&gt;
+* 1: variable &#039;A&#039; is unbound **
+40&amp;gt; &lt;code&gt;#rec{}.&lt;/code&gt;
+#rec{c = undefined}
+ok
+41&amp;gt; &lt;code&gt;test1:loop(0).&lt;/code&gt;
+Hello Number: 0
+Hello Number: 1
+Hello Number: 2
+Hello Number: 3
+
+User switch command
+ --&amp;gt; i
+ --&amp;gt; c
+.
+.
+.
+Hello Number: 3374
+Hello Number: 3375
+Hello Number: 3376
+Hello Number: 3377
+Hello Number: 3378
+** exception exit: killed
+42&amp;gt; &lt;code&gt;E = ets:new(t, []).&lt;/code&gt;
+17
+43&amp;gt; &lt;code&gt;ets:insert({d,1,2}).&lt;/code&gt;
+** exception error: undefined function ets:insert/1
+44&amp;gt; &lt;code&gt;ets:insert(E, {d,1,2}).&lt;/code&gt;
+** exception error: argument is of wrong type
+     in function  ets:insert/2
+        called as ets:insert(16,{d,1,2})
+45&amp;gt; &lt;code&gt;f(E).&lt;/code&gt;
+ok
+46&amp;gt; &lt;code&gt;catch_exception(true).&lt;/code&gt;
+false
+47&amp;gt; &lt;code&gt;E = ets:new(t, []).&lt;/code&gt;
+18
+48&amp;gt; &lt;code&gt;ets:insert({d,1,2}).&lt;/code&gt;
+* exception error: undefined function ets:insert/1
+49&amp;gt; &lt;code&gt;ets:insert(E, {d,1,2}).&lt;/code&gt;
+true
+50&amp;gt; &lt;code&gt;halt().&lt;/code&gt;
+strider 2&amp;gt;&lt;/pre&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Comments&lt;/h4&gt;
+    &lt;p&gt;Command 1 sets the variable &lt;code&gt;Str&lt;/code&gt; to the string
+      &lt;code&gt;&quot;abcd&quot;&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 2 sets &lt;code&gt;L&lt;/code&gt; to the length of the string evaluating
+      the BIF &lt;code&gt;atom_to_list&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 3 builds the tuple &lt;code&gt;Descriptor&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 4 prints the value of the variable &lt;code&gt;L&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 5 evaluates the internal shell command &lt;code&gt;b()&lt;/code&gt;, which
+      is an abbreviation of &quot;bindings&quot;. This prints 
+      the current shell variables and their bindings. The &lt;code&gt;ok&lt;/code&gt; at
+      the end is the return value of the &lt;code&gt;b()&lt;/code&gt; function.
+      &lt;/p&gt;
+    &lt;p&gt;Command 6 &lt;code&gt;f(L)&lt;/code&gt; evaluates the internal shell command
+      &lt;code&gt;f(L)&lt;/code&gt; (abbreviation of &quot;forget&quot;). The value of the variable
+      &lt;code&gt;L&lt;/code&gt; is removed.
+      &lt;/p&gt;
+    &lt;p&gt;Command 7 prints the new bindings.
+      &lt;/p&gt;
+    &lt;p&gt;Command 8 has no effect since &lt;code&gt;L&lt;/code&gt; has no value.&lt;/p&gt;
+    &lt;p&gt;Command 9 performs a pattern matching operation on
+      &lt;code&gt;Descriptor&lt;/code&gt;, binding a new value to &lt;code&gt;L&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 10 prints the current value of &lt;code&gt;L&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 11 tries to match &lt;code&gt;{P, Q, R}&lt;/code&gt; against
+      &lt;code&gt;Descriptor&lt;/code&gt; which is &lt;code&gt;{4, abc}&lt;/code&gt;. The match fails and
+      none of the new variables become bound. The printout starting
+      with &quot;&lt;code&gt;** exception error:&lt;/code&gt;&quot; is not the value of the
+      expression (the expression had no value because its evaluation
+      failed), but rather a warning printed by the system to inform
+      the user that an error has occurred. The values of the other
+      variables (&lt;code&gt;L&lt;/code&gt;, &lt;code&gt;Str&lt;/code&gt;, etc.) are unchanged.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 12 and 13 show that &lt;code&gt;P&lt;/code&gt; is unbound because the
+      previous command failed, and that &lt;code&gt;Descriptor&lt;/code&gt; has not
+      changed.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 14 and 15 show a correct match where &lt;code&gt;P&lt;/code&gt; and
+      &lt;code&gt;Q&lt;/code&gt; are bound.
+      &lt;/p&gt;
+    &lt;p&gt;Command 16 clears all bindings.
+      &lt;/p&gt;
+    &lt;p&gt;The next few commands assume that &lt;code&gt;test1:demo(X)&lt;/code&gt; is
+      defined in the following way:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+demo(X) -&amp;gt;
+    put(aa, worked),
+    X = 1,
+    X + 10.    &lt;/pre&gt;
+    &lt;p&gt;Commands 17 and 18 set and inspect the value of the item
+      &lt;code&gt;aa&lt;/code&gt; in the process dictionary.
+      &lt;/p&gt;
+    &lt;p&gt;Command 19 evaluates &lt;code&gt;test1:demo(1)&lt;/code&gt;. The evaluation
+      succeeds and the changes made in the process dictionary become
+      visible to the shell. The new value of the dictionary item
+      &lt;code&gt;aa&lt;/code&gt; can be seen in command 20.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 21 and 22 change the value of the dictionary item
+      &lt;code&gt;aa&lt;/code&gt; to &lt;code&gt;hello&lt;/code&gt; and call &lt;code&gt;test1:demo(2)&lt;/code&gt;. Evaluation
+      fails and the changes made to the dictionary in
+      &lt;code&gt;test1:demo(2)&lt;/code&gt;, before the error occurred, are discarded.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 23 and 24 show that &lt;code&gt;Z&lt;/code&gt; was not bound and that the
+      dictionary item &lt;code&gt;aa&lt;/code&gt; has retained its original value.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 25, 26 and 27 show the effect of evaluating
+      &lt;code&gt;test1:demo(1)&lt;/code&gt; in the background. In this case, the
+      expression is evaluated in a newly spawned process. Any
+      changes made in the process dictionary are local to the newly
+      spawned process and therefore not visible to the shell.
+      &lt;/p&gt;
+    &lt;p&gt;Commands 28, 29 and 30 use the history facilities of the shell.
+      &lt;/p&gt;
+    &lt;p&gt;Command 29 is &lt;code&gt;e(28)&lt;/code&gt;. This re-evaluates command
+      28. Command 30 is &lt;code&gt;v(28)&lt;/code&gt;. This uses the value (result) of
+      command 28. In the cases of a pure function (a function
+      with no side effects), the result is the same. For a function
+      with side effects, the result can be different.
+      &lt;/p&gt;
+    &lt;p&gt;The next few commands show some record manipulation. It is 
+      assumed that &lt;code&gt;ex.erl&lt;/code&gt; defines a record like this:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+-record(rec, {a, b = val()}).
+
+val() -&amp;gt;
+    3.    &lt;/pre&gt;
+    &lt;p&gt;Commands 31 and 32 compiles the file &lt;code&gt;ex.erl&lt;/code&gt; and reads
+      the record definitions in &lt;code&gt;ex.beam&lt;/code&gt;. If the compiler did not
+      output any record definitions on the BEAM file, &lt;code&gt;rr(ex)&lt;/code&gt;
+      tries to read record definitions from the source file instead.
+      &lt;/p&gt;
+    &lt;p&gt;Command 33 prints the definition of the record named
+      &lt;code&gt;rec&lt;/code&gt;. 
+      &lt;/p&gt;
+    &lt;p&gt;Command 34 tries to create a &lt;code&gt;rec&lt;/code&gt; record, but fails
+      since the function &lt;code&gt;val/0&lt;/code&gt; is undefined. Command 35 shows
+      the workaround: explicitly assign values to record fields that
+      cannot otherwise be initialized.
+      &lt;/p&gt;
+    &lt;p&gt;Command 36 prints the newly created record using record
+      definitions maintained by the shell.
+      &lt;/p&gt;
+    &lt;p&gt;Command 37 defines a record directly in the shell. The 
+      definition replaces the one read from the file &lt;code&gt;ex.beam&lt;/code&gt;.
+      &lt;/p&gt;
+    &lt;p&gt;Command 38 creates a record using the new definition, and
+      prints the result.
+      &lt;/p&gt;
+    &lt;p&gt;Command 39 and 40 show that record definitions are updated
+      as side effects. The evaluation of the command fails but
+      the definition of &lt;code&gt;rec&lt;/code&gt; has been carried out.
+      &lt;/p&gt;
+    &lt;p&gt;For the next command, it is assumed that &lt;code&gt;test1:loop(N)&lt;/code&gt; is
+      defined in the following way:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+loop(N) -&amp;gt;
+    io:format(&quot;Hello Number: ~w~n&quot;, [N]), 
+    loop(N+1).&lt;/pre&gt;
+    &lt;p&gt;Command 41 evaluates &lt;code&gt;test1:loop(0)&lt;/code&gt;, which puts the
+      system into an infinite loop. At this point the user types
+      &lt;code&gt;Control G&lt;/code&gt;, which suspends output from the current process,
+      which is stuck in a loop, and activates &lt;code&gt;JCL&lt;/code&gt; mode. In &lt;code&gt;JCL&lt;/code&gt;
+      mode the user can start and stop jobs.
+      &lt;/p&gt;
+    &lt;p&gt;In this particular case, the &lt;code&gt;i&lt;/code&gt; command (&quot;interrupt&quot;) is
+      used to terminate the looping program, and the &lt;code&gt;c&lt;/code&gt; command
+      is used to connect to the shell again. Since the process was
+      running in the background before we killed it, there will be
+      more printouts before the &quot;&lt;code&gt;** exception exit: killed&lt;/code&gt;&quot;
+      message is shown.
+      &lt;/p&gt;
+    &lt;p&gt;Command 42 creates an ETS table.&lt;/p&gt;
+    &lt;p&gt;Command 43 tries to insert a tuple into the ETS table but the
+      first argument (the table) is missing. The exception kills the
+      evaluator process.&lt;/p&gt;
+    &lt;p&gt;Command 44 corrects the mistake, but the ETS table has been
+      destroyed since it was owned by the killed evaluator process.&lt;/p&gt;
+    &lt;p&gt;Command 46 sets the exception handling of the evaluator process
+      to &lt;code&gt;true&lt;/code&gt;. The exception handling can also be set when
+      starting Erlang, like this: &lt;code&gt;erl -stdlib shell_catch_exception
+      true&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;Command 48 makes the same mistake as in command 43, but this time
+      the evaluator process lives on. The single star at the beginning
+      of the printout signals that the exception has been caught.&lt;/p&gt;
+    &lt;p&gt;Command 49 successfully inserts the tuple into the ETS table.&lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;halt()&lt;/code&gt; command exits the Erlang runtime system.
+      &lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;JCL Mode&lt;/h4&gt;
+    &lt;p&gt;When the shell starts, it starts a single evaluator
+      process. This process, together with any local processes which
+      it spawns, is referred to as a &lt;code&gt;job&lt;/code&gt;. Only the current job,
+      which is said to be &lt;code&gt;connected&lt;/code&gt;, can perform operations
+      with standard IO. All other jobs, which are said to be &lt;code&gt;detached&lt;/code&gt;, are
+      &lt;code&gt;blocked&lt;/code&gt; if they attempt to use standard IO.
+      &lt;/p&gt;
+    &lt;p&gt;All jobs which do not use standard IO run in the normal way.
+      &lt;/p&gt;
+    &lt;p&gt;The shell escape key &lt;em&gt;&lt;code&gt;^G&lt;/code&gt;&lt;/em&gt; (Control G) detaches the current job 
+      and activates &lt;code&gt;JCL&lt;/code&gt; mode. The &lt;code&gt;JCL&lt;/code&gt; mode prompt is &lt;code&gt;&quot;--&amp;gt;&quot;&lt;/code&gt;. If &lt;code&gt;&quot;?&quot;&lt;/code&gt; is entered at the prompt, the following help message is
+      displayed:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+          --&amp;gt; ?
+          c [nn]            - connect to job
+          i [nn]            - interrupt job
+          k [nn]            - kill job
+          j                 - list all jobs
+          s [shell]         - start local shell
+          r [node [shell]]  - start remote shell
+          q        - quit erlang
+          ? | h             - this message    &lt;/pre&gt;
+    &lt;p&gt;The &lt;code&gt;JCL&lt;/code&gt; commands have the following meaning:&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;&lt;code&gt;c [nn]&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Connects to job number &lt;code&gt;&amp;lt;nn&amp;gt;&lt;/code&gt; or the current
+          job. The standard shell is resumed. Operations which use
+          standard IO by the current job will be interleaved with
+          user inputs to the shell.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;i [nn]&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Stops the current evaluator process for job number
+          &lt;code&gt;nn&lt;/code&gt; or the current job, but does not kill the shell
+          process. Accordingly, any variable bindings and the process dictionary
+          will be preserved and the job can be connected again.
+          This command can be used to interrupt an endless loop.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;k [nn]&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Kills job number &lt;code&gt;nn&lt;/code&gt; or the current
+          job. All spawned processes in the job are
+          killed, provided they have not evaluated the
+          &lt;code&gt;group_leader/1&lt;/code&gt; BIF and are located on
+          the local machine. Processes spawned on remote nodes will
+          not be killed.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;j&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Lists all jobs. A list of all known jobs is
+          printed. The current job name is prefixed with &#039;*&#039;.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;s&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Starts a new job. This will be assigned the new index
+          &lt;code&gt;[nn]&lt;/code&gt; which can be used in references.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;s [shell]&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Starts a new job. This will be assigned the new index
+          &lt;code&gt;[nn]&lt;/code&gt; which can be used in references.
+	  If the optional argument &lt;code&gt;shell&lt;/code&gt; is given, it is assumed
+	  to be a module that implements an alternative shell.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;r [node]&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Starts a remote job on &lt;code&gt;node&lt;/code&gt;. This is used in
+          distributed Erlang to allow a shell running on one node to
+          control a number of applications running on a network of
+          nodes.
+	  If the optional argument &lt;code&gt;shell&lt;/code&gt; is given, it is assumed
+	  to be a module that implements an alternative shell.
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;q&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Quits Erlang. Note that this option is disabled if
+          Erlang is started with the ignore break, &lt;code&gt;+Bi&lt;/code&gt;, 
+          system flag (which may be useful e.g. when running
+          a restricted shell, see below).
+          &lt;/p&gt;
+      &lt;/item&gt;
+      &lt;dt&gt;&lt;code&gt;?&lt;/code&gt;&lt;/dt&gt;
+      &lt;item&gt;
+        &lt;p&gt;Displays this message.&lt;/p&gt;
+      &lt;/item&gt;
+    &lt;/taglist&gt;
+    &lt;p&gt;It is possible to alter the behavior of shell escape by means 
+      of the STDLIB application variable &lt;code&gt;shell_esc&lt;/code&gt;. The value of
+      the variable can be either &lt;code&gt;jcl&lt;/code&gt; (&lt;code&gt;erl -stdlib shell_esc jcl&lt;/code&gt;) 
+      or &lt;code&gt;abort&lt;/code&gt; (&lt;code&gt;erl -stdlib shell_esc abort&lt;/code&gt;). The 
+      first option sets ^G to activate &lt;code&gt;JCL&lt;/code&gt; mode (which is also 
+      default behavior). The latter sets ^G to terminate the current 
+      shell and start a new one. &lt;code&gt;JCL&lt;/code&gt; mode cannot be invoked when 
+      &lt;code&gt;shell_esc&lt;/code&gt; is set to &lt;code&gt;abort&lt;/code&gt;. &lt;/p&gt;
+    &lt;p&gt;If you want an Erlang node to have a remote job active from the start 
+      (rather than the default local job), you start Erlang with the 
+      &lt;code&gt;-remsh&lt;/code&gt; flag. Example: &lt;code&gt;erl -sname this_node -remsh other_node@other_host&lt;/code&gt;&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Restricted Shell&lt;/h4&gt;
+    &lt;p&gt;The shell may be started in a
+      restricted mode. In this mode, the shell evaluates a function call
+      only if allowed. This feature makes it possible to, for example,
+      prevent a user from accidentally calling a function from the
+      prompt that could harm a running system (useful in combination
+      with the the system flag &lt;em&gt;&lt;code&gt;+Bi&lt;/code&gt;&lt;/em&gt;).&lt;/p&gt;
+    &lt;p&gt;When the restricted shell evaluates an expression and
+      encounters a function call or an operator application, 
+      it calls a callback function (with
+      information about the function call in question). This callback
+      function returns &lt;code&gt;true&lt;/code&gt; to let the shell go ahead with the
+      evaluation, or &lt;code&gt;false&lt;/code&gt; to abort it. There are two possible
+      callback functions for the user to implement:&lt;/p&gt;
+    &lt;p&gt;&lt;em&gt;&lt;code&gt;local_allowed(Func, ArgList, State) -&amp;gt; {true,NewState} | {false,NewState}&lt;/code&gt;&lt;/em&gt;&lt;/p&gt;
+    &lt;p&gt;to determine if the call to the local function &lt;code&gt;Func&lt;/code&gt;
+      with arguments &lt;code&gt;ArgList&lt;/code&gt; should be allowed.&lt;/p&gt;
+    &lt;p&gt;&lt;em&gt;&lt;code&gt;non_local_allowed(FuncSpec, ArgList, State) -&amp;gt; {true,NewState} | {false,NewState} |  {{redirect,NewFuncSpec,NewArgList},NewState}&lt;/code&gt;&lt;/em&gt;&lt;/p&gt;
+    &lt;p&gt;to determine if the call to non-local function
+      &lt;code&gt;FuncSpec&lt;/code&gt; (&lt;code&gt;{Module,Func}&lt;/code&gt; or a fun) with arguments
+      &lt;code&gt;ArgList&lt;/code&gt; should be allowed. The return value 
+      &lt;code&gt;{redirect,NewFuncSpec,NewArgList}&lt;/code&gt; can be used to let 
+      the shell evaluate some other function than the one specified by 
+      &lt;code&gt;FuncSpec&lt;/code&gt; and &lt;code&gt;ArgList&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;These callback functions are in fact called from local and
+      non-local evaluation function handlers, described in the
+      &lt;a href=&quot;erl_eval.html&quot; class=&quot;seealso&quot;&gt;erl_eval&lt;/a&gt; 
+      manual page. (Arguments in &lt;code&gt;ArgList&lt;/code&gt; are evaluated before the
+      callback functions are called.)&lt;/p&gt;
+    &lt;p&gt;The &lt;code&gt;State&lt;/code&gt; argument is a tuple
+      &lt;code&gt;{ShellState,ExprState}&lt;/code&gt;. The return value &lt;code&gt;NewState&lt;/code&gt;
+      has the same form. This may be used to carry a state between calls
+      to the callback functions. Data saved in &lt;code&gt;ShellState&lt;/code&gt; lives
+      through an entire shell session. Data saved in &lt;code&gt;ExprState&lt;/code&gt;
+      lives only through the evaluation of the current expression.&lt;/p&gt;
+    &lt;p&gt;There are two ways to start a restricted shell session:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;Use the STDLIB application variable &lt;code&gt;restricted_shell&lt;/code&gt;
+       and specify, as its value, the name of the callback
+       module. Example (with callback functions implemented in
+       callback_mod.erl): &lt;code&gt;$ erl -stdlib restricted_shell callback_mod&lt;/code&gt;&lt;/item&gt;
+      &lt;item&gt;From a normal shell session, call function
+      &lt;code&gt;shell:start_restricted/1&lt;/code&gt;. This exits the current evaluator
+       and starts a new one in restricted mode.&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;&lt;em&gt;Notes:&lt;/em&gt;&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;When restricted shell mode is activated or
+       deactivated, new jobs started on the node will run in restricted
+       or normal mode respectively.&lt;/item&gt;
+      &lt;item&gt;If restricted mode has been enabled on a
+       particular node, remote shells connecting to this node will also
+       run in restricted mode.&lt;/item&gt;
+      &lt;item&gt;The callback functions cannot be used to allow or disallow
+       execution of functions called from compiled code (only functions
+       called from expressions entered at the shell prompt).&lt;/item&gt;
+    &lt;/list&gt;
+    &lt;p&gt;Errors when loading the callback module is handled in different
+      ways depending on how the restricted shell is activated:&lt;/p&gt;
+    &lt;list type=&quot;bulleted&quot;&gt;
+      &lt;item&gt;If the restricted shell is activated by setting the kernel
+       variable during emulator startup and the callback module cannot be
+       loaded, a default restricted shell allowing only the commands
+      &lt;code&gt;q()&lt;/code&gt; and &lt;code&gt;init:stop()&lt;/code&gt; is used as fallback.&lt;/item&gt;
+      &lt;item&gt;If the restricted shell is activated using
+      &lt;code&gt;shell:start_restricted/1&lt;/code&gt; and the callback module cannot be
+       loaded, an error report is sent to the error logger and the call
+       returns &lt;code&gt;{error,Reason}&lt;/code&gt;.&lt;/item&gt;
+    &lt;/list&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;Prompting&lt;/h4&gt;
+    &lt;p&gt;The default shell prompt function displays the name of the node
+      (if the node can be part of a distributed system) and the
+      current command number. The user can customize the prompt
+      function by calling
+      &lt;code&gt;shell:prompt_func/1&lt;/code&gt; or by setting the application
+      configuration parameter &lt;code&gt;shell_prompt_func&lt;/code&gt; for the
+      application STDLIB.&lt;/p&gt;
+    &lt;p&gt;A customized prompt function is stated as a tuple
+      &lt;code&gt;{Mod,&amp;nbsp;Func}&lt;/code&gt;. The function is called as
+      &lt;code&gt;Mod:Func(L)&lt;/code&gt;, where &lt;code&gt;L&lt;/code&gt; is a list of key-value pairs
+      created by the shell. Currently there is only one pair:
+      &lt;code&gt;{history, N}&lt;/code&gt;, where N is the current command number. The
+      function should return a list of characters or an atom. This
+      constraint is due to the Erlang I/O-protocol. Unicode characters
+      beyond codepoint 255 are allowed in the list. Note
+      that in restricted mode the call &lt;code&gt;Mod:Func(L)&lt;/code&gt; must be
+      allowed or the default shell prompt function will be called.&lt;/p&gt;
+      &lt;/div&gt;
+
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;history/1&quot;&gt;history/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the number of previous commands to keep in the
+          history list to &lt;code&gt;&lt;anno&gt;N&lt;/anno&gt;&lt;/code&gt;. The previous number is returned.
+          The default number is 20.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;results/1&quot;&gt;results/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the number of results from previous commands to keep in
+          the history list to &lt;code&gt;&lt;anno&gt;N&lt;/anno&gt;&lt;/code&gt;. The previous number is returned.
+          The default number is 20.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;catch_exception/1&quot;&gt;catch_exception(Bool) -&amp;gt; boolean()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Bool = boolean()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the exception handling of the evaluator process. The
+          previous exception handling is returned. The default
+          (&lt;code&gt;false&lt;/code&gt;) is to kill the evaluator process when an
+          exception occurs, which causes the shell to create a new
+          evaluator process. When the exception handling is set to
+          &lt;code&gt;true&lt;/code&gt; the evaluator process lives on which means that
+          for instance ports and ETS tables as well as processes
+          linked to the evaluator process survive the exception.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;prompt_func/1&quot;&gt;prompt_func/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets the shell prompt function to &lt;code&gt;&lt;anno&gt;PromptFunc&lt;/anno&gt;&lt;/code&gt;.
+          The previous prompt function is returned.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;start_restricted/1&quot;&gt;start_restricted/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Exits a normal shell and starts a restricted
+          shell. &lt;code&gt;&lt;anno&gt;Module&lt;/anno&gt;&lt;/code&gt; specifies the callback module for the
+          functions &lt;code&gt;local_allowed/3&lt;/code&gt; and &lt;code&gt;non_local_allowed/3&lt;/code&gt;.
+          The function is meant to be called from the shell.&lt;/p&gt;
+        &lt;p&gt;If the callback module cannot be loaded, an error tuple is
+          returned. The &lt;code&gt;&lt;anno&gt;Reason&lt;/anno&gt;&lt;/code&gt; in the error tuple is the one
+          returned by the code loader when trying to load the code of the callback
+          module.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;stop_restricted/0&quot;&gt;stop_restricted/0&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Exits a restricted shell and starts a normal shell. The function
+          is meant to be called from the shell.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;strings/1&quot;&gt;strings/1&lt;/h3&gt;
+      
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sets pretty printing of lists to &lt;code&gt;&lt;anno&gt;Strings&lt;/anno&gt;&lt;/code&gt;.
+          The previous value of the flag is returned.&lt;/p&gt;
+        &lt;p&gt;The flag can also be set by the STDLIB application variable
+          &lt;code&gt;shell_strings&lt;/code&gt;. The default is
+          &lt;code&gt;true&lt;/code&gt; which means that lists of integers will be
+          printed using the string syntax, when possible. The value
+          &lt;code&gt;false&lt;/code&gt; means that no lists will be printed using the
+          string syntax.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#history&quot;&gt;history&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#results&quot;&gt;results&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#catch_exception/1&quot;&gt;catch_exception/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#prompt_func&quot;&gt;prompt_func&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#start_restricted&quot;&gt;start_restricted&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#stop_restricted&quot;&gt;stop_restricted&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#strings&quot;&gt;strings&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>httpc (inets) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+
+  &lt;h1&gt;httpc&lt;/h1&gt;
+  &lt;h2 class=&quot;modsummary&quot;&gt;An HTTP/1.1 client &lt;/h2&gt;
+
+  &lt;div class=&quot;description&quot;&gt;
+    &lt;p&gt;This module provides the API to a HTTP/1.1 compatible client according 
+      to RFC 2616, caching is currently not supported.&lt;/p&gt;
+    &lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+      &lt;p&gt;When starting the Inets application a manager process for the
+	default profile will be started. The functions in this API
+	that do not explicitly use a profile will access the
+	default profile. A profile keeps track of proxy options,
+	cookies and other options that can be applied to more than one
+	request. &lt;/p&gt;
+
+	&lt;p&gt;If the scheme https is used the ssl application needs to be
+	started. When https links needs to go through a proxy the
+	CONNECT method extension to HTTP-1.1 is used to establish a
+	tunnel and then the connection is upgraded to TLS,
+	however &quot;TLS upgrade&quot; according to RFC 2817 is not
+	supported.&lt;/p&gt;
+
+      &lt;p&gt;Also note that pipelining will only be used if the pipeline
+      timeout is set, otherwise persistent connections without
+      pipelining will be used e.i. the  client always waits for
+      the previous response before sending the next request.&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;p&gt;There are some usage examples in the &lt;a href=&quot;http_client.html&quot; class=&quot;seealso&quot;&gt;Inets User&#039;s Guide.&lt;/a&gt;&lt;/p&gt;
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;COMMON DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;Type definitions that are used more than once in
+      this module:&lt;/p&gt;
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+boolean()    = true | false 
+string()     = list of ASCII characters 
+request_id() = ref() 
+profile()    = atom()
+path()       = string() representing a file path or directory path 
+ip_address() = See inet(3)
+socket_opt() = See the Options used by gen_tcp(3) and 
+               ssl(3) connect(s)
+    &lt;/pre&gt;
+
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;HTTP DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;Type definitions that are related to HTTP:&lt;/p&gt;
+    &lt;p&gt;For more information about HTTP see rfc 2616&lt;/p&gt;
+
+    &lt;pre class=&quot;sh_erlang&quot;&gt;
+method()         = head | get | put | post | trace | options | delete
+request()        = {url(), headers()} | 
+                   {url(), headers(), content_type(), body()}
+url()            = string() - Syntax according to the URI definition in rfc 2396, ex: &quot;http://www.erlang.org&quot;
+status_line()    = {http_version(), status_code(), reason_phrase()}
+http_version()   = string() ex: &quot;HTTP/1.1&quot;
+status_code()    = integer()
+reason_phrase()  = string()
+content_type()   = string()
+headers()        = [header()]
+header()         = {field(), value()}
+field()          = string() 
+value()          = string() 
+body()           = string() | 
+                   binary() |
+                   {fun(accumulator()) -&amp;gt; body_processing_result(), 
+                    accumulator()} |
+                   {chunkify, 
+                    fun(accumulator()) -&amp;gt; body_processing_result(), 
+                    accumulator()}
+body_processing_result() = eof | {ok, iolist(), accumulator()}
+accumulator()    = term()
+filename()       = string() 
+    &lt;/pre&gt;
+
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SSL DATA TYPES &lt;/h4&gt;
+    &lt;p&gt;See &lt;a href=&quot;../ssl/ssl.html&quot; class=&quot;seealso&quot;&gt;ssl(3)&lt;/a&gt; for information
+    about ssl options (&lt;code&gt;ssloptions()&lt;/code&gt;). &lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;HTTP CLIENT SERVICE START/STOP &lt;/h4&gt;
+    
+    &lt;p&gt;A HTTP client can be configured to start when starting the inets
+      application or started dynamically in runtime by calling the
+      inets application API &lt;code&gt;inets:start(httpc, ServiceConfig)&lt;/code&gt;, or
+      &lt;code&gt;inets:start(httpc,  ServiceConfig, How)&lt;/code&gt;
+      see &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt;. Below follows a
+      description of the available configuration options.&lt;/p&gt;
+    &lt;taglist&gt;
+      &lt;dt&gt;{profile, profile()}&lt;/dt&gt;
+      &lt;item&gt;Name of the profile, see
+	common data types below, this option is mandatory.&lt;/item&gt;
+      &lt;dt&gt;{data_dir, path()}&lt;/dt&gt;
+      &lt;item&gt;Directory where the profile
+	may save persistent data, if omitted all cookies will be treated
+	as session cookies.&lt;/item&gt;
+    &lt;/taglist&gt;
+
+    &lt;p&gt;The client can be stopped using &lt;code&gt;inets:stop(httpc, Pid)&lt;/code&gt; or
+    &lt;code&gt;inets:stop(httpc, Profile)&lt;/code&gt;.&lt;/p&gt;
+    
+    &lt;span id=&quot;request1&quot;&gt; &lt;/span&gt;
+  &lt;/div&gt;
+  
+  &lt;div class=&quot;functions&quot;&gt;&lt;h4&gt;Functions&lt;/h4&gt;&lt;hr  /&gt;
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;request/1&quot;&gt;request(Url) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;request/2&quot;&gt;request(Url, Profile) -&amp;gt; {ok, Result} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Url = url() &lt;/code&gt;&lt;/li&gt; 
+	&lt;li&gt;&lt;code&gt;Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id() &lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Body = string() | binary()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Reason = term() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Equivalent to &lt;code&gt;httpc:request(get, {Url, []}, [], [])&lt;/code&gt;.&lt;/p&gt;
+
+        &lt;span id=&quot;request2&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;request/4&quot;&gt;request(Method, Request, HTTPOptions, Options) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;request/5&quot;&gt;request(Method, Request, HTTPOptions, Options, Profile) -&amp;gt; {ok, Result} | {ok, saved_to_file} | {error, Reason}&lt;/h3&gt;
+      
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Method = method() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Request = request()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;HTTPOptions = http_options()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;http_options() = [http_option()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;http_option() = {timeout,         timeout()} | 
+                           {connect_timeout, timeout()} | 
+                           {ssl,             ssloptions()} | 
+                           {essl,            ssloptions()} | 
+                           {autoredirect,    boolean()} | 
+                           {proxy_auth, {userstring(), passwordstring()}} | 
+                           {version,         http_version()} | 
+                           {relaxed,         boolean()} |
+	                   {url_encode,      boolean()}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;timeout() = integer() &amp;gt;= 0 | infinity&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Options = options()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;options() = [option()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;option() = {sync,                    boolean()} | 
+                      {stream,                  stream_to()} | 
+                      {body_format,             body_format()} | 
+                      {full_result,             boolean()} | 
+                      {headers_as_is,           boolean() |
+                      {socket_opts,             socket_opts()} | 
+                      {receiver,                receiver()},
+	              {ipv6_host_with_brackets, boolean()}}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;stream_to() = none | self | {self, once} | filename() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;socket_opts() = [socket_opt()]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;receiver() = pid() | function()/1 | {Module, Function, Args} &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Module = atom() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Function = atom() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Args = list() &lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;body_format() = string | binary &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id() &lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Body = string() | binary()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = {connect_failed, term()} | 
+                    {send_failed, term()} | term() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Sends a HTTP-request. The function can be both synchronous
+	and asynchronous. In the later case the function will return
+	&lt;code&gt;{ok, RequestId}&lt;/code&gt; and later on the information will be delivered
+	to the &lt;code&gt;receiver&lt;/code&gt; depending on that value. &lt;/p&gt;
+
+        &lt;p&gt;Http option (&lt;code&gt;http_option()&lt;/code&gt;) details: &lt;/p&gt;
+        &lt;span id=&quot;request2_http_options&quot;&gt; &lt;/span&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;timeout&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Timeout time for the request. &lt;/p&gt;
+            &lt;p&gt;The clock starts ticking as soon as the request has been
+	    sent. &lt;/p&gt;
+            &lt;p&gt;Time is in milliseconds. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;infinity&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;connect_timeout&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Connection timeout time, used during the initial request, 
+	    when the client is &lt;em&gt;connecting&lt;/em&gt; to the server. &lt;/p&gt;
+            &lt;p&gt;Time is in milliseconds. &lt;/p&gt;
+            &lt;p&gt;Defaults to the value of the &lt;code&gt;timeout&lt;/code&gt; option. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;ssl&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;This is the default ssl config option, currently defaults to 
+	    &lt;code&gt;essl&lt;/code&gt;, see below. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;[]&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;essl&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;If using the Erlang based implementation of SSL, 
+	    these SSL-specific options are used. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;[]&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;autoredirect&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+	    &lt;p&gt;Should the client automatically retrieve the information
+	    from the new URI and return that as the result instead 
+	    of a 30X-result code. &lt;/p&gt;
+	    &lt;p&gt;Note that for some 30X-result codes automatic redirect 
+	    is not allowed. In these cases the 30X-result will always
+	    be returned. &lt;/p&gt;
+	    &lt;p&gt;Defaults to &lt;code&gt;true&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;proxy_auth&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;A proxy-authorization header using the provided user name and 
+	    password will be added to the request. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;version&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Can be used to make the client act as an &lt;code&gt;HTTP/1.0&lt;/code&gt; or
+	    &lt;code&gt;HTTP/0.9&lt;/code&gt; client. By default this is an &lt;code&gt;HTTP/1.1&lt;/code&gt; 
+	    client. When using &lt;code&gt;HTTP/1.0&lt;/code&gt; persistent connections will 
+	    not be used. &lt;/p&gt;
+	    &lt;p&gt;Defaults to the string &lt;code&gt;&quot;HTTP/1.1&quot;&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;relaxed&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;If set to &lt;code&gt;true&lt;/code&gt; workarounds for known server deviations 
+	    from the HTTP-standard are enabled. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;false&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+	  &lt;dt&gt;&lt;code&gt;url_encode&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Will apply Percent-encoding, also known as URL encoding on the 
+	    URL.&lt;/p&gt;
+	    &lt;p&gt;Defaults to &lt;code&gt;false&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+        &lt;/taglist&gt;
+
+        &lt;p&gt;Option (&lt;code&gt;option()&lt;/code&gt;) details: &lt;/p&gt;
+        &lt;taglist&gt;
+          &lt;dt&gt;&lt;code&gt;sync&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Shall the request be synchronous or asynchronous. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;true&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;stream&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Streams the body of a 200 or 206 response to the calling 
+	    process or to a file. When streaming to the calling process 
+	    using the option &lt;code&gt;self&lt;/code&gt; the following stream messages
+	    will be sent to that process: &lt;code&gt;{http, {RequestId,
+	    stream_start, Headers}}, {http, {RequestId, stream,
+	    BinBodyPart}}, {http, {RequestId, stream_end, Headers}}&lt;/code&gt;. When
+	    streaming to to the calling processes using the option
+	    &lt;code&gt;{self, once}&lt;/code&gt; the first message will have an additional
+	    element e.i. &lt;code&gt;{http, {RequestId, stream_start, Headers, Pid}}&lt;/code&gt;,
+	    this is the process id that should be used as an argument to
+	    &lt;code&gt;http:stream_next/1&lt;/code&gt; to trigger the next message to be sent to
+	    the calling process. &lt;/p&gt;
+	    &lt;p&gt;Note that it is possible that chunked encoding will add
+	    headers so that there are more headers in the &lt;code&gt;stream_end&lt;/code&gt;
+	    message than in the &lt;code&gt;stream_start&lt;/code&gt;.
+	    When streaming to a file and the request is asynchronous the
+	    message &lt;code&gt;{http, {RequestId, saved_to_file}}&lt;/code&gt; will be sent. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;none&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;body_format&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Defines if the body shall be delivered as a string or as a 
+	    binary. This option is only valid for the synchronous 
+	    request. &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;string&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;full_result&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Should a &quot;full result&quot; be returned to the caller (that is,
+	    the body, the headers and the entire status-line) or not 
+	    (the body and the status code). &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;true&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;header_as_is&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Shall the headers provided by the user be made 
+	    lower case or be regarded as case sensitive. &lt;/p&gt;
+            &lt;p&gt;Note that the http standard requires them to be 
+	    case insenstive. This feature should only be used if there is 
+	    no other way to communicate with the server or for testing 
+	    purpose. Also note that when this option is used no headers 
+	    will be automatically added, all necessary headers have to be
+	    provided by the user. &lt;/p&gt;
+	    &lt;p&gt;Defaults to &lt;code&gt;false&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;socket_opts&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Socket options to be used for this and subsequent 
+	    request(s). &lt;/p&gt;
+	    &lt;p&gt;Overrides any value set by the 
+	    &lt;a href=&quot;#set_options&quot; class=&quot;seealso&quot;&gt;set_options&lt;/a&gt;
+	    function. &lt;/p&gt;
+            &lt;p&gt;Note that the validity of the options are &lt;em&gt;not&lt;/em&gt;
+	    checked in any way. &lt;/p&gt;
+            &lt;p&gt;Note that this may change the socket behaviour 
+	    (see &lt;a href=&quot;../kernel/inet.html#setopts/2&quot; class=&quot;seealso&quot;&gt;inet:setopts/2&lt;/a&gt;) 
+	    for an already existing one, and therefore an already connected
+	    request handler. &lt;/p&gt;
+            &lt;p&gt;By default the socket options set by the
+	    &lt;a href=&quot;#set_options&quot; class=&quot;seealso&quot;&gt;set_options/1,2&lt;/a&gt; 
+	    function are used when establishing a connection. &lt;/p&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;receiver&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;Defines how the client will deliver the result of an
+	    asynchroneous request (&lt;code&gt;sync&lt;/code&gt; has the value 
+	    &lt;code&gt;false&lt;/code&gt;). &lt;/p&gt;
+
+            &lt;taglist&gt;
+              &lt;dt&gt;&lt;code&gt;pid()&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;
+	        &lt;p&gt;Message(s) will be sent to this process in the format: &lt;/p&gt;
+&lt;pre class=&quot;sh_erlang&quot;&gt;
+{http, ReplyInfo}
+&lt;/pre&gt;
+	      &lt;/item&gt;
+
+              &lt;dt&gt;&lt;code&gt;function/1&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;
+	        &lt;p&gt;Information will be delivered to the receiver via calls 
+		to the provided fun: &lt;/p&gt;
+&lt;pre class=&quot;sh_erlang&quot;&gt;
+Receiver(ReplyInfo)
+&lt;/pre&gt;
+  	      &lt;/item&gt;
+
+              &lt;dt&gt;&lt;code&gt;{Module, Function, Args}&lt;/code&gt;&lt;/dt&gt;
+              &lt;item&gt;
+	        &lt;p&gt;Information will be delivered to the receiver via calls 
+		to the callback function: &lt;/p&gt;
+&lt;pre class=&quot;sh_erlang&quot;&gt;
+apply(Module, Function, [ReplyInfo | Args])
+&lt;/pre&gt;
+	      &lt;/item&gt;
+
+            &lt;/taglist&gt;
+            &lt;p&gt;In all of the above cases, &lt;code&gt;ReplyInfo&lt;/code&gt; has the following
+              structure: &lt;/p&gt;
+
+&lt;pre class=&quot;sh_erlang&quot;&gt;
+{RequestId, saved_to_file}
+{RequestId, {error, Reason}}
+{RequestId, Result}
+{RequestId, stream_start, Headers}
+{RequestId, stream_start, Headers, HandlerPid}
+{RequestId, stream,       BinBodyPart}
+{RequestId, stream_end,   Headers}
+&lt;/pre&gt;
+
+            &lt;p&gt;Defaults to the &lt;code&gt;pid()&lt;/code&gt; of the process calling the request 
+	    function (&lt;code&gt;self()&lt;/code&gt;). &lt;/p&gt;
+
+	    &lt;span id=&quot;ipv6_host_with_brackets&quot;&gt; &lt;/span&gt;
+	  &lt;/item&gt;
+
+          &lt;dt&gt;&lt;code&gt;ipv6_host_with_brackets&lt;/code&gt;&lt;/dt&gt;
+          &lt;item&gt;
+            &lt;p&gt;When parsing the Host-Port part of an URI with a IPv6 address 
+	    with brackets, shall we retain those brackets (&lt;code&gt;true&lt;/code&gt;) or 
+	    strip them (&lt;code&gt;false&lt;/code&gt;). &lt;/p&gt;
+            &lt;p&gt;Defaults to &lt;code&gt;false&lt;/code&gt;. &lt;/p&gt;
+	  &lt;/item&gt;
+
+        &lt;/taglist&gt;
+
+        &lt;span id=&quot;cancel_request&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;cancel_request/1&quot;&gt;cancel_request(RequestId) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;cancel_request/2&quot;&gt;cancel_request(RequestId, Profile) -&amp;gt; ok&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;RequestId = request_id() - A unique identifier as returned
+        by request/4&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Cancels an asynchronous HTTP-request. Note this does not guarantee
+	that the request response will not be delivered, as it is asynchronous the
+	the request may already have been completed when the cancellation arrives.
+	&lt;/p&gt;
+
+        &lt;span id=&quot;set_options&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;set_options/1&quot;&gt;set_options(Options) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;set_options/2&quot;&gt;set_options(Options, Profile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Options = [Option]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Option = {proxy,                 {Proxy, NoProxy}} | 
+                    {https_proxy,           {Proxy, NoProxy}} | 
+	            {max_sessions,          MaxSessions} |
+	            {max_keep_alive_length, MaxKeepAlive} | 
+                    {keep_alive_timeout,    KeepAliveTimeout} |
+	            {max_pipeline_length,   MaxPipeline} |  
+                    {pipeline_timeout,      PipelineTimeout} | 
+                    {cookies,               CookieMode} | 
+                    {ipfamily,              IpFamily} | 
+                    {ip,                    IpAddress} | 
+                    {port,                  Port} | 
+                    {socket_opts,           socket_opts()} | 
+                    {verbose,               VerboseMode} &lt;/code&gt;&lt;/li&gt;
+		    
+        &lt;li&gt;&lt;code&gt;Proxy = {Hostname, Port}&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Hostname = string() &lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;ex: &quot;localhost&quot; or &quot;foo.bar.se&quot;&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;Port = integer()&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;ex: 8080 &lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;NoProxy = [NoProxyDesc]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;NoProxyDesc = DomainDesc | HostName | IPDesc&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;DomainDesc = &quot;*.Domain&quot;&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;ex: &quot;*.ericsson.se&quot;&lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;IpDesc = string()&lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;ex: &quot;134.138&quot; or &quot;[FEDC:BA98&quot; (all IP-addresses starting with 134.138 or FEDC:BA98), &quot;66.35.250.150&quot; or &quot;[2010:836B:4179::836B:4179]&quot; (a complete IP-address).&lt;/d&gt;
+
+	&lt;d&gt;proxy defaults to {undefined, []} e.i. no proxy is configured and https_proxy defaults to
+	the value of proxy.&lt;/d&gt;
+	
+	&lt;li&gt;&lt;code&gt;MaxSessions = integer() &lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;Default is &lt;code&gt;2&lt;/code&gt;.
+	Maximum number of persistent connections to a host.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;MaxKeepAlive = integer() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Default is &lt;code&gt;5&lt;/code&gt;.
+	Maximum number of outstanding requests on the same connection to 
+	a host.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;KeepAliveTimeout = integer() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Default is &lt;code&gt;120000&lt;/code&gt; (= 2 min).
+	If a persistent connection is idle longer than the 
+	&lt;code&gt;keep_alive_timeout&lt;/code&gt; in milliseconds, 
+	the client will close the connection.
+	The server may also have such a time out but you should
+	not count on it!&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;MaxPipeline = integer() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Default is &lt;code&gt;2&lt;/code&gt;.
+	Maximum number of outstanding requests on a pipelined connection 
+	to a host.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;PipelineTimeout = integer() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Default is &lt;code&gt;0&lt;/code&gt;,
+	which will result in pipelining not being used. 
+	If a persistent connection is idle longer than the 
+	&lt;code&gt;pipeline_timeout&lt;/code&gt; in milliseconds, 
+	the client will close the connection. &lt;/d&gt;
+        &lt;li&gt;&lt;code&gt;CookieMode = enabled | disabled | verify &lt;/code&gt;&lt;/li&gt;
+        &lt;d&gt;Default is &lt;code&gt;disabled&lt;/code&gt;.
+	If Cookies are enabled all valid cookies will automatically be 
+	saved in the client manager&#039;s cookie database. 
+	If the option &lt;code&gt;verify&lt;/code&gt; is used the function &lt;code&gt;store_cookies/2&lt;/code&gt;
+	has to be called for the cookies to be saved.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;IpFamily = inet | inet6 | inet6fb4 &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;By default &lt;code&gt;inet&lt;/code&gt;.
+	When it is set to &lt;code&gt;inet6fb4&lt;/code&gt; you can use both ipv4 and ipv6. 
+	It first tries &lt;code&gt;inet6&lt;/code&gt; and if that does not works falls back to &lt;code&gt;inet&lt;/code&gt;. 
+	The option is here to provide a workaround for buggy ipv6 stacks to ensure that 
+	ipv4 will always work.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;IpAddress = ip_address() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;If the host has several network interfaces, this option specifies which one to use. 
+	See &lt;a href=&quot;../kernel/gen_tcp.html#connect&quot; class=&quot;seealso&quot;&gt;gen_tcp:connect/3,4&lt;/a&gt; for more info. &lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;Port = integer() &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Specify which local port number to use. 
+	See &lt;a href=&quot;../kernel/gen_tcp.html#connect&quot; class=&quot;seealso&quot;&gt;gen_tcp:connect/3,4&lt;/a&gt; for more info. &lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;socket_opts() = [socket_opt()]&lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;The options are appended to the socket options used by the 
+	client. &lt;/d&gt;
+	&lt;d&gt;These are the default values when a new request handler
+	is started (for the initial connect). They are passed directly 
+          to the underlying transport (gen_tcp or ssl) &lt;em&gt;without&lt;/em&gt; 
+	verification! &lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;VerboseMode = false | verbose | debug | trace &lt;/code&gt;&lt;/li&gt;
+	&lt;d&gt;Default is &lt;code&gt;false&lt;/code&gt;.
+	This option is used to switch on (or off) 
+	different levels of erlang trace on the client. 
+	It is a debug feature.&lt;/d&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+	&lt;p&gt;Sets options to be used for subsequent requests.&lt;/p&gt;
+	&lt;div class=&quot;note&quot;&gt;&lt;h2&gt;Note!&lt;/h2&gt;
+	  &lt;p&gt;If possible the client will keep its connections
+	  alive and use persistent connections
+	  with  or without pipeline depending on configuration
+	  and current circumstances. The HTTP/1.1 specification does not
+	  provide a guideline for how many requests would be
+	  ideal to be sent on a persistent connection,
+	  this very much depends on the
+	  application. Note that a very long queue of requests may cause a
+	  user perceived delay as earlier requests may take a long time
+	  to complete. The HTTP/1.1 specification does suggest a
+	  limit of 2 persistent connections per server, which is the
+	  default value of the &lt;code&gt;max_sessions&lt;/code&gt; option. &lt;/p&gt;
+	&lt;/div&gt;
+
+        &lt;span id=&quot;get_options&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;get_options/1&quot;&gt;get_options(OptionItems) -&amp;gt; {ok, Values} | {error, Reason}&lt;/h3&gt;
+      &lt;h3 id=&quot;get_options/2&quot;&gt;get_options(OptionItems, Profile) -&amp;gt; {ok, Values} | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;OptionItems = all | [option_item()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;option_item() = proxy |
+	                   https_proxy
+                           max_sessions | 
+			   keep_alive_timeout | 
+	                   max_keep_alive_length | 
+			   pipeline_timeout | 
+			   max_pipeline_length | 
+			   cookies | 
+			   ipfamily | 
+			   ip | 
+			   port | 
+			   socket_opts | 
+	                   verbose&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Values = [{option_item(), term()}]&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Reason = term() &lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Retrieves the options currently used by the client.&lt;/p&gt;
+
+        &lt;span id=&quot;stream_next&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+     &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;stream_next/1&quot;&gt;stream_next(Pid) -&amp;gt; ok&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Pid = pid() - as received in the stream_start message&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Triggers the next message to be streamed, e.i.
+	same behavior as active once for sockets. &lt;/p&gt;
+
+        &lt;span id=&quot;verify_cookies&quot;&gt; &lt;/span&gt;
+        &lt;span id=&quot;store_cookies&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;store_cookies/2&quot;&gt;store_cookies(SetCookieHeaders, Url) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;store_cookies/3&quot;&gt;store_cookies(SetCookieHeaders, Url, Profile) -&amp;gt; ok | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;SetCookieHeaders = headers() - where field = &quot;set-cookie&quot;&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Url = url()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Saves the cookies defined in SetCookieHeaders
+	in the client profile&#039;s cookie database. You need to
+	call this function if you have set the option &lt;code&gt;cookies&lt;/code&gt; 
+	to &lt;code&gt;verify&lt;/code&gt;.
+	If no profile is specified the default profile will be used. &lt;/p&gt;
+
+        &lt;span id=&quot;cookie_header&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;cookie_header/1&quot;&gt;cookie_header(Url) -&amp;gt; &lt;/h3&gt;
+      &lt;h3 id=&quot;cookie_header/2&quot;&gt;cookie_header(Url, Profile | Opts) -&amp;gt; header() | {error, Reason}&lt;/h3&gt;
+      &lt;h3 id=&quot;cookie_header/3&quot;&gt;cookie_header(Url, Opts, Profile) -&amp;gt; header() | {error, Reason}&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+        &lt;li&gt;&lt;code&gt;Url = url()&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;Opts = [cookie_header_opt()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;code&gt;cookie_header_opt() = {ipv6_host_with_brackets, boolean()}&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Returns the cookie header that would be sent
+	when making a request to &lt;code&gt;Url&lt;/code&gt; using the profile &lt;code&gt;Profile&lt;/code&gt;.
+	If no profile is specified the default profile will be used. &lt;/p&gt;
+	&lt;p&gt;The option &lt;code&gt;ipv6_host_with_bracket&lt;/code&gt; deals with how to 
+	parse IPv6 addresses. 
+	See the &lt;code&gt;Options&lt;/code&gt; argument of the 
+	&lt;a href=&quot;#request2&quot; class=&quot;seealso&quot;&gt;request/4,5&lt;/a&gt; for more info. &lt;/p&gt;
+
+        &lt;span id=&quot;reset_cookies&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;reset_cookies/0&quot;&gt;reset_cookies() -&amp;gt; void()&lt;/h3&gt;
+      &lt;h3 id=&quot;reset_cookies/1&quot;&gt;reset_cookies(Profile) -&amp;gt; void()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;Resets (clears) the cookie database for the specified 
+	&lt;code&gt;Profile&lt;/code&gt;. If no profile is specified the default profile 
+	will be used. &lt;/p&gt;
+
+        &lt;span id=&quot;which_cookies&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;which_cookies/0&quot;&gt;which_cookies() -&amp;gt; cookies()&lt;/h3&gt;
+      &lt;h3 id=&quot;which_cookies/1&quot;&gt;which_cookies(Profile) -&amp;gt; cookies()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;cookies() = [cookie_stores()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;cookie_stores() = {cookies, cookies()} | {session_cookies, cookies()}&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;cookies() = [cookie()]&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;cookie() = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function produces a list of the entire cookie database.
+	It is intended for debugging/testing purposes. 
+	If no profile is specified the default profile will be used. &lt;/p&gt;
+
+        &lt;span id=&quot;which_sessions&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;which_sessions/0&quot;&gt;which_sessions() -&amp;gt; session_info()&lt;/h3&gt;
+      &lt;h3 id=&quot;which_sessions/1&quot;&gt;which_sessions(Profile) -&amp;gt; session_info()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;session_info() = {GoodSessions, BadSessions, NonSessions}&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;GoodSessions = session()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;BadSessions = tuple()&lt;/code&gt;&lt;/li&gt;
+	&lt;li&gt;&lt;code&gt;NonSessions = term()&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function produces a slightly processed dump of the session 
+	database. It is intended for debugging. 
+	If no profile is specified the default profile will be used. &lt;/p&gt;
+
+        &lt;span id=&quot;info&quot;&gt; &lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;function&quot;&gt;
+      &lt;h3 id=&quot;info/0&quot;&gt;info() -&amp;gt; list()&lt;/h3&gt;
+      &lt;h3 id=&quot;info/1&quot;&gt;info(Profile) -&amp;gt; list()&lt;/h3&gt;
+      
+      &lt;ul class=&quot;type&quot;&gt;
+	&lt;li&gt;&lt;code&gt;Profile = profile() | pid() (when started &lt;code&gt;stand_alone&lt;/code&gt;)&lt;/code&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;div class=&quot;description&quot;&gt;
+        &lt;p&gt;This function produces a list of miscelleneous info. 
+	It is intended for debugging. 
+	If no profile is specified the default profile will be used. &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;section&quot;&gt;
+    &lt;h4&gt;SEE ALSO&lt;/h4&gt;
+    &lt;p&gt;RFC 2616, &lt;a href=&quot;inets.html&quot; class=&quot;seealso&quot;&gt;inets(3)&lt;/a&gt;,
+      &lt;a href=&quot;../kernel/gen_tcp.html&quot; class=&quot;seealso&quot;&gt;gen_tcp(3)&lt;/a&gt;, 
+      &lt;a href=&quot;../ssl/ssl.html&quot; class=&quot;seealso&quot;&gt;ssl(3)&lt;/a&gt;
+    &lt;/p&gt;
+  &lt;/div&gt;
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        &lt;ul id=&quot;funs&quot;&gt;&lt;li&gt;&lt;a href=&quot;#request/1&quot;&gt;request/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#request/2&quot;&gt;request/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#request/4&quot;&gt;request/4&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#request/5&quot;&gt;request/5&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cancel_request/1&quot;&gt;cancel_request/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cancel_request/2&quot;&gt;cancel_request/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#set_options/1&quot;&gt;set_options/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#set_options/2&quot;&gt;set_options/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_options/1&quot;&gt;get_options/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#get_options/2&quot;&gt;get_options/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#stream_next/1&quot;&gt;stream_next/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#store_cookies/2&quot;&gt;store_cookies/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#store_cookies/3&quot;&gt;store_cookies/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cookie_header/1&quot;&gt;cookie_header/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cookie_header/2&quot;&gt;cookie_header/2&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#cookie_header/3&quot;&gt;cookie_header/3&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reset_cookies/0&quot;&gt;reset_cookies/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#reset_cookies/1&quot;&gt;reset_cookies/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#which_cookies/0&quot;&gt;which_cookies/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#which_cookies/1&quot;&gt;which_cookies/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#which_sessions/0&quot;&gt;which_sessions/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#which_sessions/1&quot;&gt;which_sessions/1&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/0&quot;&gt;info/0&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;#info/1&quot;&gt;info/1&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
