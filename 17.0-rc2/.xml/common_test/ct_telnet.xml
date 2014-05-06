@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="utf8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<erlref>
+<header>
+<title>ct_telnet</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno>1</docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>A</rev>
+<file>ct_telnet.xml</file></header>
+<module>ct_telnet</module>
+<modulesummary>Common Test specific layer on top of telnet client ct_telnet_client.erl</modulesummary>
+<description>
+<p>Common Test specific layer on top of telnet client <c>ct_telnet_client.erl</c></p>
+ 
+  <p>Use this module to set up telnet connections, send commands and
+  perform string matching on the result.
+  See the <c>unix_telnet</c> manual page for information about how to use
+  <c>ct_telnet</c>, and configure connections, specifically for unix hosts.</p>
+  <p>The following default values are defined in <c>ct_telnet</c>:</p>
+  <pre>
+  Connection timeout = 10 sec (time to wait for connection)
+  Command timeout = 10 sec (time to wait for a command to return)
+  Max no of reconnection attempts = 3
+  Reconnection interval = 5 sek (time to wait in between reconnection attempts)
+  Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
+  <p>These parameters can be altered by the user with the following
+  configuration term:</p>
+  <pre>
+  {telnet_settings, [{connect_timeout,Millisec},
+                     {command_timeout,Millisec},
+                     {reconnection_attempts,N},
+                     {reconnection_interval,Millisec},
+                     {keep_alive,Bool}]}.</pre>
+  <p><c>Millisec = integer(), N = integer()</c></p>
+  <p>Enter the <c>telnet_settings</c> term in a configuration
+  file included in the test and ct_telnet will retrieve the information
+  automatically. Note that <c>keep_alive</c> may be specified per connection if
+  required. See <c>unix_telnet</c> for details.</p>
+ 
+  <p><em><marker id="Logging">Logging</marker></em></p>
+ 
+  <p><c>ct_telnet</c> can be configured to uses the <c>error_logger</c> for logging telnet
+  traffic. A special purpose error handler is implemented in
+  <c>ct_conn_log_h</c>. To use this error handler, add the <c>cth_conn_log</c>  
+hook in your test suite, e.g:</p>
+ 
+ 
+  <pre>  suite() -&gt;
+     [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].</pre>
+ 
+  <p><c>conn_mod()</c> is the name of the common_test module implementing
+  the connection protocol, i.e. <c>ct_telnet</c>.</p>
+ 
+  <p>The hook option <c>log_type</c> specifies the type of logging:</p>
+ 
+  <taglist>
+    <tag><c>raw</c></tag>
+    <item><p>The sent and received telnet data is logged to a separate
+    text file as is, without any formatting. A link to the file is
+    added to the test case HTML log.</p></item>
+ 
+    <tag><c>html (default)</c></tag>
+    <item><p>The sent and received telnet traffic is pretty printed
+    directly in the test case HTML log.</p></item>
+ 
+    <tag><c>silent</c></tag>
+    <item><p>Telnet traffic is not logged.</p></item>
+  </taglist>
+ 
+  <p>By default, all telnet traffic is logged in one single log
+  file. However, it is possible to have different connections logged
+  in separate files. To do this, use the hook option <c>hosts</c> and
+  list the names of the servers/connections that will be used in the
+  suite. Note that the connections must be named for this to work
+  (see the <c>open</c> function below).</p>
+ 
+  <p>The <c>hosts</c> option has no effect if <c>log_type</c> is set to <c>html</c> or
+  <c>silent</c>.</p>
+ 
+  <p>The hook options can also be specified in a configuration file with
+  the configuration variable <c>ct_conn_log</c>:</p>
+ 
+  <pre>  {ct_conn_log,[{conn_mod(),hook_options()}]}.</pre>
+ 
+  <p>For example:</p>
+ 
+  <pre>  {ct_conn_log,[{ct_telnet,[{log_type,raw},
+                            {hosts,[key_or_name()]}]}]}</pre>
+ 
+  <p><em>Note</em> that hook options specified in a configuration file  
+will overwrite any hardcoded hook options in the test suite.</p>
+ 
+  <p><em><marker id="Logging_example_1">Logging example 1</marker></em></p>
+ 
+  <p>The following <c>ct_hooks</c> statement will cause raw printing of
+  telnet traffic to separate logs for the connections named
+  <c>server1</c> and <c>server2</c>. Any other connections will be logged  
+to default telnet log.</p>
+ 
+  <pre>  suite() -&gt;
+     [{ct_hooks, [{cth_conn_log, [{ct_telnet,[{log_type,raw}},
+                                              {hosts,[server1,server2]}]}
+                                 ]}]}].</pre>
+ 
+  <p><em><marker id="Logging_example_2">Logging example 2</marker></em></p>
+ 
+  <p>The following configuration file will cause raw logging of all  
+telnet traffic into one single text file.</p>
+ 
+  <pre>  {ct_conn_log,[{ct_telnet,[{log_type,raw}]}]}.</pre>
+ 
+  <p>The <c>ct_hooks</c> statement must look like this:</p>
+ 
+  <pre>  suite() -&gt;
+     [{ct_hooks, [{cth_conn_log, []}]}].</pre>
+ 
+  <p>The same <c>ct_hooks</c> statement without the configuration file would  
+cause HTML logging of all telnet connections into the test case  
+HTML log.</p>
+ 
+  <p><em>Note</em> that if the <c>cth_conn_log</c> hook is not added, telnet
+  traffic is still logged in the test case HTML log file (on the legacy
+  <c>ct_telnet</c> format).</p></description>
+<section><title>DATA TYPES</title><marker id="types"/>
+
+<taglist>
+<tag><c>connection() = handle() | {target_name() (see module ct), connection_type()} | target_name() (see module ct)</c></tag>
+<item><marker id="type-connection"/> </item>
+<tag><c>connection_type() = telnet | ts1 | ts2</c></tag>
+<item><marker id="type-connection_type"/> </item>
+<tag><c>handle() = handle() (see module ct_gen_conn)</c></tag>
+<item><marker id="type-handle"/>
+<p>Handle for a
+  specific telnet connection.</p>
+</item>
+<tag><c>prompt_regexp() = string()</c></tag>
+<item><marker id="type-prompt_regexp"/>
+<p>A regular expression which
+  matches all possible prompts for a specific type of target. The
+  regexp must not have any groups i.e. when matching, re:run/3 shall
+  return a list with one single element.
+ </p>
+</item>
+</taglist></section>
+<funcs>
+<func>
+<name>open(Name) -&gt; {ok, Handle} | {error, Reason}</name>
+<fsummary>Equivalent to open(Name, telnet).
+</fsummary>
+
+<desc><marker id="open-1"/>
+<p>Equivalent to <seealso marker="#open-2">open(Name, telnet)</seealso>.</p>
+</desc></func>
+<func>
+<name>open(Name, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
+<fsummary>Open a telnet connection to the specified target host.</fsummary>
+<type>
+<v>Name = target_name()</v><v>ConnType = connection_type() (see module ct_telnet)</v><v>Handle = handle() (see module ct_telnet)</v></type>
+<desc><marker id="open-2"/>
+
+<p>Open a telnet connection to the specified target host.</p>
+</desc></func>
+<func>
+<name>open(KeyOrName, ConnType, TargetMod) -&gt; {ok, Handle} | {error, Reason}</name>
+<fsummary>Equivalent to open(KeyOrName, ConnType, TargetMod, []).
+</fsummary>
+
+<desc><marker id="open-3"/>
+<p>Equivalent to <seealso marker="#open-4">open(KeyOrName, ConnType, TargetMod, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>open(KeyOrName, ConnType, TargetMod, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+<fsummary>Open a telnet connection to the specified target host.</fsummary>
+<type>
+<v>KeyOrName = Key | Name</v><v>Key = atom()</v><v>Name = target_name() (see module ct)</v><v>ConnType = connection_type()</v><v>TargetMod = atom()</v><v>Extra = term()</v><v>Handle = handle()</v></type>
+<desc><marker id="open-4"/>
+
+<p>Open a telnet connection to the specified target host.</p>
+  
+   <p>The target data must exist in a configuration file. The connection
+   may be associated with either <c>Name</c> and/or the returned
+   <c>Handle</c>. To allocate a name for the target,
+   use <c>ct:require/2</c> in a test case, or use a
+   <c>require</c> statement in the suite info function
+   (<c>suite/0</c>), or in a test case info function.
+   If you want the connection to be associated with <c>Handle</c> only
+   (in case you need to open multiple connections to a host for example),
+   simply use <c>Key</c>, the configuration variable name, to
+   specify the target. Note that a connection that has no associated target
+   name can only be closed with the handle value.</p>
+  
+   <p><c>TargetMod</c> is a module which exports the functions
+   <c>connect(Ip,Port,KeepAlive,Extra)</c> and <c>get_prompt_regexp()</c>
+   for the given <c>TargetType</c> (e.g. <c>unix_telnet</c>).</p>
+  
+<p><em>See also:</em> <seealso marker="ct#require-2">ct:require/2</seealso>.</p>
+</desc></func>
+<func>
+<name>close(Connection) -&gt; ok | {error, Reason}</name>
+<fsummary>Close the telnet connection and stop the process managing it.</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v></type>
+<desc><marker id="close-1"/>
+
+<p>Close the telnet connection and stop the process managing it.</p>
+  
+   <p>A connection may be associated with a target name and/or a handle.
+   If <c>Connection</c> has no associated target name, it may only
+   be closed with the handle value (see the <c>open/4</c>
+   function).</p>
+</desc></func>
+<func>
+<name>cmd(Connection, Cmd) -&gt; {ok, Data} | {error, Reason}</name>
+<fsummary>Equivalent to cmd(Connection, Cmd, DefaultTimeout).
+</fsummary>
+
+<desc><marker id="cmd-2"/>
+<p>Equivalent to <seealso marker="#cmd-3">cmd(Connection, Cmd, DefaultTimeout)</seealso>.</p>
+</desc></func>
+<func>
+<name>cmd(Connection, Cmd, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+<fsummary>Send a command via telnet and wait for prompt.</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>Cmd = string()</v><v>Timeout = integer()</v><v>Data = [string()]</v></type>
+<desc><marker id="cmd-3"/>
+
+<p>Send a command via telnet and wait for prompt.</p>
+</desc></func>
+<func>
+<name>cmdf(Connection, CmdFormat, Args) -&gt; {ok, Data} | {error, Reason}</name>
+<fsummary>Equivalent to cmdf(Connection, CmdFormat, Args, DefaultTimeout).
+</fsummary>
+
+<desc><marker id="cmdf-3"/>
+<p>Equivalent to <seealso marker="#cmdf-4">cmdf(Connection, CmdFormat, Args, DefaultTimeout)</seealso>.</p>
+</desc></func>
+<func>
+<name>cmdf(Connection, CmdFormat, Args, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+<fsummary>Send a telnet command and wait for prompt
+        (uses a format string and list of arguments to build the command).</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>CmdFormat = string()</v><v>Args = list()</v><v>Timeout = integer()</v><v>Data = [string()]</v></type>
+<desc><marker id="cmdf-4"/>
+
+<p>Send a telnet command and wait for prompt
+        (uses a format string and list of arguments to build the command).</p>
+</desc></func>
+<func>
+<name>get_data(Connection) -&gt; {ok, Data} | {error, Reason}</name>
+<fsummary>Get all data which has been received by the telnet client
+   since last command was sent.</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>Data = [string()]</v></type>
+<desc><marker id="get_data-1"/>
+
+<p>Get all data which has been received by the telnet client
+   since last command was sent.</p>
+</desc></func>
+<func>
+<name>send(Connection, Cmd) -&gt; ok | {error, Reason}</name>
+<fsummary>Send a telnet command and return immediately.</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>Cmd = string()</v></type>
+<desc><marker id="send-2"/>
+
+<p>Send a telnet command and return immediately.</p>
+  
+   <p>The resulting output from the command can be read with
+   <c>get_data/1</c> or <c>expect/2/3</c>.</p>
+</desc></func>
+<func>
+<name>sendf(Connection, CmdFormat, Args) -&gt; ok | {error, Reason}</name>
+<fsummary>Send a telnet command and return immediately (uses a format
+   string and a list of arguments to build the command).</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>CmdFormat = string()</v><v>Args = list()</v></type>
+<desc><marker id="sendf-3"/>
+
+<p>Send a telnet command and return immediately (uses a format
+   string and a list of arguments to build the command).</p>
+</desc></func>
+<func>
+<name>expect(Connection, Patterns) -&gt; term()</name>
+<fsummary>Equivalent to expect(Connections, Patterns, []).
+</fsummary>
+
+<desc><marker id="expect-2"/>
+<p>Equivalent to <seealso marker="#expect-3">expect(Connections, Patterns, [])</seealso>.</p>
+</desc></func>
+<func>
+<name>expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</name>
+<fsummary>Get data from telnet and wait for the expected pattern.</fsummary>
+<type>
+<v>Connection = connection() (see module ct_telnet)</v><v>Patterns = Pattern | [Pattern]</v><v>Pattern = string() | {Tag, string()} | prompt | {prompt, Prompt}</v><v>Prompt = string()</v><v>Tag = term()</v><v>Opts = [Opt]</v><v>Opt = {timeout, Timeout} | repeat | {repeat, N} | sequence | {halt, HaltPatterns} | ignore_prompt | no_prompt_check</v><v>Timeout = integer()</v><v>N = integer()</v><v>HaltPatterns = Patterns</v><v>MatchList = [Match]</v><v>Match = RxMatch | {Tag, RxMatch} | {prompt, Prompt}</v><v>RxMatch = [string()]</v><v>HaltReason = done | Match</v><v>Reason = timeout | {prompt, Prompt}</v></type>
+<desc><marker id="expect-3"/>
+
+<p>Get data from telnet and wait for the expected pattern.</p>
+  
+   <p><c>Pattern</c> can be a POSIX regular expression. If more
+   than one pattern is given, the function returns when the first
+   match is found.</p>
+  
+   <p><c>RxMatch</c> is a list of matched strings. It looks
+   like this: <c>[FullMatch, SubMatch1, SubMatch2, ...]</c>
+   where <c>FullMatch</c> is the string matched by the whole
+   regular expression and <c>SubMatchN</c> is the string that
+   matched subexpression no <c>N</c>. Subexpressions are
+   denoted with '(' ')' in the regular expression</p>
+  
+   <p>If a <c>Tag</c> is given, the returned <c>Match</c>
+   will also include the matched <c>Tag</c>. Else, only
+   <c>RxMatch</c> is returned.</p>
+  
+   <p>The <c>timeout</c> option indicates that the function
+   shall return if the telnet client is idle (i.e. if no data is
+   received) for more than <c>Timeout</c> milliseconds. Default
+   timeout is 10 seconds.</p>
+  
+   <p>The function will always return when a prompt is found, unless
+   any of the <c>ignore_prompt</c> or
+   <c>no_prompt_check</c> options are used, in which case it
+   will return when a match is found or after a timeout.</p>
+  
+   <p>If the <c>ignore_prompt</c> option is used,
+   <c>ct_telnet</c> will ignore any prompt found. This option
+   is useful if data sent by the server could include a pattern that
+   would match the prompt regexp (as returned by
+   <c>TargedMod:get_prompt_regexp/0</c>), but which should not
+   cause the function to return.</p>
+  
+   <p>If the <c>no_prompt_check</c> option is used,
+   <c>ct_telnet</c> will not search for a prompt at all. This
+   is useful if, for instance, the <c>Pattern</c> itself
+   matches the prompt.</p>
+  
+   <p>The <c>repeat</c> option indicates that the pattern(s)
+   shall be matched multiple times. If <c>N</c> is given, the
+   pattern(s) will be matched <c>N</c> times, and the function
+   will return with <c>HaltReason = done</c>.</p>
+  
+   <p>The <c>sequence</c> option indicates that all patterns
+   shall be matched in a sequence. A match will not be concluded
+   untill all patterns are matched.</p>
+  
+   <p>Both <c>repeat</c> and <c>sequence</c> can be
+   interrupted by one or more <c>HaltPatterns</c>. When
+   <c>sequence</c> or <c>repeat</c> is used, there will
+   always be a <c>MatchList</c> returned, i.e. a list of
+   <c>Match</c> instead of only one <c>Match</c>. There
+   will also be a <c>HaltReason</c> returned.</p>
+  
+   <p><em>Examples:</em><br/>
+   <c>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],</c>
+   <c>[sequence,{halt,[{nnn,"NNN"}]}]).</c><br/> will try to match
+   "ABC" first and then "XYZ", but if "NNN" appears the function will
+   return <c>{error,{nnn,["NNN"]}}</c>. If both "ABC" and "XYZ"
+   are matched, the function will return
+   <c>{ok,[AbcMatch,XyzMatch]}</c>.</p>
+  
+   <p><c>expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],</c>
+   <c>[{repeat,2},{halt,[{nnn,"NNN"}]}]).</c><br/> will try to match
+   "ABC" or "XYZ" twice. If "NNN" appears the function will return
+   with <c>HaltReason = {nnn,["NNN"]}</c>.</p>
+  
+   <p>The <c>repeat</c> and <c>sequence</c> options can be
+   combined in order to match a sequence multiple times.</p>
+</desc></func>
+<func>
+<name>log(State, Action, String, Args) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="log-4"/>
+ </desc></func>
+<func>
+<name>log(Name, String, Args) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="log-3"/>
+ </desc></func>
+<func>
+<name>start_gen_log(Heading) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="start_gen_log-1"/>
+ </desc></func>
+<func>
+<name>end_gen_log() -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="end_gen_log-0"/>
+ </desc></func>
+<func>
+<name>format_data(How, X2) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="format_data-2"/>
+ </desc></func></funcs>
+<section><title>See also</title><p><seealso marker="unix_telnet">unix_telnet</seealso></p></section>
+<authors>
+<aname> </aname>
+<email> </email></authors></erlref>

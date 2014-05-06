@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<erlref>
+<header>
+<title>rec_env</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno>1</docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>A</rev>
+<file>rec_env.xml</file></header>
+<module>rec_env</module>
+<modulesummary>Abstract environments, supporting self-referential bindings and
+  automatic new-key generation.</modulesummary>
+<description>
+<p>Abstract environments, supporting self-referential bindings and
+  automatic new-key generation.</p></description>
+<section><title>DATA TYPES</title><marker id="types"/>
+
+<taglist>
+<tag><c>environment()</c></tag>
+<item><marker id="type-environment"/>
+<p>An abstract environment.</p>
+</item>
+</taglist></section>
+<funcs>
+<func>
+<name>empty() -&gt; environment()</name>
+<fsummary>Returns an empty environment.</fsummary>
+
+<desc><marker id="empty-0"/>
+
+<p>Returns an empty environment.</p>
+</desc></func>
+<func>
+<name>is_empty(Env::environment()) -&gt; boolean()</name>
+<fsummary>Returns true if the environment is empty, otherwise
+  false.</fsummary>
+
+<desc><marker id="is_empty-1"/>
+
+<p>Returns <c>true</c> if the environment is empty, otherwise
+  <c>false</c>.</p>
+</desc></func>
+<func>
+<name>size(Env::environment()) -&gt; integer()</name>
+<fsummary>Returns the number of entries in an environment.</fsummary>
+
+<desc><marker id="size-1"/>
+
+<p>Returns the number of entries in an environment.</p>
+</desc></func>
+<func>
+<name>is_defined(Key, Env) -&gt; boolean()</name>
+<fsummary>Returns true if Key is bound in the
+  environment, otherwise false.</fsummary>
+<type>
+<v>Key = term()</v><v>Env = environment()</v></type>
+<desc><marker id="is_defined-2"/>
+
+<p>Returns <c>true</c> if <c>Key</c> is bound in the
+  environment, otherwise <c>false</c>.</p>
+</desc></func>
+<func>
+<name>keys(Env::environment()) -&gt; [term()]</name>
+<fsummary>Returns the ordered list of all keys in the environment.</fsummary>
+
+<desc><marker id="keys-1"/>
+
+<p>Returns the ordered list of all keys in the environment.</p>
+</desc></func>
+<func>
+<name>to_list(Env) -&gt; [{Key, Value}]</name>
+<fsummary>Returns an ordered list of {Key, Value} pairs for
+  all keys in Env.</fsummary>
+<type>
+<v>Env = environment()</v><v>Key = term()</v><v>Value = term()</v></type>
+<desc><marker id="to_list-1"/>
+
+<p>Returns an ordered list of <c>{Key, Value}</c> pairs for
+  all keys in <c>Env</c>. <c>Value</c> is the same as that
+  returned by <seealso marker="#get-2">get/2</seealso>.</p>
+</desc></func>
+<func>
+<name>bind(Key, Value, Env) -&gt; environment()</name>
+<fsummary>Make a nonrecursive entry.</fsummary>
+<type>
+<v>Key = term()</v><v>Value = term()</v><v>Env = environment()</v></type>
+<desc><marker id="bind-3"/>
+
+<p>Make a nonrecursive entry. This binds <c>Key</c> to
+  <c>Value</c>. If the key already existed in the environment,
+  the old entry is replaced.</p>
+</desc></func>
+<func>
+<name>bind_list(Ks::Keys, Vs::Values, Env) -&gt; environment()</name>
+<fsummary>Make N nonrecursive entries.</fsummary>
+<type>
+<v>Keys = [term()]</v><v>Values = [term()]</v><v>Env = environment()</v></type>
+<desc><marker id="bind_list-3"/>
+
+<p>Make N nonrecursive entries. This binds each key in
+  <c>Keys</c> to the corresponding value in
+  <c>Values</c>. If some key already existed in the environment,
+  the previous entry is replaced. If <c>Keys</c> does not have
+  the same length as <c>Values</c>, an exception is generated.</p>
+</desc></func>
+<func>
+<name>delete(Key, Env) -&gt; environment()</name>
+<fsummary>Delete an entry.</fsummary>
+<type>
+<v>Key = term()</v><v>Env = environment()</v></type>
+<desc><marker id="delete-2"/>
+
+<p>Delete an entry. This removes <c>Key</c> from the
+  environment.</p>
+</desc></func>
+<func>
+<name>bind_recursive(Ks::Keys, Vs::Values, F::Fun, Env) -&gt; NewEnv</name>
+<fsummary>Make N recursive entries.</fsummary>
+<type>
+<v>Keys = [term()]</v><v>Values = [term()]</v><v>Fun = (Value, Env) -&gt; term()</v><v>Env = environment()</v><v>NewEnv = environment()</v></type>
+<desc><marker id="bind_recursive-4"/>
+
+<p>Make N recursive entries. This binds each key in
+  <c>Keys</c> to the value of <c>Fun(Value, NewEnv)</c> for
+  the corresponding <c>Value</c>. If <c>Keys</c> does not
+  have the same length as <c>Values</c>, an exception is  
+generated. If some key already existed in the environment, the old  
+entry is replaced.</p>
+ 
+  <p>Note: the function <c>Fun</c> is evaluated each time one of
+  the stored keys is looked up, but only then.</p>
+ 
+  <p>Examples:
+ </p><pre>
+     NewEnv = bind_recursive([foo, bar], [1, 2],
+ 	                      fun (V, E) -&gt; V end,
+ 	                      Env)</pre><p>
+ 
+  This does nothing interesting; <c>get(foo, NewEnv)</c> yields
+  <c>1</c> and <c>get(bar, NewEnv)</c> yields
+  <c>2</c>, but there is more overhead than if the <seealso marker="#bind_list-3">bind_list/3</seealso> function had been used.
+ 
+  </p><pre>
+     NewEnv = bind_recursive([foo, bar], [1, 2],
+                             fun (V, E) -&gt; {V, E} end,
+                             Env)</pre><p>
+ 
+  Here, however, <c>get(foo, NewEnv)</c> will yield <c>{1,
+  NewEnv}</c> and <c>get(bar, NewEnv)</c> will yield <c>{2,
+  NewEnv}</c>, i.e., the environment <c>NewEnv</c> contains
+  recursive bindings.</p>
+</desc></func>
+<func>
+<name>lookup(Key, Env) -&gt; error | {ok, Value}</name>
+<fsummary>Returns {ok, Value} if Key is bound to
+  Value in Env, and error
+  otherwise.</fsummary>
+<type>
+<v>Key = term()</v><v>Env = environment()</v><v>Value = term()</v></type>
+<desc><marker id="lookup-2"/>
+
+<p>Returns <c>{ok, Value}</c> if <c>Key</c> is bound to
+  <c>Value</c> in <c>Env</c>, and <c>error</c>
+  otherwise.</p>
+</desc></func>
+<func>
+<name>get(Key, Env) -&gt; Value</name>
+<fsummary>Returns the value that Key is bound to in
+  Env.</fsummary>
+<type>
+<v>Key = term()</v><v>Env = environment()</v><v>Value = term()</v></type>
+<desc><marker id="get-2"/>
+
+<p>Returns the value that <c>Key</c> is bound to in
+  <c>Env</c>. Throws <c>{undefined, Key}</c> if the key
+  does not exist in <c>Env</c>.</p>
+</desc></func>
+<func>
+<name>new_key(Env::environment()) -&gt; integer()</name>
+<fsummary>Returns an integer which is not already used as key in the  
+environment.</fsummary>
+
+<desc><marker id="new_key-1"/>
+
+<p>Returns an integer which is not already used as key in the  
+environment. New integers are generated using an algorithm which  
+tries to keep the values randomly distributed within a reasonably  
+small range relative to the number of entries in the environment.</p>
+ 
+  <p>This function uses the Erlang standard library module
+  <c>random</c> to generate new keys.</p>
+ 
+  <p>Note that only the new key is returned; the environment itself is
+  not updated by this function.</p>
+</desc></func>
+<func>
+<name>new_key(F::Function, Env) -&gt; term()</name>
+<fsummary>Returns a term which is not already used as key in the
+  environment.</fsummary>
+<type>
+<v>Function = (integer()) -&gt; term()</v><v>Env = environment()</v></type>
+<desc><marker id="new_key-2"/>
+
+<p>Returns a term which is not already used as key in the
+  environment. The term is generated by applying <c>Function</c>
+  to an integer generated as in <seealso marker="#new_key-1">new_key/1</seealso>.</p>
+ 
+  <p>Note that only the generated term is returned; the environment
+  itself is not updated by this function.</p>
+</desc></func>
+<func>
+<name>new_keys(N, Env) -&gt; [integer()]</name>
+<fsummary>Returns a list of N distinct integers that are not
+  already used as keys in the environment.</fsummary>
+<type>
+<v>N = integer()</v><v>Env = environment()</v></type>
+<desc><marker id="new_keys-2"/>
+
+<p>Returns a list of <c>N</c> distinct integers that are not
+  already used as keys in the environment. See <seealso marker="#new_key-1">new_key/1</seealso> for
+  details.</p>
+</desc></func>
+<func>
+<name>new_keys(N, F::Function, Env) -&gt; [term()]</name>
+<fsummary>Returns a list of N distinct terms that are not
+  already used as keys in the environment.</fsummary>
+<type>
+<v>N = integer()</v><v>Function = (integer()) -&gt; term()</v><v>Env = environment()</v></type>
+<desc><marker id="new_keys-3"/>
+
+<p>Returns a list of <c>N</c> distinct terms that are not
+  already used as keys in the environment. See <seealso marker="#new_key-3">new_key/3</seealso> for
+  details.</p>
+</desc></func></funcs>
+
+<authors>
+
+<aname>Richard Carlsson</aname>
+<email>richardc@it.uu.se</email></authors></erlref>
