@@ -6,17 +6,13 @@
     <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
     <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
 
-    <script type="text/javascript">
-      var _gaq = _gaq || [];
-      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
-      _gaq.push(['_setAccount', 'UA-44246018-1']);
-      _gaq.push(['_setDomainName', 'erldocs.com']);
-      _gaq.push(['_trackPageview']);
-      (function() {
-        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-      })();
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
     </script>
   </head>
 
@@ -166,16 +162,18 @@ ok
      <p><span id="lengthy_work"> </span>
      As mentioned in the <a href="#WARNING" class="seealso">warning</a> text at
      the beginning of this document it is of vital importance that a native function
-     does return relatively fast. It is hard to give an exact maximum amount
+     return relatively quickly. It is hard to give an exact maximum amount
      of time that a native function is allowed to work, but as a rule of thumb
-     a well behaving native function should return to its caller before a
+     a well-behaving native function should return to its caller before a
      millisecond has passed. This can be achieved using different approaches.
-     If you have full control over the code that are to execute in the native
+     If you have full control over the code to execute in the native
      function, the best approach is to divide the work into multiple chunks of
-     work and call the native function multiple times. Function 
+     work and call the native function multiple times, either directly from Erlang code
+     or by having a native function schedule a future NIF call via the
+     <a href="#enif_schedule_nif" class="seealso"> enif_schedule_nif</a> function. Function
      <a href="#enif_consume_timeslice" class="seealso">enif_consume_timeslice</a> can be
-     used this facilitate such work division. In some cases, however, this might not
-     be possible, e.g. when calling third party libraries. Then you typically want
+     used to help with such work division. In some cases, however, this might not
+     be possible, e.g. when calling third-party libraries. Then you typically want
      to dispatch the work to another thread, return
      from the native function, and wait for the result. The thread can send
      the result back to the calling thread using message passing. Information
@@ -340,29 +338,31 @@ ok
       libraries might however fail if deprecated features are used.
       </p></item>
 
-      <dt>Dirty NIFs</dt>
-      <item><p><span id="dirty_nifs"> </span><em>Note that the dirty NIF functionality
-      is experimental</em> and that you have to enable support for dirty
-      schedulers when building OTP in order to try the functionality out. Native functions
+      <dt>Long-running NIFs</dt>
+      <item><p><span id="dirty_nifs"> </span>Native functions
       <a href="#lengthy_work" class="seealso">
       must normally run quickly</a>, as explained earlier in this document. They
       generally should execute for no more than a millisecond. But not all native functions
       can execute so quickly; for example, functions that encrypt large blocks of data or
       perform lengthy file system operations can often run for tens of seconds or more.</p>
-      <p>A NIF that cannot execute in a millisecond or less is called a "dirty NIF" since
-      it performs work that the Erlang runtime cannot handle cleanly. Applications
-      that make use of such functions must indicate to the runtime that the functions are
+      <p>If the functionality of a long-running NIF can be split so that its work can be
+      achieved through a series of shorter NIF calls, the application can either make that series
+      of NIF calls from the Erlang level, or it can call a NIF that first performs a chunk of the
+      work, then invokes the <a href="#enif_schedule_nif" class="seealso">enif_schedule_nif</a>
+      function to schedule another NIF call to perform the next chunk. The final call scheduled
+      in this manner can then return the overall result. Breaking up a long-running function in
+      this manner enables the VM to regain control between calls to the NIFs, thereby avoiding
+      degraded responsiveness, scheduler load balancing problems, and other strange behaviours.</p>
+      <p>A NIF that cannot be split and cannot execute in a millisecond or less is called a "dirty NIF"
+      because it performs work that the Erlang runtime cannot handle cleanly.
+      <em>Note that the dirty NIF functionality described here is experimental</em> and that you have to
+      enable support for dirty schedulers when building OTP in order to try the functionality out.
+      Applications that make use of such functions must indicate to the runtime that the functions are
       dirty so they can be handled specially. To schedule a dirty NIF for execution, the
-      application calls <a href="#enif_schedule_dirty_nif" class="seealso">enif_schedule_dirty_nif</a>,
-      passing to it a pointer to the dirty NIF to be executed and indicating with a flag
+      appropriate flags value can be set for the NIF in its <a href="#ErlNifFunc" class="seealso">ErlNifFunc</a>
+      entry, or the application can call <a href="#enif_schedule_nif" class="seealso">enif_schedule_nif</a>,
+      passing to it a pointer to the dirty NIF to be executed and indicating with the <code>flags</code>
       argument whether it expects the operation to be CPU-bound or I/O-bound.</p>
-      <p>All dirty NIFs must ultimately invoke the <a href="#enif_schedule_dirty_nif_finalizer" class="seealso">
-      enif_schedule_dirty_nif_finalizer</a> as their final action, passing to it the
-      result they wish to return to the original caller. A finalizer function can either
-      receive the result and return it directly, or it can return a different value instead.
-      For convenience, the NIF API provides the <a href="#enif_dirty_nif_finalizer" class="seealso">
-      enif_dirty_nif_finalizer</a> function that applications can use as a finalizer;
-      it simply returns its result argument.</p>
       <div class="note"><h2>Note!</h2><p>Dirty NIF support is available only when the emulator is configured with dirty
       schedulers enabled. This feature is currently disabled by default. To determine whether
       the dirty NIF API is available, native code can check to see if the C preprocessor macro
@@ -495,6 +495,7 @@ typedef struct {
     const char* <em>name</em>;
     unsigned <em>arity</em>;
     ERL_NIF_TERM (*<em>fptr</em>)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    unsigned flags;
 } ErlNifFunc;
 </pre>
         <p>Describes a NIF by its name, arity and implementation.
@@ -505,7 +506,16 @@ typedef struct {
         will thus denote the Nth argument to the NIF. Note that the
         <code>argc</code> argument allows for the same C function to
         implement several Erlang functions with different arity (but
-        same name probably).</p>
+        same name probably). For a regular NIF, <code>flags</code> is 0 (and
+        so its value can be omitted for statically initialized <code>ErlNifFunc</code>
+        instances), or it can be used to indicate that the NIF is a <a href="#dirty_nifs" class="seealso">dirty NIF</a> that should be executed
+        on a dirty scheduler thread (<em>note that the dirty NIF functionality
+        described here is experimental</em> and that you have to enable
+        support for dirty schedulers when building OTP in order to try the
+        functionality out). If the dirty NIF is expected to be
+        CPU-bound, its <code>flags</code> field should be set to
+        <code>ERL_NIF_DIRTY_JOB_CPU_BOUND</code>, or for I/O-bound jobs,
+        <code>ERL_NIF_DIRTY_JOB_IO_BOUND</code>.</p>
       </item>
     <dt><span id="ErlNifBinary"> </span>ErlNifBinary</dt>
      <item>
@@ -669,18 +679,6 @@ typedef enum {
     See also the <a href="#WARNING" class="seealso">warning</a> text at the beginning of this document.</p>
     </div>
     </div>
-    <div class="function"><pre>ERL_NIF_TERM enif_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result)</pre>
-      
-      <div class="description">
-          <p>A convenience function that a dirty NIF can use as a finalizer that simply
-          return its <code>result</code> argument as its return value. This function is provided
-          for dirty NIFs with results that should be returned directly to the original caller.</p>
-          <div class="note"><h2>Note!</h2><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <code>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</code> is defined.</p></div>
-      </div>
-    </div>
     <div class="function"><pre>int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</pre>
     
     <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_equal_tids" class="seealso">erl_drv_equal_tids</a>.
@@ -808,9 +806,9 @@ typedef enum {
           built with threading support, dirty scheduler threads are available and
           <code>enif_have_dirty_schedulers()</code> returns true. If the emulator was built without
           threading support, <code>enif_have_dirty_schedulers()</code> returns false.</p>
-          <p>If dirty scheduler threads are not available in the emulator, calls to
-          <code>enif_schedule_dirty_nif</code> and <code>enif_schedule_dirty_nif_finalizer</code> result in
-          the NIF and finalizer functions being called directly within the calling thread.</p>
+          <p>If dirty scheduler threads are not available in the emulator, a call to
+          <code>enif_schedule_nif</code> with its <code>flags</code> argument set to indicate that the specified
+          NIF is to be executed on a dirty scheduler thread results in a <code>badarg</code> exception.</p>
           <div class="note"><h2>Note!</h2><p>This function is available only when the emulator is configured with dirty
           schedulers enabled. This feature is currently disabled by default. To determine whether
           the dirty NIF API is available, native code can check to see if the C preprocessor macro
@@ -870,8 +868,8 @@ typedef enum {
           <p>Check to see if the current NIF is executing on a dirty scheduler thread. If the
           emulator is built with threading support, calling <code>enif_is_on_dirty_scheduler</code>
           from within a dirty NIF returns true. It returns false when the calling NIF is a regular
-          NIF or a NIF finalizer, both of which run on normal scheduler threads, or when the emulator
-          is built without threading support.</p>
+          NIF running on a normal scheduler thread, or when the emulator is built without threading
+          support.</p>
           <div class="note"><h2>Note!</h2><p>This function is available only when the emulator is configured with dirty
           schedulers enabled. This feature is currently disabled by default. To determine whether
           the dirty NIF API is available, native code can check to see if the C preprocessor macro
@@ -1242,46 +1240,27 @@ typedef enum {
     <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_tryrwlock" class="seealso">erl_drv_rwlock_tryrwlock</a>.
           </p></div>
     </div>
-    <div class="function"><pre>ERL_NIF_TERM enif_schedule_dirty_nif(ErlNifEnv* env, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM argv[])</pre>
+    <div class="function"><pre>ERL_NIF_TERM enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM argv[])</pre>
       
       <div class="description">
-          <p>Schedule dirty NIF <code>fp</code> to execute a long-running operation. The <code>flags</code>
-          argument must be set to either <code>ERL_NIF_DIRTY_JOB_CPU_BOUND</code> if the job is expected to
-          be primarily CPU-bound, or <code>ERL_NIF_DIRTY_JOB_IO_BOUND</code> for jobs that will be
-          I/O-bound. The <code>argc</code> and <code>argv</code> arguments can either be the originals passed
-          into the calling NIF, or they can be values created by the calling NIF. The calling
-          NIF must use the return value of <code>enif_schedule_dirty_nif</code> as its own return value.</p>
-          <p>Be aware that <code>enif_schedule_dirty_nif</code>, as its name implies, only schedules the
-          dirty NIF for future execution. The calling NIF does not block waiting for the dirty NIF to
-          execute and return, which means that the calling NIF can't expect to receive the dirty NIF
+          <p>Schedule NIF <code>fp</code> to execute. This function allows an application to break up long-running
+          work into multiple regular NIF calls or to schedule a <a href="#dirty_nifs" class="seealso">dirty NIF</a>
+          to execute on a dirty scheduler thread (<em>note that the dirty NIF functionality described here is
+          experimental</em> and that you have to enable support for dirty schedulers when building OTP in
+          order to try the functionality out).</p>
+          <p>The <code>fun_name</code> argument provides a name for the NIF being scheduled for execution. If it cannot
+          be converted to an atom, <code>enif_schedule_nif</code> returns a <code>badarg</code> exception.</p>
+          <p>The <code>flags</code> argument must be set to 0 for a regular NIF, or if the emulator was built the
+          experimental dirty scheduler support enabled, <code>flags</code> can be set to either <code>ERL_NIF_DIRTY_JOB_CPU_BOUND</code>
+          if the job is expected to be primarily CPU-bound, or <code>ERL_NIF_DIRTY_JOB_IO_BOUND</code> for jobs that will
+          be I/O-bound.</p>
+          <p>The <code>argc</code> and <code>argv</code> arguments can either be the originals passed into the calling NIF, or
+          they can be values created by the calling NIF.</p>
+          <p>The calling NIF must use the return value of <code>enif_schedule_nif</code> as its own return value.</p>
+          <p>Be aware that <code>enif_schedule_nif</code>, as its name implies, only schedules the
+          NIF for future execution. The calling NIF does not block waiting for the scheduled NIF to
+          execute and return, which means that the calling NIF can't expect to receive the scheduled NIF
           return value and use it for further operations.</p>
-          <p>A dirty NIF may not invoke the <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>
-          to raise an exception. If it wishes to return an exception, the dirty NIF should pass a
-          regular result indicating the exception details to its finalizer, and allow the finalizer
-          to raise the exception on its behalf.</p>
-          <div class="note"><h2>Note!</h2><p>This function is available only when the emulator is configured with dirty schedulers
-          enabled. This feature is currently disabled by default. To determine whether the dirty NIF API
-          is available, native code can check to see if the C preprocessor macro
-          <code>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</code> is defined.</p></div>
-      </div>
-    </div>
-    <div class="function"><pre>ERL_NIF_TERM enif_schedule_dirty_nif_finalizer(ErlNifEnv* env, ERL_NIF_TERM result, ERL_NIF_TERM (*fp)(ErlNifEnv* env, ERL_NIF_TERM result))</pre>
-      
-      <div class="description">
-          <p>When a dirty NIF finishes executing, it must schedule a finalizer function to return
-          its result to the original NIF caller. The dirty NIF passes <code>result</code> as the value it
-          wants the finalizer to use as the return value. The <code>fp</code> argument is a pointer to the
-          finalizer function. The NIF API provides the <a href="#enif_dirty_nif_finalizer" class="seealso">
-          enif_dirty_nif_finalizer</a> function that can be used as a finalizer that simply
-          returns its <code>result</code> argument. You are also free to write your own custom finalizer
-          that uses <code>result</code> to derive a different return value, or ignores <code>result</code>
-          entirely and returns a completely different value.</p>
-          <p>Without exception, all dirty NIFs must invoke <code>enif_schedule_dirty_nif_finalizer</code>
-          to complete their execution.</p>
-          <div class="note"><h2>Note!</h2><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <code>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</code> is defined.</p></div>
       </div>
     </div>
     <div class="function"><pre>ErlNifPid * enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</pre>
