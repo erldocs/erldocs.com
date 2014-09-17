@@ -40,20 +40,56 @@
     <h4>DATA TYPES</h4>
     <pre class="sh_erlang">
 transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
-transportAddressIPv4() = [integer()], length 4
-transportAddressIPv6() = [integer()], length 8
-transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
+
+transportAddress() =
+    transportAddressIPv4() | transportAddressIPv6()
+
+transportAddressWithPort() =
+    transportAddressIPv4WithPort() | transportAddressIPv6WithPort()
+
+transportAddressWithoutPort() =
+    transportAddressIPv4WithoutPort() | transportAddressIPv6WithoutPort()
+
+transportAddressIPv4() =
+    transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort()
+transportAddressIPv4WithPort =
+    {transportAddressIPv4WithoutPort(), inet:port_number()} |
+    [byte() x 4, byte() x 2]
+transportAddressIPv4WithoutPort =
+    inet:ip4_address() | [byte() x 4]
+
+transportAddressIPv6() =
+    transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort()
+transportAddressIPv6WithPort =
+    {transportAddressIPv6WithoutPort(), inet:port_number()} |
+    [word() x 8, inet:port_number()] |
+    [word() x 8, byte() x 2] |
+    {byte() x 16, byte() x 2]
+transportAddressIPv6WithoutPort =
+    inet:ip6_address() | [word() x 8] | [byte() x 16]
+
+transportAddressMask() =
+    [] | transportAddressWithPort()
+
+byte() = 0..255
+word() = 0..65535
     </pre>
+    <p>For <code>inet:ip4_address()</code>, <code>inet:ip6_address()</code>
+    and <code>inet:port_number()</code>, see also
+    <a href="../kernel/inet.html#type-ip_address" class="seealso">
+    <code>inet:ip_address()</code></a></p>
 
     <span id="agent_entry"> </span>
   </div>
+
+
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr />
     <div class="function">
       <h3 id="agent_entry/2">agent_entry(Tag, Val) -&gt; agent_entry()</h3>
       
       <ul class="type">
-        <li><code>Tag = intAgentIpAddress | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</code></li>
+        <li><code>Tag = intAgentTransports | intAgentUDPPort | intAgentMaxPacketSize | snmpEngineMaxMessageSize | snmpEngineID</code></li>
         <li><code>Val = term()</code></li>
         <li><code>agent_entry() = term()</code></li>
       </ul>
@@ -385,17 +421,15 @@ transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
     </div>
 
     <div class="function">
-      <h3 id="target_addr_entry/5">target_addr_entry(Name, Ip, TagList, ParamsName, EngineId) -&gt; target_addr_entry()</h3>
-      <h3 id="target_addr_entry/6">target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, TMask) -&gt; target_addr_entry()</h3>
-      <h3 id="target_addr_entry/8">target_addr_entry(Name, Ip, Udp, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -&gt; target_addr_entry()</h3>
-      <h3 id="target_addr_entry/10">target_addr_entry(Name, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -&gt; target_addr_entry()</h3>
-      <h3 id="target_addr_entry/11">target_addr_entry(Name, Domain, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -&gt; target_addr_entry()</h3>
+      <h3 id="target_addr_entry/6">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -&gt; target_addr_entry()</h3>
+      <h3 id="target_addr_entry/7">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -&gt; target_addr_entry()</h3>
+      <h3 id="target_addr_entry/8">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -&gt; target_addr_entry()</h3>
+      <h3 id="target_addr_entry/10">target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -&gt; target_addr_entry()</h3>
       
       <ul class="type">
         <li><code>Name = string()</code></li>
         <li><code>Domain = transportDomain()</code></li>
-        <li><code>Ip = transportAddressIPv4() | transportAddressIPv6() (depends on Domain)</code></li>
-        <li><code>Udp = integer()</code></li>
+        <li><code>Ip = transportAddress() (depends on Domain)</code></li>
         <li><code>Timeout = integer()</code></li>
         <li><code>RetryCount = integer()</code></li>
         <li><code>TagList = string()</code></li>
@@ -409,12 +443,12 @@ transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
         <p>Create an entry for the agent target_addr config file, 
           <code>target_addr.conf</code>. </p>
         <p><code>Name</code> must be a <em>non-empty</em> string. </p>
-        <p><code>target_addr_entry/5</code> translates to the following call:
-          <code>target_addr_entry(Name, Ip, TagList, ParamsName, EngineId)</code>. </p>
         <p><code>target_addr_entry/6</code> translates to the following call:
-          <code>target_addr_entry(Name, Ip, 162, TagList, ParamsName, EngineId, TMask, 2048)</code>. </p>
+          <code>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])</code>. </p>
+        <p><code>target_addr_entry/7</code> translates to the following call:
+          <code>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)</code>. </p>
         <p><code>target_addr_entry/8</code> translates to the following call:
-          <code>target_addr_entry(Name, Ip, Udp, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</code>. </p>
+          <code>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</code>. </p>
         <p>See 
           <a href="snmp_agent_config_files.html#target_addr" class="seealso">Target Address Definitions</a> 
           for more info. </p>

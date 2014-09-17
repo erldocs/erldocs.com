@@ -390,10 +390,12 @@
     <h3 id="pkix_path_validation/3">pkix_path_validation(TrustedCert, CertChain, Options) -&gt; {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </h3>
     
      <ul class="type">
-       <li><code> TrustedCert =  #'OTPCertificate'{} | der_encode() | unknown_ca | selfsigned_peer  </code></li>
-       <d>Normally a trusted certificate but it can also be one of the path validation
-       errors <code>unknown_ca </code> or <code>selfsigned_peer </code> that can be discovered while
-       constructing the input to this function and that should be run through the <code>verify_fun</code>.</d>
+       <li><code> TrustedCert =  #'OTPCertificate'{} | der_encode() | atom()  </code></li>
+       <d>Normally a trusted certificate but it can also be a path validation
+       error that can be discovered while
+       constructing the input to this function and that should be run through the <code>verify_fun</code>.
+       For example <code>unknown_ca </code> or <code>selfsigned_peer </code>
+       </d>
        <li><code> CertChain = [der_encode()]</code></li>
        <d>A list of DER encoded certificates in trust order ending with the peer certificate.</d>
        <li><code> Options = proplists:proplist()</code></li>
@@ -401,15 +403,15 @@
        rsa_public_key() | integer(), 'NULL' | 'Dss-Parms'{}}</code></li>
        <li><code> PolicyTree = term() </code></li>
        <d>At the moment this will always be an empty list as Policies are not currently supported</d>
-       <li><code> Reason = cert_expired | invalid_issuer | invalid_signature | unknown_ca |
-       selfsigned_peer | name_not_permitted | missing_basic_constraint | invalid_key_usage | crl_reason()
+       <li><code> Reason = cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
+       missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom()
        </code></li>
      </ul>
      <div class="description">
        <p>
 	 Performs a basic path validation according to
 	 <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280.</url>
-	 However CRL validation is done separately by <a href="public_key.html#pkix_crls_validate/3" class="seealso">pkix_crls_validate/3 </a> and should be called
+	 However CRL validation is done separately by <a href="#pkix_crls_validate/3" class="seealso">pkix_crls_validate/3 </a> and should be called
 	 from the supplied <code>verify_fun</code>
        </p>
 
@@ -422,7 +424,7 @@
 
 	  <code>
 fun(OtpCert :: #'OTPCertificate'{},
-    Event :: {bad_cert, Reason :: atom()} |
+    Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
              {extension, #'Extension'{}},
     InitialUserState :: term()) -&gt;
 	{valid, UserState :: term()} |
@@ -451,6 +453,35 @@ fun(OtpCert :: #'OTPCertificate'{},
 	  on.
 	</item>
       </taglist>
+
+      <p> Possible reasons for a bad certificate are: </p>
+      <taglist>
+	<dt>cert_expired</dt>
+	<item>The certificate is no longer valid as its expiration date has passed.</item>
+
+	<dt>invalid_issuer</dt>
+	<item>The certificate issuer name does not match the name of the issuer certificate in the chain.</item>
+
+	<dt>invalid_signature</dt>
+	<item>The certificate was not signed by its issuer certificate in the chain.</item>
+
+	<dt>name_not_permitted</dt>
+	<item>Invalid Subject Alternative Name extension.</item>
+
+	<dt>missing_basic_constraint</dt>
+	<item>Certificate, required to have the basic constraints extension, does not have
+	a basic constraints extension.</item>
+
+	<dt>invalid_key_usage</dt>
+	<item>Certificate key is used in an invalid way according to the key usage extension.</item>
+
+	<dt>{revoked, crl_reason()}</dt>
+	<item>Certificate has been revoked.</item>
+
+	<dt>atom()</dt>
+	<item>Application specific error reason that should be checked by the verify_fun</item>
+      </taglist>
+
     </div>
    </div>
 
@@ -466,7 +497,7 @@ fun(OtpCert :: #'OTPCertificate'{},
      </ul>
      <div class="description">
       <p> Performs CRL validation. It is intended to be called from
-      the verify fun of  <a href="public_key.html#pkix_path_validation/3" class="seealso"> pkix_path_validation/3
+      the verify fun of  <a href="#pkix_path_validation/3" class="seealso"> pkix_path_validation/3
        </a></p>
       <taglist>
 	<p> Available options are: </p>
