@@ -196,19 +196,113 @@
     </div>
 
     <div class="function">
-      <h3 id="open_tar/2">open_tar(ChannelPid, Path) -&gt;</h3>
-      <h3 id="open_tar/3">open_tar(ChannelPid, Path, Timeout) -&gt; {ok, Handle} | {error, Reason}</h3>
+      <h3 id="open_tar/3">open_tar(ChannelPid, Path, Mode) -&gt;</h3>
+      <h3 id="open_tar/4">open_tar(ChannelPid, Path, Mode, Timeout) -&gt; {ok, Handle} | {error, Reason}</h3>
       
       <ul class="type">
         <li><code>ChannelPid = pid()</code></li>
         <li><code>Path = string()</code></li>
+	<li><code>Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt] </code></li>
+	<li><code>EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</code></li>
+	<li><code>DecryptOpt = {crypto,{InitFun,DecryptFun}}</code></li>
+	<li><code>InitFun = (fun() -&gt; {ok,CryptoState}) | (fun() -&gt; {ok,CryptoState,ChunkSize}) </code></li>
+	<li><code>CryptoState = any()</code></li>
+	<li><code>ChunkSize = undefined | pos_integer()</code></li>
+	<li><code>EncryptFun = (fun(PlainBin,CryptoState) -&gt; EncryptResult)</code></li>
+	<li><code>EncryptResult = {ok,EncryptedBin,CryptoState} | {ok,EncryptedBin,CryptoState,ChunkSize}</code></li>
+	<li><code>PlainBin = binary()</code></li>
+	<li><code>EncryptedBin = binary()</code></li>
+	<li><code>DecryptFun = (fun(EncryptedBin,CryptoState) -&gt; DecryptResult)</code></li>
+	<li><code>DecryptResult = {ok,PlainBin,CryptoState} | {ok,PlainBin,CryptoState,ChunkSize}</code></li>
+	<li><code>CloseFun = (fun(PlainBin,CryptoState) -&gt; {ok,EncryptedBin})</code></li>
 	<li><code>Timeout = timeout()</code></li>
         <li><code>Reason = term()</code></li>
       </ul>
       <div class="description">
-        <p>Opens a handle to a tar file on the server, the handle
-	can be used for remote tar manipulation as defined by the
-	<a href="../stdlib/erl_tar.html#init//3" class="seealso">erl_tar:init/3</a> function.</p>
+        <p>Opens a handle to a tar file on the server associated with <code>ChannelPid</code>. The handle
+	can be used for remote tar creation and extraction as defined by the
+	<a href="../stdlib/erl_tar.html#init//3" class="seealso">erl_tar:init/3</a> function.
+	</p>
+	<p>An example of writing and then reading a tar file:</p>
+        <pre class="sh_erlang">
+          {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write]),
+          ok = erl_tar:add(HandleWrite, .... ),
+          ok = erl_tar:add(HandleWrite, .... ),
+              ...
+          ok = erl_tar:add(HandleWrite, .... ),
+          ok = erl_tar:close(HandleWrite),
+
+          %% And for reading
+          {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read]),
+          {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+          ok = erl_tar:close(HandleRead),
+        </pre>
+
+	<p>The <code>crypto</code> mode option is applied to the generated stream of bytes just prior to sending
+	them to the sftp server.  This is intended for encryption but could of course be used for other
+	purposes.
+	</p>
+	<p>The <code>InitFun</code> is applied once
+	prior to any other crypto operation. The returned <code>CryptoState</code> is then folded into
+	repeated applications of the <code>EncryptFun</code> or <code>DecryptFun</code>.  The binary returned
+	from those Funs are sent further to the remote sftp server. Finally - if doing encryption
+	- the <code>CloseFun</code> is applied to the last piece of data.  The <code>CloseFun</code> is
+	responsible for padding (if needed) and encryption of that last piece.
+	</p>
+	<p>The <code>ChunkSize</code> defines the size of the <code>PlainBin</code>s that <code>EncodeFun</code> is applied
+	to. If the <code>ChunkSize</code> is <code>undefined</code> the size of the <code>PlainBin</code>s varies because
+	this is	inteded for stream crypto while a fixed  <code>ChunkSize</code> is intended for block crypto. It
+	is possible to change the  <code>ChunkSize</code>s in the return from the <code>EncryptFun</code> or
+	<code>DecryptFun</code>. It is in fact possible to change the value between <code>pos_integer()</code> and
+	<code>undefined</code>.
+	</p>
+	<p>The write and read example above can be extended with encryption and decryption:</p>
+        <pre class="sh_erlang">
+          %% First three parameters depending on which crypto type we select:
+          Key = &lt;&lt;"This is a 256 bit key. abcdefghi"&gt;&gt;,
+          Ivec0 = crypto:rand_bytes(16),
+          DataSize = 1024,  % DataSize rem 16 = 0 for aes_cbc
+
+          %% Initialization of the CryptoState, in this case it is the Ivector.
+          InitFun = fun() -&gt; {ok, Ivec0, DataSize} end,
+
+          %% How to encrypt:
+          EncryptFun = 
+              fun(PlainBin,Ivec) -&gt; 
+                   EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+                   {ok, EncryptedBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+              end,
+
+          %% What to do with the very last block:
+          CloseFun = 
+              fun(PlainBin, Ivec) -&gt;
+                    EncryptedBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, 
+                                                     pad(16,PlainBin) %% Last chunk
+                                                     ),
+                    {ok, EncryptedBin} 
+            end,
+
+          Cw = {InitFun,EncryptFun,CloseFun},
+          {ok,HandleWrite} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [write,{crypto,Cw}]),
+          ok = erl_tar:add(HandleWrite, .... ),
+          ok = erl_tar:add(HandleWrite, .... ),
+              ...
+          ok = erl_tar:add(HandleWrite, .... ),
+          ok = erl_tar:close(HandleWrite),
+
+          %% And for decryption (in this crypto example we could use the same InitFun
+          %% as for encryption):
+          DecryptFun = 
+              fun(EncryptedBin,Ivec) -&gt;
+                   PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, EncryptedBin),
+                   {ok, PlainBin, crypto:next_iv(aes_cbc,EncryptedBin)}
+              end,
+
+          Cr = {InitFun,DecryptFun},
+          {ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+          {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
+          ok = erl_tar:close(HandleRead),
+        </pre>
       </div>
     </div>
 
