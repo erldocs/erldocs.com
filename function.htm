@@ -3,11 +3,9 @@
   <head>
     <meta charset="utf-8">
     <title>erldocs.com - Function lookup</title>
-    <script src="jquery-1.10.2.min.js"></script>
-    <script src="handlebars.runtime.min-v1.2.0.js"></script>
-    <script src="typeahead.bundle.min.js"></script>
-    <link href="typeahead-examples.css" type="text/css" rel="stylesheet"/>
-    <link href="repo.css" type="text/css" rel="stylesheet"/>
+    <script type="text/javascript" src="jquery-1.10.2.min.js"></script>
+    <link type="text/css" href="typeahead-examples.css" rel="stylesheet"/>
+    <link type="text/css" href="repo.css" rel="stylesheet"/>
     <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs_other"/>
 
     <script>
@@ -22,50 +20,92 @@
         var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
       })();
 
-      $(document).ready(function () {
-        var Msg = $("#msg");
-        var Bar = $("form .typeahead");
-
-      var apps;
-      var cachedScript = function (Url, Success) {
-      $.ajaxSetup({cache: true});
-      return $.getScript(Url).done(Success);
+      $.fn.enterKey = function (fnc, mod) {
+        return this.each(function () {
+          $(this).keypress(function (ev) {
+            var keycode = (ev.keyCode ? ev.keyCode : ev.which);
+            if ((keycode == '13' || keycode == '10') && (!mod || ev[mod + 'Key']))
+              fnc.call(this, ev);
+          });
+        });
       };
 
-      (function () {
-      cachedScript("http://erldocs.com/R15B03/erldocs_index.js", function (src,status) {
-      apps = apps || index;
-      console.log(status);
-      console.log(src);
-      });
-      })();
+      $(document).ready(function () {
+        INDEX = [];
+        COUNT = 0;
+        RELEASES = erldocs_api["otp_releases_built"];
+        RELEASES_COUNT = RELEASES.length;
+        $.ajaxSetup({"cache": true});
 
-        Msg.html(apps.length);
-
-        var substringMatcher = function(strs) {
-          return function findMatches(q, cb) {
-            var matches = [];
-            var substrRegex = new RegExp(q, 'i');
-            $.each(strs, function(i, str) {
-              if (substrRegex.test(str)) {
-                matches.push({ value: str });
-              }
-            });
-            Msg.html(matches.length +' / '+ apps.length);
-            cb(matches);
-          };
+        var update = function () {
+          $("#msg").html("Searching "+ COUNT +" / "+ RELEASES_COUNT +" releases");
+          if (COUNT === RELEASES_COUNT)
+            setup();
         };
-        Bar.typeahead({
-          hint: true,
-          highlight: true,
-          minLength: 1 }, {
-          name: 'apps',
-          displayKey: 'value',
-          source: substringMatcher(apps)
-        });
 
-        if (QueryString.q !== undefined && query.length > 2)
-          Bar.focus().typeahead('val', query);
+        var cacheReleaseIndex = function (Release) {
+          if (Release === undefined) return;
+          $.getScript("http://erldocs.com/"+Release+"/erldocs_index.js").done(function (src, status) {
+            var pos = $.inArray(Release, RELEASES);
+            $.each(index, function (i, o) {
+              if (o[0] !== "fun")  return;
+              INDEX.push({"mfa": o[2], "otp": pos});
+            });
+            COUNT += 1;
+            index = null;
+            update();
+          });
+        };
+
+      for (var i = 0; i < RELEASES_COUNT; i++)
+        cacheReleaseIndex(RELEASES[i]);
+
+        function setup () {
+          var getData = function () {
+            DATA = new Bloodhound({
+              datumTokenizer: Bloodhound.tokenizers.obj.whitespace("mfa")
+            , queryTokenizer: Bloodhound.tokenizers.whitespace
+            , local: INDEX
+            , limit: RELEASES_COUNT
+            });
+            DATA.initialize();
+            return DATA.ttAdapter();
+          };
+
+          <!-- var substringMatcher = function(strs) { -->
+          <!--   return function findMatches(q, cb) { -->
+          <!--     var matches = []; -->
+          <!--     var substrRegex = new RegExp(q); -->
+          <!--     $.each(strs, function(i, str) { -->
+          <!--       if (substrRegex.test(str["mfa"])) -->
+          <!--         matches.push(str); -->
+          <!--     }); -->
+          <!--     cb(matches); -->
+          <!--   }; -->
+          <!-- }; -->
+
+          var ppSuggestion = function (o) {
+            return "<p>"+ o["mfa"] +" ~ "+ RELEASES[o["otp"]] +"</p>";
+          };
+          var ppEmpty = '<p style="text-align:center;">No Erlang/OTP release provides this function</p>'
+          $("#bar").typeahead({ hint: true
+                              , highlight: true
+                              , limit: RELEASES_COUNT
+                              , minLength: 3 }, { name: "funs"
+                                                , displayKey: "mfa"
+                                                , source: getData()
+                                                <!-- , source: substringMatcher(INDEX) -->
+          <!-- , source: function (q, cb) { -->
+          <!-- return cb($.grep(INDEX, function (o, i) { return o["mfa"] === q; })); -->
+          <!-- } -->
+                                                , templates: { suggestion: ppSuggestion
+                                                             , empty: ppEmpty }
+                                                })
+                   .focus()
+                   .enterKey(function () {
+                     $(".typeahead").open();
+          });
+        };
 
       });
     </script>
@@ -74,11 +114,15 @@
     <div id="front_page">
       <h1>function lookup</h1>
       Find the OTP releases providing this function<br/><br/>
-      <span id="msg" style="color:#666;"></span>
-      <input type="text" class="typeahead" name="q" placeholder="function name" size="50" autofocus/>
+      <span id="msg" style="color:#666;">loading indexes…</span>
+      <br/>
+      <input type="text" id="bar" class="typeahead" name="q" placeholder="Module:Function/Arity" size="50" autofocus/>
       <br/>
       <p><a href="//erldocs.com">home</a></p>
     </div>
+
+    <script type="text/javascript" src="typeahead.bundle-0.10.5.js"></script>
+    <script type="text/javascript" src="api/v1.js"></script>
   </body>
 </html>
 
