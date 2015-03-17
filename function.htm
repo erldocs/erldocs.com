@@ -21,28 +21,28 @@
       })();
 
       $(document).ready(function () {
-        INDEXES = {"count": 0};
-        BAR = $("input .typeahead");
-        MSG = $("#msg");
-        RELEASES = erldocs_api["otp_releases_built"];
-        COUNT = 4; //RELEASES.length;
+      INDEX = [];
+      COUNT = 0;
+      RELEASES = erldocs_api["otp_releases_built"];
+      RELEASES_COUNT = RELEASES.length;
+      $.ajaxSetup({"cache": true});
 
-      var cacheScript = function (Url, Success) {
-        $.ajaxSetup({"cache": true});
-        return $.getScript(Url).done(Success);
+      var update = function () {
+      $("#msg").html(COUNT +" / "+ RELEASES_COUNT);
+      if (COUNT === RELEASES_COUNT)
+      setup();
       };
 
       var cacheReleaseIndex = function (Release) {
-        cacheScript("http://erldocs.com/"+Release+"/erldocs_index.js", function (src, status) {
-          console.log("Loading index from "+ Release +": "+ status);
-          INDEXES[Release] = $.map(index, function (e, i) {
-            if (e[0] !== "fun")
-              return;
-            return {'value': e.slice(2,3)[0]};
-          });
-          INDEXES["count"] += 1;
-          index = [];
-          MSG.html(INDEXES["count"] +" / "+ COUNT);
+        $.getScript("http://erldocs.com/"+Release+"/erldocs_index.js").done(function (src, status) {
+      console.log("Loading index from "+ Release +": "+ status);
+      $.each(index, function (i, o) {
+      if (o[0] !== "fun")  return;
+      INDEX.push({value: o[2], otp: Release});
+      });
+      COUNT += 1;
+      index = [];
+      update();
         });
       };
 
@@ -53,32 +53,28 @@
       cacheReleaseIndex("R15B01");
       cacheReleaseIndex("R15B");
 
-      var r15b = new Bloodhound({
+      function setup () {
+      var data = new Bloodhound({
       datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
       queryTokenizer: Bloodhound.tokenizers.whitespace,
-      local: INDEXES["R15B"]
+      local: INDEX
       });
-      var r15b03 = new Bloodhound({
-      datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
-      queryTokenizer: Bloodhound.tokenizers.whitespace,
-      local: INDEXES["R15B03"]
-      });
-      r15b.initialize();
-      r15b03.initialize();
+      data.initialize();
 
-      BAR.typeahead({
+      $("input .typeahead").typeahead({
         hint: true,
         highlight: true,
         minLength: 3 }, {
-        name: "R15B",
+        name: "funs",
         displayKey: 'value',
-        source: r15b.ttAdapter(),
-        templates: {header: '<h3 class="otp-release">R15B</h3>'}}, {
-        name: "R15B03",
-        displayKey: 'value',
-        source: r15b03.ttAdapter(),
-        templates: {header: '<h3 class="otp-release">R15B03</h3>'}
+        source: data.ttAdapter(),
+      templates: {
+      suggestion: function (r) { return '<p><strong>'+r+'</strong></p>'; }
+      empty: '<div class="empty-message">unable to find any OTP release</div>'
+      }
+      }
       });
+      };
 
       });
     </script>
