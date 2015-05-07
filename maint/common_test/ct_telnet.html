@@ -312,14 +312,14 @@ Interprete As Command, IAC, character).</p>
 <h3 id="expect/3">expect(Connection, Patterns, Opts) -&gt; {ok, Match} | {ok, MatchList, HaltReason} | {error, Reason}</h3>
 
 <ul class="type">
-<li><code>Connection = connection() (see module ct_telnet)</code></li><li><code>Patterns = Pattern | [Pattern]</code></li><li><code>Pattern = string() | {Tag, string()} | prompt | {prompt, Prompt}</code></li><li><code>Prompt = string()</code></li><li><code>Tag = term()</code></li><li><code>Opts = [Opt]</code></li><li><code>Opt = {idle_timeout, IdleTimeout} | {total_timeout, TotalTimeout} | repeat | {repeat, N} | sequence | {halt, HaltPatterns} | ignore_prompt | no_prompt_check</code></li><li><code>IdleTimeout = infinity | integer()</code></li><li><code>TotalTimeout = infinity | integer()</code></li><li><code>N = integer()</code></li><li><code>HaltPatterns = Patterns</code></li><li><code>MatchList = [Match]</code></li><li><code>Match = RxMatch | {Tag, RxMatch} | {prompt, Prompt}</code></li><li><code>RxMatch = [string()]</code></li><li><code>HaltReason = done | Match</code></li><li><code>Reason = timeout | {prompt, Prompt}</code></li></ul>
+<li><code>Connection = connection() (see module ct_telnet)</code></li><li><code>Patterns = Pattern | [Pattern]</code></li><li><code>Pattern = string() | {Tag, string()} | prompt | {prompt, Prompt}</code></li><li><code>Prompt = string()</code></li><li><code>Tag = term()</code></li><li><code>Opts = [Opt]</code></li><li><code>Opt = {idle_timeout, IdleTimeout} | {total_timeout, TotalTimeout} | repeat | {repeat, N} | sequence | {halt, HaltPatterns} | ignore_prompt | no_prompt_check | wait_for_prompt | {wait_for_prompt, Prompt}</code></li><li><code>IdleTimeout = infinity | integer()</code></li><li><code>TotalTimeout = infinity | integer()</code></li><li><code>N = integer()</code></li><li><code>HaltPatterns = Patterns</code></li><li><code>MatchList = [Match]</code></li><li><code>Match = RxMatch | {Tag, RxMatch} | {prompt, Prompt}</code></li><li><code>RxMatch = [string()]</code></li><li><code>HaltReason = done | Match</code></li><li><code>Reason = timeout | {prompt, Prompt}</code></li></ul>
 <div class="description">
 
 <p>Get data from telnet and wait for the expected pattern.</p>
   
-   <p><code>Pattern</code> can be a POSIX regular expression. If more
-   than one pattern is given, the function returns when the first
-   match is found.</p>
+   <p><code>Pattern</code> can be a POSIX regular expression. The function
+   returns as soon as a pattern has been successfully matched (at least one,
+   in the case of multiple patterns).</p>
   
    <p><code>RxMatch</code> is a list of matched strings. It looks
    like this: <code>[FullMatch, SubMatch1, SubMatch2, ...]</code>
@@ -342,10 +342,13 @@ Interprete As Command, IAC, character).</p>
    milliseconds, <code>{error,timeout}</code> is returned. The default
    value is <code>infinity</code> (i.e. no time limit).</p>
   
-   <p>The function will always return when a prompt is found, unless
-   any of the <code>ignore_prompt</code> or
-   <code>no_prompt_check</code> options are used, in which case it
-   will return when a match is found or after a timeout.</p>
+   <p>The function will return when a prompt is received, even if no
+   pattern has yet been matched. In this event,
+   <code>{error,{prompt,Prompt}}</code> is returned.
+   However, this behaviour may be modified with the
+   <code>ignore_prompt</code> or <code>no_prompt_check</code> option, which
+   tells <code>expect</code> to return only when a match is found or after a
+   timeout.</p>
   
    <p>If the <code>ignore_prompt</code> option is used,
    <code>ct_telnet</code> will ignore any prompt found. This option
@@ -358,6 +361,13 @@ Interprete As Command, IAC, character).</p>
    <code>ct_telnet</code> will not search for a prompt at all. This
    is useful if, for instance, the <code>Pattern</code> itself
    matches the prompt.</p>
+  
+   <p>The <code>wait_for_prompt</code> option forces <code>ct_telnet</code>
+   to wait until the prompt string has been received before returning
+   (even if a pattern has already been matched). This is equal to calling:
+   <code>expect(Conn, Patterns++[{prompt,Prompt}], [sequence|Opts])</code>.
+   Note that <code>idle_timeout</code> and <code>total_timeout</code>
+   may abort the operation of waiting for prompt.</p>
   
    <p>The <code>repeat</code> option indicates that the pattern(s)
    shall be matched multiple times. If <code>N</code> is given, the
