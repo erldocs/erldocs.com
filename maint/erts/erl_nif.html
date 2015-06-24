@@ -61,34 +61,6 @@
       </list>
       </div>
 
-     <p>The NIF concept is officially supported from R14B. NIF source code
-     written for earlier experimental versions might need adaption to run on R14B
-     or later versions:</p>
-     <list>
-       <item>No incompatible changes between <em>R14B</em> and R14A.</item>
-       <item>Incompatible changes between <em>R14A</em> and R13B04:
-       <list>
-	 <item>Environment argument removed for <code>enif_alloc</code>,
-	 <code>enif_realloc</code>, <code>enif_free</code>, <code>enif_alloc_binary</code>,
-	 <code>enif_realloc_binary</code>, <code>enif_release_binary</code>,
-	 <code>enif_alloc_resource</code>, <code>enif_release_resource</code>,
-	 <code>enif_is_identical</code> and <code>enif_compare</code>.</item>
-	 <item>Character encoding argument added to <code>enif_get_atom</code>
-	 and <code>enif_make_existing_atom</code>.</item>
-	 <item>Module argument added to <code>enif_open_resource_type</code>
-	 while changing name spaces of resource types from global to module local.</item>
-       </list>
-     </item>
-     <item>Incompatible changes between <em>R13B04</em> and R13B03:
-     <list>
-       <item>The function prototypes of the NIFs have  changed to expect <code>argc</code> and <code>argv</code>
-       arguments. The arity of a NIF is by that no longer limited to 3.</item>
-       <item><code>enif_get_data</code> renamed as <code>enif_priv_data</code>.</item>
-       <item><code>enif_make_string</code> got a third argument for character encoding.</item>
-     </list>
-     </item>
-    </list>
-
     <p>A minimal example of a NIF library can look like this:</p>
       <p />
       <pre class="sh_erlang">
@@ -482,8 +454,9 @@ ok
         independent environment with all its terms is valid until you explicitly
         invalidates it with <a href="#enif_free_env" class="seealso">enif_free_env</a>
         or <code>enif_send</code>.</p>
-        <p>All elements of a list/tuple must belong to the same environment as the
-        list/tuple itself. Terms can be copied between environments with
+        <p>All contained terms of a list/tuple/map must belong to the same
+	environment as the list/tuple/map itself. Terms can be copied between
+	environments with
         <a href="#enif_make_copy" class="seealso">enif_make_copy</a>.</p>
       </item>
     <dt><span id="ErlNifFunc"> </span>ErlNifFunc</dt>
@@ -749,7 +722,18 @@ typedef enum {
       return true, or return false if <code>term</code> is not an integer or is
       outside the bounds of type <code>long int</code>.</p></div>
     </div>
-    <div class="function"><pre>int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</pre>
+    <div class="function"><pre>int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)</pre>
+      
+      <div class="description"><p>Set <code>*size</code> to the number of key-value pairs in the map <code>term</code> and
+      return true, or return false if <code>term</code> is not a map.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_map_value(ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</pre>
+     
+      <div class="description"><p>Set <code>*value</code> to the value associated with <code>key</code> in the
+      map <code>map</code> and return true. Return false if <code>map</code> is not a map
+      or if <code>map</code> does not contain <code>key</code>.</p></div>
+    </div>
+   <div class="function"><pre>int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</pre>
       
       <div class="description"><p>Set <code>*objp</code> to point to the resource object referred to by <code>term</code>.</p>
       <p>Return true on success or false if <code>term</code> is not a handle to a resource object
@@ -798,6 +782,19 @@ typedef enum {
       and return true, or return false if <code>term</code> is not an unsigned integer or is
       outside the bounds of type <code>unsigned long</code>.</p></div>
     </div>
+    <div class="function"><pre>int enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</pre>
+      
+      <div class="description"><p>Return true if a pending exception is associated
+      with the environment <code>env</code>. If <code>reason</code> is a null pointer, ignore it.
+      Otherwise, if there's a pending exception associated with <code>env</code>, set the ERL_NIF_TERM
+      to which <code>reason</code> points to the value of the exception's term. For example, if
+      <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a> is called to set a
+      pending <code>badarg</code> exception, a subsequent call to <code>enif_has_pending_exception(env, &reason)</code>
+      will set <code>reason</code> to the atom <code>badarg</code>, then return true.</p>
+      <p>See also: <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>
+      and <a href="#enif_raise_exception" class="seealso">enif_raise_exception</a>.</p>
+      </div>
+    </div>
     <div class="function"><pre>int enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</pre>
       
       <div class="description"><p>Initialize the structure pointed to by <code>bin</code> with 
@@ -830,6 +827,10 @@ typedef enum {
     <span id="enif_is_exception"> </span><div class="function"><pre>int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
       
       <div class="description"><p>Return true if <code>term</code> is an exception.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a map, false otherwise.</p></div>
     </div>
     <div class="function"><pre>int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
       
@@ -890,23 +891,38 @@ typedef enum {
     <div class="function"><pre>ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)</pre>
       
       <div class="description"><p>Create an atom term from the null-terminated C-string <code>name</code>
-      with iso-latin-1 encoding.</p></div>
+      with iso-latin-1 encoding. If the length of <code>name</code> exceeds the maximum length
+      allowed for an atom (255 characters), <code>enif_make_atom</code> invokes
+      <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>.
+      </p></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</pre>
       
       <div class="description"><p>Create an atom term from the string <code>name</code> with length <code>len</code>.
-      Null-characters are treated as any other characters.</p></div>
+      Null-characters are treated as any other characters. If <code>len</code> is greater than the maximum length
+      allowed for an atom (255 characters), <code>enif_make_atom</code> invokes
+      <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>.
+      </p></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env)</pre>
       
-      <div class="description"><p>Make a badarg exception to be returned from a NIF, and set
-      an associated exception reason in <code>env</code>. If
-      <code>enif_make_badarg</code> is called, the term it returns <em>must</em>
-      be returned from the function that called it. No other return value
-      is allowed. Also, the term returned from <code>enif_make_badarg</code> may
-      be passed only to
-      <a href="#enif_is_exception" class="seealso">enif_is_exception</a> and
-      not to any other NIF API function.</p></div>
+      <div class="description"><p>Make a badarg exception to be returned from a NIF, and associate
+      it with the environment <code>env</code>. Once a NIF or any function
+      it calls invokes <code>enif_make_badarg</code>, the runtime ensures that a
+      <code>badarg</code> exception is raised when the NIF returns, even if the NIF
+      attempts to return a non-exception term instead.
+      The return value from <code>enif_make_badarg</code> may be used only as the
+      return value from the NIF that invoked it (directly or indirectly)
+      or be passed to
+      <a href="#enif_is_exception" class="seealso">enif_is_exception</a>, but
+      not to any other NIF API function.</p>
+      <p>See also: <a href="#enif_has_pending_exception" class="seealso">enif_has_pending_exception</a>
+      and <a href="#enif_raise_exception" class="seealso">enif_raise_exception</a>
+      </p>
+      <div class="note"><h2>Note!</h2><p>In earlier versions (older than erts-7.0, OTP 18) the return value
+      from <code>enif_make_badarg</code> had to be returned from the NIF. This
+      requirement is now lifted as the return value from the NIF is ignored
+      if <code>enif_make_badarg</code> has been invoked.</p></div></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</pre>
       
@@ -923,7 +939,10 @@ typedef enum {
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)</pre>
       
-      <div class="description"><p>Create a floating-point term from a <code>double</code>.</p></div>
+      <div class="description"><p>Create a floating-point term from a <code>double</code>. If the <code>double</code> argument is
+      not finite or is NaN, <code>enif_make_double</code> invokes
+      <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>.
+      </p></div>
     </div>
     <div class="function"><pre>int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</pre>
       
@@ -931,7 +950,9 @@ typedef enum {
       the null-terminated C-string <code>name</code> with encoding
       <a href="#ErlNifCharEncoding" class="seealso">encode</a>. If the atom
       already exists store the term in <code>*atom</code> and return true, otherwise
-      return false.</p></div>
+      return false. If the length of <code>name</code> exceeds the maximum length
+      allowed for an atom (255 characters), <code>enif_make_existing_atom</code>
+      returns false.</p></div>
     </div>
     <div class="function"><pre>int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</pre>
       
@@ -939,7 +960,9 @@ typedef enum {
       string <code>name</code> with length <code>len</code> and encoding
       <a href="#ErlNifCharEncoding" class="seealso">encode</a>. Null-characters
       are treated as any other characters. If the atom already exists store the term
-      in <code>*atom</code> and return true, otherwise return false.</p></div>
+      in <code>*atom</code> and return true, otherwise return false. If <code>len</code> is greater
+      than the maximum length allowed for an atom (255 characters),
+      <code>enif_make_existing_atom_len</code> returns false.</p></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)</pre>
       
@@ -979,13 +1002,6 @@ typedef enum {
       <div class="description"><p>Create an ordinary list containing the elements of array <code>arr</code>
       of length <code>cnt</code>. An empty list is returned if <code>cnt</code> is 0.</p></div>
     </div>
-    <div class="function"><pre>int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)</pre>
-      
-      <div class="description"><p>Set <code>*list</code> to the reverse list of the list <code>term</code> and return true,
-      or return false if <code>term</code> is not a list. This function should only be used on
-      short lists as a copy will be created of the list which will not be released until after the
-      nif returns.</p></div>
-    </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long int i)</pre>
       
       <div class="description"><p>Create an integer term from a <code>long int</code>.</p></div>
@@ -999,6 +1015,36 @@ typedef enum {
       that the binary can not be kept between NIF calls and it can not be
       reallocated.</p><p>Return a pointer to the raw binary data and set
       <code>*termp</code> to the binary term.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Make an empty map term.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_map_put(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out)</pre>
+      
+      <div class="description"><p>Make a copy of map <code>map_in</code> and insert <code>key</code> with
+      <code>value</code>. If <code>key</code> already exists in <code>map_in</code>, the old
+      associated value is replaced by <code>value</code>. If successful set
+      <code>*map_out</code> to the new map and return true. Return false if
+      <code>map_in</code> is not a map.</p>
+      <p>The <code>map_in</code> term must belong to the environment <code>env</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_map_update(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value, ERL_NIF_TERM* map_out)</pre>
+      
+      <div class="description"><p>Make a copy of map <code>map_in</code> and replace the old associated
+      value for <code>key</code> with <code>new_value</code>. If successful set
+      <code>*map_out</code> to the new map and return true. Return false if
+      <code>map_in</code> is not a map or if it does no contain <code>key</code>.</p>
+      <p>The <code>map_in</code> term must belong to the environment <code>env</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_map_remove(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</pre>
+      
+      <div class="description"><p>If map <code>map_in</code> contains <code>key</code>, make a copy of
+      <code>map_in</code> in <code>*map_out</code> and remove <code>key</code> and associated
+      value. If map <code>map_in</code> does not contain <code>key</code>, set
+      <code>*map_out</code> to <code>map_in</code>. Return true for success or false if
+      <code>map_in</code> is not a map.</p>
+      <p>The <code>map_in</code> term must belong to the environment <code>env</code>.</p></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</pre>
       
@@ -1042,6 +1088,14 @@ typedef enum {
       no ownership transfer is done. The resource still needs to be released with
       <a href="#enif_release_resource" class="seealso">enif_release_resource</a>.</p>
       </div>
+    </div>
+    <div class="function"><pre>int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</pre>
+      
+      <div class="description"><p>Set <code>*list_out</code> to the reverse list of the list <code>list_in</code> and return true,
+      or return false if <code>list_in</code> is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.</p>
+      <p>The <code>list_in</code> term must belong to the environment <code>env</code>.</p></div>
     </div>
     <div class="function"><pre>ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</pre>
       
@@ -1100,6 +1154,72 @@ typedef enum {
     <div class="function"><pre>ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)</pre>
       
       <div class="description"><p>Create an integer term from an <code>unsigned long int</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_create(ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry)</pre>
+      
+      <div class="description"><p>Create an iterator for the map <code>map</code> by initializing the
+      structure pointed to by <code>iter</code>. The <code>entry</code> argument determines
+      the start position of the iterator: <code>ERL_NIF_MAP_ITERATOR_FIRST</code> or
+      <code>ERL_NIF_MAP_ITERATOR_LAST</code>. Return true on success or false if
+      <code>map</code> is not a map.</p>
+      <p>A map iterator is only useful during the lifetime of the environment
+      <code>env</code> that the <code>map</code> belongs to. The iterator must be destroyed by
+      calling <a href="#enif_map_iterator_destroy" class="seealso">
+      enif_map_iterator_destroy</a>.</p>
+      <pre class="sh_erlang">
+ERL_NIF_TERM key, value;
+ErlNifMapIterator iter;
+enif_map_iterator_create(env, my_map, &iter, ERL_NIF_MAP_ITERATOR_FIRST);
+
+while (enif_map_iterator_get_pair(env, &iter, &key, &value)) {
+    do_something(key,value);
+    enif_map_iterator_next(env, &iter);
+}
+enif_map_iterator_destroy(env, &iter);
+      </pre>
+     <div class="note"><h2>Note!</h2><p>The key-value pairs of a map have no defined iteration
+     order. The only guarantee is that the iteration order of a single map
+     instance is preserved during the lifetime of the environment that the map
+     belongs to.</p>
+    </div>
+      </div>
+    </div>
+    <div class="function"><pre>void enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)</pre>
+      
+      <div class="description"><p>Destroy a map iterator created by
+      <a href="#enif_map_iterator_create" class="seealso">enif_map_iterator_create</a>.
+      </p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_get_pair(ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value)</pre>
+      
+      <div class="description"><p>Get key and value terms at current map iterator position.
+      On success set <code>*key</code> and <code>*value</code> and return true.
+      Return false if the iterator is positioned at head (before first entry)
+      or tail (beyond last entry).</p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)</pre>
+      
+      <div class="description"><p>Return true if map iterator <code>iter</code> is positioned
+      before first entry.</p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)</pre>
+      
+      <div class="description"><p>Return true if map iterator <code>iter</code> is positioned
+      after last entry.</p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)</pre>
+      
+      <div class="description"><p>Increment map iterator to point to next key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the tail (beyond the last
+      entry).</p></div>
+    </div>
+    <div class="function"><pre>int enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)</pre>
+      
+      <div class="description"><p>Decrement map iterator to point to previous key-value entry.
+      Return true if the iterator is now positioned at a valid key-value entry,
+      or false if the iterator is positioned at the head (before the first
+      entry).</p></div>
     </div>
     <div class="function"><pre>ErlNifMutex * enif_mutex_create(char *name)</pre>
     
@@ -1160,6 +1280,19 @@ typedef enum {
       <div class="description"><p>Return the pointer to the private data that was set by <code>load</code>,
       <code>reload</code> or <code>upgrade</code>.</p>
       <p>Was previously named <code>enif_get_data</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)</pre>
+      
+      <div class="description"><p>Create an error exception with the term <code>reason</code> to be returned from a NIF,
+      and associate it with the environment <code>env</code>. Once a NIF or any function it calls
+      invokes <code>enif_raise_exception</code>, the runtime ensures that the exception it creates
+      is raised when the NIF returns, even if the NIF attempts to return a non-exception
+      term instead. The return value from <code>enif_raise_exception</code> may be used only as
+      the return value from the NIF that invoked it (directly or indirectly) or be passed
+      to <a href="#enif_is_exception" class="seealso">enif_is_exception</a>, but
+      not to any other NIF API function.</p>
+      <p>See also: <a href="#enif_has_pending_exception" class="seealso">enif_has_pending_exception</a>
+      and <a href="#enif_make_badarg" class="seealso">enif_make_badarg</a>.</p></div>
     </div>
     <div class="function"><pre>int enif_realloc_binary(ErlNifBinary* bin, size_t size)</pre>
       

@@ -44,7 +44,7 @@
       </item>
       <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
-        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
+        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
@@ -55,6 +55,12 @@
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc2945.txt"> Secure Remote Password Protocol (SRP - RFC 2945) </url></p>
+      </item>
+      <item>
+        <p>gcm: Dworkin, M., "Recommendation for Block Cipher Modes of
+        Operation: Galois/Counter Mode (GCM) and GMAC",
+        National Institute of Standards and Technology SP 800-
+        38D, November 2007.</p>
       </item>
     </list>
   </div>
@@ -135,6 +141,8 @@
      blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
      | des_ede3 | rc2_cbc </code></p>
 
+     <p><code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code></p>
+
      <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
 
      <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
@@ -155,7 +163,7 @@
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
      <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | rc2_cbc | aes_ctr| rc4  </code> </p>
+     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code> </p>
      <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -164,18 +172,53 @@
  </div>
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr />
-      <div class="function">
+    <div class="function">
+      <h3 id="block_encrypt/3">block_encrypt(Type, Key, PlainText) -&gt; CipherText</h3>
+      
+      <ul class="type">
+  <li><code>Type = des_ecb | blowfish_ecb | aes_ecb </code></li>
+  <li><code>Key = block_key() </code></li>
+        <li><code>PlainText = iodata() </code></li>
+      </ul>
+      <div class="description">
+        <p>Encrypt <code>PlainText</code> according to <code>Type</code> block cipher.</p>
+  <p>May throw exception <code>notsup</code> in case the chosen <code>Type</code>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="block_decrypt/3">block_decrypt(Type, Key, CipherText) -&gt; PlainText</h3>
+      
+      <ul class="type">
+  <li><code>Type = des_ecb | blowfish_ecb | aes_ecb </code></li>
+  <li><code>Key = block_key() </code></li>
+        <li><code>PlainText = iodata() </code></li>
+      </ul>
+      <div class="description">
+        <p>Decrypt <code>CipherText</code> according to <code>Type</code> block cipher.</p>
+  <p>May throw exception <code>notsup</code> in case the chosen <code>Type</code>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </div>
+    </div>
+
+    <div class="function">
       <h3 id="block_encrypt/4">block_encrypt(Type, Key, Ivec, PlainText) -&gt; CipherText</h3>
+      <h3 id="block_encrypt/5">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -&gt; {CipherText, CipherTag}</h3>
       
       <ul class="type">
 	<li><code>Type = block_cipher() </code></li>
+	<li><code>AeadType = aead_cipher() </code></li>
 	<li><code>Key = block_key() </code></li>
         <li><code>PlainText = iodata() </code></li>
-        <li><code>IVec = CipherText = binary()</code></li>
+        <li><code>AAD = IVec = CipherText = CipherTag = binary()</code></li>
       </ul>
       <div class="description">
-        <p>Encrypt <code>PlainText</code>according to <code>Type</code> block cipher.
+        <p>Encrypt <code>PlainText</code> according to <code>Type</code> block cipher.
 	<code>IVec</code> is an arbitrary initializing vector.</p>
+	<p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
+	<code>PlainText</code>according to <code>Type</code> block cipher and calculate
+	<code>CipherTag</code> that also authenticates the <code>AAD</code> (Associated Authenticated Data).</p>
 	<p>May throw exception <code>notsup</code> in case the chosen <code>Type</code>
 	is not supported by the underlying OpenSSL implementation.</p>
       </div>
@@ -183,16 +226,22 @@
 
     <div class="function">
       <h3 id="block_decrypt/4">block_decrypt(Type, Key, Ivec, CipherText) -&gt; PlainText</h3>
+      <h3 id="block_decrypt/6">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -&gt; PlainText | error</h3>
       
       <ul class="type">
 	<li><code>Type = block_cipher() </code></li>
+	<li><code>AeadType = aead_cipher() </code></li>
 	<li><code>Key = block_key() </code></li>
         <li><code>PlainText = iodata() </code></li>
-        <li><code>IVec = CipherText = binary()</code></li>
+        <li><code>AAD = IVec = CipherText = CipherTag = binary()</code></li>
       </ul>
       <div class="description">
-        <p>Decrypt <code>CipherText</code>according to <code>Type</code> block cipher.
+        <p>Decrypt <code>CipherText</code> according to <code>Type</code> block cipher.
 	<code>IVec</code> is an arbitrary initializing vector.</p>
+        <p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
+	<code>CipherText</code>according to <code>Type</code> block cipher and check the authenticity
+	the <code>PlainText</code> and <code>AAD</code> (Associated Authenticated Data) using the
+	<code>CipherTag</code>. May return <code>error</code> if the decryption or validation fail's</p>
 	<p>May throw exception <code>notsup</code> in case the chosen <code>Type</code>
 	is not supported by the underlying OpenSSL implementation.</p>
       </div>
@@ -253,7 +302,7 @@
 	<li><code>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</code></li>
 	<li><code>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</code></li>
 	<li><code>PublicKey =  dh_public() | ecdh_public() | srp_public() </code></li>
-	<li><code>PrivKeyIn = undefined | dh_private() | srp_private() </code></li>
+	<li><code>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </code></li>
 	<li><code>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </code></li>
       </ul>
       <div class="description">

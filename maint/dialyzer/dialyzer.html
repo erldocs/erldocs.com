@@ -69,7 +69,7 @@
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--dump_callgraph file] [--no_native] [--fullpath]
-                [--statistics]</pre>
+                [--statistics] [--no_native_cache]</pre>
     <p>Options:</p>
     <taglist>
       <dt><code>files_or_dirs</code> (for backwards compatibility also
@@ -138,7 +138,10 @@
       <dt><code>-Wwarn</code></dt>
       <item>A family of options which selectively turn on/off warnings
         (for help on the names of warnings use
-        <code>dialyzer -Whelp</code>).</item>
+        <code>dialyzer -Whelp</code>).
+        Note that the options can also be given in the file with a
+        <code>-dialyzer()</code> attribute. See <a href="#suppression" class="seealso">Requesting or Suppressing Warnings in
+        Source Files</a> below for details.</item>
       <dt><code>--shell</code></dt>
       <item>Do not disable the Erlang shell while running the GUI.</item>
       <dt><code>--version</code> (or <code>-v</code>)</dt>
@@ -193,6 +196,11 @@
          heuristically performs when dialyzing many files; this avoids the
          compilation time but it may result in (much) longer analysis
          time.</item>
+       <dt><code>--no_native_cache</code></dt>
+       <item>By default, Dialyzer caches the results of native compilation in the
+         <code>$XDG_CACHE_HOME/erlang/dialyzer_hipe_cache</code> directory.
+         <code>XDG_CACHE_HOME</code> defaults to <code>$HOME/.cache</code>.
+         Use this option to disable caching.</item>
        <dt><code>--fullpath</code></dt>
        <item>Display the full path names of files for which warnings are emitted.</item>
        <dt><code>--gui</code></dt>
@@ -226,6 +234,8 @@
       <dt><code>-Wno_behaviours</code></dt>
       <item>Suppress warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
+      <dt><code>-Wno_missing_calls</code></dt>
+      <item>Suppress warnings about calls to missing functions.</item>
       <dt><code>-Wno_undefined_callbacks</code></dt>
       <item>Suppress warnings about behaviours that have no
         <code>-callback</code> attributes for their callbacks.</item>
@@ -241,9 +251,16 @@
       analysis that finds data races performs intra-procedural data flow analysis
       and can sometimes explode in time. Enable it at your own risk.
       </item>
-      <dt><code>-Wunderspecs</code>***</dt>
+i      <dt><code>-Wunderspecs</code>***</dt>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
+      <dt><code>-Wunknown</code>***</dt>
+      <item>Let warnings about unknown functions and types affect the
+      exit status of the command line version. The default is to ignore
+      warnings about unknown functions and types when setting the exit
+      status. When using the Dialyzer from Erlang, warnings about unknown
+      functions and types are returned; the default is not to return
+      these warnings.</item>
     </taglist>
     <p>The following options are also available but their use is not
       recommended: (they are mostly for Dialyzer developers and internal
@@ -268,6 +285,70 @@
       given from the command line, so please refer to the sections above for
       a description of these.</p>
   </div>
+
+  <div class="section">
+    <span id="suppression"> </span>
+    <h4>Requesting or Suppressing Warnings in Source Files</h4>
+    <p>
+      The <code>-dialyzer()</code> attribute can be used for turning off
+      warnings in a module by specifying functions or warning options.
+      For example, to turn off all warnings for the function
+      <code>f/0</code>, include the following line:
+    </p>
+<pre class="sh_erlang">
+-dialyzer({nowarn_function, f/0}).
+</pre>
+    <p>To turn off warnings for improper lists, add the following line
+      to the source file:
+    </p>
+<pre class="sh_erlang">
+-dialyzer(no_improper_lists).
+</pre>
+    <p>The <code>-dialyzer()</code> attribute is allowed after function
+    declarations. Lists of warning options or functions are allowed:
+    </p>
+<pre class="sh_erlang">
+-dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).
+</pre>
+    <p>
+      Warning options can be restricted to functions:
+    </p>
+<pre class="sh_erlang">
+-dialyzer({no_improper_lists, g/0}).
+</pre>
+<pre class="sh_erlang">
+-dialyzer({[no_return, no_match], [g/0, h/0]}).
+</pre>
+    <p>
+      For help on the warning options use <code>dialyzer -Whelp</code>. The
+      options are also enumerated <a href="#gui//1" class="seealso">below</a> (<code>WarnOpts</code>).
+    </p>
+    <div class="note"><h2>Note!</h2>
+      <p>
+        The <code>-dialyzer()</code> attribute is not checked by the Erlang
+              Compiler, but by the Dialyzer itself.
+      </p>
+    </div>
+    <div class="note"><h2>Note!</h2>
+      <p>
+        The warning option <code>-Wrace_conditions</code> has no effect when
+        set in source files.
+      </p>
+    </div>
+    <p>
+      The <code>-dialyzer()</code> attribute can also be used for turning on
+      warnings. For instance, if a module has been fixed regarding
+      unmatched returns, adding the line
+    </p>
+<pre class="sh_erlang">
+-dialyzer(unmatched_returns).
+</pre>
+    <p>
+      can help in assuring that no new unmatched return warnings are
+      introduced.
+    </p>
+  </div>
+
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr />
     <div class="function">
       <h3 id="gui/0">gui() -&gt; ok | {error, Msg}</h3>
@@ -282,13 +363,14 @@
 OptList  :: [Option]
 Option   :: {files,          [Filename :: string()]}
           | {files_rec,      [DirName :: string()]}
-          | {defines,        [{Macro: atom(), Value : term()}]}
+          | {defines,        [{Macro :: atom(), Value :: term()}]}
           | {from,           src_code | byte_code}   %% Defaults to byte_code
           | {init_plt,       FileName :: string()}   %% If changed from default
           | {plts,           [FileName :: string()]} %% If changed from default
           | {include_dirs,   [DirName :: string()]}
           | {output_file,    FileName :: string()}
           | {output_plt,     FileName :: string()}
+          | {check_plt,      boolean()},
           | {analysis_type,  'succ_typings' |
                              'plt_add' |
                              'plt_build' |
@@ -312,7 +394,8 @@ WarnOpts :: no_return
           | race_conditions
           | overspecs
           | underspecs
-          | specdiffs</pre>
+          | specdiffs
+          | unknown</pre>
       </div>
     </div>
     <div class="function">
@@ -346,6 +429,7 @@ Tag :: 'warn_behaviour'
      | 'warn_return_only_exit'
      | 'warn_umatched_return'
      | 'warn_undefined_callbacks'
+     | 'warn_unknown'
 Id = {File :: string(), Line :: integer()}
 Msg = msg() -- Undefined</pre>
       </div>

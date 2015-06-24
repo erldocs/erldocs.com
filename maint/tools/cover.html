@@ -135,17 +135,18 @@
       </div>
     </div>
     <div class="function">
-      <h3 id="compile/1">compile(ModFile) -&gt; Result</h3>
-      <h3 id="compile/2">compile(ModFile, Options) -&gt; Result</h3>
-      <h3 id="compile_module/1">compile_module(ModFile) -&gt; Result</h3>
-      <h3 id="compile_module/2">compile_module(ModFile, Options) -&gt; Result</h3>
+      <h3 id="compile/1">compile(ModFiles) -&gt; Result | [Result]</h3>
+      <h3 id="compile/2">compile(ModFiles, Options) -&gt; Result | [Result]</h3>
+      <h3 id="compile_module/1">compile_module(ModFiles) -&gt; Result | [Result]</h3>
+      <h3 id="compile_module/2">compile_module(ModFiles, Options) -&gt; Result | [Result]</h3>
       
       <ul class="type">
+	<li><code>ModFiles = ModFile | [ModFile]</code></li>
         <li><code>ModFile = Module | File</code></li>
         <li><code>&nbsp;Module = atom()</code></li>
         <li><code>&nbsp;File = string()</code></li>
         <li><code>Options = [Option]</code></li>
-        <li><code>&nbsp;Option = {i,Dir} | {d,Macro} | {d,Macro,Value}</code></li>
+        <li><code>&nbsp;Option = {i,Dir} | {d,Macro} | {d,Macro,Value} | export_all</code></li>
         <d>See <code>compile:file/2.</code></d>
         <li><code>Result = {ok,Module} | {error,File} | {error,not_main_node}</code></li>
       </ul>
@@ -162,6 +163,9 @@
           returns <code>{ok,Module}</code>. Otherwise the function returns
           <code>{error,File}</code>. Errors and warnings are printed as they
           occur.</p>
+	<p>If a list of <code>ModFiles</code> is given as input, a list
+	  of <code>Result</code> will be returned. The order of the returned
+	  list is undefined.</p>
         <p>Note that the internal database is (re-)initiated during
           the compilation, meaning any previously collected coverage data
           for the module will be lost.</p>
@@ -191,9 +195,10 @@
       </div>
     </div>
     <div class="function">
-      <h3 id="compile_beam/1">compile_beam(ModFile) -&gt; Result</h3>
+      <h3 id="compile_beam/1">compile_beam(ModFiles) -&gt; Result | [Result]</h3>
       
       <ul class="type">
+	<li><code>ModFiles = ModFile | [ModFile]</code></li>
         <li><code>ModFile = Module | BeamFile</code></li>
         <li><code>&nbsp;Module = atom()</code></li>
         <li><code>&nbsp;BeamFile = string()</code></li>
@@ -226,6 +231,9 @@
           returned.</p>
         <p><code>{error,BeamFile}</code> is returned if the compiled code
           can not be loaded on the node.</p>
+	<p>If a list of <code>ModFiles</code> is given as input, a list
+	  of <code>Result</code> will be returned. The order of the returned
+	  list is undefined.</p>
       </div>
     </div>
     <div class="function">
@@ -248,16 +256,21 @@
       </div>
     </div>
     <div class="function">
-      <h3 id="analyse/1">analyse(Module) -&gt; {ok,Answer} | {error,Error}</h3>
-      <h3 id="analyse/2">analyse(Module, Analysis) -&gt; {ok,Answer} | {error,Error}</h3>
-      <h3 id="analyse/2-1">analyse(Module, Level) -&gt; {ok,Answer} | {error,Error}</h3>
-      <h3 id="analyse/3">analyse(Module, Analysis, Level) -&gt; {ok,Answer} | {error,Error}</h3>
+      <h3 id="analyse/0">analyse() -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/1">analyse(Modules) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/1-1">analyse(Analysis) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/1-2">analyse(Level) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/2">analyse(Modules, Analysis) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/2-1">analyse(Modules, Level) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/2-2">analyse(Analysis, Level) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse/3">analyse(Modules, Analysis, Level) -&gt; OneResult | {result,Ok,Fail} | {error,not_main_node}</h3>
       
       <ul class="type">
-        <li><code>Module = atom()</code></li>
+	<li><code>Modules = Module | [Module]</code></li>
+        <li><code>Module = atom() </code></li>
         <li><code>Analysis = coverage | calls</code></li>
         <li><code>Level = line | clause | function | module</code></li>
-        <li><code>Answer = {Module,Value} | [{Item,Value}]</code></li>
+        <li><code>OneResult = {ok,{Module,Value}} | {ok,[{Item,Value}]} | {error, Error}</code></li>
         <li><code>&nbsp;Item = Line | Clause | Function</code></li>
         <li><code>&nbsp;&nbsp;Line = {M,N}</code></li>
         <li><code>&nbsp;&nbsp;Clause = {M,F,A,C}</code></li>
@@ -266,49 +279,67 @@
         <li><code>&nbsp;&nbsp;&nbsp;N = A = C = integer()</code></li>
         <li><code>&nbsp;Value = {Cov,NotCov} | Calls</code></li>
         <li><code>&nbsp;&nbsp;Cov = NotCov = Calls = integer()</code></li>
-        <li><code>Error = {not_cover_compiled,Module} | not_main_node</code></li>
+        <li><code>&nbsp;Error = {not_cover_compiled,Module}</code></li>
+	<li><code>Ok = [{Module,Value}] | [{Item,Value}]</code></li>
+	<li><code>Fail = [Error]</code></li>
       </ul>
       <div class="description">
-        <p>Performs analysis of a Cover compiled module <code>Module</code>, as
+        <p>Performs analysis of one or more Cover compiled modules, as
           specified by <code>Analysis</code> and <code>Level</code> (see above), by
           examining the contents of the internal database.</p>
         <p><code>Analysis</code> defaults to <code>coverage</code> and <code>Level</code>
           defaults to <code>function</code>.</p>
-        <p>If <code>Module</code> is not Cover compiled, the function returns
-          <code>{error,{not_cover_compiled,Module}}</code>.</p>
-	<p>HINT: It is possible to issue multiple analyse_to_file commands at
-	  the same time. </p>
+	<p>If <code>Modules</code> is an atom (one module), the return will
+	  be <code>OneResult</code>, else the return will be
+	  <code>{result,Ok,Fail}</code>.</p>
+	<p>If <code>Modules</code> is not given, all modules that have data
+	  in the cover data table, are analysed. Note that this
+	  includes both cover compiled modules and imported
+	  modules.</p>
+        <p>If a given module is not Cover compiled, this is indicated
+          by the error reason <code>{not_cover_compiled,Module}</code>.</p>
       </div>
     </div>
     <div class="function">
-      <h3 id="analyse_to_file/1">analyse_to_file(Module) -&gt; </h3>
-      <h3 id="analyse_to_file/2">analyse_to_file(Module,Options) -&gt; </h3>
-      <h3 id="analyse_to_file/2-1">analyse_to_file(Module, OutFile) -&gt; </h3>
-      <h3 id="analyse_to_file/3">analyse_to_file(Module, OutFile, Options) -&gt;  {ok,OutFile} | {error,Error}</h3>
+      <h3 id="analyse_to_file/0">analyse_to_file() -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse_to_file/1">analyse_to_file(Modules) -&gt;  Answer | {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse_to_file/1-1">analyse_to_file(Options) -&gt; {result,Ok,Fail} | {error,not_main_node}</h3>
+      <h3 id="analyse_to_file/2">analyse_to_file(Modules,Options) -&gt; Answer | {result,Ok,Fail} | {error,not_main_node}</h3>
       
       <ul class="type">
+        <li><code>Modules = Module | [Module]</code></li>
         <li><code>Module = atom()</code></li>
-        <li><code>OutFile = string()</code></li>
+        <li><code>OutFile = OutDir = string()</code></li>
         <li><code>Options = [Option]</code></li>
-        <li><code>Option = html</code></li>
-        <li><code>Error = {not_cover_compiled,Module} | {file,File,Reason} | no_source_code_found | not_main_node</code></li>
+        <li><code>Option = html | {outfile,OutFile} | {outdir,OutDir}</code></li>
+	<li><code>Answer = {ok,OutFile} | {error,Error}</code></li>
+	<li><code>Ok = [OutFile]</code></li>
+	<li><code>Fail = [Error]</code></li>
+        <li><code>Error = {not_cover_compiled,Module} | {file,File,Reason} | {no_source_code_found,Module}</code></li>
         <li><code>&nbsp;File = string()</code></li>
         <li><code>&nbsp;Reason = term()</code></li>
       </ul>
       <div class="description">
-        <p>Makes a copy <code>OutFile</code> of the source file for a module
-          <code>Module</code>, where it for each executable line is specified
+        <p>Makes copies of the source file for the given modules,
+          where it for each executable line is specified
           how many times it has been executed.</p>
         <p>The output file <code>OutFile</code> defaults to
           <code>Module.COVER.out</code>, or <code>Module.COVER.html</code> if the
           option <code>html</code> was used.</p>
-        <p>If <code>Module</code> is not Cover compiled, the function returns
-          <code>{error,{not_cover_compiled,Module}}</code>.</p>
+	<p>If <code>Modules</code> is an atom (one module), the return will
+	  be <code>Answer</code>, else the return will be a
+	  list, <code>{result,Ok,Fail}</code>.</p>
+	<p>If <code>Modules</code> is not given, all modules that have data
+	  in the cover data table, are analysed. Note that this
+	  includes both cover compiled modules and imported
+	  modules.</p>
+        <p>If a module is not Cover compiled, this is indicated by the
+          error reason <code>{not_cover_compiled,Module}</code>.</p>
         <p>If the source file and/or the output file cannot be opened using
           <code>file:open/2</code>, the function returns
           <code>{error,{file,File,Reason}}</code> where <code>File</code> is the file
           name and <code>Reason</code> is the error reason.</p>
-        <p>If the module was cover compiled from the <code>.beam</code>
+        <p>If a module was cover compiled from the <code>.beam</code>
           file, i.e. using <code>compile_beam/1</code> or
           <code>compile_beam_directory/0,1</code>, it is assumed that the
           source code can be found in the same directory as the
@@ -319,10 +350,8 @@
           joining <code>../src</code> and the tail of the compiled path
           below a trailing <code>src</code> component, then the compiled
           path itself.
-          If no source code is found,
-          <code>{error,no_source_code_found}</code> is returned.</p>
-	<p>HINT: It is possible to issue multiple analyse_to_file commands at
-	  the same time. </p> 
+          If no source code is found, this is indicated by the error reason
+          <code>{no_source_code_found,Module}</code>.</p>
       </div>
     </div>
     <div class="function">
@@ -336,7 +365,7 @@
         <li><code>OutFile = string()</code></li>
         <li><code>Options = [Option]</code></li>
         <li><code>Option = html</code></li>
-        <li><code>Error = {not_cover_compiled,Module} | {file,File,Reason} | no_source_code_found | not_main_node</code></li>
+        <li><code>Error = {not_cover_compiled,Module} | {file,File,Reason} | {no_source_code_found,Module} | not_main_node</code></li>
         <li><code>&nbsp;File = string()</code></li>
         <li><code>&nbsp;Reason = term()</code></li>
       </ul>

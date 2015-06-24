@@ -97,7 +97,7 @@ list_to_binary([Compressed|Last])</pre>
     <div class="type">
       <h3 id="type-zwindowbits">zwindowbits/0</h3>
       <div class="description">
-        <p>Normally in the range <code>-15..-9 | 9..15</code>.</p>
+        <p>Normally in the range <code>-15..-8 | 8..15</code>.</p>
       </div>
     </div>
   </div>
@@ -147,7 +147,7 @@ list_to_binary([Compressed|Last])</pre>
           currently the only supported method is <code>deflated</code>.</p>
         <p>The <code><anno>WindowBits</anno></code> parameter is the base two logarithm
           of the window size (the size of the history buffer).  It
-          should be in the range 9 through 15. Larger values
+          should be in the range 8 through 15. Larger values
           of this parameter result in better compression at the
           expense of memory usage. The default value is 15 if
           <code>deflateInit/2</code>. A negative <code><anno>WindowBits</anno></code>
@@ -286,7 +286,7 @@ list_to_binary([B1,B2])</pre>
         <p>Initialize decompression session on zlib stream.</p>
         <p>The <code><anno>WindowBits</anno></code> parameter is the base two logarithm
           of the maximum window size (the size of the history buffer).
-          It should be in the range 9 through 15.
+          It should be in the range 8 through 15.
           The default value is 15 if <code>inflateInit/1</code> is used.
           If a compressed stream with a larger window size is
           given as input, inflate() will throw the <code>data_error</code>
@@ -307,6 +307,53 @@ list_to_binary([B1,B2])</pre>
           <code>{need_dictionary,Adler}</code> exception where <code>Adler</code> is 
           the adler32 checksum of the dictionary chosen by the
           compressor.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="inflateChunk/2">inflateChunk/2</h3>
+      
+      <div class="description">
+        <p>Like <code>inflate/2</code>, but decompress no more data than
+          will fit in the buffer configured via <code>setBufSize/2</code>.
+          Is is useful when decompressing a stream with a high compression
+          ratio such that a small amount of compressed input may expand up to
+          1000 times.
+          It returns <code>{more, Decompressed}</code>, when there is more output
+          available, and <code>inflateChunk/1</code> should be used to read it.
+          It may introduce some output latency (reading
+          input without producing any output).</p>
+        <p>If a preset dictionary is needed at this point (see
+          <code>inflateSetDictionary</code> below), <code>inflateChunk/2</code> throws a
+          <code>{need_dictionary,Adler}</code> exception where <code>Adler</code> is
+          the adler32 checksum of the dictionary chosen by the
+          compressor.</p>
+
+        <pre class="sh_erlang">
+walk(Compressed, Handler) -&gt;
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    % Limit single uncompressed chunk size to 512kb
+    zlib:setBufSize(Z, 512 * 1024),
+    loop(Z, Handler, zlib:inflateChunk(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {more, Uncompressed}) -&gt;
+    Handler(Uncompressed),
+    loop(Z, Handler, zlib:inflateChunk(Z));
+loop(Z, Handler, Uncompressed) -&gt;
+    Handler(Uncompressed).
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="inflateChunk/1">inflateChunk/1</h3>
+      
+      <div class="description">
+        <p>Read next chunk of uncompressed data, initialized by
+          <code>inflateChunk/2</code>.</p>
+        <p>This function should be repeatedly called, while it returns
+          <code>{more, Decompressed}</code>.</p>
       </div>
     </div>
     <div class="function">

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>merl (syntax_tools) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+<h1>merl</h1>
+<h2 class="modsummary">Metaprogramming in Erlang.</h2>
+<div class="description">
+<p>Metaprogramming in Erlang.
+  Merl is a more user friendly interface to the <code>erl_syntax</code> module, making
+  it easy both to build new ASTs from scratch and to
+  match and decompose existing ASTs. For details that are outside the scope
+  of Merl itself, please see the documentation of <a href="erl_syntax.html" class="seealso">erl_syntax</a>.</p>
+ 
+  <p><em><marker id="Quick_start">Quick start</marker></em></p>
+ 
+  <p>To enable the full power of Merl, your module needs to include the Merl
+  header file:
+  </p><pre class="sh_erlang">     -include_lib("syntax_tools/include/merl.hrl").</pre>
+ 
+  <p>Then, you can use the <code>?Q(Text)</code> macros in your code to create ASTs or match
+  on existing ASTs. For example:
+  </p><pre class="sh_erlang">     Tuple = ?Q("{foo, 42}"),
+     ?Q("{foo, _@Number}") = Tuple,
+     Call = ?Q("foo:bar(_@Number)")</pre>
+ 
+  <p>Calling <code>merl:print(Call)</code> will then print the following code:
+  </p><pre class="sh_erlang">     foo:bar(42)</pre>
+ 
+  <p>The <code>?Q</code> macros turn the quoted code fragments into ASTs, and lifts
+  metavariables such as <code>_@Tuple</code> and <code>_@Number</code> to the level of your Erlang
+  code, so you can use the corresponding Erlang variables <code>Tuple</code> and <code>Number</code>  
+directly. This is the most straightforward way to use Merl, and in many  
+cases it's all you need.</p>
+ 
+  <p>You can even write case switches using <code>?Q</code> macros as patterns. For example:
+  </p><pre class="sh_erlang">     case AST of
+         ?Q("{foo, _@Foo}") -&gt; handle(Foo);
+         ?Q("{bar, _@Bar}") when erl_syntax:is_integer(Bar) -&gt; handle(Bar);
+         _ -&gt; handle_default()
+     end</pre>
+ 
+  <p>These case switches only allow <code>?Q(...)</code> or <code>_</code> as clause patterns, and the  
+guards may contain any expressions, not just Erlang guard expressions.</p>
+ 
+  <p>If the macro <code>MERL_NO_TRANSFORM</code> is defined before the <code>merl.hrl</code> header
+  file is included, the parse transform used by Merl will be disabled, and in
+  that case, the match expressions <code>?Q(...) = ...</code>, case switches using
+  <code>?Q(...)</code> patterns, and automatic metavariables like <code>_@Tuple</code> cannot be
+  used in your code, but the Merl macros and functions still work. To do
+  metavariable substitution, you need to use the <code>?Q(Text, Map)</code> macro, e.g.:
+  </p><pre class="sh_erlang">     Tuple = ?Q("{foo, _@bar, _@baz}", [{bar, Bar}, {baz,Baz}])</pre>
+ 
+  <p>The text given to a <code>?Q(Text)</code> macro can be either a single string, or a
+  list of strings. The latter is useful when you need to split a long
+  expression over multiple lines, e.g.:
+  </p><pre class="sh_erlang">     ?Q(["case _@Expr of",
+         "  {foo, X} -&gt; f(X);",
+         "  {bar, X} -&gt; g(X)",
+         "  _ -&gt; h(X)"
+         "end"])</pre><p>  
+If there is a syntax error somewhere in the text (like the missing semicolon  
+in the second clause above) this allows Merl to generate an error message  
+pointing to the exact line in your source code. (Just remember to  
+comma-separate the strings in the list, otherwise Erlang will concatenate  
+the string fragments as if they were a single string.)</p>
+ 
+  <p><em><marker id="Metavariable_syntax">Metavariable syntax</marker></em></p>
+ 
+  <p>There are several ways to write a metavariable in your quoted code:
+  </p><list>
+    <item><p>Atoms starting with <code>@</code>, for example <code>'@foo'</code> or <code>'@Foo'</code></p></item>
+    <item><p>Variables starting with <code>_@</code>, for example <code>_@bar</code> or <code>_@Bar</code></p></item>
+    <item><p>Strings starting with <code>"'@</code>, for example <code>"'@File"</code></p></item>
+    <item><p>Integers starting with 909, for example <code>9091</code> or <code>909123</code></p></item>
+  </list><p>
+  Following the prefix, one or more <code>_</code> or <code>0</code> characters may be used to
+  indicate "lifting" of the variable one or more levels, and after that, a <code>@</code>
+  or <code>9</code> character indicates a glob metavariable (matching zero or more
+  elements in a sequence) rather than a normal metavariable. For example:
+  </p><list>
+    <item><p><code>'@_foo'</code> is lifted one level, and <code>_@__foo</code> is lifted two
+        levels</p></item>
+    <item><p><code>_@@bar</code> is a glob variable, and <code>_@_@bar</code> is a lifted glob
+        variable</p></item>
+    <item><p><code>90901</code> is a lifted variable,<code>90991</code> is a glob variable, and <code>9090091</code>
+        is a glob variable lifted two levels</p></item>
+  </list><p>
+  (Note that the last character in the name is never considered to be a lift
+  or glob marker, hence, <code>_@__</code> and <code>90900</code> are only lifted one level, not  
+two. Also note that globs only matter for matching; when doing  
+substitutions, a non-glob variable can be used to inject a sequence of  
+elements, and vice versa.)</p>
+ 
+  <p>If the name after the prefix and any lift and glob markers is <code>_</code> or <code>0</code>,
+  the variable is treated as an anonymous catch-all pattern in matches. For
+  example, <code>_@_</code>, <code>_@@_</code>, <code>_@__</code>, or even <code>_@__@_</code>.</p>
+ 
+  <p>Finally, if the name without any prefixes or lift/glob markers begins with
+  an uppercase character, as in <code>_@Foo</code> or <code>_@_@Foo</code>, it will become a
+  variable on the Erlang level, and can be used to easily deconstruct and
+  construct syntax trees:
+  </p><pre class="sh_erlang">     case Input of
+         ?Q("{foo, _@Number}") -&gt; ?Q("foo:bar(_@Number)");
+         ...</pre><p>
+  We refer to these as "automatic metavariables". If in addition the name ends
+  with <code>@</code>, as in <code>_@Foo@</code>, the value of the variable as an Erlang term will
+  be automatically converted to the corresponding abstract syntax tree when
+  used to construct a larger tree. For example, in:
+  </p><pre class="sh_erlang">     Bar = {bar, 42},
+     Foo = ?Q("{foo, _@Bar@}")</pre><p>
+  (where Bar is just some term, not a syntax tree) the result <code>Foo</code> will be a
+  syntax tree representing <code>{foo, {bar, 42}}</code>. This avoids the need for
+  temporary variables in order to inject data, as in
+  </p><pre class="sh_erlang">     TmpBar = erl_syntax:abstract(Bar),
+     Foo = ?Q("{foo, _@TmpBar}")</pre>
+ 
+  <p>If the context requires an integer rather than a variable, an atom, or a
+  string, you cannot use the uppercase convention to mark an automatic
+  metavariable. Instead, if the integer (without the <code>909</code>-prefix and
+  lift/glob markers) ends in a <code>9</code>, the integer will become an Erlang-level
+  variable prefixed with <code>Q</code>, and if it ends with <code>99</code> it will also be
+  automatically abstracted. For example, the following will increment the
+  arity of the exported function f:
+  </p><pre class="sh_erlang">     case Form of
+         ?Q("-export([f/90919]).") -&gt;
+             Q2 = erl_syntax:concrete(Q1) + 1,
+             ?Q("-export([f/909299]).");
+         ...</pre>
+ 
+  <p><em><marker id="When_to_use_the_various_forms_of_metavariables">When to use the various forms of metavariables</marker></em></p>
+ 
+  <p>Merl can only parse a fragment of text if it follows the basic syntactical
+  rules of Erlang. In most places, a normal Erlang variable can be used as
+  metavariable, for example:
+  </p><pre class="sh_erlang">     ?Q("f(_@Arg)") = Expr</pre><p>
+  but if you want to match on something like the name of a function, you have
+  to use an atom as metavariable:
+  </p><pre class="sh_erlang">     ?Q("'@Name'() -&gt; _@@_." = Function</pre><p>
+  (note the anonymous glob variable <code>_@@_</code> to ignore the function body).</p>
+ 
+  <p>In some contexts, only a string or an integer is allowed. For example, the
+  directive <code>-file(Name, Line)</code> requires that <code>Name</code> is a string literal and
+  <code>Line</code> an integer literal:</p>
+ 
+  <pre class="sh_erlang">     ?Q("-file(\"'@File\", 9090).") = ?Q("-file(\"foo.erl\", 42).")).</pre><p>
+  This will extract the string literal <code>"foo.erl"</code> into the variable <code>Foo</code>.
+  Note the use of the anonymous variable <code>9090</code> to ignore the line number. To  
+match and also bind a metavariable that must be an integer literal, we can  
+use the convention of ending the integer with a 9, turning it into a  
+Q-prefixed variable on the Erlang level (see the previous section).</p>
+ 
+  <p><em><marker id="Globs">Globs</marker></em></p>
+ 
+  <p>Whenever you want to match out a number of elements in a sequence (zero or
+  more) rather than a fixed set of elements, you need to use a glob. For
+  example:
+  </p><pre class="sh_erlang">     ?Q("{_@@Elements}") = ?Q({a, b, c})</pre><p>
+  will bind Elements to the list of individual syntax trees representing the
+  atoms <code>a</code>, <code>b</code>, and <code>c</code>. This can also be used with static prefix and suffix
+  elements in the sequence. For example:
+  </p><pre class="sh_erlang">     ?Q("{a, b, _@@Elements}") = ?Q({a, b, c, d})</pre><p>
+  will bind Elements to the list of the <code>c</code> and <code>d</code> subtrees, and
+  </p><pre class="sh_erlang">     ?Q("{_@@Elements, c, d}") = ?Q({a, b, c, d})</pre><p>
+  will bind Elements to the list of the <code>a</code> and <code>b</code> subtrees. You can even use
+  plain metavariables in the prefix or suffix:
+  </p><pre class="sh_erlang">     ?Q("{_@First, _@@Rest}") = ?Q({a, b, c})</pre><p>
+  or
+  </p><pre class="sh_erlang">     ?Q("{_@@_, _@Last}") = ?Q({a, b, c})</pre><p>  
+(ignoring all but the last element). You cannot however have two globs as  
+part of the same sequence.</p>
+ 
+  <p><em><marker id="Lifted_metavariables">Lifted metavariables</marker></em></p>
+ 
+  <p>In some cases, the Erlang syntax rules make it impossible to place a
+  metavariable directly where you would like it. For example, you cannot
+  write:
+  </p><pre class="sh_erlang">     ?Q("-export([_@@Name]).")</pre><p>
+  to match out all name/arity pairs in the export list, or to insert a list of
+  exports in a declaration, because the Erlang parser only allows elements on
+  the form <code>A/I</code> (where <code>A</code> is an atom and <code>I</code> an integer) in the export list.
+  A variable like the above is not allowed, but neither is a single atom or
+  integer, so <code>'@@Name'</code> or <code>909919</code> wouldn't work either.</p>
+ 
+  <p>What you have to do in such cases is to write your metavariable in a
+  syntactically valid position, and use lifting markers to denote where it
+  should really apply, as in:
+  </p><pre class="sh_erlang">     ?Q("-export(['@_@Name'/0]).")</pre><p>
+  This causes the variable to be lifted (after parsing) to the next higher
+  level in the syntax tree, replacing that entire subtree. In this case, the
+  <code>'@_@Name'/0</code> will be replaced with <code>'@@Name'</code>, and the <code>/0</code>  
+part was just used as dummy notation and will be discarded.</p>
+ 
+  <p>You may even need to apply lifting more than once. To match the entire
+  export list as a single syntax tree, you can write:
+  </p><pre class="sh_erlang">     ?Q("-export(['@__Name'/0]).")</pre><p>
+  using two underscores, but with no glob marker this time. This will make the
+  entire <code>['@__Name'/0]</code> part be replaced with <code>'@Name'</code>.</p>
+ 
+  <p>Sometimes, the tree structure of a code fragment isn't very obvious, and
+  parts of the structure may be invisible when printed as source code. For
+  instance, a simple function definition like the following:
+  </p><pre class="sh_erlang">     zero() -&gt; 0.</pre><p>
+  consists of the name (the atom <code>zero</code>), and a list of clauses containing the
+  single clause <code>() -&gt; 0</code>. The clause consists of an argument list (empty), a
+  guard (empty), and a body (which is always a list of expressions) containing
+  the single expression <code>0</code>. This means that to match out the name and the
+  list of clauses of any function, you'll need to use a pattern like
+  <code>?Q("'@Name'() -&gt; _@_@Body.")</code>, using a dummy clause whose body is a glob  
+lifted one level.</p>
+ 
+  <p>To visualize the structure of a syntax tree, you can use the function
+  <code>merl:show(T)</code>, which prints a summary. For example, entering
+  </p><pre class="sh_erlang">     merl:show(merl:quote("inc(X, Y) when Y &gt; 0 -&gt; X + Y."))</pre><p>
+  in the Erlang shell will print the following (where the <code>+</code> signs separate
+  groups of subtrees on the same level):
+  </p><pre class="sh_erlang">     function: inc(X, Y) when ... -&gt; X + Y.
+       atom: inc
+       +
+       clause: (X, Y) when ... -&gt; X + Y
+         variable: X
+         variable: Y
+         +
+         disjunction: Y &gt; 0
+           conjunction: Y &gt; 0
+             infix_expr: Y &gt; 0
+               variable: Y
+               +
+               operator: &gt;
+               +
+               integer: 0
+         +
+         infix_expr: X + Y
+           variable: X
+           +
+           operator: +
+           +
+           variable: Y</pre>
+ 
+  <p>This shows another important non-obvious case: a clause guard, even if it's
+  as simple as <code>Y &gt; 0</code>, always consists of a single disjunction of one or more
+  conjunctions of tests, much like a tuple of tuples. Thus:
+  </p><list>
+    <item><p><code>"when _@Guard -&gt;"</code> will only match a guard with exactly one
+      test</p></item>
+    <item><p><code>"when _@@Guard -&gt;"</code> will match a guard with one or more
+      comma-separated tests (but no semicolons), binding <code>Guard</code> to the list
+      of tests</p></item>
+    <item><p><code>"when _@_Guard -&gt;"</code> will match just like the previous pattern, but
+      binds <code>Guard</code> to the conjunction subtree</p></item>
+    <item><p><code>"when _@_@Guard -&gt;"</code> will match an arbitrary nonempty guard,
+      binding <code>Guard</code> to the list of conjunction subtrees</p></item>
+    <item><p><code>"when _@__Guard -&gt;"</code> will match like the previous pattern, but
+      binds <code>Guard</code> to the whole disjunction subtree</p></item>
+    <item><p>and finally, <code>"when _@__@Guard -&gt;"</code> will match any clause,
+      binding <code>Guard</code> to <code>[]</code> if the guard is empty and to <code>[Disjunction]</code>
+      otherwise</p></item>
+  </list>
+ 
+  <p>Thus, the following pattern matches all possible clauses:
+  </p><pre class="sh_erlang">     "(_@Args) when _@__@Guard -&gt; _@Body"</pre></div>
+<div id="types" class="category"><h4><a href="#types">Types</a></h4><hr />
+    <div class="type"><h3 id="type-default_action">default_action() = fun(() -&gt; any())</h3></div>
+    <div class="type"><h3 id="type-env">env() = [{Key :: <a href="#type-id" class="seealso">id()</a>, <a href="#type-pattern_or_patterns" class="seealso">pattern_or_patterns()</a>}]</h3></div>
+    <div class="type"><h3 id="type-guard_test">guard_test() = fun((<a href="#type-env" class="seealso">env()</a>) -> boolean())</h3></div>
+    <div class="type"><h3 id="type-guarded_action">guarded_action() = <a href="#type-switch_action" class="seealso">switch_action()</a><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {<a href="#type-guard_test" class="seealso">guard_test()</a>, <a href="#type-switch_action" class="seealso">switch_action()</a>}</h3></div>
+    <div class="type"><h3 id="type-guarded_actions">guarded_actions() = <a href="#type-guarded_action" class="seealso">guarded_action()</a> | [<a href="#type-guarded_action" class="seealso">guarded_action()</a>]</h3></div>
+    <div class="type"><h3 id="type-id">id() = atom() | integer()</h3></div>
+    <div class="type"><h3 id="type-location">location() = <a href="erl_anno.html#type-location" class="seealso">erl_anno:location()</a></h3></div>
+    <div class="type"><h3 id="type-pattern">pattern() = <a href="#type-tree" class="seealso">tree()</a> | <a href="#type-template" class="seealso">template()</a></h3></div>
+    <div class="type"><h3 id="type-pattern_or_patterns">pattern_or_patterns() = <a href="#type-pattern" class="seealso">pattern()</a> | [<a href="#type-pattern" class="seealso">pattern()</a>]</h3></div>
+    <div class="type"><h3 id="type-switch_action">switch_action() = fun((<a href="#type-env" class="seealso">env()</a>) -> any())</h3></div>
+    <div class="type"><h3 id="type-switch_clause">switch_clause() = {<a href="#type-pattern_or_patterns" class="seealso">pattern_or_patterns()</a>, <a href="#type-guarded_actions" class="seealso">guarded_actions()</a>}<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {<a href="#type-pattern_or_patterns" class="seealso">pattern_or_patterns()</a>,<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-guard_test" class="seealso">guard_test()</a>,<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-switch_action" class="seealso">switch_action()</a>}<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| <a href="#type-default_action" class="seealso">default_action()</a></h3></div>
+    <div class="type"><h3 id="type-template">template() = <a href="#type-tree" class="seealso">tree()</a><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {<a href="#type-id" class="seealso">id()</a>}<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {'*', <a href="#type-id" class="seealso">id()</a>}<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {template, atom(), term(), [[<a href="#type-template" class="seealso">template()</a>]]}</h3></div>
+    <div class="type"><h3 id="type-template_or_templates">template_or_templates() = <a href="#type-template" class="seealso">template()</a> | [<a href="#type-template" class="seealso">template()</a>]</h3></div>
+    <div class="type"><h3 id="type-text">text() = string() | binary() | [string()] | [binary()]</h3></div>
+    <div class="type"><h3 id="type-tree">tree() = <a href="erl_syntax.html#type-syntaxTree" class="seealso">erl_syntax:syntaxTree()</a></h3></div>
+    <div class="type"><h3 id="type-tree_or_trees">tree_or_trees() = <a href="#type-tree" class="seealso">tree()</a> | [<a href="#type-tree" class="seealso">tree()</a>]</h3></div></div>
+<div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr />
+<div class="function">
+<h3 id="compile/1">compile(Code) -&gt; term()
+</h3>
+
+
+<div class="description">
+<p>Equivalent to <a href="#compile/2" class="seealso">compile(Code, [])</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="compile/2">compile(Code, Options) -&gt; term()
+</h3>
+
+
+<div class="description">
+
+<p>Compile a syntax tree or list of syntax trees representing a module
+  into a binary BEAM object.</p>
+<p><em>See also:</em> <a href="#compile/1" class="seealso">compile/1</a>, <a href="#compile_and_load/2" class="seealso">compile_and_load/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="compile_and_load/1">compile_and_load(Code) -&gt; term()
+</h3>
+
+
+<div class="description">
+<p>Equivalent to <a href="#compile_and_load/2" class="seealso">compile_and_load(Code, [])</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="compile_and_load/2">compile_and_load(Code, Options) -&gt; term()
+</h3>
+
+
+<div class="description">
+
+<p>Compile a syntax tree or list of syntax trees representing a module
+  and load the resulting module into memory.</p>
+<p><em>See also:</em> <a href="#compile/2" class="seealso">compile/2</a>, <a href="#compile_and_load/1" class="seealso">compile_and_load/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="var/1">var(Name::atom()) -&gt; tree()</h3>
+
+
+<div class="description">
+
+<p>Create a variable.</p>
+</div></div>
+<div class="function">
+<h3 id="term/1">term(Term::term()) -&gt; tree()</h3>
+
+
+<div class="description">
+
+<p>Create a syntax tree for a constant term.</p>
+</div></div>
+<div class="function">
+<h3 id="print/1">print(Ts) -&gt; term()
+</h3>
+
+
+<div class="description">
+
+<p>Pretty-print a syntax tree or template to the standard output. This
+  is a utility function for development and debugging.</p>
+</div></div>
+<div class="function">
+<h3 id="show/1">show(Ts) -&gt; term()
+</h3>
+
+
+<div class="description">
+
+<p>Print the structure of a syntax tree or template to the standard
+  output. This is a utility function for development and debugging.</p>
+</div></div>
+<div class="function">
+<h3 id="qquote/1">qquote(Text::text(), Env::env()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Parse text and substitute meta-variables.
+ </p>
+</div></div>
+<div class="function">
+<h3 id="qquote/1-1">qquote(StartPos::location(), Text::text(), Env::env()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Parse text and substitute meta-variables. Takes an initial scanner  
+starting position as first argument.</p>
+ 
+  <p>The macro <code>?Q(Text, Env)</code> expands to <code>merl:qquote(?LINE, Text, Env)</code>.
+ </p>
+<p><em>See also:</em> <a href="#quote/2" class="seealso">quote/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="quote/1">quote(Text::text()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Parse text.
+ </p>
+</div></div>
+<div class="function">
+<h3 id="quote/1-1">quote(StartPos::location(), Text::text()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Parse text. Takes an initial scanner starting position as first  
+argument.</p>
+ 
+  <p>The macro <code>?Q(Text)</code> expands to <code>merl:quote(?LINE, Text, Env)</code>.
+ </p>
+<p><em>See also:</em> <a href="#quote/1" class="seealso">quote/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="template/1">template(Trees::pattern_or_patterns()) -&gt; template_or_templates()</h3>
+
+
+<div class="description">
+
+<p>Turn a syntax tree or list of trees into a template or templates.
+  Templates can be instantiated or matched against, and reverted back to
+  normal syntax trees using <a href="#tree/1" class="seealso">tree/1</a>. If the input is already a
+  template, it is not modified further.
+ </p>
+<p><em>See also:</em> <a href="#match/2" class="seealso">match/2</a>, <a href="#subst/2" class="seealso">subst/2</a>, <a href="#tree/1" class="seealso">tree/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="meta_template/1">meta_template(Templates::template_or_templates()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Turn a template into a syntax tree representing the template.
+  Meta-variables in the template are turned into normal Erlang variables if
+  their names (after the metavariable prefix characters) begin with an
+  uppercase character. E.g., <code>_@Foo</code> in the template becomes the variable
+  <code>Foo</code> in the meta-template. Furthermore, variables ending with <code>@</code> are
+  automatically wrapped in a call to merl:term/1, so e.g. <code>_@Foo@ in the
+  template becomes `merl:term(Foo)</code> in the meta-template.</p>
+</div></div>
+<div class="function">
+<h3 id="template_vars/1">template_vars(Template::template_or_templates()) -&gt; [id()]</h3>
+
+
+<div class="description">
+
+<p>Return an ordered list of the metavariables in the template.</p>
+</div></div>
+<div class="function">
+<h3 id="tree/1">tree(Templates::template_or_templates()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Revert a template to a normal syntax tree. Any remaining
+  metavariables are turned into <code>@</code>-prefixed atoms or <code>909</code>-prefixed
+  integers.</p>
+<p><em>See also:</em> <a href="#template/1" class="seealso">template/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="subst/1">subst(Trees::pattern_or_patterns(), Env::env()) -&gt; tree_or_trees()</h3>
+
+
+<div class="description">
+
+<p>Substitute metavariables in a pattern or list of patterns, yielding
+  a syntax tree or list of trees as result. Both for normal metavariables
+  and glob metavariables, the substituted value may be a single element or
+  a list of elements. For example, if a list representing <code>1, 2, 3</code> is
+  substituted for <code>var</code> in either of <code>[foo, _@var, bar]</code> or <code>[foo, _@var,
+  bar]</code>, the result represents <code>[foo, 1, 2, 3, bar]</code>.</p>
+</div></div>
+<div class="function">
+<h3 id="tsubst/1">tsubst(Trees::pattern_or_patterns(), Env::env()) -&gt; template_or_templates()</h3>
+
+
+<div class="description">
+
+<p>Like subst/2, but does not convert the result from a template back
+  to a tree. Useful if you want to do multiple separate substitutions.</p>
+<p><em>See also:</em> <a href="#subst/2" class="seealso">subst/2</a>, <a href="#tree/1" class="seealso">tree/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="alpha/1">alpha(Trees::pattern_or_patterns(), Env::[{id(), id()}]) -&gt; template_or_templates()</h3>
+
+
+<div class="description">
+
+<p>Alpha converts a pattern (renames variables). Similar to tsubst/1,
+  but only renames variables (including globs).</p>
+<p><em>See also:</em> <a href="#tsubst/2" class="seealso">tsubst/2</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="match/1">match(Patterns::pattern_or_patterns(), Trees::tree_or_trees()) -&gt; {ok, env()} | error</h3>
+
+
+<div class="description">
+
+<p>Match a pattern against a syntax tree (or patterns against syntax
+  trees) returning an environment mapping variable names to subtrees; the
+  environment is always sorted on keys. Note that multiple occurrences of
+  metavariables in the pattern is not allowed, but is not checked.
+ </p>
+<p><em>See also:</em> <a href="#switch/2" class="seealso">switch/2</a>, <a href="#template/1" class="seealso">template/1</a>.</p>
+</div></div>
+<div class="function">
+<h3 id="switch/1">switch(Trees::tree_or_trees(), Cs::[switch_clause()]) -&gt; any()</h3>
+
+
+<div class="description">
+
+<p>Match against one or more clauses with patterns and optional guards.</p>
+ 
+  <p>Note that clauses following a default action will be ignored.
+ </p>
+<p><em>See also:</em> <a href="#match/2" class="seealso">match/2</a>.</p>
+</div></div></div>
+
+<authors>
+
+<aname>Richard Carlsson</aname>
+<email>carlsson.richard@gmail.com</email></authors>
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
