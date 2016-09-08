@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ssh_channel (ssh) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ssh_channel</h1>
+  <h2 class="modsummary">-behaviour(ssh_channel).
+  </h2>
+  <div class="description">
+    <p>SSH services (clients and servers) are implemented as channels
+    that are multiplexed over an SSH connection and communicates via
+    the <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH
+    Connection Protocol</url>. This module provides a callback API
+    that takes care of generic channel aspects such as flow control
+    and close messages and lets the callback functions take care of
+    the service (application) specific parts. This behavior also ensures
+    that the channel process honors the principal of an OTP-process so
+    that it can be part of a supervisor tree. This is a requirement of
+    channel processes implementing a subsystem that will be added to
+    the SSH applications supervisor tree.
+    </p>
+
+    <div class="note"><h2>Note!</h2> <p>When implementing a SSH subsystem use the
+    <code>-behaviour(ssh_daemon_channel).</code> instead of  <code>-behaviour(ssh_channel).</code>
+    as the only relevant callback functions for subsystems are
+    init/1, handle_ssh_msg/2, handle_msg/2 and terminate/2, so the ssh_daemon_channel
+    behaviour is limited version of the ssh_channel behaviour.
+    </p> </div>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES </h4>
+
+    <p>Type definitions that are used more than once in this module
+    and/or abstractions to indicate the intended use of the data
+    type:</p>
+    
+    <p><code>boolean() = true | false </code></p>
+    <p><code>string() = list of ASCII characters</code></p>
+    <p><code>timeout() =  infinity | integer() - in milliseconds.</code></p>
+    <p><code>ssh_connection_ref() - opaque to the user returned by
+    ssh:connect/3 or sent to an SSH channel process</code></p>
+    <p><code>ssh_channel_id() = integer() </code></p>
+    <p><code>ssh_data_type_code() = 1 ("stderr") | 0 ("normal") are
+    currently valid values see <url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254  </url> section 5.2.</code></p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="call/2">call(ChannelRef, Msg) -&gt;</h3>
+      <h3 id="call/3">call(ChannelRef, Msg, Timeout) -&gt; Reply | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>ChannelRef = pid() </code></li>
+	<d>As returned by start_link/4 </d>
+	<li><code>Msg = term() </code></li>
+	<li><code>Timeout = timeout() </code></li>
+	<li><code>Reply = term() </code></li>
+	<li><code>Reason = closed | timeout </code></li>
+
+      </ul>
+      <div class="description">
+	<p>Makes a synchronous call to the channel process by sending
+	a message and waiting until a reply arrives or a timeout
+	occurs. The channel will call <a href="../#Module/handle_call-3.html" class="seealso">Module:handle_call/3</a>
+	to handle the message.  If the channel process does not exist
+	<code>{error, closed}</code> is returned.
+	</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="cast/2">cast(ChannelRef, Msg) -&gt; ok </h3>
+      
+      <ul class="type">
+	<li><code>ChannelRef = pid() </code></li>
+	<d>As returned by start_link/4 </d>
+	<li><code>Msg = term() </code></li>
+      </ul>
+      <div class="description">
+	<p>Sends an asynchronous message to the channel process and
+	returns ok immediately, ignoring if the destination node or
+	channel process does not exist. The channel will call
+	<a href="../#Module/handle_cast-2.html" class="seealso">Module:handle_cast/2</a>
+	 to handle the message.
+	</p>
+      </div>
+    </div>
+
+       <div class="function">
+      <h3 id="enter_loop/1">enter_loop(State) -&gt; _ </h3>
+      
+      <ul class="type">
+	<li><code> State = term() - as returned by <a href="#init/1" class="seealso">ssh_channel:init/1</a></code></li>
+      </ul>
+      <div class="description">
+	<p> Makes an existing process an <code>ssh_channel</code>
+	process. Does not return, instead the calling process will
+	enter the <code>ssh_channel</code> process receive loop and become an
+	<code>ssh_channel process.</code> The process must have been started using
+	one of the start functions in proc_lib, see <a href="../stdlib/proc_lib.html" class="seealso">proc_lib(3)</a>. The
+	user is responsible for any initialization of the process
+	and needs to call <a href="#init/1" class="seealso">ssh_channel:init/1</a>
+	</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="init/1">init(Options) -&gt; {ok, State} |  {ok, State, Timeout} | {stop, Reason} </h3>
+      
+      <ul class="type">
+	<li><code>Options = [{Option, Value}]</code></li>
+	<li><code>State = term()</code></li>
+	<li><code>Timeout = timeout() </code></li>
+	<li><code>Reason = term() </code></li>
+      </ul>
+      <div class="description">
+	<p>
+	  The following options must be present:
+	</p>
+	  <taglist>
+	  <dt><code>{channel_cb, atom()}</code></dt>
+	  <item>The module that implements the channel behaviour.</item>
+	  
+	  <dt><code>{init_args(), list()}</code></dt>
+	  <item> The list of arguments to the callback module's
+	  init function.</item>
+
+	  <dt><code>{cm, connection_ref()}</code></dt>
+	  <item> Reference to the ssh connection as returned by  <a href="ssh.html#connect/3" class="seealso">ssh:connect/3</a></item>
+	  
+	  <dt><code>{channel_id, channel_id()}</code></dt>
+	  <item> Id of the SSH channel.</item>
+	  
+	  </taglist>
+
+	  <div class="note"><h2>Note!</h2><p>This function is normally not called by the
+	  user. The user only needs to call if for some reason the
+	  channel process needs to be started with help of
+	  <code>proc_lib</code> instead of calling
+	  <code>ssh_channel:start/4</code> or
+	  <code>ssh_channel:start_link/4</code> </p>
+	  </div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="reply/2">reply(Client, Reply) -&gt; _</h3>
+      
+      <ul class="type">
+        <li><code>Client - opaque to the user, see explanation below</code></li>
+        <li><code>Reply = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function can be used by a channel to explicitly send a
+        reply to a client that called <code>call/[2,3]</code> when the reply
+        cannot be defined in the return value of
+	<a href="../#Module/handle_call-3.html" class="seealso">Module:handle_call/3</a>.</p>
+        <p><code>Client</code> must be the <code>From</code> argument provided to
+          the callback function <code>handle_call/3</code>.
+	  <code>Reply</code> is an arbitrary term,
+	  which will be given back to the client as the return value of
+          <a href="#call/2" class="seealso">ssh_channel:call/[2,3].</a>&gt;</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="start/4">start(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt; </h3>
+      <h3 id="start_link/4">start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) -&gt;
+      {ok, ChannelRef} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>SshConnection = ssh_connection_ref()</code></li>
+	<li><code>ChannelId = ssh_channel_id() </code></li>
+	<d> As returned by cannot be defined in the return value of
+	<a href="ssh_connection.html#session_channel/2" class="seealso">ssh_connection:session_channel/[2,4]</a></d>
+	<li><code>ChannelCb = atom()</code></li>
+	<d> The name of the module implementing the service specific parts
+	of the channel.</d>
+	<li><code>CbInitArgs = [term()]</code></li>
+	<d>Argument  list for the init function in the callback module. </d>
+	<li><code>ChannelRef = pid()</code></li>
+      </ul>
+      <div class="description">
+	<p>Starts a processes that handles an SSH channel. It will be
+	called internally by the SSH daemon or explicitly by the SSH
+	client implementations. The behavior will set the
+	<code>trap_exit</code> flag to true.
+	</p>
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="section">
+    <span id="cb_timeouts"> </span>
+    <h4> CALLBACK TIMEOUTS</h4>
+
+    <p>The timeout values that may be returned by the callback functions
+    has the same semantics as in a <a href="../stdlib/gen_server.html" class="seealso">gen_server</a>
+    If the timeout occurs <a href="../#Module/handle_msg-2.html" class="seealso">handle_msg/2</a>
+    will be called as <code>handle_msg(timeout, State). </code></p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="code_change/3">Module:code_change(OldVsn, State, Extra) -&gt; {ok,
+      NewState}</h3>
+      
+      <ul class="type">
+	<li><code>OldVsn = term()</code></li>
+	<d>In the case of an upgrade, <code>OldVsn</code> is <code>Vsn</code>, and
+	in the case of a downgrade, <code>OldVsn</code> is
+	<code>{down,Vsn}</code>. <code>Vsn</code> is defined by the <code>vsn</code>
+	attribute(s) of the old version of the callback module
+	<code>Module</code>. If no such attribute is defined, the version is
+	the checksum of the BEAM file.</d>
+	<li><code>State = term()</code></li>
+	<d>The internal state of the channel.</d>
+        <li><code>Extra = term()</code></li>
+	<d>Passed as-is from the <code>{advanced,Extra}</code>
+	part of the update instruction.</d>
+      </ul>
+      <div class="description">
+	<p> Converts process state when code is changed.</p>
+
+	<p>This function is called by a client side channel when it
+	should update its internal state during a release
+	upgrade/downgrade, i.e. when the instruction
+	<code>{update,Module,Change,...}</code> where
+	<code>Change={advanced,Extra}</code> is given in the <code>appup</code>
+	file. See <a href="../doc/design_principles/release_handling.html#instr" class="seealso">OTP
+	Design Principles</a> for more information.
+	</p>
+
+	<div class="note"><h2>Note!</h2><p>Soft upgrade according to the OTP release concept
+	is not straight forward for the server side, as subsystem
+	channel processes are spawned by the SSH application and
+	hence added to its supervisor tree. It could be possible to
+	upgrade the subsystem channels, when upgrading the user
+	application, if the callback functions can handle two
+	versions of the state, but this function can not be used in
+	the normal way.</p>
+	</div>
+	  
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="init/1-1">Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h3>
+      
+      <ul class="type">
+	<li><code> Args = term() </code></li>
+	<d> Last argument to ssh_channel:start_link/4.</d>
+	<li><code> State = term() </code></li>
+	<li><code> Reason = term() </code></li>
+      </ul>
+      <div class="description">
+	<p> Makes necessary initializations and returns the initial channel
+	state if the initializations succeed.
+	</p>
+	<p>For more detailed information on timeouts see the section 
+	<a href="#cb_timeouts" class="seealso">CALLBACK TIMEOUTS</a>. </p>
+      </div>
+    </div>
+   
+    <div class="function">
+      <h3 id="handle_call/3">Module:handle_call(Msg, From, State) -&gt; Result</h3>
+      
+      <ul class="type">
+	<li><code>Msg = term()</code></li>
+	<li><code>From = opaque to the user should be used as argument to
+	ssh_channel:reply/2</code></li>
+	<li><code>State = term()</code></li>
+	<li><code>Result = {reply, Reply, NewState} | {reply, Reply, NewState, timeout()}
+	| {noreply, NewState} | {noreply , NewState, timeout()}
+	| {stop, Reason, Reply, NewState} | {stop, Reason, NewState} </code></li>
+	<li><code>Reply = term() - will be the return value of ssh_channel:call/[2,3]</code></li>
+	<li><code>NewState = term()</code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Handles messages sent by calling
+	<a href="#call/2" class="seealso">ssh_channel:call/[2,3]</a>
+	</p>
+	<p>For more detailed information on timeouts see the section 
+	<a href="#cb_timeouts" class="seealso">CALLBACK TIMEOUTS</a>. </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_cast/2">Module:handle_cast(Msg, State) -&gt; Result</h3>
+      
+      <ul class="type">
+	<li><code>Msg = term()</code></li>
+	<li><code>State = term()</code></li>
+	<li><code>Result = {noreply, NewState} | {noreply, NewState, timeout()}
+	| {stop, Reason, NewState}</code></li>
+	<li><code>NewState = term() </code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p> Handles messages sent by calling
+	<code>ssh_channel:cast/2</code>
+	</p>
+	<p>For more detailed information on timeouts see the section 
+	<a href="#cb_timeouts" class="seealso">CALLBACK TIMEOUTS</a>. </p>
+      </div>
+    </div>
+ 
+    <div class="function">
+      <h3 id="handle_msg/2">Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h3>
+
+      
+      <ul class="type">
+	<li><code>Msg = timeout | term()</code></li>
+	<li><code>ChannelId = ssh_channel_id()</code></li>
+	<li><code>State = term() </code></li>
+      </ul>
+      <div class="description">
+	<p>Handle other messages than ssh connection protocol, call or
+	cast messages sent to the channel. 
+	</p>
+
+	<p> Possible erlang 'EXIT'-messages should be handled by this
+	function and all channels should handle the following message.</p>
+	
+	<taglist>
+	  <dt><code>{ssh_channel_up, ssh_channel_id(), 
+	  ssh_connection_ref()}</code></dt>
+	  <item>This is the first messages that will be received by
+	  the channel, it is sent just before the <a href="#init/1" class="seealso">ssh_channel:init/1</a> function
+	  returns successfully.  This is especially useful if the
+	  server wants to send a message to the client without first
+	  receiving a message from it. If the message is not
+	  useful for your particular scenario just ignore it by
+	  immediately returning {ok, State}.
+	  </item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_ssh_msg/2">Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h3>
+      
+      <ul class="type">
+	<li><code>Msg = <a href="ssh_connection.html" class="seealso"> ssh_connection:event() </a> </code></li>
+	<li><code>ChannelId = ssh_channel_id()</code></li>
+	<li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+	<p> Handles SSH connection protocol messages that may need
+	service specific attention.
+	</p>
+	
+	<p> The following message is completely taken care of by the
+	SSH channel behavior</p>
+	
+	<taglist>
+	  <dt><code>{closed, ssh_channel_id()}</code></dt>
+	  <item> The channel behavior will send a close message to the
+	  other side if such a message has not already been sent and
+	  then terminate the channel with reason normal.</item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="terminate/2">Module:terminate(Reason, State) -&gt; _</h3>
+      
+      <ul class="type">
+	<li><code>Reason = term()</code></li>
+	<li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>This function is called by a channel process when it is
+	about to terminate. Before this function is called <a href="ssh_connection.html#close/2" class="seealso"> ssh_connection:close/2
+	</a> will be called if it has not been called earlier.
+	This function should do any necessary cleaning
+	up. When it returns, the channel process terminates with
+	reason <code>Reason</code>. The return value is ignored.
+	</p>
+      </div>
+    </div>
+    
+  </div>
+  
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>driver_entry (erts) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml" title="erldocs" href="/search.xml"/>
+    <link type="text/css" rel="stylesheet" href="../erldocs.css"/>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_require', 'inpage_linkid', '//www.google-analytics.com/plugins/ga/inpage_linkid.js']);
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_setDomainName', 'erldocs.com']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>driver_entry</h1>
+  <h2 class="modsummary">The driver-entry structure used by erlang drivers.</h2>
+  <div class="description">
+    <p>As of erts version 5.5.3 the driver interface has been extended
+      (see <a href="driver_entry.html#extended_marker" class="seealso">extended marker</a>).
+      The extended interface introduce
+      <a href="erl_driver.html#version_management" class="seealso">version management</a>,
+      the possibility to pass capability flags
+      (see <a href="driver_entry.html#driver_flags" class="seealso">driver flags</a>)
+      to the runtime system at driver initialization, and some new
+      driver API functions.      </p>
+    <div class="note"><h2>Note!</h2>
+      <p>Old drivers (compiled with an <code>erl_driver.h</code> from an
+        earlier erts version than 5.5.3) have to be recompiled
+        (but does not have to use the extended interface).</p>
+    </div>
+    <p>The <code>driver_entry</code> structure is a C struct that all erlang
+      drivers defines. It contains entry points for the erlang driver
+      that are called by the erlang emulator when erlang code accesses
+      the driver.</p>
+    <p>      <span id="emulator"> </span>
+
+      The <a href="driver_entry.html" class="seealso">erl_driver</a> driver
+      API functions needs a port handle
+      that identifies the driver instance (and the port in the
+      emulator). This is only passed to the <code>start</code> function, but
+      not to the other functions. The <code>start</code> function returns a
+      driver-defined handle that is passed to the other functions. A
+      common practice is to have the <code>start</code> function allocating
+      some application-defined structure and stash the <code>port</code>
+      handle in it, to use it later with the driver API functions.</p>
+    <p>The driver call-back functions are called synchronously from the
+      erlang emulator. If they take too long before completing, they
+      can cause timeouts in the emulator. Use the queue or
+      asynchronous calls if nessecary, since the emulator must be
+      responsive.</p>
+    <p>The driver structure contains the name of the driver and some
+      15 function pointers. These pointers are called at different
+      times by the emulator.</p>
+    <p>The only exported function from the driver is
+      <code>driver_init</code>. This function returns the <code>driver_entry</code>
+      structure that points to the other functions in the driver. The
+      <code>driver_init</code> function is declared with a macro
+      <code>DRIVER_INIT(drivername)</code>. (This is because different OS's
+      have different names for it.)</p>
+    <p>When writing a driver in C++, the driver entry should be of
+      <code>"C"</code> linkage. One way to do this is to put this line
+      somewhere before the driver entry:
+      <code>extern "C" DRIVER_INIT(drivername);</code>.</p>
+    <p>When the driver has passed the <code>driver_entry</code> over to
+      the emulator, the driver is <em>not</em> allowed to modify the
+      <code>driver_entry</code>.</p>
+    <div class="note"><h2>Note!</h2>
+      <p>Do <em>not</em> declare the <code>driver_entry</code><code>const</code>. This since the emulator needs to
+        modify the <code>handle</code>, and the <code>handle2</code>
+        fields. A statically allocated, and <code>const</code>
+        declared <code>driver_entry</code> may be located in
+        read only memory which will cause the emulator
+        to crash.</p>
+    </div>
+    <p>Here is the declaration of <code>driver_entry</code>:</p>
+    <pre class="sh_erlang">
+typedef struct erl_drv_entry {
+    int (*init)(void);\011\011/* called at system start up for statically
+\011\011\011\011   linked drivers, and after loading for
+\011\011\011\011   dynamically loaded drivers */ 
+
+#ifndef ERL_SYS_DRV
+    ErlDrvData (*start)(ErlDrvPort port, char *command);
+\011\011\011\011/* called when open_port/2 is invoked.
+\011\011\011\011   return value -1 means failure. */
+#else
+    ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
+\011\011\011\011/* special options, only for system driver */
+#endif
+    void (*stop)(ErlDrvData drv_data);
+                                /* called when port is closed, and when the
+\011\011\011\011   emulator is halted. */
+    void (*output)(ErlDrvData drv_data, char *buf, int len);
+\011\011\011\011/* called when we have output from erlang to 
+\011\011\011\011   the port */
+    void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
+\011\011\011\011/* called when we have input from one of 
+\011\011\011\011   the driver's handles) */
+    void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
+\011\011\011\011/* called when output is possible to one of 
+\011\011\011\011   the driver's handles */
+    char *driver_name;\011\011/* name supplied as command 
+\011\011\011\011   in open_port XXX ? */
+    void (*finish)(void);       /* called before unloading the driver -
+\011\011\011\011   DYNAMIC DRIVERS ONLY */
+    void *handle;\011\011/* Reserved -- Used by emulator internally */
+    int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
+\011\011   int len, char **rbuf, int rlen); 
+\011\011\011\011/* "ioctl" for drivers - invoked by 
+\011\011\011\011   port_control/3) */
+    void (*timeout)(ErlDrvData drv_data);\011/* Handling of timeout in driver */
+    void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev);
+\011\011\011\011/* called when we have output from erlang
+\011\011\011\011   to the port */
+    void (*ready_async)(ErlDrvData drv_data, ErlDrvThreadData thread_data);
+    void (*flush)(ErlDrvData drv_data);
+                                /* called when the port is about to be 
+\011\011\011\011   closed, and there is data in the 
+\011\011\011\011   driver queue that needs to be flushed
+\011\011\011\011   before 'stop' can be called */
+    int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
+\011\011   int len, char **rbuf, int rlen, unsigned int *flags); 
+                                /* Works mostly like 'control', a syncronous
+\011\011\011\011   call into the driver. */
+    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
+\011\011  ErlDrvEventData event_data);
+                                /* Called when an event selected by 
+\011\011\011\011   driver_event() has occurred */
+    int extended_marker;\011/* ERL_DRV_EXTENDED_MARKER */
+    int major_version;\011\011/* ERL_DRV_EXTENDED_MAJOR_VERSION */
+    int minor_version;\011\011/* ERL_DRV_EXTENDED_MINOR_VERSION */
+    int driver_flags;\011\011/* ERL_DRV_FLAGs */
+    void *handle2;\011\011/* Reserved -- Used by emulator internally */
+    void (*process_exit)(ErlDrvData drv_data, ErlDrvMonitor *monitor);
+                                /* Called when a process monitor fires */
+ } ErlDrvEntry;
+    </pre>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="int init/1">int init(void)</h3>
+      
+      <div class="description">
+        <span id="init"> </span>
+        <p>This is called directly after the driver has been loaded by
+          <code>erl_ddll:load_driver/2</code>. (Actually when the driver is
+          added to the driver list.) The driver should return 0, or if
+          the driver can't initialize, -1.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="int start/2">int start(ErlDrvPort port, char* command)</h3>
+      
+      <div class="description">
+        <span id="start"> </span>
+        <p>This is called when the driver is instantiated, when
+          <code>open_port/2</code> is called. The driver should return a
+          number &gt;= 0 or a pointer, or if the driver can't be started,
+          one of three error codes should be returned:</p>
+        <p>ERL_DRV_ERROR_GENERAL - general error, no error code</p>
+        <p>ERL_DRV_ERROR_ERRNO - error with error code in erl_errno</p>
+        <p>ERL_DRV_ERROR_BADARG - error, badarg</p>
+        <p>If an error code is returned, the port isn't started.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void stop/1">void stop(ErlDrvData drv_data)</h3>
+      
+      <div class="description">
+        <span id="stop"> </span>
+        <p>This is called when the port is closed, with
+          <code>port_close/1</code> or <code>Port ! {self(), close}</code>. Note
+          that terminating the port owner process also closes the
+          p\011  port.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void output/3">void output(ErlDrvData drv_data, char *buf, int len)</h3>
+      
+      <div class="description">
+        <span id="output"> </span>
+        <p>This is called when an erlang process has sent data to the
+          port. The data is pointed to by <code>buf</code>, and is
+          <code>len</code> bytes.  Data is sent to the port with <code>Port ! {self(), {command, Data}}</code>, or with
+          <code>port_command/2</code>. Depending on how the port was opened,
+          it should be either a list of integers 0...255 or a
+          binary. See <code>open_port/3</code> and <code>port_command/2</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void ready_input/2">void ready_input(ErlDrvData drv_data, ErlDrvEvent event)</h3>
+      <h3 id="void ready_output/2">void ready_output(ErlDrvData drv_data, ErlDrvEvent event)</h3>
+      
+      <div class="description">
+        <span id="ready_input"> </span>
+        <span id="ready_output"> </span>
+        <p>This is called when a driver event (given in the
+          <code>event</code> parameter) is signaled. This is used to help
+          asynchronous drivers "wake up" when something happens.</p>
+        <p>On unix the <code>event</code> is a pipe or socket handle (or
+          something that the <code>select</code> system call understands).</p>
+        <p>On Windows the <code>event</code> is an Event or Semaphore (or
+          something that the <code>WaitForMultipleObjects</code> API
+          function understands). (Some trickery in the emulator allows
+          more than the built-in limit of 64 <code>Events</code> to be used.)</p>
+        <p>To use this with threads and asynchronous routines, create a
+          pipe on unix and an Event on Windows. When the routine
+          completes, write to the pipe (use <code>SetEvent</code> on
+          Windows), this will make the emulator call
+          <code>ready_input</code> or <code>ready_output</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <span id="driver_name"> </span>
+        <p>This is the name of the driver, it must correspond to the
+          atom used in <code>open_port</code>, and the name of the driver
+          library file (without the extension).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void finish/1">void finish(void)</h3>
+      
+      <div class="description">
+        <span id="finish"> </span>
+        <p>This function is called by the <code>erl_ddll</code> driver when the
+          driver is unloaded. (It is only called in dynamic drivers.)</p>
+        <p>The driver is only unloaded as a result of calling
+          <code>unload_driver/1</code>, or when the emulator halts.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>This field is reserved for the emulators internal use. The
+          emulator will modify this field; therefore, it is important
+          that the <code>driver_entry</code> isn't declared <code>const</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="int control/6">int control(ErlDrvData drv_data, unsigned int command, char *buf,  int len, char **rbuf, int rlen)</h3>
+      
+      <div class="description">
+        <span id="control"> </span>
+        <p>This is a special routine invoked with the erlang function
+          <code>port_control/3</code>. It works a little like an "ioctl" for
+          erlang drivers. The data given to <code>port_control/3</code>
+          arrives in <code>buf</code> and <code>len</code>. The driver may send
+          data back, using <code>*rbuf</code> and <code>rlen</code>.</p>
+        <p>This is the fastest way of calling a driver and get a
+          response. It won't make any context switch in the erlang
+          emulator, and requires no message passing. It is suitable
+          for calling C function to get faster execution, when erlang
+          is too slow.</p>
+        <p>If the driver wants to return data, it should return it in
+          <code>rbuf</code>. Data is returned different depending on
+          the port control flags (those that are set with
+          <a href="erl_driver.html#set_port_control_flags" class="seealso">set_port_control_flags</a>).</p>
+        <p>If the flag is set to <code>PORT_CONTROL_FLAG_BINARY</code>, then
+          <code>*rbuf</code> must point to a binary allocated with
+          <a href="erl_driver.html#driver_alloc_binary" class="seealso">driver_alloc_binary</a> or be NULL.
+          This binary will be freed automatically after <code>control</code> has returned.
+          The driver can retain the returned binary for <em>read only</em> access with
+          <a href="erl_driver.html#driver_binary_inc_refc" class="seealso">driver_binary_inc_refc</a> to be freed later with
+          <a href="erl_driver.html#driver_free_binary" class="seealso">driver_free_binary</a>.
+          It is never allowed to alter the binary after <code>control</code> has returned.
+          If <code>*rbuf</code> is set to NULL, an empty list will be returned.
+          </p>
+        <p>If the flag is set to <code>0</code>,
+          <code>rbuf</code> points to a <code>char*</code> containing data,
+          that is returned as a list of integers. When <code>control</code> is called,
+          <code>*rbuf</code> points to a buffer of <code>rlen</code> bytes, which
+          can be used to return data. A larger buffer can be allocated with
+          <a href="erl_driver.html#driver_alloc" class="seealso">driver_alloc</a>.
+          The buffer will be freed automatically after <code>control</code> has returned.</p>
+        <p>Using binaries is faster if more than a few bytes are returned.</p>
+        <p>The return value is the number of bytes returned in
+          <code>*rbuf</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void timeout/1">void timeout(ErlDrvData drv_data)</h3>
+      
+      <div class="description">
+        <span id="timeout"> </span>
+        <p>This function is called any time after the driver's timer
+          reaches 0. The timer is activeated with
+          <code>driver_set_timer</code>. There are no priorities or ordering
+          among drivers, so if several drivers time out at the same
+          time, any one of them is called first.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void outputv/2">void outputv(ErlDrvData drv_data, ErlIOVec *ev)</h3>
+      
+      <div class="description">
+        <span id="outputv"> </span>
+        <p>This function is called whenever the port is written to. If
+          it is <code>NULL</code>, the <code>output</code> function is called
+          instead. This function is faster than <code>output</code>, because
+          it takes an <code>ErlIOVec</code> directly, which requires no
+          copying of the data. The port should be in binary mode, see
+          <code>open_port/2</code>.</p>
+        <p>The <code>ErlIOVec</code> contains both a <code>SysIOVec</code>,
+          suitable for <code>writev</code>, and one or more binaries. If
+          these binaries should be retained, when the driver returns
+          from <code>outputv</code>, they can be queued (using <a href="erl_driver.html#driver_enq_bin" class="seealso">driver_enq_bin</a>
+          for instance), or if they are kept in a static or global
+          variable, the reference counter can be incremented.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void ready_async/2">void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)</h3>
+      
+      <div class="description">
+        <span id="ready_async"> </span>
+        <p>This function is called after an asynchronous call has
+          completed. The asynchronous call is started with <a href="erl_driver.html#driver_async" class="seealso">driver_async</a>.
+          This function is called from the erlang emulator thread, as
+          opposed to the asynchronous function, which is called in
+          some thread (if multithreading is enabled).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="int call/7">int call(ErlDrvData drv_data, unsigned int command, char *buf, int len, char **rbuf, int rlen, unsigned int *flags)</h3>
+      
+      <div class="description">
+        <span id="call"> </span>
+        <p>This function is called from <code>erlang:port_call/3</code>. It
+          works a lot like the <code>control</code> call-back, but uses the
+          external term format for input and output.</p>
+        <p><code>command</code> is an integer, obtained from the call from
+          erlang (the second argument to <code>erlang:port_call/3</code>).</p>
+        <p><code>buf</code> and <code>len</code> provide the arguments to the call
+          (the third argument to <code>erlang:port_call/3</code>). They can
+          be decoded using <code>ei</code> functions.</p>
+        <p><code>rbuf</code> points to a return buffer, <code>rlen</code> bytes
+          long. The return data should be a valid erlang term in the
+          external (binary) format. This is converted to an erlang
+          term and returned by <code>erlang:port_call/3</code> to the
+          caller.  If more space than <code>rlen</code> bytes is needed to
+          return data, <code>*rbuf</code> can be set to memory allocated with
+          <code>driver_alloc</code>. This memory will be freed automatically
+          after <code>call</code> has returned.</p>
+        <p>The return value is the number of bytes returned in
+          <code>*rbuf</code>. If <code>ERL_DRV_ERROR_GENERAL</code> is returned
+          (or in fact, anything &lt; 0), <code>erlang:port_call/3</code> will
+          throw a <code>BAD_ARG</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void event/3">void event(ErlDrvData drv_data, ErlDrvEvent event, ErlDrvEventData event_data)</h3>
+      
+      <div class="description">
+        <p>Intentionally left undocumented.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <span id="extended_marker"> </span>
+        <p>This field should either be equal to <code>ERL_DRV_EXTENDED_MARKER</code>
+          or <code>0</code>. An old driver (not aware of the extended driver
+          interface) should set this field to <code>0</code>. If this field is
+          equal to <code>0</code>, all the fields following this field also
+          <em>have</em> to be <code>0</code>, or <code>NULL</code> in case it is a
+          pointer field.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>This field should equal <code>ERL_DRV_EXTENDED_MAJOR_VERSION</code> if
+          the <code>extended_marker</code> field equals
+          <code>ERL_DRV_EXTENDED_MARKER</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>This field should equal <code>ERL_DRV_EXTENDED_MINOR_VERSION</code> if
+          the <code>extended_marker</code> field equals
+          <code>ERL_DRV_EXTENDED_MARKER</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <span id="driver_flags"> </span>
+        <p>This field is used to pass driver capability information to the
+          runtime system. If the <code>extended_marker</code> field equals
+          <code>ERL_DRV_EXTENDED_MARKER</code>, it should contain <code>0</code> or
+          driver flags (<code>ERL_DRV_FLAG_*</code>) ored bitwise. Currently
+          the following driver flags exist:</p>
+        <taglist>
+          <dt><code>ERL_DRV_FLAG_USE_PORT_LOCKING</code></dt>
+          <item>The runtime system will use port level locking on
+           all ports executing this driver instead of driver
+           level locking when the driver is run in a runtime
+           system with SMP support. For more information see the
+          <a href="erl_driver.html#smp_support" class="seealso">erl_driver</a>
+           documentation.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>This field is reserved for the emulators internal use. The
+          emulator will modify this field; therefore, it is important
+          that the <code>driver_entry</code> isn't declared <code>const</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="void process_exit/2">void process_exit(ErlDrvData drv_data, ErlDrvMonitor *monitor)</h3>
+      
+      <div class="description">
+        <span id="process_exit"> </span>
+        <p>This callback is called when a monitored process exits. The
+          <code>drv_data</code> is the data associated with the port for which
+          the process is monitored (using <a href="erl_driver.html#driver_monitor_process" class="seealso">driver_monitor_process</a>)
+          and the <code>monitor</code> corresponds to the <code>ErlDrvMonitor</code> 
+          structure filled
+          in when creating the monitor. The driver interface function
+          <a href="erl_driver.html#driver_get_monitored_process" class="seealso">driver_get_monitored_process</a>
+          can be used to retrieve the process id of the exiting process as
+          an <code>ErlDrvTermData</code></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><a href="erl_driver.html" class="seealso">erl_driver(3)</a>, 
+      <a href="../kernel/erl_ddll.html" class="seealso">erl_ddll(3)</a>,
+      <a href="../kernel/erlang.html" class="seealso">erlang(3)</a>,
+      kernel(3)</p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#int init/1">int init/1</a></li><li><a href="#int start/2">int start/2</a></li><li><a href="#void stop/1">void stop/1</a></li><li><a href="#void output/3">void output/3</a></li><li><a href="#void ready_input/2">void ready_input/2</a></li><li><a href="#void ready_output/2">void ready_output/2</a></li><li><a href="#void finish/1">void finish/1</a></li><li><a href="#int control/6">int control/6</a></li><li><a href="#void timeout/1">void timeout/1</a></li><li><a href="#void outputv/2">void outputv/2</a></li><li><a href="#void ready_async/2">void ready_async/2</a></li><li><a href="#int call/7">int call/7</a></li><li><a href="#void event/3">void event/3</a></li><li><a href="#void process_exit/2">void process_exit/2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>snmpm_user (snmp) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>snmpm_user</h1>
+  <h2 class="modsummary">Behaviour module for the SNMP manager user.</h2>
+  <div class="description">
+    <p>This module defines the behaviour of the manager user. 
+      A <code>snmpm_user</code> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p>handle_error/3</p>
+      </item>
+      <item>
+        <p>handle_agent/4</p>
+      </item>
+      <item>
+        <p>handle_pdu/4</p>
+      </item>
+      <item>
+        <p>handle_trap/3</p>
+      </item>
+      <item>
+        <p>handle_inform/3</p>
+      </item>
+      <item>
+        <p>handle_report/3</p>
+      </item>
+      <item>
+        <p>handle_invalid_result/2</p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+    below. </p>
+    <p>Some of the function has no defined return value (<code>void()</code>), 
+    they can of course return anything. But the functions that do have
+    specified return value(s) <em>must</em> adhere to this. None of the 
+    functions can use exit of throw to return. </p>
+
+    <p>If the manager is not configured to use any particular
+    transport domain, the behaviour <code>handle_agent/4</code>
+    will for backwards copmpatibility reasons be called with the old
+    <code>IpAddr</code> and <code>PortNumber</code> arguments</p>
+
+    <span id="types"> </span>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <pre class="sh_erlang">
+snmp_gen_info() = {ErrorStatus :: atom(), 
+                   ErrorIndex  :: pos_integer(), 
+                   Varbinds    :: [snmp:varbind()]}
+snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
+                        Generic   :: integer(), 
+                        Spec      :: integer(), 
+                        Timestamp :: integer(), 
+                        Varbinds  :: [snmp:varbind()]}
+    </pre>
+    <span id="handle_error"> </span>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="handle_error/3">handle_error(ReqId, Reason, UserData) -&gt; void()</h3>
+      
+      <ul class="type">
+        <li><code>ReqId = integer()</code></li>
+        <li><code>Reason = {unexpected_pdu, SnmpInfo} | {invalid_sec_info, SecInfo, SnmpInfo} | {empty_message, Addr, Port} | term()</code></li>
+        <li><code>SnmpInfo = snmp_gen_info()</code></li>
+        <li><code>SecInfo = term()</code></li>
+        <li><code>Addr = ip_address()</code></li>
+        <li><code>Port = integer()</code></li>
+        <li><code>UserData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called when the manager needs to
+	communicate an "asynchronous" error to the user:
+	e.g. failure to send an asynchronous message (i.e. encoding
+	error), a received message was discarded due to security
+	error, the manager failed to generate a response message to
+	a received inform-request, or when receiving an unexpected
+	PDU from an agent (could be an expired async request). </p>
+	<p>If <code>ReqId</code> is less then 0, it means that this
+	information was not available to the manager (that info was
+	never retrieved before the message was discarded). </p>
+        <p>For <code>SnmpInfo</code> see handle_agent below.</p>
+
+        <span id="handle_agent"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_agent/5">handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</code></li>
+	<li><code>Addr = {<a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address(), inet:port_number()</a>} </code></li>
+        <li><code>Type = pdu | trap | report | inform</code></li>
+        <li><code>SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo</code></li>
+        <li><code>SnmpPduInfo = snmp_gen_info()</code></li>
+        <li><code>SnmpTrapInfo = snmp_v1_trap_info()</code></li>
+        <li><code>SnmpReportInfo = snmp_gen_info()</code></li>
+        <li><code>SnmpInformInfo = snmp_gen_info()</code></li>
+        <li><code>UserData = term()</code></li>
+        <li><code>Reply = ignore | {register, UserId, TargetName, AgentConfig}</code></li>
+        <li><code>UserId = term()</code></li>
+        <li><code>TargetName = target_name()</code></li>
+        <li><code>AgentConfig = [agent_config()]</code></li>
+      </ul>
+      <div class="description">
+	<p>This function is called when a message is received from an 
+	unknown agent.</p>
+        <p>Note that this will always be the default user that is called.</p>
+        <p>For more info about the <code>agent_config()</code>, see 
+	<a href="snmpm.html#register_agent" class="seealso">register_agent</a>.</p>
+
+        <p>The arguments <code>Type</code> and <code>SnmpInfo</code> relates in the 
+          following way: </p>
+
+	  <list type="bulleted">
+	    <item>
+	      <p><code>pdu</code> - <code>SnmpPduInfo</code> 
+                (see <a href="#handle_pdu" class="seealso">handle_pdu</a>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><code>trap</code> - <code>SnmpTrapInfo</code> 
+                (see <a href="#handle_trap" class="seealso">handle_trap</a>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><code>report</code> - <code>SnmpReportInfo</code> 
+                (see <a href="#handle_report" class="seealso">handle_report</a>
+                for more info).</p>
+	    </item>
+	    <item>
+	      <p><code>inform</code> - <code>SnmpInformInfo</code> 
+                (see <a href="#handle_inform" class="seealso">handle_inform</a>
+                for more info).</p>
+	    </item>
+	  </list>
+
+        <p>The only user which would return 
+          <code>{register, UserId, TargetName, AgentConfig}</code> is the 
+          <em>default user</em>.</p>
+
+        <span id="handle_pdu"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_pdu/4">handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) -&gt; void()</h3>
+      
+      <ul class="type">
+        <li><code>TargetName = target_name()</code></li>
+        <li><code>ReqId = term()</code></li>
+        <li><code>SnmpPduInfo = snmp_gen_info()</code></li>
+        <li><code>UserData = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Handle the reply to an asynchronous request, such as 
+          <a href="snmpm.html#async_get" class="seealso">async_get</a>, 
+          <a href="snmpm.html#async_get_next" class="seealso">async_get_next</a> or 
+          <a href="snmpm.html#async_set" class="seealso">async_set</a>.</p>
+        <p>It could also be a late reply to a synchronous request.</p>
+        <p><code>ReqId</code> is returned by the asynchronous request function.</p>
+
+        <span id="handle_trap"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_trap/3">handle_trap(TargetName, SnmpTrapInfo, UserData) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>TargetName = TargetName2 = target_name()</code></li>
+        <li><code>SnmpTrapInfo = snmp_v1_trap_info() | snmp_gen_info()</code></li>
+        <li><code>UserData = term()</code></li>
+        <li><code>Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</code></li>
+        <li><code>UserId = term()</code></li>
+        <li><code>AgentConfig = [agent_config()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Handle a trap/notification message from an agent.</p>
+        <p>For more info about the <code>agent_config()</code>, see 
+	<a href="snmpm.html#register_agent" class="seealso">register_agent</a></p>
+        <p>The only user which would return 
+	<code>{register, UserId, TargetName2, agent_info()}</code> is the 
+	<em>default user</em>.</p>
+
+        <span id="handle_inform"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_inform/3">handle_inform(TargetName, SnmpInformInfo, UserData) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>TargetName = TargetName2 = target_name()</code></li>
+        <li><code>SnmpInformInfo = snmp_gen_info()</code></li>
+        <li><code>UserData = term()</code></li>
+        <li><code>Reply = ignore | no_reply | unregister | {register, UserId, TargetName2, AgentConfig}</code></li>
+        <li><code>UserId = term()</code></li>
+        <li><code>AgentConfig = [agent_config()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Handle a inform message.</p>
+        <p>For more info about the <code>agent_config()</code>, see 
+	<a href="snmpm.html#register_agent" class="seealso">register_agent</a></p>
+        <p>The only user which would return 
+	<code>{register, UserId, TargetName2, AgentConfig}</code> is the 
+	<em>default user</em>.</p>
+	<p>If the 
+	<a href="snmp_app.html" class="seealso">inform request behaviour</a> 
+	configuration option is set to <code>user</code> or 
+	<code>{user, integer()}</code>, the response (acknowledgment) to this 
+	inform-request will be sent when this function returns.</p>
+	
+        <span id="handle_report"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_report/3">handle_report(TargetName, SnmpReportInfo, UserData) -&gt; Reply</h3>
+      
+      <ul class="type">
+        <li><code>TargetName = TargetName2 = target_name()</code></li>
+        <li><code>Addr = ip_address()</code></li>
+        <li><code>Port = integer()</code></li>
+        <li><code>SnmpReportInfo = snmp_gen_info()</code></li>
+        <li><code>UserData = term()</code></li>
+        <li><code>Reply = ignore | unregister | {register, UserId, TargetName2, AgentConfig}</code></li>
+        <li><code>UserId = term()</code></li>
+        <li><code>AgentConfig = [agent_config()]</code></li>
+      </ul>
+      <div class="description">
+        <p>Handle a report message.</p>
+        <p>For more info about the <code>agent_config()</code>, see 
+	<a href="snmpm.html#register_agent" class="seealso">register_agent</a></p>
+        <p>The only user which would return 
+	<code>{register, UserId, TargetName2, AgentConfig}</code> is the 
+	<em>default user</em>.</p>
+	
+        <span id="handle_invalid_result"> </span>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_invalid_result/2">handle_invalid_result(IN, OUT) -&gt; void()</h3>
+      
+      <ul class="type">
+        <li><code>IN = {Func, Args}</code></li>
+        <li><code>Func = atom()</code></li>
+        <li><code>Args = list()</code></li>
+        <li><code>OUT = {crash, CrashInfo} | {result, InvalidResult}</code></li>
+        <li><code>CrashInfo = {ErrorType, Error, Stacktrace}</code></li>
+        <li><code>ErrorType = atom()</code></li>
+        <li><code>Error = term()</code></li>
+        <li><code>Stacktrace = list()</code></li>
+        <li><code>InvalidResult = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>If <em>any</em> of the <em>other</em> callback functions crashes 
+	(exit, throw or a plain crash) or return an invalid result (if a valid 
+	return has been specified), this function is called. 
+	The purpose is to allow the user handle this 
+	error (for instance to issue an error report).</p>
+	<p><code>IN</code> reprecents the function called (and its arguments). 
+	<code>OUT</code> represents the unexpected/invalid result. </p>
+      </div>
+    </div>
+  </div>
+  
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

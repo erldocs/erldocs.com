@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>overload (sasl) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>overload</h1>
+  <h2 class="modsummary">An Overload Regulation Process</h2>
+  <div class="description">
+    <div class="warning"><h2>Warning!</h2>
+      <p>
+	All functions in this module are deprecated and will be
+	removed in a future release.
+      </p>
+    </div>
+    <p><code>overload</code> is a process that indirectly regulates the CPU
+      usage in the system. The idea is that a main application calls
+      function 
+      <a href="#request/0" class="seealso"><code>request/0</code></a> 
+      before starting a major job and
+      proceeds with the job if the return value is positive; otherwise
+      the job must not be started.</p>
+    <p><code>overload</code> is part of the <code>SASL</code> application and all
+      configuration parameters are defined there.</p>
+    <p>A set of two intensities are maintained, the <code>total intensity</code>
+      and the <code>accept intensity</code>. For that purpose,
+      there are two configuration parameters, <code>MaxIntensity</code>
+      and <code>Weight</code>; both are measured in 1/second.</p>
+    <p>Then total and accept intensities are calculated as
+      follows. Assume that the time of the current call to
+      <code>request/0</code> is <code>T(n)</code> and that the time of the
+      previous call was <code>T(n-1)</code>.</p>
+    <list type="bulleted">
+      <item>
+        <p>The current <code>total intensity</code>, denoted
+          <code>TI(n)</code>, is calculated according to the formula</p>
+        <p><code>TI(n) = exp(-Weight*(T(n) - T(n-1)) * TI(n-1) +  Weight</code>,</p>
+        <p>where <code>TI(n-1)</code> is the previous <code>total intensity</code>.</p>
+      </item>
+      <item>
+        <p>The current <code>accept intensity</code>, denoted
+          <code>AI(n)</code>, is determined by the formula</p>
+        <p><code>AI(n) = exp(-Weight*(T(n) - T(n-1)) * AI(n-1) + Weight</code>,</p>
+        <p>where <code>AI(n-1)</code> is the previous <code>accept intensity</code>,
+          if the value of <code>exp(-Weight*(T(n) - T(n-1)) * AI(n-1)</code>
+          is less than <code>MaxIntensity</code>. Otherwise the value is</p>
+        <p><code>AI(n) = exp(-Weight*(T(n) - T(n-1)) * AI(n-1)</code></p>
+      </item>
+    </list>
+    <p>The value of configuration parameter <code>Weight</code> controls the
+      speed with which the calculations of intensities react to
+      changes in the underlying input intensity. The inverted value of
+      <code>Weight</code>, <code>T = 1/Weight</code>, can be thought of as the
+      "time constant" of the intensity calculation formulas. For example,
+      if <code>Weight = 0.1</code>, a change in the underlying input intensity is
+      reflected in <code>total intensity</code> and <code>accept intensity</code> within
+      about 10 seconds.</p>
+    <p>The overload process defines one alarm, which it sets using
+      <code>alarm_handler:set_alarm(Alarm)</code>. <code>Alarm</code> is defined
+      as follows:</p>
+    <taglist>
+      <dt><code>{overload, []}</code></dt>
+      <item>
+        <p>This alarm is set when the current <code>accept intensity</code> exceeds
+          <code>MaxIntensity</code>.</p>
+      </item>
+    </taglist>
+    <p>A new request is not accepted until the current <code>accept
+      intensity</code> has fallen below <code>MaxIntensity</code>. To prevent the
+      overload process from generating many set/reset alarms, the
+      alarm is not reset until the current <code>accept intensity</code> has fallen
+      below 75% of <code>MaxIntensity</code>; it is not until then that
+      the alarm can be set again.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="request/0">request() -&gt; accept | reject</h3>
+      
+      <div class="description">
+        <p>Returns <code>accept</code> or <code>reject</code> depending on the
+          current value of the <code>accept intensity</code>.</p>
+        <p>The application
+          calling this function is to proceed with the job in
+          question if the return value is <code>accept</code>; otherwise it
+          is not to continue with that job.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_overload_info/0">get_overload_info() -&gt; OverloadInfo</h3>
+      
+      <ul class="type">
+        <li><code>OverloadInfo = [{total_intensity, TotalIntensity},
+          {accept_intensity, AcceptIntensity}, {max_intensity,
+          MaxIntensity}, {weight, Weight}, {total_requests,
+          TotalRequests}, {accepted_requests, AcceptedRequests}].</code></li>
+        <li><code>TotalIntensity = float() &gt; 0</code></li>
+        <li><code>AcceptIntensity = float() &gt; 0</code></li>
+        <li><code>MaxIntensity = float() &gt; 0</code></li>
+        <li><code>Weight = float() &gt; 0</code></li>
+        <li><code>TotalRequests = integer()</code></li>
+        <li><code>AcceptedRequests = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns:</p>
+        <list type="bulleted">
+          <item>Current total and accept intensities</item>
+          <item>Configuration parameters</item>
+          <item>Absolute counts of the total number of requests</item>
+          <item>Accepted number of requests (since the overload
+            process was started)</item>
+        </list>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="alarm_handler.html" class="seealso"><code>alarm_handler(3)</code></a>,
+      <a href="sasl_app.html" class="seealso"><code>sasl(6)</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

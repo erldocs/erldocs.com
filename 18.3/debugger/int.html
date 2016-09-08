@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>int (debugger) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>int</h1>
+  <h2 class="modsummary">Interpreter Interface.</h2>
+  <div class="description">
+    <p>The Erlang interpreter provides mechanisms for breakpoints and
+      stepwise execution of code. It is primarily intended to be used by
+      Debugger, see the User's Guide and
+      <a href="debugger.html" class="seealso"><code>debugger(3)</code></a>.</p>
+    
+    <p>The following can be done from the shell:</p>
+    <list type="bulleted">
+      <item>Specify the modules to be interpreted.</item>
+      <item>Specify breakpoints.</item>
+      <item>Monitor the current status of all processes executing code
+	in interpreted modules, also processes at other Erlang nodes.
+      </item>
+    </list>
+
+    <p>By <em>attaching to</em> a process executing interpreted code, it
+      is possible to examine variable bindings and order stepwise
+      execution. This is done by sending and receiving information
+      to/from the process through a third process, called the meta
+      process. You can implement your own attached process. See
+      <code>int.erl</code> for available functions and <code>dbg_wx_trace.erl</code>
+      for possible messages.</p>
+
+    <p>The interpreter depends on the Kernel, STDLIB, and
+      GS applications. This means that modules belonging to any of
+      these applications are not allowed to be interpreted, as it could lead
+      to a deadlock or emulator crash. This also applies to modules
+      belonging to the Debugger application.</p>
+  </div>
+
+  <div class="section">
+    <span id="int_breakpoints"> </span>
+    <h4>Breakpoints</h4>
+
+    <p>Breakpoints are specified on a line basis. When a process
+      executing code in an interpreted module reaches a breakpoint, it
+      stops. This means that a breakpoint must be set at an
+      executable line, that is, a code line containing an executable
+      expression.</p>
+
+    <p>A breakpoint has the following:</p>
+    <list type="bulleted">
+      <item>A status, which is <em>active</em> or <em>inactive</em>. An
+        inactive breakpoint is ignored.</item>
+      <item>A trigger action. When a breakpoint is reached, the trigger
+        action specifies if the breakpoint is to continue as active
+        (<em>enable</em>), or to become inactive (<em>disable</em>), or
+        to be removed (<em>delete</em>).</item>
+      <item>Optionally an associated condition. A condition is a tuple
+        <code>{Module,Name}</code>. When the breakpoint is reached,
+        <code>Module:Name(Bindings)</code> is called. If it evaluates to
+        <code>true</code>, execution stops. If it evaluates to <code>false</code>,
+        the breakpoint is ignored. <code>Bindings</code> contains the current
+        variable bindings. To retrieve the value for a specified variable,
+        use <code>get_binding</code>.</item>
+    </list>
+
+    <p>By default, a breakpoint is active, has trigger action
+      <code>enable</code>, and has no associated condition. For details
+      about breakpoints, see the User's Guide.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="i/1">i(AbsModule) -&gt; {module,Module} | error</h3>
+      <h3 id="i/1-1">i(AbsModules) -&gt; ok</h3>
+      <h3 id="ni/1">ni(AbsModule) -&gt; {module,Module} | error</h3>
+      <h3 id="ni/1-1">ni(AbsModules) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>AbsModules = [AbsModule]</code></li>
+	<li><code>AbsModule = Module | File | [Module | File]</code></li>
+	<li><code> Module = atom()</code></li>
+	<li><code> File = string()</code></li>
+      </ul>
+      <div class="description">
+	<p>Interprets the specified module(s). <code>i/1</code> interprets
+	  the module only at the current node. <code>ni/1</code> interprets
+	  the module at all known nodes.</p>
+
+	<p>A module can be specified by its module name (atom) or
+	  filename.</p>
+
+	<p>If specified by its module name, the object code
+	  <code>Module.beam</code> is searched for in the current path.
+	  The source code <code>Module.erl</code> is searched for first in
+	  the same directory as the object code, then in an <code>src</code>
+	  directory next to it.</p>
+
+	<p>If specified by its filename, the filename can include a path
+	  and the <code>.erl</code> extension can  be omitted. The object code
+	  <code>Module.beam</code> is searched for first in the same directory
+	  as the source code, then in an <code>ebin</code> directory next to
+	  it, and then in the current path.</p>
+
+	<div class="note"><h2>Note!</h2>
+	  <p>The interpreter requires both the source code and the object
+	    code. The object code <em>must</em> include debug
+	    information, that is, only modules compiled with option
+	    <code>debug_info</code> set can be interpreted.</p>
+	</div>
+
+	<p>The functions returns <code>{module,Module}</code> if the module
+	  was interpreted, otherwise <code>error</code> is returned.</p>
+
+	<p>The argument can also be a list of modules or filenames, in
+	  which case the function tries to interpret each module as
+	  specified earlier. The function then always returns <code>ok</code>,
+	  but prints some information to <code>stdout</code> if a module
+	  cannot be interpreted.</p>
+      </div>
+    </div>
+	
+    <div class="function">
+      <h3 id="n/1">n(AbsModule) -&gt; ok</h3>
+      <h3 id="nn/1">nn(AbsModule) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>AbsModule = Module | File | [Module | File]</code></li>
+	<li><code> Module = atom()</code></li>
+	<li><code> File = string()</code></li>
+      </ul>
+      <div class="description">
+	<p>Stops interpreting the specified module. <code>n/1</code> stops
+	  interpreting the module only at the current node. <code>nn/1</code>
+	  stops interpreting the module at all known nodes.</p>
+
+	<p>As for <code>i/1</code> and <code>ni/1</code>, a module can be specified by
+	  its module name or filename.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="interpreted/0">interpreted() -&gt; [Module]</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+      </ul>
+      <div class="description">
+	<p>Returns a list with all interpreted modules.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="file/1">file(Module) -&gt; File | {error,not_loaded}</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>File = string()</code></li>
+      </ul>
+      <div class="description">
+	<p>Returns the source code filename <code>File</code> for an
+	  interpreted module <code>Module</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="interpretable/1">interpretable(AbsModule) -&gt; true | {error,Reason}</h3>
+      
+      <ul class="type">
+	<li><code>AbsModule = Module | File</code></li>
+	<li><code> Module = atom()</code></li>
+	<li><code> File = string()</code></li>
+	<li><code>Reason = no_src | no_beam | no_debug_info | badarg
+	  | {app,App}</code></li>
+	<li><code> App = atom()</code></li>
+      </ul>
+      <div class="description">
+	<p>Checks if a module can be interpreted. The module can be
+	  specified by its module name <code>Module</code> or its source
+	  filename <code>File</code>. If specified by a module name, the module
+	  is searched for in the code path.</p>
+
+	<p>The function returns <code>true</code> if all of the following
+          apply:</p>
+	<list type="bulleted">
+          <item>Both source code and object code for the module is
+            found.</item>
+          <item>The module has been compiled with option <code>debug_info</code>
+            set.</item>
+          <item>The module does not belong to any of the applications
+            Kernel, STDLIB, GS, or Debugger.</item>
+	</list>
+
+	<p>The function returns <code>{error,Reason}</code> if the module cannot
+	  be interpreted. <code>Reason</code> can have the following values:</p>
+	<taglist>
+	  <dt><code>no_src</code></dt>
+	  <item><p>No source code is found.
+	    It is assumed that the source code and object code are located
+	    either in the same directory, or in <code>src</code> and <code>ebin</code>
+	    directories next to each other.</p></item>
+
+	  <dt><code>no_beam</code></dt>
+	  <item><p>No object code is found.
+	    It is assumed that the source code and object code are located
+	    either in the same directory, or in <code>src</code> and <code>ebin</code>
+	    directories next to each other.</p></item>
+
+	  <dt><code>no_debug_info</code></dt>
+	  <item><p>The module has not been compiled with option
+	    <code>debug_info</code> set.</p></item>
+
+	  <dt><code>badarg</code></dt>
+	  <item><p><code>AbsModule</code> is not found. This could be because
+	    the specified file does not exist, or because
+	    <code>code:which/1</code> does not return a BEAM filename,
+	    which is the case not only for non-existing modules but also
+	    for modules that are preloaded or cover-compiled.</p></item>
+
+	  <dt><code>{app,App}</code></dt>
+	  <item><p><code>App</code> is <code>kernel</code>, <code>stdlib</code>, <code>gs</code>,
+	  or <code>debugger</code> if <code>AbsModule</code> belongs to one of these
+	  applications.</p></item>
+	</taglist>
+
+	<p>Notice that the function can return <code>true</code> for a module
+	  that in fact is not interpretable in the case where
+	  the module is marked as sticky or resides in a directory
+	  marked as sticky. The reason is that this is not discovered
+	  until the interpreter tries to load the module.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="auto_attach/0">auto_attach() -&gt; false | {Flags,Function}</h3>
+      <h3 id="auto_attach/1">auto_attach(false)</h3>
+      <h3 id="auto_attach/2">auto_attach(Flags, Function)</h3>
+      
+      <ul class="type">
+	<li><code>Flags = [init | break | exit]</code></li>
+	<li><code>Function = {Module,Name,Args}</code></li>
+	<li><code> Module = Name = atom()</code></li>
+	<li><code> Args = [term()]</code></li>
+      </ul>
+      <div class="description">
+	<p>Gets and sets when and how to attach automatically to a
+	  process executing code in interpreted modules. <code>false</code>
+	  means never attach automatically, this is the default.
+	  Otherwise automatic attach is defined by a list of flags and
+	  a function. The following flags can be specified:</p>
+	<list type="bulleted">
+	  <item><code>init</code> - Attach when a process for the first
+	    time calls an interpreted function.</item>
+	  <item><code>break</code> - Attach whenever a process reaches a
+	    breakpoint.</item>
+	  <item><code>exit</code> - Attach when a process terminates.</item>
+	</list>
+
+	<p>When the specified event occurs, the function <code>Function</code>
+	  is called as:</p>
+	<pre class="sh_erlang">
+spawn(Module, Name, [Pid | Args])</pre>
+
+	<p><code>Pid</code> is the pid of the process executing interpreted
+	  code.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="stack_trace/0">stack_trace() -&gt; Flag</h3>
+      <h3 id="stack_trace/1">stack_trace(Flag)</h3>
+      
+      <ul class="type">
+	<li><code>Flag = all | no_tail | false</code></li>
+      </ul>
+      <div class="description">
+	<p>Gets and sets how to save call frames in the stack. Saving
+	  call frames makes it possible to inspect the call chain of a
+	  process, and is also used to emulate the stack trace if an
+	  error (an exception of class error) occurs. The following
+	  flags can be specified:</p>
+	<taglist>
+	  <dt><code>all</code></dt>
+	  <item><p>Save information about all current calls,
+	    that is, function calls that have not yet returned a value.</p>
+	  </item>
+
+	  <dt><code>no_tail</code></dt>
+	  <item><p>Save information about current calls,
+	    but discard previous information when a tail recursive call
+	    is made. This option consumes less memory and can be
+	    necessary to use for processes with long lifetimes and many
+	    tail recursive calls. This is the default.</p></item>
+
+	  <dt><code>false</code></dt>
+	  <item><p>Save no information about currentcalls.</p></item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="break/2">break(Module, Line) -&gt; ok | {error,break_exists}</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Creates a breakpoint at <code>Line</code> in <code>Module</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete_break/2">delete_break(Module, Line) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Deletes the breakpoint at <code>Line</code> in <code>Module</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="break_in/3">break_in(Module, Name, Arity) -&gt; ok
+	| {error,function_not_found}</h3>
+      
+      <ul class="type">
+	<li><code>Module = Name = atom()</code></li>
+	<li><code>Arity = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Creates a breakpoint at the first line of every clause of 
+	  function <code>Module:Name/Arity</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="del_break_in/3">del_break_in(Module, Name, Arity) -&gt; ok
+	| {error,function_not_found}</h3>
+      
+      <ul class="type">
+	<li><code>Module = Name = atom()</code></li>
+	<li><code>Arity = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Deletes the breakpoints at the first line of every clause of 
+	  function <code>Module:Name/Arity</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="no_break/0">no_break() -&gt; ok</h3>
+      <h3 id="no_break/1">no_break(Module) -&gt; ok</h3>
+      
+      <div class="description">
+	<p>Deletes all breakpoints, or all breakpoints in <code>Module</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="disable_break/2">disable_break(Module, Line) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Makes the breakpoint at <code>Line</code> in <code>Module</code> inactive.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enable_break/2">enable_break(Module, Line) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Makes the breakpoint at <code>Line</code> in <code>Module</code> active.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="action_at_break/3">action_at_break(Module, Line, Action) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+	<li><code>Action = enable | disable | delete</code></li>
+      </ul>
+      <div class="description">
+	<p>Sets the trigger action of the breakpoint at <code>Line</code> in
+	  <code>Module</code> to <code>Action</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="test_at_break/3">test_at_break(Module, Line, Function) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Module = atom()</code></li>
+	<li><code>Line = int()</code></li>
+	<li><code>Function = {Module,Name}</code></li>
+	<li><code> Name = atom()</code></li>
+      </ul>
+      <div class="description">
+	<p>Sets the conditional test of the breakpoint at <code>Line</code> in
+	  <code>Module</code> to <code>Function</code>. The function must
+	  fulfill the requirements specified in section
+          <a href="#int_breakpoints" class="seealso">Breakpoints</a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_binding/2">get_binding(Var, Bindings) -&gt; {value,Value} | unbound</h3>
+      
+      <ul class="type">
+	<li><code>Var = atom()</code></li>
+	<li><code>Bindings = term()</code></li>
+	<li><code>Value = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Retrieves the binding of <code>Var</code>. This function is
+	  intended to be used by the conditional function of a
+	  breakpoint.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="all_breaks/0">all_breaks() -&gt; [Break]</h3>
+      <h3 id="all_breaks/1">all_breaks(Module) -&gt; [Break]</h3>
+      
+      <ul class="type">
+	<li><code>Break = {Point,Options}</code></li>
+	<li><code> Point = {Module,Line}</code></li>
+	<li><code>  Module = atom()</code></li>
+	<li><code>  Line = int()</code></li>
+	<li><code> Options = [Status,Trigger,null,Cond|]</code></li>
+	<li><code>  Status = active | inactive</code></li>
+	<li><code>  Trigger = enable | disable | delete</code></li>
+	<li><code>  Cond = null | Function</code></li>
+	<li><code>   Function = {Module,Name}</code></li>
+	<li><code>    Name = atom()</code></li>
+      </ul>
+      <div class="description">
+	<p>Gets all breakpoints, or all breakpoints in <code>Module</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="snapshot/0">snapshot() -&gt; [Snapshot]</h3>
+      
+      <ul class="type">
+	<li><code>Snapshot = {Pid, Function, Status, Info}</code></li>
+	<li><code> Pid = pid()</code></li>
+	<li><code> Function = {Module,Name,Args}</code></li>
+	<li><code>  Module = Name = atom()</code></li>
+	<li><code>  Args = [term()]</code></li>
+	<li><code> Status = idle | running | waiting | break | exit
+	  | no_conn</code></li>
+	<li><code> Info = {} | {Module,Line} | ExitReason</code></li>
+	<li><code>  Line = int()</code></li>
+	<li><code>  ExitReason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Gets information about all processes executing interpreted code.
+	</p>
+	<list type="bulleted">
+	  <item><code>Pid</code> - Process identifier.</item>
+	  <item><code>Function</code> - First interpreted function called by
+	    the process.</item>
+	  <item><code>Status</code> - Current status of the process.</item>
+	  <item><code>Info</code> - More information.</item>
+	</list>
+
+	<p><code>Status</code> is one of the following:</p>
+	<list type="bulleted">
+	  <item><code>idle</code> - The process is no longer executing
+	    interpreted code. <code>Info={}</code>.</item>
+	  <item><code>running</code> - The process is running. <code>Info={}</code>.
+	  </item>
+	  <item><code>waiting</code> - The process is waiting at a
+	    <code>receive</code>. <code>Info={}</code>.</item>
+	  <item><code>break</code> - Process execution is stopped,
+	    normally at a breakpoint. <code>Info={Module,Line}</code>.</item>
+	  <item><code>exit</code> - The process is terminated.
+	    <code>Info=ExitReason</code>.</item>
+	  <item><code>no_conn</code> - The connection is down to the node
+	    where the process is running. <code>Info={}</code>.</item>
+	</list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="clear/0">clear() -&gt; ok</h3>
+      
+      <div class="description">
+	<p>Clears information about processes executing interpreted code
+	  by removing all information about terminated processes.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="continue/1">continue(Pid) -&gt; ok | {error,not_interpreted}</h3>
+      <h3 id="continue/3">continue(X,Y,Z) -&gt; ok | {error,not_interpreted}</h3>
+      
+      <ul class="type">
+	<li><code>Pid = pid()</code></li>
+	<li><code>X = Y = Z = int()</code></li>
+      </ul>
+      <div class="description">
+	<p>Resumes process execution for <code>Pid</code> or
+	  <code>c:pid(X,Y,Z)</code>.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
