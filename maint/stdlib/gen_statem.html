@@ -551,7 +551,7 @@ handle_event(_, _, State, Data) -&gt;
 	  Type <code>info</code> originates from regular process messages sent
 	  to the <code>gen_statem</code>. Also, the state machine
 	  implementation can generate events of types
-	  <code>timeout</code>, <code>state_timeout</code>, <code>enter</code>,
+	  <code>timeout</code>, <code>state_timeout</code>,
 	  and <code>internal</code> to itself.
 	</p>
       </div>
@@ -650,7 +650,7 @@ handle_event(_, _, State, Data) -&gt;
     </div>
     <div class="type">
       <h3 id="type-transition_option">transition_option() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-postpone" class="seealso">postpone()</a> | <a href="#type-hibernate" class="seealso">hibernate()</a> | <a href="#type-event_timeout" class="seealso">event_timeout()</a></h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-postpone" class="seealso">postpone()</a> | <a href="#type-hibernate" class="seealso">hibernate()</a> | <a href="#type-event_timeout" class="seealso">event_timeout()</a> | <a href="#type-state_timeout" class="seealso">state_timeout()</a></h3>
       <div class="description">
 	<p>
 	  Transition options can be set by
@@ -658,6 +658,20 @@ handle_event(_, _, State, Data) -&gt;
 	  and they modify how the state transition is done:
 	</p>
 	<list type="ordered">
+	  <item>
+            <p>
+	      If the state changes or is the initial state, and
+	      <a href="#type-state_enter" class="seealso"><em>state enter calls</em></a>
+	      are used, the <code>gen_statem</code> calls
+	      the new state callback with arguments
+	      <a href="#type-state_enter" class="seealso">(enter, OldState, Data)</a>.
+	      Any 
+	      <a href="#type-enter_action" class="seealso"><code>actions</code></a>
+	      returned from this call are handled as if they were
+	      appended to the actions 
+	      returned by the state callback that changed states.
+            </p>
+	  </item>
 	  <item>
 	    <p>
 	      All
@@ -688,36 +702,36 @@ handle_event(_, _, State, Data) -&gt;
             </p>
 	  </item>
 	  <item>
-            <p>
-	      If the state changes or is the initial state, and
-	      <a href="#type-state_enter" class="seealso"><em>state enter calls</em></a>
-	      are used, the <code>gen_statem</code> calls
-	      the new state callback with arguments
-	      <a href="#type-state_enter" class="seealso">(enter, OldState, Data)</a>.
-	      Any 
-	      <a href="#type-enter_action" class="seealso"><code>actions</code></a>
-	      returned from this call are handled as if they were
-	      appended to the actions 
-	      returned by the state callback that changed states.
-            </p>
-	  </item>
-	  <item>
-	    <p>
-	      If there are enqueued events the (possibly new)
-	      <a href="#state callback" class="seealso">state callback</a>
-	      is called with the oldest enqueued event,
-	      and we start again from the top of this list.
-	    </p>
-	  </item>
-	  <item>
 	    <p>
 	      Timeout timers 
               <a href="#type-state_timeout" class="seealso"><code>state_timeout()</code></a>
 	      and 
               <a href="#type-event_timeout" class="seealso"><code>event_timeout()</code></a>
-	      are handled.  This may lead to a time-out zero event
-	      being generated to the
+	      are handled.  Time-outs with zero time are guaranteed to be
+	      delivered to the state machine before any external
+	      not yet received event so if there is such a timeout requested,
+	      the corresponding time-out zero event is enqueued as
+	      the newest event.
+	    </p>
+	    <p>
+	      Any event cancels an
+              <a href="#type-event_timeout" class="seealso"><code>event_timeout()</code></a>
+	      so a zero time event time-out is only generated
+	      if the event queue is empty.
+	    </p>
+	    <p>
+	      A state change cancels a
+              <a href="#type-state_timeout" class="seealso"><code>state_timeout()</code></a>
+	      and any new transition option of this type
+	      belongs to the new state.
+	    </p>
+	  </item>
+	  <item>
+	    <p>
+	      If there are enqueued events the
 	      <a href="#state callback" class="seealso">state callback</a>
+	      for the possibly new state
+	      is called with the oldest enqueued event,
 	      and we start again from the top of this list.
 	    </p>
 	  </item>
@@ -779,8 +793,9 @@ handle_event(_, _, State, Data) -&gt;
 	  after this time (in milliseconds) unless another
 	  event arrives or has arrived
 	  in which case this time-out is cancelled.
-	  Note that a retried, inserted or state time-out zero
-	  events counts as arrived.
+	  Note that a retried or inserted event counts as arrived.
+	  So does a state time-out zero event, if it was generated
+	  before this timer is requested.
 	</p>
 	<p>
 	  If the value is <code>infinity</code>, no timer is started, as
@@ -822,7 +837,7 @@ handle_event(_, _, State, Data) -&gt;
 	<p>
 	  Setting this timer while it is running will restart it with
 	  the new time-out value.  Therefore it is possible to cancel
-	  this timeout by setting it to <code>infinity</code>.
+	  this time-out by setting it to <code>infinity</code>.
 	</p>
       </div>
     </div>
@@ -1171,7 +1186,7 @@ handle_event(_, _, State, Data) -&gt;
 	  <code><anno>Timeout</anno></code> can also be a tuple
 	  <code>{clean_timeout,<anno>T</anno>}</code> or
 	  <code>{dirty_timeout,<anno>T</anno>}</code>, where
-	  <code><anno>T</anno></code> is the timeout time.
+	  <code><anno>T</anno></code> is the time-out time.
 	  <code>{clean_timeout,<anno>T</anno>}</code> works like
 	  just <code>T</code> described in the note above
 	  and uses a proxy process for <code>T &lt; infinity</code>,
@@ -1841,7 +1856,7 @@ handle_event(_, _, State, Data) -&gt;
         StateFunctionResult
       </h3>
       <h3 id="handle_event/4">Module:handle_event(enter, OldState, State, Data) -&gt;
-	StateEnterResult
+	StateEnterResult(State)
       </h3>
       <h3 id="handle_event/4-1">Module:handle_event(EventType, EventContent, State, Data) -&gt;
 	HandleEventResult
@@ -1870,8 +1885,8 @@ handle_event(_, _, State, Data) -&gt;
 	  <a href="#type-event_handler_result" class="seealso">event_handler_result</a>(<a href="#type-state_name" class="seealso">state_name()</a>)
 	</code></li>
 	<li><code>
-	  StateEnterResult =
-	  <a href="#type-state_enter_result" class="seealso">state_enter_result</a>(<a href="#type-state" class="seealso">state()</a>)
+	  StateEnterResult(State) =
+	  <a href="#type-state_enter_result" class="seealso">state_enter_result(State)</a>
 	</code></li>
 	<li><code>
 	  HandleEventResult =
