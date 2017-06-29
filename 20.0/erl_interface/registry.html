@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>registry (erl_interface) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>registry</h1>
+  <libsummary>Store and back up key-value pairs.</libsummary>
+  <div class="description">
+    <p>This module provides support for storing key-value
+      pairs in a table known as a registry, backing up registries to
+      <a href="../mnesia/mnesia.html" class="seealso">Mnesia</a>
+      in an atomic manner, and later restoring the contents of a
+      registry from <code>Mnesia</code>.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <pre>int ei_reg_close(reg)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+      </ul>
+      <div class="description">
+        <p>A registry that has previously been created with
+          <code>ei_reg_open()</code> is closed, and all the objects it
+          contains are freed.</p>
+        <p><code>reg</code> is the registry to close.</p>
+        <p>Returns <code>0</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_delete(reg,key)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+      </ul>
+      <div class="description">
+        <p>Deletes an object from the registry. The object is not
+          removed from the registry, it is only marked for later
+          removal so that on later backups to <code>Mnesia</code>, the
+          corresponding object can be removed from the <code>Mnesia</code> table as
+          well. If another object is later created with the same key, the
+          object will be reused. </p>
+        <p>The object is removed from the registry after a call to
+          <code>ei_reg_dump()</code> or <code>ei_reg_purge()</code>.
+        </p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry containing
+            <code>key</code>.</item>
+          <item><code>key</code> is the object to remove.</item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_dump(fd,reg,mntab,flags)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *mntab;</code></li>
+        <li><code>int flags;</code></li>
+      </ul>
+      <div class="description">
+        <p>Dumps the contents of a registry to a <code>Mnesia</code> table in an
+          atomic manner, that is, either all data or no data is updated.
+          If any errors are encountered while backing up
+          the data, the entire operation is aborted.</p>
+        <list type="bulleted">
+          <item><code>fd</code> is an open connection to Erlang.
+            <code>Mnesia</code> 3.0 or later must be running on the Erlang node.
+          </item>
+          <item><code>reg</code> is the registry to back up.</item>
+          <item><code>mntab</code> is the name of the <code>Mnesia</code> table
+            where the backed up data is to be placed. If the table does not
+            exist, it is created automatically using configurable defaults.
+            For information about configuring this behavior, see
+            <a href="../mnesia/mnesia.html" class="seealso"><code>Mnesia</code></a>.</item>
+        </list>
+        <p>If <code>flags</code> is <code>0</code>, the backup includes only
+          those objects that have been created, modified, or deleted since the
+          last backup or restore (that is, an incremental backup). After the
+          backup, any objects that were marked dirty are now clean, and any
+          objects that had been marked for deletion are deleted.</p>
+        <p>Alternatively, setting flags to <code>EI_FORCE</code> causes a full
+          backup to be done, and <code>EI_NOPURGE</code> causes the deleted objects
+          to be left in the registry afterwards. These can be bitwise OR'ed
+          together if both behaviors are desired. If <code>EI_NOPURGE</code> was
+          specified, <code>ei_reg_purge()</code> can be used to
+          explicitly remove the deleted items from the registry later.</p>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>double ei_reg_getfval(reg,key)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value associated with <code>key</code> in the
+          registry. The value must be a floating point type.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object will be
+            looked up.</item>
+          <item><code>key</code> is the name of the object to look up.
+          </item>
+        </list>
+        <p>On success, the function returns the value associated with
+          <code>key</code>.
+          If the object is not found or if it is not a floating point
+          object, <code>-1.0</code> is returned. To avoid problems with in-band error
+          reporting (that is, if you cannot distinguish between <code>-1.0</code> and
+          a valid result), use the more general function
+          <code>ei_reg_getval()</code> instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_getival(reg,key)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value associated with <code>key</code> in the
+          registry. The value must be an integer.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object will be
+            looked up.</item>
+          <item><code>key</code> is the name of the object to look up.
+          </item>
+        </list>
+        <p>On success, the function returns the value associated with
+          <code>key</code>.
+          If the object is not found or if it is not an integer
+          object, <code>-1</code> is returned. To avoid problems with in-band error
+          reporting (that is, if you cannot distinguish between <code>-1</code> and a
+          valid result), use the more general function
+          <code>ei_reg_getval()</code> instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>const void * ei_reg_getpval(reg,key,size)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>int size;</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value associated with <code>key</code> in the
+          registry. The value must be a binary (pointer) type.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object will be
+            looked up.</item>
+          <item><code>key</code> is the name of the object to look up.
+          </item>
+          <item><code>size</code> is initialized to contain the length in
+            bytes of the object, if it is found.</item>
+        </list>
+        <p>On success, the function returns the value associated with
+          <code>key</code> and indicates its length in
+          <code>size</code>.
+          If the object is not found or if it is not a binary object,
+          <code>NULL</code> is returned. To avoid problems with in-band error
+          reporting (that is, if you cannot distinguish between <code>NULL</code> and
+          a valid result), use the more general function
+          <code>ei_reg_getval()</code> instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>const char * ei_reg_getsval(reg,key)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the value associated with <code>key</code> in the
+          registry. The value must be a string.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object will be
+            looked up.</item>
+          <item><code>key</code> is the name of the object to look up.
+          </item>
+        </list>
+        <p>On success, the function returns the value associated with
+          <code>key</code>. If the object is not found or if it is not a
+          string, <code>NULL</code> is returned. To avoid problems with in-band error
+          reporting (that is, if you cannot distinguish between <code>NULL</code> and
+          a valid result), use the more general function
+          <code>ei_reg_getval()</code> instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_getval(reg,key,flags,v,...)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>int flags;</code></li>
+        <li><code>void *v (see below)</code></li>
+      </ul>
+      <div class="description">
+        <p>A general function for retrieving any kind of
+          object from the registry.</p>
+        <list type="bulleted">
+          <item>
+            <p><code>reg</code> is the registry where the object will be
+              looked up.</p>
+          </item>
+          <item>
+            <p><code>key</code> is the name of the object to look up.</p>
+          </item>
+          <item>
+            <p><code>flags</code> indicates the type of object that you
+              are looking for. If <code>flags</code> is <code>0</code>, any
+              kind of object is returned.
+              If <code>flags</code> is <code>EI_INT</code>, <code>EI_FLT</code>,
+              <code>EI_STR</code>, or <code>EI_BIN</code>, then only values of
+              that kind are returned.</p>
+            <p>The buffer pointed to by <code>v</code>
+              must be large enough to hold the return data, that is, it must be
+              a pointer to one of <code>int</code>,
+              <code>double</code>, <code>char*</code>, or
+              <code>void*</code>, respectively.</p>
+            <p>If <code>flags</code> is <code>EI_BIN</code>, a fifth argument
+              <code>int *size</code> is required, so that the size of the
+              object can be returned.</p>
+          </item>
+        </list>
+        <p>On success, <code>v</code> (and <code>size</code> if the
+          object is binary) is initialized with the value associated
+          with <code>key</code>, and the function returns <code>EI_INT</code>,
+          <code>EI_FLT</code>, <code>EI_STR</code>, or <code>EI_BIN</code>, indicating the type
+          of object. On failure, <code>-1</code> is returned and the
+          arguments are not updated.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_markdirty(reg,key)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+      </ul>
+      <div class="description">
+        <p>Marks a registry object as dirty. This ensures that
+          it is included in the next backup to <code>Mnesia</code>. Normally this
+          operation is not necessary, as all of the normal registry
+          'set' functions do this automatically. However, if you have
+          retrieved the value of a string or binary object from the
+          registry and modified the contents, then the change is
+          invisible to the registry and the object is assumed to be
+          unmodified. This function allows you to make such modifications
+          and then let the registry know about them.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry containing the object.
+          </item>
+          <item><code>key</code> is the name of the object to mark.
+          </item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>ei_reg * ei_reg_open(size)</pre>
+      
+      <ul class="type">
+        <li><code>int size;</code></li>
+      </ul>
+      <div class="description">
+        <p>Opens (creates) a registry, which initially is empty. To
+          close the registry later, use <code>ei_reg_close()</code>.</p>
+        <p><code>size</code> is the approximate number of objects you
+          intend to store in the registry. As the registry uses a hash table
+          with collision chaining, no absolute upper limit exists on the
+          number of objects that can be stored in it. However, for reasons
+          of efficiency, it is a good idea to choose a number that is
+          appropriate for your needs. To change the size later, use
+          <code>ei_reg_resize()</code>. Notice that the number
+          you provide is increased to the nearest larger prime number.</p>
+        <p>Returns an empty registry on success, otherwise <code>NULL</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_purge(reg)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+      </ul>
+      <div class="description">
+        <p>Removes all objects marked for deletion. When objects
+          are deleted with <code>ei_reg_delete()</code> they are not
+          removed from the registry, only marked for later removal.
+          On a later backup to <code>Mnesia</code>, the
+          objects can also be removed from the <code>Mnesia</code> table. If you are
+          not backing up to <code>Mnesia</code>, you may wish to remove the objects
+          manually with this function.</p>
+        <p><code>reg</code> is a registry containing objects marked for
+          deletion.</p>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_resize(reg,newsize)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>int newsize;</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes the size of a registry.</p>
+        <p><code>newsize</code> is the new size to make the registry. The
+          number is increased to the nearest larger prime number.</p>
+        <p>On success, the registry is resized, all contents
+          rehashed, and <code>0</code> is returned. On failure, the
+          registry is left unchanged and <code>-1</code> is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_restore(fd,reg,mntab)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *mntab;</code></li>
+      </ul>
+      <div class="description">
+        <p>The contents of a <code>Mnesia</code> table are read into the registry.</p>
+        <list type="bulleted">
+          <item><code>fd</code> is an open connection to Erlang.
+            <code>Mnesia</code> 3.0 or later must be running on the Erlang node.
+          </item>
+          <item><code>reg</code> is the registry where the data is to be
+            placed.</item>
+          <item><code>mntab</code> is the name of the <code>Mnesia</code> table
+            to read data from.</item>
+        </list>
+        <p>Notice that only tables of a certain format can be
+          restored, that is, those that have been created and backed up to
+          with <code>ei_reg_dump()</code>. If the registry was not empty
+          before the operation, the contents of the table are added to the
+          contents of the registry. If the table contains objects with the
+          same keys as those already in the registry, the registry objects
+          are overwritten with the new values. If the registry
+          contains objects that were not in the table, they are
+          unchanged by this operation.</p>
+        <p>After the restore operation, the entire contents of the
+          registry is marked as unmodified. Notice that this includes any
+          objects that were modified before the restore and not
+          overwritten by the restore.</p>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_setfval(reg,key,f)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>double f;</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a key-value pair with the specified <code>key</code>
+          and floating point value <code>f</code>. If an object already
+          exists with the same <code>key</code>, the new value replaces
+          the old one. If the previous value was a binary or string, it is
+          freed with <code>free()</code>.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object is to be
+            placed.</item>
+          <item><code>key</code> is the object name.</item>
+          <item><code>f</code> is the floating point value to assign.
+          </item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_setival(reg,key,i)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>int i;</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a key-value pair with the specified <code>key</code>
+          and integer value <code>i</code>. If an object already exists
+          with the same <code>key</code>, the new value replaces the old
+          one. If the previous value was a binary or string, it is freed with
+          <code>free()</code>.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object is to be
+            placed.</item>
+          <item><code>key</code> is the object name.</item>
+          <item><code>i</code> is the integer value to assign.</item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_setpval(reg,key,p,size)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>const void *p;</code></li>
+        <li><code>int size;</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a key-value pair with the specified <code>key</code>
+          whose "value" is the binary object pointed to by <code>p</code>.
+          If an object already exists with the same <code>key</code>,
+          the new value replaces the old one. If the previous value was a
+          binary or string, it is freed with <code>free()</code>.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object is to be
+            placed.</item>
+          <item><code>key</code> is the object name.</item>
+          <item><code>p</code> is a pointer to the binary object. The
+            object itself must have been created through a single call to
+            <code>malloc()</code> or a similar function, so that the
+            registry can later delete it if necessary by calling
+            <code>free()</code>.</item>
+          <item><code>size</code> is the length in bytes of the binary
+            object.</item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_setsval(reg,key,s)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>const char *s;</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a key-value pair with the specified <code>key</code>
+          whose "value" is the specified string <code>s</code>. If an
+          object already exists with the same <code>key</code>, the new
+          value replaces the old one. If the previous value was a binary or
+          string, it is freed with <code>free()</code>.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry where the object is to be
+            placed.</item>
+          <item><code>key</code> is the object name.</item>
+          <item><code>s</code> is the string to assign. The string itself
+            must have been created through a single call to
+            <code>malloc()</code> or similar a function,
+            so that the registry can later delete it if
+            necessary by calling <code>free()</code>.</item>
+        </list>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_setval(reg,key,flags,v,...)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>int flags;</code></li>
+        <li><code>v (see below)</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a key-value pair with the specified <code>key</code>
+          whose value is specified by <code>v</code>. If an object already
+          exists with the same <code>key</code>, the new value replaces
+          the old one. If the previous value was a binary or string, it is freed
+          with <code>free()</code>.</p>
+        <list type="bulleted">
+          <item>
+            <p><code>reg</code> is the registry where the object is to be
+              placed.</p>
+          </item>
+          <item>
+            <p><code>key</code> is the object name.</p>
+          </item>
+          <item>
+            <p><code>flags</code> indicates the type of the object
+              specified by <code>v</code>. Flags must be one of
+              <code>EI_INT</code>, <code>EI_FLT</code>, <code>EI_STR</code>, and <code>EI_BIN</code>,
+              indicating whether
+              <code>v</code> is <code>int</code>,
+              <code>double</code>, <code>char*</code>, or
+              <code>void*</code>.</p>
+            <p>If <code>flags</code> is <code>EI_BIN</code>, a fifth argument
+              <code>size</code> is required, indicating the size
+              in bytes of the object pointed to by <code>v</code>.</p>
+          </item>
+        </list>
+        <p>If you wish to store an arbitrary pointer in the registry,
+          specify a <code>size</code> of <code>0</code>. In this case, the
+          object itself is not transferred by an
+          <code>ei_reg_dump()</code> operation, only the pointer
+          value.</p>
+        <p>Returns <code>0</code> on success, otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_stat(reg,key,obuf)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>const char *key;</code></li>
+        <li><code>struct ei_reg_stat *obuf;</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns information about an object.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry containing the object.
+          </item>
+          <item><code>key</code> is the object name.</item>
+          <item><code>obuf</code> is a pointer to an
+            <code>ei_reg_stat</code> structure, defined as follows:</item>
+        </list>
+        <pre class="sh_erlang">
+struct ei_reg_stat {
+  int attr;
+  int size;
+};
+        </pre>
+        <p>In <code>attr</code> the attributes of the object are stored
+          as the logical <em>OR</em> of its type (one of <code>EI_INT</code>,
+          <code>EI_FLT</code>, <code>EI_BIN</code>, and <code>EI_STR</code>),
+          whether it is marked for deletion (<code>EI_DELET</code>), and whether it
+          has been modified since the last backup to <code>Mnesia</code>
+          (<code>EI_DIRTY</code>).</p>
+        <p>Field <code>size</code> indicates the size in bytes required
+          to store <code>EI_STR</code> (including the terminating <code>0</code>) and
+          <code>EI_BIN</code> objects, or <code>0</code> for <code>EI_INT</code> and
+          <code>EI_FLT</code>.</p>
+        <p>Returns <code>0</code> and initializes <code>obuf</code> on success,
+          otherwise <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_reg_tabstat(reg,obuf)</pre>
+      
+      <ul class="type">
+        <li><code>ei_reg *reg;</code></li>
+        <li><code>struct ei_reg_tabstat *obuf;</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns information about a registry. Using information
+          returned by this function, you can see whether the size of the
+          registry is suitable for the amount of data it contains.</p>
+        <list type="bulleted">
+          <item><code>reg</code> is the registry to return information
+            about.</item>
+          <item><code>obuf</code> is a pointer to an
+            <code>ei_reg_tabstat</code> structure, defined as follows:
+          </item>
+        </list>
+        <pre class="sh_erlang">
+struct ei_reg_tabstat {
+  int size;  
+  int nelem; 
+  int npos;  
+  int collisions; 
+};
+        </pre>
+        <p>Field <code>size</code> indicates the number of hash positions
+          in the registry. This is the number you provided when you
+          created or last resized the registry, rounded up to the nearest
+          prime number.</p>
+        <list type="bulleted">
+          <item><code>nelem</code> indicates the number of elements stored
+            in the registry. It includes objects that are deleted but not
+            purged.</item>
+          <item><code>npos</code> indicates the number of unique positions
+            that are occupied in the registry.</item>
+          <item><code>collisions</code> indicates how many elements are
+            sharing positions in the registry.</item>
+        </list>
+        <p>On success, <code>0</code> is returned and
+          <code>obuf</code> is initialized to contain table statistics,
+          otherwise <code>-1</code> is returned.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

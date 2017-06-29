@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>dets (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>dets</h1>
+  <h2 class="modsummary">A disk-based term storage.</h2>
+  <div class="description">
+    <p>This module provides a term storage on file. The
+      stored terms, in this module called <em>objects</em>, are tuples
+      such that one element is defined to be the key. A Dets
+      <em>table</em> is a collection of objects with the key at the same
+      position stored on a file.</p>
+
+    <p>This module is used by the Mnesia application, and is provided
+      "as is" for users who are interested in efficient storage of Erlang
+      terms on disk only. Many applications only need to store some
+      terms in a file. Mnesia adds transactions, queries, and
+      distribution. The size of Dets files cannot exceed 2 GB. If larger
+      tables are needed, table fragmentation in Mnesia can be used.</p>
+
+    <p>Three types of Dets tables exist:</p>
+
+    <list type="bulleted">
+      <item><p><code>set</code>. A table of this type has at most one object with a
+          given key. If an object with a key already present in the
+          table is inserted, the existing object is overwritten by the new
+          object.</p>
+      </item>
+      <item><p><code>bag</code>. A table of this type has zero or more different
+          objects with a given key.</p>
+      </item>
+      <item><p><code>duplicate_bag</code>. A table of this type has zero or more
+        possibly matching objects with a given key.</p>
+      </item>
+    </list>
+
+    <p>Dets tables must be opened before they can be updated or read,
+      and when finished they must be properly closed. If a table is not
+      properly closed, Dets automatically repairs the table.
+      This can take a substantial time if the table is large. A Dets
+      table is closed when the process which opened the table
+      terminates. If many Erlang processes (users) open the same Dets
+      table, they share the table. The table is properly closed
+      when all users have either terminated or closed the table. Dets
+      tables are not properly closed if the Erlang runtime system
+      terminates abnormally.</p>
+
+    <div class="note"><h2>Note!</h2>
+      <p>A <code>^C</code> command abnormally terminates an Erlang runtime
+        system in a Unix environment with a break-handler.</p>
+    </div>
+
+    <p>As all operations performed by Dets are disk operations, it
+      is important to realize that a single look-up operation involves a
+      series of disk seek and read operations. The Dets functions
+      are therefore much slower than the corresponding
+      <a href="ets.html" class="seealso"><code>ets(3)</code></a> functions,
+      although Dets exports a similar interface.</p>
+
+    <p>Dets organizes data as a linear hash list and the hash list
+      grows gracefully as more data is inserted into the table. Space
+      management on the file is performed by what is called a buddy
+      system. The current implementation keeps the entire buddy system
+      in RAM, which implies that if the table gets heavily fragmented,
+      quite some memory can be used up. The only way to defragment a
+      table is to close it and then open it again with option <code>repair</code>
+      set to <code>force</code>.</p>
+
+    <p>Notice that type <code>ordered_set</code> in Ets is not yet
+      provided by Dets, neither is the limited support for
+      concurrent updates that makes a sequence of <code>first</code> and
+      <code>next</code> calls safe to use on fixed ETS tables. Both these
+      features may be provided by Dets in a future release of
+      Erlang/OTP. Until then, the Mnesia application (or some
+      user-implemented method for locking) must be used to implement safe
+      concurrency. Currently, no Erlang/OTP library has support for
+      ordered disk-based term storage.</p>
+
+    <p>All Dets functions return <code>{error, Reason}</code> if an error
+      occurs (<a href="#first/1" class="seealso"><code>first/1</code></a> and
+      <a href="#next/2" class="seealso"><code>next/2</code></a> are exceptions, they
+      exit the process with the error tuple). If badly formed arguments are
+      specified, all functions exit the process with a <code>badarg</code>
+      message.</p>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-access">access() = read | read_write</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-auto_save">auto_save() = infinity | integer() &gt;= 0</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-bindings_cont">bindings_cont()</h3>
+      <div class="description">
+        <p>Opaque continuation used by <a href="#match/1" class="seealso">
+          <code>match/1</code></a> and <a href="#match/3" class="seealso">
+          <code>match/3</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-cont">cont()</h3>
+      <div class="description">
+        <p>Opaque continuation used by <a href="#bchunk/2" class="seealso">
+          <code>bchunk/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-keypos">keypos() = integer() &gt;= 1</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-match_spec">match_spec() = <a href="ets.html#type-match_spec" class="seealso">ets:match_spec()</a></h3>
+      <div class="description">
+        <p>Match specifications, see section
+          <a href="../erts/match_spec.html" class="seealso">
+          Match Specification in Erlang</a> in ERTS User's Guide and the
+          <a href="ms_transform.html" class="seealso"><code>ms_transform(3)</code></a>
+          module.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-no_slots">no_slots() = default | integer() &gt;= 0</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-object">object() = tuple()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-object_cont">object_cont()</h3>
+      <div class="description">
+        <p>Opaque continuation used by <a href="#match_object/1" class="seealso">
+          <code>match_object/1</code></a> and
+          <a href="#match_object/3" class="seealso"><code>match_object/3</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-pattern">pattern() = atom() | tuple()</h3>
+      <div class="description">
+        <p>For a description of patterns, see
+          <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-select_cont">select_cont()</h3>
+      <div class="description">
+        <p>Opaque continuation used by <a href="#select/1" class="seealso">
+          <code>select/1</code></a> and <a href="#select/3" class="seealso">
+          <code>select/3</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-tab_name">tab_name() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-type">type() = bag | duplicate_bag | set</h3>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="all/0">all() -&gt; [<a href="#type-tab_name" class="seealso">tab_name()</a>]</h3>
+      
+      <div class="description">
+        <p>Returns a list of the names of all open tables on this node.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="bchunk/2">bchunk(Name, Continuation) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Continuation2, Data} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Continuation = start | <a href="#type-cont" class="seealso">cont()</a></code></li><li><code>Continuation2 = <a href="#type-cont" class="seealso">cont()</a></code></li><li><code>Data = binary() | tuple()</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a list of objects stored in a table. The exact
+          representation of the returned objects is not public. The
+          lists of data can be used for initializing a table by specifying
+          value <code>bchunk</code> to option <code>format</code> of function
+          <a href="#init_table/3" class="seealso"><code>init_table/3</code></a>
+          The Mnesia application uses this
+          function for copying open tables.</p>
+        <p>Unless the table is protected using <code>safe_fixtable/2</code>,
+          calls to <code>bchunk/2</code> do possibly not work as expected if
+          concurrent updates are made to the table.</p>
+        <p>The first time <code>bchunk/2</code> is called, an initial
+          continuation, the atom <code>start</code>, must be provided.</p>
+        <p><code>bchunk/2</code> returns a tuple
+          <code>{<anno>Continuation2</anno>, <anno>Data</anno>}</code>,
+          where <code><anno>Data</anno></code> is a list of
+          objects. <code><anno>Continuation2</anno></code> is another continuation
+          that is to be passed on to a subsequent call to <code>bchunk/2</code>. With
+          a series of calls to <code>bchunk/2</code>, all table objects can be
+          extracted.</p>
+        <p><code>bchunk/2</code> returns <code>'$end_of_table'</code> when all
+          objects are returned, or <code>{error, <anno>Reason</anno>}</code>
+          if an error occurs.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="close/1">close(Name) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Closes a table. Only processes that have opened a table are
+          allowed to close it.</p>
+        <p>All open tables must be closed before the system is
+          stopped. If an attempt is made to open a table that is not
+          properly closed, Dets automatically tries to repair it.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete/2">delete(Name, Key) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key = Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes all objects with key <code><anno>Key</anno></code> from
+          table <code><anno>Name</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete_all_objects/1">delete_all_objects(Name) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes all objects from a table in almost constant time.
+          However, if the table if fixed, <code>delete_all_objects(T)</code>
+          is equivalent to <code>match_delete(T, '_')</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete_object/2">delete_object(Name, Object) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Object = <a href="#type-object" class="seealso">object()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes all instances of a specified object from a table. If a
+          table is of type <code>bag</code> or <code>duplicate_bag</code>, this
+          function can be used to delete only some of
+          the objects with a specified key.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="first/1">first(Name) -&gt; Key | '$end_of_table'</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the first key stored in table <code><anno>Name</anno></code>
+          according to the internal order of the table, or
+          <code>'$end_of_table'</code> if the table is empty.</p>
+        <p>Unless the table is protected using <code>safe_fixtable/2</code>,
+          subsequent calls to <a href="#next/2" class="seealso"><code>next/2</code></a>
+          do possibly not work as expected if
+          concurrent updates are made to the table.</p>
+        <p>If an error occurs, the process is exited with an error
+          tuple <code>{error, Reason}</code>. The error tuple is not returned,
+          as it cannot be distinguished from a key.</p>
+        <p>There are two reasons why <code>first/1</code> and <code>next/2</code>
+          are not to be used: they are not efficient, and they
+          prevent the use of key <code>'$end_of_table'</code>, as this atom
+          is used to indicate the end of the table. If possible, use functions
+          <a href="#match/1" class="seealso"><code>match</code></a>,
+          <a href="#match_object/1" class="seealso"><code>match_object</code></a>, and
+          <a href="#select/1" class="seealso"><code>select</code></a>
+          for traversing tables.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="foldl/3">foldl(Function, Acc0, Name) -&gt; Acc | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Function = fun((Object :: <a href="#type-object" class="seealso">object()</a>, AccIn) -&gt; AccOut)</code></li><li><code>Acc0 = Acc = AccIn = AccOut = Reason = term()</code></li></ul>
+      <h3 id="foldr/3">foldr(Function, Acc0, Name) -&gt; Acc | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Function = fun((Object :: <a href="#type-object" class="seealso">object()</a>, AccIn) -&gt; AccOut)</code></li><li><code>Acc0 = Acc = AccIn = AccOut = Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Calls <code><anno>Function</anno></code> on successive elements of
+          table <code><anno>Name</anno></code> together with an extra argument
+          <code>AccIn</code>. The table elements are traversed in unspecified
+          order. <code><anno>Function</anno></code> must return a new
+          accumulator that is passed to the next call.
+          <code><anno>Acc0</anno></code> is returned if the table is empty.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="from_ets/2">from_ets(Name, EtsTab) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>EtsTab = <a href="ets.html#type-tab" class="seealso">ets:tab()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes all objects of table <code><anno>Name</anno></code> and then
+          inserts all the objects of the ETS table
+          <code><anno>EtsTab</anno></code>. The objects are inserted in unspecified
+          order. As <code>ets:safe_fixtable/2</code> is called, the ETS table
+          must be public or owned by the calling process.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/1">info(Name) -&gt; InfoList | undefined</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>InfoList = [InfoTuple]</code></li><li><code>InfoTuple = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_size, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{filename, <a href="file.html#type-name" class="seealso">file:name()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{keypos, <a href="#type-keypos" class="seealso">keypos()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{size, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{type, <a href="#type-type" class="seealso">type()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns information about table <code><anno>Name</anno></code>
+          as a list of tuples:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>{file_size, integer() &gt;= 0}}</code> - The file size, in
+            bytes.</p>
+          </item>
+          <item>
+            <p><code>{filename, </code><a href="file.html#type-name" class="seealso">
+            <code>file:name()</code></a><code>}</code> - The name of the file
+            where objects are stored.</p>
+          </item>
+          <item>
+            <p><code>{keypos, </code><a href="#type-keypos" class="seealso">
+              <code>keypos()</code></a><code>}</code> - The key position.</p>
+          </item>
+          <item>
+            <p><code>{size, integer() &gt;= 0}</code> - The number of objects
+              stored in the table.</p>
+          </item>
+          <item>
+            <p><code>{type, </code><a href="#type-type" class="seealso">
+              <code>type()</code></a><code>}</code> - The table type.</p>
+          </item>
+        </list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/2">info(Name, Item) -&gt; Value | undefined</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Item = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;access |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;auto_save |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;bchunk_format |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;hash |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;file_size |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;filename |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;keypos |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;memory |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_keys |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_objects |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_slots |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;owner |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ram_file |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;safe_fixed |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;safe_fixed_monotonic_time |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;size |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;type</code></li><li><code>Value = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the information associated with <code><anno>Item</anno></code>
+          for table <code><anno>Name</anno></code>.
+          In addition to the <code>{<anno>Item</anno>, <anno>Value</anno>}</code>
+          pairs defined for <a href="#info/1" class="seealso"><code>info/1</code></a>,
+          the following items are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>{access, </code><a href="#type-access" class="seealso">
+              <code>access()</code></a><code>}</code> - The access mode.</p>
+          </item>
+          <item>
+            <p><code>{auto_save, </code><a href="#type-auto_save" class="seealso">
+              <code>auto_save()</code></a><code>}</code> - The autosave interval.</p>
+          </item>
+          <item>
+            <p><code>{bchunk_format, binary()}</code> - An opaque binary
+              describing the format of the objects returned by
+              <code>bchunk/2</code>. The binary can be used as argument to
+              <code>is_compatible_chunk_format/2</code>.</p>
+          </item>
+          <item>
+            <p><code>{hash, Hash}</code> - Describes which BIF is
+              used to calculate the hash values of the objects stored in the
+              Dets table. Possible values of <code>Hash</code>:</p>
+            <list>
+              <item>
+                <p><code>phash</code> - Implies that the <code>erlang:phash/2</code> BIF
+                  is used.</p>
+              </item>
+              <item>
+                <p><code>phash2</code> - Implies that the <code>erlang:phash2/1</code> BIF
+                  is used.</p>
+              </item>
+            </list>
+          </item>
+          <item>
+            <p><code>{memory, integer() &gt;= 0}</code> - The file size, in bytes.
+              The same value is associated with item <code>file_size</code>.</p>
+          </item>
+          <item>
+            <p><code>{no_keys, integer &gt;= 0()}</code> - The number of different
+              keys stored in the table.</p>
+          </item>
+          <item>
+            <p><code>{no_objects, integer &gt;= 0()}</code> - The number of objects
+              stored in the table.</p>
+          </item>
+          <item>
+            <p><code>{no_slots, {Min, Used, Max}}</code> - The
+              number of slots of the table. <code>Min</code> is the minimum number of
+              slots, <code>Used</code> is the number of currently used slots,
+              and <code>Max</code> is the maximum number of slots.</p>
+          </item>
+          <item>
+            <p><code>{owner, pid()}</code> - The pid of the process that
+              handles requests to the Dets table.</p>
+          </item>
+          <item>
+            <p><code>{ram_file, boolean()}</code> - Whether the table is
+              kept in RAM.</p>
+          </item>
+          <item>
+            <p><code>{safe_fixed_monotonic_time, SafeFixed}</code> - If the table
+              is fixed, <code>SafeFixed</code> is a tuple
+              <code>{FixedAtTime, [{Pid,RefCount}]}</code>.
+              <code>FixedAtTime</code> is the time when
+              the table was first fixed, and <code>Pid</code> is the pid of
+              the process that fixes the table <code>RefCount</code> times.
+              There can be any number of processes in the list. If the table
+              is not fixed, <code>SafeFixed</code> is the atom <code>false</code>.</p>
+            <p><code>FixedAtTime</code> corresponds to the result returned by
+              <a href="../erts/erlang.html#monotonic_time/0" class="seealso">
+              <code>erlang:monotonic_time/0</code></a> at the time of fixation.
+              The use of <code>safe_fixed_monotonic_time</code> is
+              <a href="../erts/time_correction.html#Time_Warp_Safe_Code" class="seealso">
+              time warp safe</a>.</p>
+          </item>
+          <item>
+            <p><code>{safe_fixed, SafeFixed}</code> - The same as
+              <code>{safe_fixed_monotonic_time, SafeFixed}</code> except
+              the format and value of <code>FixedAtTime</code>.</p>
+            <p><code>FixedAtTime</code> corresponds to the result returned by
+              <a href="../erts/erlang.html#timestamp/0" class="seealso">
+              <code>erlang:timestamp/0</code></a> at the time of fixation.
+              Notice that when the system uses single or multi
+              <a href="../erts/time_correction.html#Time_Warp_Modes" class="seealso">time warp
+              modes</a>, this can produce strange results. This is
+              because the use of <code>safe_fixed</code> is not
+              <a href="../erts/time_correction.html#Time_Warp_Safe_Code" class="seealso">
+              time warp safe</a>. Time warp safe code must use
+              <code>safe_fixed_monotonic_time</code> instead.</p>
+          </item>
+        </list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="init_table/2">init_table(Name, InitFun) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>InitFun = fun((Arg) -&gt; Res)</code></li><li><code>Arg = read | close</code></li><li><code>Res = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;end_of_input |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{[<a href="#type-object" class="seealso">object()</a>], InitFun} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Data, InitFun} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;term()</code></li><li><code>Reason = term()</code></li><li><code>Data = binary() | tuple()</code></li></ul>
+      <h3 id="init_table/3">init_table(Name, InitFun, Options) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>InitFun = fun((Arg) -&gt; Res)</code></li><li><code>Arg = read | close</code></li><li><code>Res = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;end_of_input |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{[<a href="#type-object" class="seealso">object()</a>], InitFun} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Data, InitFun} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;term()</code></li><li><code>Options = Option | [Option]</code></li><li><code>Option = {min_no_slots, <a href="#type-no_slots" class="seealso">no_slots()</a>} | {format, term | bchunk}</code></li><li><code>Reason = term()</code></li><li><code>Data = binary() | tuple()</code></li></ul>
+      
+      <div class="description">
+        <p>Replaces the existing objects of table <code><anno>Name</anno></code>
+          with objects created by calling the input function
+          <code><anno>InitFun</anno></code>,
+          see below. The reason for using this function rather than
+          calling <code>insert/2</code> is that of efficiency. Notice
+          that the input functions are called by the process that
+          handles requests to the Dets table, not by the calling
+          process.</p>
+        <p>When called with argument <code>read</code>, function
+          <code><anno>InitFun</anno></code> is assumed to return <code>end_of_input</code>
+          when there is no more input, or <code>{Objects, Fun}</code>, where
+          <code>Objects</code> is a list of objects and <code>Fun</code> is a new
+          input function. Any other value <code>Value</code> is returned as an error
+          <code>{error, {init_fun, Value}}</code>. Each input function is
+          called exactly once, and if an error occurs, the last
+          function is called with argument <code>close</code>, the reply
+          of which is ignored.</p>
+        <p>If the table type is <code>set</code> and more
+          than one object exists with a given key, one of the objects is
+          chosen. This is not necessarily the last object with the given
+          key in the sequence of objects returned by the input
+          functions. Avoid duplicate keys, otherwise the file becomes 
+          unnecessarily fragmented. This holds also for duplicated
+          objects stored in tables of type <code>bag</code>.</p>
+        <p>It is important that the table has a sufficient number of
+          slots for the objects. If not, the hash list starts to
+          grow when <code>init_table/2</code> returns, which significantly
+          slows down access to the table for a period of time. The
+          minimum number of slots is set by the <code>open_file/2</code> option
+          <code>min_no_slots</code> and returned by the <code>info/2</code>
+          item <code>no_slots</code>. See also option <code>min_no_slots</code> below.</p>
+        <p>Argument <code><anno>Options</anno></code> is a list of <code>{Key, Val}</code>
+          tuples, where the following values are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>{min_no_slots, no_slots()}</code> - Specifies the
+              estimated number of different keys to be stored
+              in the table. The <code>open_file/2</code> option with the same
+              name is ignored, unless the table is created, in which
+              case performance can be enhanced by supplying an
+              estimate when initializing the table.</p>
+          </item>
+          <item>
+            <p><code>{format, Format}</code> - Specifies the format of the
+              objects returned by function <code><anno>InitFun</anno></code>. If
+              <code>Format</code> is <code>term</code> (the default),
+              <code><anno>InitFun</anno></code> is assumed to return a list of tuples.
+              If <code>Format</code> is <code>bchunk</code>, <code><anno>InitFun</anno></code> is
+              assumed to return <code><anno>Data</anno></code> as returned by
+              <a href="#bchunk/2" class="seealso"><code>bchunk/2</code></a>.
+              This option overrides option <code>min_no_slots</code>.</p>
+          </item>
+        </list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="insert/2">insert(Name, Objects) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Objects = <a href="#type-object" class="seealso">object()</a> | [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Inserts one or more objects into the table <code><anno>Name</anno></code>.
+          If there already exists an object with a key matching the key of
+          some of the given objects and the table type is <code>set</code>,
+          the old object will be replaced.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="insert_new/2">insert_new(Name, Objects) -&gt; boolean() | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Objects = <a href="#type-object" class="seealso">object()</a> | [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Inserts one or more objects into table <code><anno>Name</anno></code>.
+          If there already exists some object with a key matching the key
+          of any of the specified objects, the table is not updated and
+          <code>false</code> is returned. Otherwise the objects are inserted
+          and <code>true</code> returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="is_compatible_bchunk_format/2">is_compatible_bchunk_format(Name, BchunkFormat) -&gt; boolean()</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>BchunkFormat = binary()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code>true</code> if it would be possible to initialize
+          table <code><anno>Name</anno></code>, using
+          <a href="#init_table/3" class="seealso"><code>init_table/3</code></a> with
+          option <code>{format, bchunk}</code>,  with objects read with
+          <a href="#bchunk/2" class="seealso"><code>bchunk/2</code></a> from some
+          table <code>T</code>, such that calling
+          <code>info(T, bchunk_format)</code> returns
+          <code>BchunkFormat</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="is_dets_file/1">is_dets_file(Filename) -&gt; boolean() | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code>true</code> if file <code><anno>Filename</anno></code>
+          is a Dets table, otherwise <code>false</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lookup/2">lookup(Name, Key) -&gt; Objects | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key = term()</code></li><li><code>Objects = [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a list of all objects with key <code><anno>Key</anno></code>
+          stored in table <code><anno>Name</anno></code>, for example:</p>
+        <pre class="sh_erlang">
+2&gt; <code>dets:open_file(abc, [{type, bag}]).</code>
+{ok,abc}
+3&gt; <code>dets:insert(abc, {1,2,3}).</code>
+ok
+4&gt; <code>dets:insert(abc, {1,3,4}).</code>
+ok
+5&gt; <code>dets:lookup(abc, 1).</code>
+[{1,2,3},{1,3,4}]</pre>
+        <p>If the table type is <code>set</code>, the function returns
+          either the empty list or a list with one object, as there
+          cannot be more than one object with a given key. If the table
+          type is <code>bag</code> or <code>duplicate_bag</code>, the function
+          returns a list of arbitrary length.</p>
+        <p>Notice that the order of objects returned is unspecified. In
+          particular, the order in which objects were inserted is not
+          reflected.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match/1">match(Continuation) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation2} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Continuation = Continuation2 = <a href="#type-bindings_cont" class="seealso">bindings_cont()</a></code></li><li><code>Match = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Matches some objects stored in a table and returns a
+          non-empty list of the bindings matching a specified pattern in
+          some unspecified order. The table, the pattern, and the number
+          of objects that are matched are all defined by
+          <code><anno>Continuation</anno></code>, which has been returned by a
+          previous call to <code>match/1</code> or <code>match/3</code>.</p>
+        <p>When all table objects are matched,
+          <code>'$end_of_table'</code> is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match/2">match(Name, Pattern) -&gt; [Match] | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Pattern = <a href="#type-pattern" class="seealso">pattern()</a></code></li><li><code>Match = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns for each object of table <code><anno>Name</anno></code> that
+          matches <code><anno>Pattern</anno></code> a list of bindings in some
+          unspecified order. For a description of patterns, see
+          <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.
+          If the keypos'th element of
+          <code><anno>Pattern</anno></code> is unbound, all table objects are
+          matched. If the keypos'th element is bound, only the
+          objects with the correct key are matched.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match/3">match(Name, Pattern, N) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Pattern = <a href="#type-pattern" class="seealso">pattern()</a></code></li><li><code>N = default | integer() &gt;= 0</code></li><li><code>Continuation = <a href="#type-bindings_cont" class="seealso">bindings_cont()</a></code></li><li><code>Match = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Matches some or all objects of table <code><anno>Name</anno></code> and
+          returns a non-empty list of the bindings that match
+          <code><anno>Pattern</anno></code> in some unspecified order.
+          For a description of patterns, see
+          <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.</p>
+        <p>A tuple of the bindings and a continuation is returned,
+          unless the table is empty, in which case
+          <code>'$end_of_table'</code> is returned. The continuation is to be
+          used when matching further objects by calling
+          <a href="#match/1" class="seealso"><code>match/1</code></a>.</p>
+        <p>If the keypos'th element of <code><anno>Pattern</anno></code> is bound,
+          all table objects are matched. If the keypos'th element is
+          unbound, all table objects are matched, <code><anno>N</anno></code>
+          objects at a time, until at least one object matches or the
+          end of the table is reached. The default, indicated by
+          giving <code><anno>N</anno></code> the value <code>default</code>, is to let
+          the number of objects vary depending on the sizes of the objects.
+	  All objects with the
+          same key are always matched at the same time, which implies that
+          more than <anno>N</anno> objects can sometimes be matched.</p>
+        <p>The table is always to be protected using
+          <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+          before calling <code>match/3</code>, otherwise
+          errors can occur when calling <code>match/1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match_delete/2">match_delete(Name, Pattern) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Pattern = <a href="#type-pattern" class="seealso">pattern()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes all objects that match <code><anno>Pattern</anno></code> from
+          table <code><anno>Name</anno></code>. For a description of patterns,
+          see <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.</p>
+        <p>If the keypos'th element of <code>Pattern</code> is bound,
+          only the objects with the correct key are matched.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match_object/1">match_object(Continuation) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Objects, Continuation2} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Continuation = Continuation2 = <a href="#type-object_cont" class="seealso">object_cont()</a></code></li><li><code>Objects = [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a non-empty list of some objects stored in a table
+          that match a given pattern in some unspecified order. The
+          table, the pattern, and the number of objects that are matched
+          are all defined by <code><anno>Continuation</anno></code>, which has been
+          returned by a previous call to <code>match_object/1</code> or
+          <code>match_object/3</code>.</p>
+        <p>When all table objects are matched,
+          <code>'$end_of_table'</code> is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match_object/2">match_object(Name, Pattern) -&gt; Objects | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Pattern = <a href="#type-pattern" class="seealso">pattern()</a></code></li><li><code>Objects = [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a list of all objects of table <code><anno>Name</anno></code> that
+          match <code><anno>Pattern</anno></code> in some unspecified order.
+          For a description of patterns, see
+          <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.</p>
+        <p>If the keypos'th element of <code><anno>Pattern</anno></code> is
+          unbound, all table objects are matched. If the
+          keypos'th element of <code><anno>Pattern</anno></code> is bound, only the
+          objects with the correct key are matched.</p>
+        <p>Using the <code>match_object</code> functions for traversing all
+          table objects is more efficient than calling
+          <code>first/1</code> and <code>next/2</code> or <code>slot/2</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="match_object/3">match_object(Name, Pattern, N) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Objects, Continuation} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Pattern = <a href="#type-pattern" class="seealso">pattern()</a></code></li><li><code>N = default | integer() &gt;= 0</code></li><li><code>Continuation = <a href="#type-object_cont" class="seealso">object_cont()</a></code></li><li><code>Objects = [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Matches some or all objects stored in table <code><anno>Name</anno></code>
+          and returns a non-empty list of the objects that match
+          <code><anno>Pattern</anno></code> in some unspecified order.
+          For a description of patterns, see
+          <a href="ets.html#match/2" class="seealso"><code>ets:match/2</code></a>.</p>
+        <p>A list of objects and a continuation is returned, unless
+          the table is empty, in which case <code>'$end_of_table'</code>
+          is returned. The continuation is to be used when matching
+          further objects by calling
+          <a href="#match_object/1" class="seealso"><code>match_object/1</code></a>.</p>
+        <p>If the keypos'th element of <code><anno>Pattern</anno></code> is bound,
+          all table objects are matched. If the keypos'th element is
+          unbound, all table objects are matched, <code><anno>N</anno></code>
+          objects at a time, until at least one object matches or the
+          end of the table is reached. The default, indicated by
+          giving <code><anno>N</anno></code> the value <code>default</code>,
+          is to let the number
+          of objects vary depending on the sizes of the objects. All
+	  matching objects with the same key are always returned
+	  in the same reply, which implies
+          that more than <anno>N</anno> objects can sometimes be returned.</p>
+        <p>The table is always to be protected using
+          <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+          before calling <code>match_object/3</code>, otherwise
+          errors can occur when calling <code>match_object/1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="member/2">member(Name, Key) -&gt; boolean() | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key = Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Works like <a href="#lookup/2" class="seealso"><code>lookup/2</code></a>,
+          but does not return the objects. Returns <code>true</code> if one or more
+          table elements has key <code><anno>Key</anno></code>, otherwise
+          <code>false</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="next/2">next(Name, Key1) -&gt; Key2 | '$end_of_table'</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key1 = Key2 = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns either the key following <code><anno>Key1</anno></code> in table
+          <code><anno>Name</anno></code> according to the internal order of the
+            table, or <code>'$end_of_table'</code> if there is no next key.</p>
+        <p>If an error occurs, the process is exited with an error
+          tuple <code>{error, Reason}</code>.</p>
+        <p>To find the first key in the table, use
+          <a href="#first/1" class="seealso"><code>first/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="open_file/1">open_file(Filename) -&gt; {ok, Reference} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Reference = reference()</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Opens an existing table. If the table is not properly closed,
+          it is repaired. The returned reference is to be used as the table
+          name. This function is most useful for debugging purposes.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="open_file/2">open_file(Name, Args) -&gt; {ok, Name} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Args = [OpenArg]</code></li><li><code>OpenArg = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{access, <a href="#type-access" class="seealso">access()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{auto_save, <a href="#type-auto_save" class="seealso">auto_save()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{estimated_no_objects, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file, <a href="file.html#type-name" class="seealso">file:name()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{max_no_slots, <a href="#type-no_slots" class="seealso">no_slots()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{min_no_slots, <a href="#type-no_slots" class="seealso">no_slots()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{keypos, <a href="#type-keypos" class="seealso">keypos()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ram_file, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{repair, boolean() | force} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{type, <a href="#type-type" class="seealso">type()</a>}</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Opens a table. An empty Dets table is created if no file
+          exists.</p>
+        <p>The atom <code><anno>Name</anno></code> is the table name. The table
+          name must be provided in all subsequent operations on the
+          table. The name can be used by other processes as well, and
+          many processes can share one table.</p>
+        <p>If two processes open the same table by giving the same
+          name and arguments, the table has two users. If one
+          user closes the table, it remains open until the second
+          user closes it.</p>
+        <p>Argument <code><anno>Args</anno></code> is a list of <code>{Key, Val}</code>
+          tuples, where the following values are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>{access, </code><a href="#type-access" class="seealso">
+              <code>access()</code></a><code>}</code> - Existing tables can be
+              opened in read-only mode. A table that is opened
+              in read-only mode is not subjected to the automatic file
+              reparation algorithm if it is later opened after a crash.
+              Defaults to <code>read_write</code>.</p>
+          </item>
+          <item>
+            <p><code>{auto_save, </code><a href="#type-auto_save" class="seealso">
+              <code>auto_save()</code></a><code>}</code> - The autosave
+              interval. If the interval is an integer <code>Time</code>, the
+              table is flushed to disk whenever it is not accessed for
+              <code>Time</code> milliseconds. A table that has been flushed
+              requires no reparation when reopened after an
+              uncontrolled emulator halt. If the interval is the atom
+              <code>infinity</code>, autosave is disabled. Defaults to
+              180000 (3 minutes).</p>
+          </item>
+          <item>
+            <p><code>{estimated_no_objects, </code><a href="#type-no_slots" class="seealso">
+              <code>no_slots()</code></a><code>}</code> - Equivalent to option
+              <code>min_no_slots</code>.</p>
+          </item>
+          <item>
+            <p><code>{file, </code><a href="file.html#type-name" class="seealso">
+              <code>file:name()</code></a><code>}</code> - The name of the file to be
+              opened. Defaults to the table name.</p>
+          </item>
+          <item>
+            <p><code>{max_no_slots, </code><a href="#type-no_slots" class="seealso">
+              <code>no_slots()</code></a><code>}</code> - The maximum number
+              of slots to be used. Defaults to 32 M, which is the
+              maximal value. Notice that a higher value can
+              increase the table fragmentation, and
+              a smaller value can decrease the fragmentation, at
+              the expense of execution time.</p>
+          </item>
+          <item>
+            <p><code>{min_no_slots, </code><a href="#type-no_slots" class="seealso">
+              <code>no_slots()</code></a><code>}</code> - Application
+              performance can be enhanced with this flag by specifying,
+              when the table is created, the estimated number of
+              different keys to be stored in the table. Defaults to 256,
+              which is the minimum value.</p>
+          </item>
+          <item>
+            <p><code>{keypos, </code><a href="#type-keypos" class="seealso">
+              <code>keypos()</code></a><code>}</code> - The position of the
+              element of each object to be used as key. Defaults to 1.
+              The ability to explicitly state the key
+              position is most convenient when we want to store Erlang
+              records in which the first position of the record is the
+              name of the record type.</p>
+          </item>
+          <item>
+            <p><code>{ram_file, boolean()}</code> - Whether the table is to
+              be kept in RAM. Keeping the table in RAM can sound like an
+              anomaly, but can enhance the performance of applications
+              that open a table, insert a set of objects, and then
+              close the table. When the table is closed, its contents
+              are written to the disk file. Defaults to <code>false</code>.</p>
+          </item>
+          <item>
+            <p><code>{repair, Value}</code> - <code>Value</code> can be either
+              a <code>boolean()</code> or the atom <code>force</code>. The flag
+              specifies if the Dets server is to invoke the
+              automatic file reparation algorithm. Defaults to
+              <code>true</code>. If <code>false</code> is specified, no attempt is
+              made to repair the file, and <code>{error, {needs_repair,
+              FileName}}</code> is returned if the table must be repaired.</p>
+            <p>Value <code>force</code> means that a reparation
+              is made even if the table is properly closed.
+	      This is a seldom needed option.</p>
+            <p>Option <code>repair</code> is ignored if the table is already open.</p>
+          </item>
+          <item>
+            <p><code>{type, </code><a href="#type-type" class="seealso">
+              <code>type()</code></a><code>}</code> - The table type. Defaults to
+              <code>set</code>.</p>
+          </item>
+        </list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="pid2name/1">pid2name(Pid) -&gt; {ok, Name} | undefined</h3>
+      <ul class="type_desc"><li><code>Pid = pid()</code></li><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns the table name given the pid of a process
+          that handles requests to a table, or <code>undefined</code> if
+          there is no such table.</p>
+        <p>This function is meant to be used for debugging only.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="repair_continuation/2">repair_continuation(Continuation, MatchSpec) -&gt; Continuation2</h3>
+      <ul class="type_desc"><li><code>Continuation = Continuation2 = <a href="#type-select_cont" class="seealso">select_cont()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li></ul>
+      
+      <div class="description">
+        <p>This function can be used to restore an opaque continuation
+          returned by
+          <a href="#select/3" class="seealso"><code>select/3</code></a> or
+          <a href="#select/1" class="seealso"><code>select/1</code></a> if the
+          continuation has passed through external term format (been
+          sent between nodes or stored on disk).</p>
+        <p>The reason for this function is that continuation terms
+          contain compiled match specifications and therefore are
+          invalidated if converted to external term format. Given that
+          the original match specification is kept intact, the
+          continuation can be restored, meaning it can once again be
+          used in subsequent <code>select/1</code> calls even though it has
+          been stored on disk or on another node.</p>
+        <p>For more information and examples, see the
+          <a href="ets.html" class="seealso"><code>ets(3)</code></a> module.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>This function is rarely needed in application code. It is used by
+            application Mnesia to provide distributed <code>select/3</code>
+            and <code>select/1</code> sequences. A normal application would
+            either use Mnesia or keep the continuation from being
+            converted to external format.</p>
+          <p>The reason for not having an external representation of
+            compiled match specifications is performance. It can be
+            subject to change in future releases, while this interface
+            remains for backward compatibility.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="safe_fixtable/2">safe_fixtable(Name, Fix) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Fix = boolean()</code></li></ul>
+      
+      <div class="description">
+        <p>If <code><anno>Fix</anno></code> is <code>true</code>, table
+          <code><anno>Name</anno></code> is
+          fixed (once more) by the calling process, otherwise the table
+          is released. The table is also released when a fixing process
+          terminates.</p>
+        <p>If many processes fix a table, the table remains
+          fixed until all processes have released it or terminated. A
+          reference counter is kept on a per process basis, and N
+          consecutive fixes require N releases to release the table.</p>
+        <p>It is not guaranteed that calls to <code>first/1</code>,
+          <code>next/2</code>, or select and match functions work as expected
+          even if the table is fixed; the limited support for
+          concurrency provided by the
+          <a href="ets.html" class="seealso"><code>ets(3)</code></a> module is not yet
+          provided by Dets.
+          Fixing a table currently only disables resizing of
+          the hash list of the table.</p>
+        <p>If objects have been added while the table was fixed, the
+          hash list starts to grow when the table is released, which
+          significantly slows down access to the table for a period
+          of time.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="select/1">select(Continuation) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Selection, Continuation2} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Continuation = Continuation2 = <a href="#type-select_cont" class="seealso">select_cont()</a></code></li><li><code>Selection = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Applies a match specification to some objects stored in a
+          table and returns a non-empty list of the results. The
+          table, the match specification, and the number of objects
+          that are matched are all defined by <code><anno>Continuation</anno></code>,
+          which is returned by a previous call to
+          <a href="#select/1" class="seealso"><code>select/1</code></a> or
+          <a href="#select/3" class="seealso"><code>select/3</code></a>.</p>
+        <p>When all objects of the table have been matched,
+          <code>'$end_of_table'</code> is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="select/2">select(Name, MatchSpec) -&gt; Selection | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Selection = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the results of applying match specification
+          <code><anno>MatchSpec</anno></code> to all or some objects stored in table
+          <code><anno>Name</anno></code>. The order of the objects is not specified.
+          For a description of match specifications, see the
+          <a href="../erts/match_spec.html" class="seealso">ERTS User's Guide</a>.</p>
+        <p>If the keypos'th element of <code><anno>MatchSpec</anno></code> is
+          unbound, the match specification is applied to all objects of
+          the table. If the keypos'th element is bound, the match
+          specification is applied to the objects with the correct key(s)
+          only.</p>
+        <p>Using the <code>select</code> functions for traversing all
+          objects of a table is more efficient than calling
+          <code>first/1</code> and <code>next/2</code> or <code>slot/2</code>.
+          </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="select/3">select(Name, MatchSpec, N) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Selection, Continuation} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'$end_of_table' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>N = default | integer() &gt;= 0</code></li><li><code>Continuation = <a href="#type-select_cont" class="seealso">select_cont()</a></code></li><li><code>Selection = [term()]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the results of applying match specification
+          <code><anno>MatchSpec</anno></code> to some or all objects stored in table
+          <code><anno>Name</anno></code>. The order of the objects is not specified.
+          For a description of match specifications, see the
+          <a href="../erts/match_spec.html" class="seealso">ERTS User's Guide</a>.</p>
+        <p>A tuple of the results of applying the match specification
+          and a continuation is returned, unless the table is empty,
+          in which case <code>'$end_of_table'</code> is returned. The
+          continuation is to be used when matching more objects by calling
+          <a href="#select/1" class="seealso"><code>select/1</code></a>.</p>
+        <p>If the keypos'th element of <code><anno>MatchSpec</anno></code> is bound,
+          the  match specification is applied to all objects of the table
+          with the correct key(s). If the keypos'th element of
+          <code><anno>MatchSpec</anno></code> is unbound, the match specification is
+          applied to all objects of the table, <code><anno>N</anno></code> objects at
+          a time, until at least one object matches or the end of the
+          table is reached. The default, indicated by giving
+          <code><anno>N</anno></code> the value <code>default</code>, is to let the number
+          of objects vary depending on the sizes of the objects. All
+	  objects with the
+          same key are always handled at the same time, which implies that the
+          match specification can be applied to more than <anno>N</anno>
+          objects.</p>
+        <p>The table is always to be protected using
+          <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+          before calling <code>select/3</code>, otherwise
+          errors can occur when calling <code>select/1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="select_delete/2">select_delete(Name, MatchSpec) -&gt; N | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>N = integer() &gt;= 0</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes each object from table <code><anno>Name</anno></code> such that
+          applying match specification <code><anno>MatchSpec</anno></code> to the
+          object returns value <code>true</code>.
+          For a description of match specifications, see the
+          <a href="../erts/match_spec.html" class="seealso">ERTS User's Guide</a>.
+          Returns the number of deleted objects.</p>
+        <p>If the keypos'th element of <code><anno>MatchSpec</anno></code> is
+          bound, the match specification is applied to the objects
+          with the correct key(s) only.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="slot/2">slot(Name, I) -&gt; '$end_of_table' | Objects | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>I = integer() &gt;= 0</code></li><li><code>Objects = [<a href="#type-object" class="seealso">object()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>The objects of a table are distributed among slots,
+          starting with slot <code>0</code> and ending with slot <code>n</code>.
+          Returns the list of objects associated with slot
+          <code><anno>I</anno></code>. If <code><anno>I</anno></code> &gt; <code>n</code>,
+          <code>'$end_of_table'</code> is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sync/1">sync(Name) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Ensures that all updates made to table <code><anno>Name</anno></code> are
+          written to disk. This also applies to tables that have been
+          opened with flag <code>ram_file</code> set to <code>true</code>. In
+          this case, the contents of the RAM file are flushed to disk.</p>
+        <p>Notice that the space management data structures kept in RAM,
+          the buddy system, is also written to the disk. This can take
+          some time if the table is fragmented.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="table/1">table(Name) -&gt; QueryHandle</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>QueryHandle = <a href="qlc.html#type-query_handle" class="seealso">qlc:query_handle()</a></code></li></ul>
+      <h3 id="table/2">table(Name, Options) -&gt; QueryHandle</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Options = Option | [Option]</code></li><li><code>Option = {n_objects, Limit} | {traverse, TraverseMethod}</code></li><li><code>Limit = default | integer() &gt;= 1</code></li><li><code>TraverseMethod = first_next | select | {select, <a href="#type-match_spec" class="seealso">match_spec()</a>}</code></li><li><code>QueryHandle = <a href="qlc.html#type-query_handle" class="seealso">qlc:query_handle()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns a Query List
+          Comprehension (QLC) query handle. The
+          <a href="qlc.html" class="seealso"><code>qlc(3)</code></a> module
+          provides a query language aimed mainly for Mnesia, but
+          ETS tables, Dets tables, and lists are also recognized
+          by <code>qlc</code> as sources of data. Calling
+          <a href="dets.html#table/1" class="seealso"><code>dets:table/1,2</code></a> is the
+          means to make Dets table <code><anno>Name</anno></code> usable to
+          <code>qlc</code>.</p>
+        <p>When there are only simple restrictions on the key position,
+          <code>qlc</code> uses
+          <a href="dets.html#lookup/2" class="seealso"><code>dets:lookup/2</code></a>
+          to look up the keys. When
+          that is not possible, the whole table is traversed.
+          Option <code>traverse</code> determines how this is done:</p>
+        <list type="bulleted">
+          <item>
+            <p><code>first_next</code> - The table is traversed one key at
+              a time by calling <code>dets:first/1</code> and <code>dets:next/2</code>.</p>
+          </item>
+          <item>
+            <p><code>select</code> - The table is traversed by calling
+              <a href="../dets/select/3.html" class="seealso"><code>dets:select/3</code></a> and
+              <a href="../dets/select/1.html" class="seealso"><code>dets:select/1</code></a>.
+              Option <code>n_objects</code> determines the number of objects
+              returned (the third argument of <code>select/3</code>). The
+              match specification (the second argument of
+              <code>select/3</code>) is assembled by <code>qlc</code>:</p>
+            <list type="bulleted">
+              <item>
+                <p>Simple filters are translated into equivalent match
+                  specifications.</p>
+              </item>
+              <item>
+                <p>More complicated filters must be applied to all
+                  objects returned by <code>select/3</code> given a match
+                  specification that matches all objects.</p>
+              </item>
+            </list>
+          </item>
+          <item>
+            <p><code>{select, </code><a href="#type-match_spec" class="seealso">
+              match_spec()</a><code>}</code> - As for <code>select</code>,
+              the table is traversed by calling <code>dets:select/3</code>
+              and <code>dets:select/1</code>. The difference is that the
+              match specification is specified explicitly. This is how to
+              state match specifications that cannot easily be
+              expressed within the syntax provided by <code>qlc</code>.</p>
+          </item>
+        </list>
+        <p>The following example uses an explicit match specification
+          to traverse the table:</p>
+        <pre class="sh_erlang">
+1&gt; <code>dets:open_file(t, []),</code>
+<code>ok = dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),</code>
+<code>MS = ets:fun2ms(fun({X,Y}) when (X &gt; 1) or (X &lt; 5) -&gt; {Y} end),</code>
+<code>QH1 = dets:table(t, [{traverse, {select, MS}}]).</code></pre>
+        <p>An example with implicit match specification:</p>
+        <pre class="sh_erlang">
+2&gt; <code>QH2 = qlc:q([{Y} || {X,Y} &lt;- dets:table(t), (X &gt; 1) or (X &lt; 5)]).</code></pre>
+        <p>The latter example is equivalent to the former, which 
+          can be verified using function <code>qlc:info/1</code>:</p>
+        <pre class="sh_erlang">
+3&gt; <code>qlc:info(QH1) =:= qlc:info(QH2).</code>
+true</pre>
+        <p><code>qlc:info/1</code> returns information about a query handle.
+          In this case identical information is returned for the
+          two query handles.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="to_ets/2">to_ets(Name, EtsTab) -&gt; EtsTab | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>EtsTab = <a href="ets.html#type-tab" class="seealso">ets:tab()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Inserts the objects of the Dets table <code><anno>Name</anno></code>
+          into the ETS table <code><anno>EtsTab</anno></code>. The order in
+          which the objects are
+          inserted is not specified. The existing objects of the ETS
+          table are kept unless overwritten.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="traverse/2">traverse(Name, Fun) -&gt; Return | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Fun = fun((Object) -&gt; FunReturn)</code></li><li><code>Object = <a href="#type-object" class="seealso">object()</a></code></li><li><code>FunReturn = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;continue | {continue, Val} | {done, Value} | OtherValue</code></li><li><code>Return = [term()] | OtherValue</code></li><li><code>Val = Value = OtherValue = Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Applies <code><anno>Fun</anno></code> to each object stored in table
+          <code><anno>Name</anno></code> in some unspecified order. Different
+          actions are
+          taken depending on the return value of <code><anno>Fun</anno></code>. The
+          following <code><anno>Fun</anno></code> return values are allowed:</p>
+        <taglist>
+          <dt><code>continue</code></dt>
+          <item>
+            <p>Continue to perform the traversal. For example, the
+              following function can be used to print the contents
+              of a table:</p>
+            <pre class="sh_erlang">
+fun(X) -&gt; io:format("~p~n", [X]), continue end.</pre>
+          </item>
+          <dt><code>{continue, Val}</code></dt>
+          <item>
+            <p>Continue the traversal and accumulate <code><anno>Val</anno></code>.
+              The following function is supplied to collect all
+              objects of a table in a list:</p>
+            <pre class="sh_erlang">
+fun(X) -&gt; {continue, X} end.</pre>
+          </item>
+          <dt><code>{done, <anno>Value</anno>}</code></dt>
+          <item>
+            <p>Terminate the traversal and return
+              <code>[<anno>Value</anno> | Acc]</code>.</p>
+          </item>
+        </taglist>
+        <p>Any other value <code><anno>OtherValue</anno></code> returned by
+          <code><anno>Fun</anno></code> terminates the
+          traversal and is returned immediately.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_counter/3">update_counter(Name, Key, Increment) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-tab_name" class="seealso">tab_name()</a></code></li><li><code>Key = term()</code></li><li><code>Increment = {Pos, Incr} | Incr</code></li><li><code>Pos = Incr = Result = integer()</code></li></ul>
+      
+      <div class="description">
+        <p>Updates the object with key <code><anno>Key</anno></code> stored in
+          table <code><anno>Name</anno></code> of type <code>set</code> by adding
+          <code><anno>Incr</anno></code> to the
+          element at the <code><anno>Pos</anno></code>:th position.
+          The new counter value
+          is returned. If no position is specified, the element directly
+          following the key is updated.</p>
+        <p>This functions provides a way of updating a counter,
+          without having to look up an object, update the object by
+          incrementing an element, and insert the resulting object into
+          the table again.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="ets.html" class="seealso"><code>ets(3)</code></a>,
+      <a href="../mnesia/mnesia.html" class="seealso"><code>mnesia(3)</code></a>,
+      <a href="qlc.html" class="seealso"><code>qlc(3)</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

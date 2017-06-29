@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ct_netconfc (common_test) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ct_netconfc</h1>
+  <h2 class="modsummary">NETCONF client module.</h2>
+
+  <div class="description">
+
+    <p>NETCONF client module.</p>
+
+    <p>The NETCONF client is compliant with RFC 4741 NETCONF Configuration
+      Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
+      Secure SHell (SSH).</p>
+
+    <span id="Connecting"> </span>
+    <p><em>Connecting to a NETCONF server</em></p>
+
+    <p>NETCONF sessions can either be opened by a single call
+      to <a href="#open/1" class="seealso"><code>open/1,2</code></a> or by a call
+      to <a href="#connect/1" class="seealso"><code>connect/1,2</code></a> followed
+      by one or more calls to
+      <a href="#session/1" class="seealso"><code>session/1,2,3</code></a>.</p>
+
+    <p>The properties of the sessions will be exactly the same, except
+      that when
+      using <a href="#connect/1" class="seealso"><code>connect/1,2</code></a>, you
+      may start multiple sessions over the same SSH connection. Each
+      session is implemented as an SSH channel.</p>
+
+    <p><a href="#open/1" class="seealso"><code>open/1,2</code></a> will establish one
+      SSH connection with one SSH channel implementing one NETCONF
+      session. You may start mutiple sessions by
+      calling <a href="#open/1" class="seealso"><code>open/1,2</code></a> multiple
+      times, but then a new SSH connection will be established for each
+      session.</p>
+
+    <p>For each server to test against, the following entry can be added to a
+      configuration file:</p>
+
+    <pre class="sh_erlang">
+ {server_id(),options()}.</pre>
+
+    <p>The <a href="#type-server_id" class="seealso"><code>server_id()</code></a>
+      or an associated
+      <a href="ct.html#type-target_name" class="seealso"><code>ct:target_name()</code></a>
+      must then be used in calls to
+      <a href="#connect/2" class="seealso"><code>connect/2</code></a>
+      or <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+
+    <p>If no configuration exists for a server,
+      use <a href="#connect/1" class="seealso"><code>connect/1</code></a>
+      or <a href="#open/1" class="seealso"><code>open/1</code></a> instead,
+      and specify all necessary options in the <code>Options</code> parameter.</p>
+
+    <span id="Logging"> </span>
+    <p><em>Logging</em></p>
+
+    <p>The NETCONF server uses <code>error_logger</code> for logging of NETCONF
+      traffic. A special purpose error handler is implemented in
+      <code>ct_conn_log_h</code>. To use this error handler, add the
+      <code>cth_conn_log</code> hook in the test suite, for example:</p>
+
+    <pre class="sh_erlang">
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{<a href="ct.html#type-conn_log_mod" class="seealso"><code>ct:conn_log_mod()</code></a>,<a href="ct.html#type-conn_log_options" class="seealso"><code>ct:conn_log_options()</code></a>}]}]}].</pre>
+
+    <p><code>conn_log_mod()</code> is the name of the <code>Common Test</code> module
+      implementing the connection protocol, for example, <code>ct_netconfc</code>.</p>
+
+    <p>Hook option <code>log_type</code> specifies the type of logging:</p>
+
+    <taglist>
+      <dt><code>raw</code></dt>
+      <item><p>The sent and received NETCONF data is logged to a separate
+        text file "as is" without any formatting. A link to the file is
+        added to the test case HTML log.</p></item>
+
+      <dt><code>pretty</code></dt>
+      <item><p>The sent and received NETCONF data is logged to a separate
+        text file with XML data nicely indented. A link to the file is
+        added to the test case HTML log.</p></item>
+
+      <dt><code>html (default)</code></dt>
+      <item><p>The sent and received NETCONF traffic is pretty printed
+        directly in the test case HTML log.</p></item>
+
+      <dt><code>silent</code></dt>
+      <item><p>NETCONF traffic is not logged.</p></item>
+    </taglist>
+
+    <p>By default, all NETCONF traffic is logged in one single log file.
+      However, different connections can be logged in separate files.
+      To do this, use hook option <code>hosts</code> and list the names of the
+      servers/connections to be used in the suite. The connections
+      must be named for this to work, that is, they must be opened with
+      <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+
+    <p>Option <code>hosts</code> has no effect if <code>log_type</code> is set to
+      <code>html</code> or <code>silent</code>.</p>
+
+    <p>The hook options can also be specified in a configuration file with
+      configuration variable <code>ct_conn_log</code>:</p>
+
+    <pre class="sh_erlang">
+ {ct_conn_log,[{<a href="ct.html#type-conn_log_mod" class="seealso"><code>ct:conn_log_mod()</code></a>,<a href="ct.html#type-conn_log_options" class="seealso"><code>ct:conn_log_options()</code></a>}]}.</pre>
+
+    <p>For example:</p>
+
+    <pre class="sh_erlang">
+ {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
+                             {hosts,[<a href="ct.html#type-key_or_name" class="seealso"><code>ct:key_or_name()</code></a>]}]}]}</pre>
+
+    <div class="note"><h2>Note!</h2>
+      <p>Hook options specified in a configuration file overwrite the
+        hard-coded hook options in the test suite.</p>
+    </div>
+
+    <p><em>Logging Example 1:</em></p>
+    <span id="Logging_example_1"> </span>
+
+    <p>The following <code>ct_hooks</code> statement causes pretty printing of
+      NETCONF traffic to separate logs for the connections named
+      <code>nc_server1</code> and <code>nc_server2</code>. Any other connections are
+      logged to default NETCONF log.</p>
+
+    <pre class="sh_erlang">
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
+                                               {hosts,[nc_server1,nc_server2]}]}
+                                ]}]}].</pre>
+
+    <p>Connections must be opened as follows:</p>
+
+    <pre class="sh_erlang">
+ open(nc_server1,[...]),
+ open(nc_server2,[...]).</pre>
+
+    <p><em>Logging Example 2:</em></p>
+    <span id="Logging_example_2"> </span>
+
+    <p>The following configuration file causes raw logging of all NETCONF 
+      traffic in to one single text file:</p>
+
+    <pre class="sh_erlang">
+ {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.</pre>
+
+    <p>The <code>ct_hooks</code> statement must look as follows:</p>
+
+    <pre class="sh_erlang">
+ suite() -&gt;
+    [{ct_hooks, [{cth_conn_log, []}]}].</pre>
+
+    <p>The same <code>ct_hooks</code> statement without the configuration file
+      would cause HTML logging of all NETCONF connections in to the test
+      case HTML log.</p>
+
+    <span id="Notifications"> </span>
+    <p><em>Notifications</em></p>
+
+    <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
+      Notifications, which defines a mechanism for an asynchronous message 
+      notification delivery service for the NETCONF protocol.</p>
+
+    <p>Specific functions to support this are
+      <a href="#create_subscription/1" class="seealso"><code>create_subscription/1-6</code></a>
+      and
+      <a href="#get_event_streams/1" class="seealso"><code>get_event_streams/1-3</code></a>.</p>
+
+    <span id="Default_timeout"> </span>
+    <p><em>Default Timeout</em></p>
+
+    <p>Most of the functions in this module have one variant with
+      a <code>Timeout</code> parameter, and one without. If nothing else is
+      specified, the default value <code>infinity</code> is used when
+      the <code>Timeout</code> parameter is not given.</p>
+
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-client">client() = <a href="#type-handle" class="seealso">handle()</a> | <a href="#type-server_id" class="seealso">server_id()</a> | <a href="ct.html#type-target_name" class="seealso">ct:target_name()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-error_reason">error_reason() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-event_time">event_time() = {eventTime, <a href="#type-xml_attributes" class="seealso">xml_attributes()</a>, [<a href="#type-xs_datetime" class="seealso">xs_datetime()</a>]}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-handle">handle()</h3>
+      <div class="description">
+	<p>Opaque reference for a connection to a NETCONF server or a
+	  NETCONF session.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-host">host() = <a href="inet.html#type-hostname" class="seealso">inet:hostname()</a> | <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-netconf_db">netconf_db() = running | startup | candidate</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-notification">notification() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{notification, <a href="#type-xml_attributes" class="seealso">xml_attributes()</a>, <a href="#type-notification_content" class="seealso">notification_content()</a>}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-notification_content">notification_content() = [<a href="#type-event_time" class="seealso">event_time()</a> | <a href="#type-simple_xml" class="seealso">simple_xml()</a>]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-option">option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ssh, <a href="#type-host" class="seealso">host()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{port, <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{password, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user_dir, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout, timeout()}</h3>
+      <div class="description">
+        <p><code>SshConnectOption</code> is any valid option to
+          <a href="../ssh/ssh.html#connect/3" class="seealso"><code>ssh:connect/3,4</code></a>.
+	  Common options used are <code>user</code>, <code>password</code>
+	  and <code>user_dir</code>. The <code>SshConnectOptions</code> are
+	  verfied by the SSH application.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-options">options() = [<a href="#type-option" class="seealso">option()</a>]</h3>
+      <div class="description">
+	<p>Options used for setting up an SSH connection to a NETCONF
+          server.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-server_id">server_id() = atom()</h3>
+      <div class="description">
+        <p>The identity of a server, specified in a configuration
+          file.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-simple_xml">simple_xml() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<a href="#type-xml_tag" class="seealso">xml_tag()</a>, <a href="#type-xml_attributes" class="seealso">xml_attributes()</a>, <a href="#type-xml_content" class="seealso">xml_content()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<a href="#type-xml_tag" class="seealso">xml_tag()</a>, <a href="#type-xml_content" class="seealso">xml_content()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-xml_tag" class="seealso">xml_tag()</a></h3>
+      <div class="description">
+	<p>This type is further described in application
+          <a href="../xmerl/index.html" class="seealso"><code>xmerl</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-stream_data">stream_data() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{description, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{replaySupport, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{replayLogCreationTime, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{replayLogAgedTime, string()}</h3>
+      <div class="description">
+	<p>For details about the data format for the string values, see
+          "XML Schema for Event Notifications" in RFC 5277.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-stream_name">stream_name() = string()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-streams">streams() = [{<a href="#type-stream_name" class="seealso">stream_name()</a>, [<a href="#type-stream_data" class="seealso">stream_data()</a>]}]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xml_attribute_tag">xml_attribute_tag() = atom()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xml_attribute_value">xml_attribute_value() = string()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xml_attributes">xml_attributes() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{<a href="#type-xml_attribute_tag" class="seealso">xml_attribute_tag()</a>, <a href="#type-xml_attribute_value" class="seealso">xml_attribute_value()</a>}]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xml_content">xml_content() = [<a href="#type-simple_xml" class="seealso">simple_xml()</a> | iolist()]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xml_tag">xml_tag() = atom()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xpath">xpath() = {xpath, string()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-xs_datetime">xs_datetime() = string()</h3>
+      <div class="description">
+	<p>This date and time identifier has the same format as the XML type
+          <code>dateTime</code> and is compliant with RFC 3339 Date and Time on
+          the Internet Timestamps. The format is as follows:</p>
+	<pre class="sh_erlang">
+ [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
+      </div>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="action/2">action(Client, Action) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Action = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Result = ok | {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="action/3">action(Client, Action, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Action = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Executes an action. If the return type is void, <code>ok</code> is
+          returned instead of <code>{ok,[simple_xml()]}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="close_session/1">close_session(Client) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="close_session/2">close_session(Client, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Requests graceful termination of the session associated with the
+          client.</p>
+
+        <p>When a NETCONF server receives a <code>close-session</code> request, it
+          gracefully closes the session.  The server releases any locks and
+          resources associated with the session and gracefully closes any
+          associated connections. Any NETCONF requests received after a
+          <code>close-session</code> request are ignored.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="connect/1">connect(Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Opens an SSH connection to a NETCONF server.</p>
+
+        <p>If the server options are specified in a configuration file, use
+          <a href="#connect/2" class="seealso"><code>connect/2</code></a>
+          instead.</p>
+
+        <p>The opaque <a href="#type-handle" class="seealso"><code>handle()</code></a>
+	  reference returned from this
+          function is required as connection identifier when opening
+          sessions over this connection, see
+          <a href="#session/1" class="seealso"><code>session/1,2,3</code></a>.</p>
+
+        <p>Option <code>timeout</code> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="connect/2">connect(KeyOrName, ExtraOptions) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>KeyOrName = <a href="ct.html#type-key_or_name" class="seealso">ct:key_or_name()</a></code></li><li><code>ExtraOptions = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Open an SSH connection to a named NETCONF server.</p>
+
+        <p>If <code><anno>KeyOrName</anno></code> is a
+          configured <code>server_id()</code> or a
+          <code>target_name()</code> associated with such an Id, then the options
+          for this server are fetched from the configuration file.</p>
+
+        <p>Argument <code><anno>ExtraOptions</anno></code> is added to the
+          options found in the configuration file. If the same options
+          are specified, the values from the configuration file
+          overwrite <code><anno>ExtraOptions</anno></code>.</p>
+
+        <p>If the server is not specified in a configuration file, use
+          <a href="#connect/1" class="seealso"><code>connect/1</code></a>
+          instead.</p>
+
+        <p>The opaque <a href="#type-handle" class="seealso"><code>handle()</code></a>
+	  reference returned from this
+          function can be used as connection identifier when opening
+          sessions over this connection, see
+          <a href="#session/1" class="seealso"><code>session/1,2,3</code></a>.
+          However, if <code><anno>KeyOrName</anno></code> is a
+          <code>target_name()</code>, that is, if the server is named through a
+          call to <a href="ct.html#require/2" class="seealso"><code>ct:require/2</code></a>
+          or a <code>require</code> statement in the test suite, then this name can
+          be used instead of
+	  <a href="#type-handle" class="seealso"><code>handle()</code></a>.</p>
+
+        <p>Option <code>timeout</code> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="copy_config/3">copy_config(Client, Target, Source) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = Source = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="copy_config/4">copy_config(Client, Target, Source, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = Source = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Copies configuration data.</p>
+
+        <p>Which source and target options that can be issued depends on the
+          capabilities supported by the server. That is, <code>:candidate</code>
+          and/or <code>:startup</code> are required.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="create_subscription/1">create_subscription(Client) -&gt; Result</h3>
+      <h3 id="create_subscription/2">create_subscription(Client, Stream) -&gt; Result</h3>
+      <h3 id="create_subscription/3">create_subscription(Client, Stream, Filter) -&gt; Result</h3>
+      <h3 id="create_subscription/4">create_subscription(Client, Stream, Filter, Timeout) -&gt; Result</h3>
+      
+      <h3 id="create_subscription/6">create_subscription(Client,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Stream,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Filter,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StartTime,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StopTime,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Timeout) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Stream = <a href="#type-stream_name" class="seealso">stream_name()</a></code></li><li><code>Filter = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]</code></li><li><code>StartTime = StopTime = <a href="#type-xs_datetime" class="seealso">xs_datetime()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Creates a subscription for event notifications.</p>
+
+        <p>This function sets up a subscription for NETCONF event
+          notifications of the specified stream type, matching the specified
+          filter. The calling process receives notifications as messages of
+          type <a href="#type-notification" class="seealso"><code>notification()</code></a>.</p>
+
+	<p>Only a subset of the function clauses are show above. The
+	  full set of valid combinations of input parameters is as
+	  follows:</p>
+
+<pre class="sh_erlang">create_subscription(Client)
+
+create_subscription(Client, Timeout)
+create_subscription(Client, Stream)
+create_subscription(Client, Filter)
+
+create_subscription(Client, Stream, Timeout)
+create_subscription(Client, Filter, Timeout)
+create_subscription(Client, Stream, Filter)
+create_subscription(Client, StartTime, StopTime)
+
+create_subscription(Client, Stream, Filter, Timeout)
+create_subscription(Client, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, StartTime, StopTime)
+create_subscription(Client, Filter, StartTime, StopTime)
+
+create_subscription(Client, Stream, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, Filter, StartTime, StopTime)
+create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
+
+        <taglist>
+          <dt><code><anno>Stream</anno></code></dt>
+          <item><p>Optional parameter that indicates which stream of event
+            is of interest. If not present, events in the default NETCONF
+            stream are sent.</p></item>
+          <dt><code><anno>Filter</anno></code></dt>
+          <item><p>Optional parameter that indicates which subset of all
+            possible events is of interest. The parameter format is the
+            same as that of the filter parameter in the NETCONF protocol
+            operations. If not present, all events not precluded by other
+            parameters are sent.</p></item>
+          <dt><code><anno>StartTime</anno></code></dt>
+          <item><p>Optional parameter used to trigger the replay feature and
+              indicate that the replay is to start at the time specified.
+              If <code><anno>StartTime</anno></code> is not present, this is not a
+	      replay subscription.</p>
+            <p>It is not valid to specify start times that are later than
+              the current time. If <code><anno>StartTime</anno></code> is specified
+	      earlier than the log can support, the replay begins with the
+	      earliest available notification.</p>
+            <p>This parameter is of type <code>dateTime</code> and compliant to
+              RFC 3339. Implementations must support time zones.</p></item>
+          <dt><code><anno>StopTime</anno></code></dt>
+          <item><p>Optional parameter used with the optional replay feature
+              to indicate the newest notifications of interest. If
+              <code><anno>StopTime</anno></code> is not present, the notifications
+	      continues until the subscription is terminated.</p>
+            <p>Must be used with and be later than <code>StartTime</code>. Values
+              of <code><anno>StopTime</anno></code> in the future are valid. This
+	      parameter is of type <code>dateTime</code> and compliant to RFC 3339.
+              Implementations must support time zones.</p></item>
+        </taglist>
+
+        <p>For more details about the event notification mechanism, see
+          RFC 5277.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete_config/2">delete_config(Client, Target) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = startup | candidate</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="delete_config/3">delete_config(Client, Target, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = startup | candidate</code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Deletes configuration data.</p>
+
+        <p>The running configuration cannot be deleted and <code>:candidate</code>
+          or <code>:startup</code> must be advertised by the server.</p>
+      </div>
+    </div>
+
+     <div class="function">
+      <h3 id="disconnect/1">disconnect(Conn) -&gt; ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</h3>
+      <ul class="type_desc"><li><code>Conn = <a href="#type-handle" class="seealso">handle()</a></code></li></ul>
+      
+      <div class="description">
+	<p>Closes the given SSH connection.</p>
+
+	<p>If there are open NETCONF sessions on the connection, these
+	  will be brutally aborted. To avoid this, close each session
+	  with <a href="#close_session/1" class="seealso"><code>close_session/1,2</code></a></p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="edit_config/3">edit_config(Client, Target, Config) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Config = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="edit_config/4">edit_config(Client, Target, Config, OptParams) -&gt; Result</h3><h3>edit_config(Client, Target, Config, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Config = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>OptParams = [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <h3 id="edit_config/5">edit_config(Client, Target, Config, OptParams, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Config = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>OptParams = [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]</code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Edits configuration data.</p>
+
+        <p>By default only the running target is available, unless the server
+          includes <code>:candidate</code> or <code>:startup</code> in its list of
+          capabilities.</p>
+
+        <p><code>OptParams</code> can be used for specifying optional parameters
+          (<code>default-operation</code>, <code>test-option</code>, or
+          <code>error-option</code>) to be added to the <code>edit-config</code>
+          request. The value must be a list containing valid simple XML,
+          for example:</p>
+
+        <pre class="sh_erlang">
+ [{'default-operation', ["none"]},
+  {'error-option', ["rollback-on-error"]}]</pre>
+
+	<p>If <code><anno>OptParams</anno></code> is not given, the default
+	  value <code>[]</code> is used.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get/2">get(Client, Filter) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Filter = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | <a href="#type-xpath" class="seealso">xpath()</a></code></li><li><code>Result = {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="get/3">get(Client, Filter, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Filter = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | <a href="#type-xpath" class="seealso">xpath()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Gets data.</p>
+ 
+        <p>This operation returns both configuration and state data from the
+          server.</p>
+
+        <p>Filter type <code>xpath</code> can be used only if the server supports
+          <code>:xpath</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_capabilities/1">get_capabilities(Client) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Result = [string()] | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="get_capabilities/2">get_capabilities(Client, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = [string()] | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the server side capabilities.</p>
+
+        <p>The following capability identifiers, defined in RFC 4741 NETCONF
+          Configuration Protocol, can be returned:</p>
+
+        <list>
+          <item><p><code>"urn:ietf:params:netconf:base:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:writable-running:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:candidate:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:confirmed-commit:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:rollback-on-error:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:startup:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:url:1.0"</code></p></item>
+          <item><p><code>"urn:ietf:params:netconf:capability:xpath:1.0"</code></p></item>
+        </list>
+ 
+        <p>More identifiers can exist, for example, server-side namespace.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_config/3">get_config(Client, Source, Filter) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Source = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Filter = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | <a href="#type-xpath" class="seealso">xpath()</a></code></li><li><code>Result = {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="get_config/4">get_config(Client, Source, Filter, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Source = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Filter = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | <a href="#type-xpath" class="seealso">xpath()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = {ok, [<a href="#type-simple_xml" class="seealso">simple_xml()</a>]} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Gets configuration data.</p>
+
+        <p>To be able to access another source than <code>running</code>, the
+          server must advertise <code>:candidate</code> and/or <code>:startup</code>.</p>
+
+        <p>Filter type <code>xpath</code> can be used only if the server supports
+          <code>:xpath</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_event_streams/1">get_event_streams(Client) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Result = {ok, <a href="#type-streams" class="seealso">streams()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="get_event_streams/2">get_event_streams(Client, Timeout) -&gt; Result</h3><h3>get_event_streams(Client, Streams) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = {ok, <a href="#type-streams" class="seealso">streams()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li><li><code>Streams = [<a href="#type-stream_name" class="seealso">stream_name()</a>]</code></li></ul>
+      
+      <h3 id="get_event_streams/3">get_event_streams(Client, Streams, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Streams = [<a href="#type-stream_name" class="seealso">stream_name()</a>]</code></li><li><code>Timeout = timeout()</code></li><li><code>Result = {ok, <a href="#type-streams" class="seealso">streams()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Sends a request to get the specified event streams.</p>
+
+        <p><code>Streams</code> is a list of stream names. The following filter is
+          sent to the NETCONF server in a <code>get</code> request:</p>
+
+        <pre class="sh_erlang">
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName1&lt;/name&gt;
+     &lt;/stream&gt;
+     &lt;stream&gt;
+       &lt;name&gt;StreamName2&lt;/name&gt;
+     &lt;/stream&gt;
+     ...
+   &lt;/streams&gt;
+ &lt;/netconf&gt;</pre>
+
+        <p>If <code>Streams</code> is an empty list, <em>all</em> streams are
+          requested by sending the following filter:</p>
+
+        <pre class="sh_erlang">
+ &lt;netconf xmlns="urn:ietf:params:xml:ns:netmod:notification"&gt;
+   &lt;streams/&gt;
+ &lt;/netconf&gt;</pre>
+
+        <p>If more complex filtering is needed, use
+          <a href="#get/2" class="seealso"><code>ct_netconfc:get/2,3</code></a> and
+          specify the exact filter according to "XML Schema for Event
+          Notifications" in RFC 5277.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_session_id/1">get_session_id(Client) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Result = integer() &gt;= 1 | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="get_session_id/2">get_session_id(Client, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = integer() &gt;= 1 | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the session Id associated with the specified client.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="hello/1">hello(Client) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="hello/2">hello(Client, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="hello/3">hello(Client, Options, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Options = [{capability, [string()]}]</code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Exchanges <code>hello</code> messages with the server.</p>
+
+        <p>Adds optional capabilities and sends a <code>hello</code> message to the
+          server and waits for the return.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="kill_session/2">kill_session(Client, SessionId) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SessionId = integer() &gt;= 1</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="kill_session/3">kill_session(Client, SessionId, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SessionId = integer() &gt;= 1</code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Forces termination of the session associated with the supplied
+          session Id.</p>
+
+        <p>The server side must abort any ongoing operations, release any
+          locks and resources associated with the session, and close any
+          associated connections.</p>
+
+        <p>Only if the server is in the confirmed commit phase, the
+          configuration is restored to its state before entering the confirmed
+          commit phase. Otherwise, no configuration rollback is performed.</p>
+
+         <p>If the specified <code>SessionId</code> is equal to the current session
+           Id, an error is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lock/2">lock(Client, Target) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="lock/3">lock(Client, Target, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Locks the configuration target.</p>
+
+        <p>Which target parameters that can be used depends on if
+          <code>:candidate</code> and/or <code>:startup</code> are supported by the
+          server. If successfull, the configuration system of the device is
+          unavailable to other clients (NETCONF, CORBA, SNMP, and so on).
+          Locks are intended to be short-lived.</p>
+
+         <p>Operation
+           <a href="#kill_session/2" class="seealso"><code>kill_session/2,3</code></a>
+           can be used to force the release of a lock owned by another NETCONF
+           session. How this is achieved by the server side is
+           implementation-specific.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="only_open/1">only_open(Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Opens a NETCONF session, but does not send <code>hello</code>.</p>
+
+        <p>As <a href="#open/1" class="seealso"><code>open/1</code></a>, but
+          does not send a <code>hello</code> message.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="only_open/2">only_open(KeyOrName, ExtraOptions) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>KeyOrName = <a href="ct.html#type-key_or_name" class="seealso">ct:key_or_name()</a></code></li><li><code>ExtraOptions = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Opens a named NETCONF session, but does not send <code>hello</code>.</p>
+
+        <p>As <a href="#open/2" class="seealso"><code>open/2</code></a>, but
+          does not send a <code>hello</code> message.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="open/1">open(Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Opens a NETCONF session and exchanges <code>hello</code> messages.</p>
+
+        <p>If the server options are specified in a configuration file,
+          or if a named client is needed for logging purposes (see section
+          <a href="#Logging" class="seealso">Logging</a> in this module), use
+          <a href="#open/2" class="seealso"><code>open/2</code></a>
+          instead.</p>
+
+        <p>The opaque <a href="#type-handle" class="seealso"><code>handle()</code></a>
+	  reference returned from this
+          function is required as client identifier when calling any other
+          function in this module.</p>
+
+        <p>Option <code>timeout</code> (milliseconds) is used when setting up the
+          SSH connection and when waiting for the <code>hello</code> message from
+          the server. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="open/2">open(KeyOrName, ExtraOptions) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>KeyOrName = <a href="ct.html#type-key_or_name" class="seealso">ct:key_or_name()</a></code></li><li><code>ExtraOptions = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Opens a named NETCONF session and exchanges <code>hello</code>
+          messages.</p>
+
+         <p>If <code><anno>KeyOrName</anno></code> is a
+           configured <code>server_id()</code> or a
+           <code>target_name()</code> associated with such an Id, then the options
+           for this server are fetched from the configuration file.</p>
+
+         <p>Argument <code><anno>ExtraOptions</anno></code> is added to the
+           options found in the configuration file. If the same
+           options are specified, the values from the configuration
+           file overwrite <code><anno>ExtraOptions</anno></code>.</p>
+
+         <p>If the server is not specified in a configuration file, use
+           <a href="#open/1" class="seealso"><code>open/1</code></a>
+           instead.</p>
+
+         <p>The opaque <a href="#type-handle" class="seealso"><code>handle()</code></a>
+	   reference returned from this
+           function can be used as client identifier when calling any other
+           function in this module. However, if <code><anno>KeyOrName</anno></code> is a
+           <code>target_name()</code>, that is, if the server is named through a
+           call to <a href="ct.html#require/2" class="seealso"><code>ct:require/2</code></a>
+           or a <code>require</code> statement in the test suite, then this name can
+           be used instead of
+	   <a href="#type-handle" class="seealso"><code>handle()</code></a>.</p>
+
+        <p>Option <code>timeout</code> (milliseconds) is used when setting up the
+          SSH connection and when waiting for the <code>hello</code> message from
+          the server. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+
+         <p>See also
+           <a href="ct.html#require/2" class="seealso"><code>ct:require/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send/2">send(Client, SimpleXml) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SimpleXml = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Result = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="send/3">send(Client, SimpleXml, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SimpleXml = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = <a href="#type-simple_xml" class="seealso">simple_xml()</a> | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Sends an XML document to the server.</p>
+
+        <p>The specified XML document is sent "as is" to the server. This
+          function can be used for sending XML documents that cannot be
+          expressed by other interface functions in this module.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send_rpc/2">send_rpc(Client, SimpleXml) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SimpleXml = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Result = [<a href="#type-simple_xml" class="seealso">simple_xml()</a>] | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="send_rpc/3">send_rpc(Client, SimpleXml, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>SimpleXml = <a href="#type-simple_xml" class="seealso">simple_xml()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = [<a href="#type-simple_xml" class="seealso">simple_xml()</a>] | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Sends a NETCONF <code>rpc</code> request to the server.</p>
+
+        <p>The specified XML document is wrapped in a valid NETCONF <code>rpc</code>
+          request and sent to the server. The <code>message-id</code> and namespace
+          attributes are added to element <code>rpc</code>.</p>
+
+        <p>This function can be used for sending <code>rpc</code> requests that
+          cannot be expressed by other interface functions in this module.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="session/1">session(Conn) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Conn = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="session/2">session(Conn, Options) -&gt; Result</h3><h3>session(KeyOrName, Conn) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Conn = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Options = <a href="#type-session_options" class="seealso">session_options()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li><li><code>KeyOrName = <a href="ct.html#type-key_or_name" class="seealso">ct:key_or_name()</a></code></li></ul>
+      
+      <h3 id="session/3">session(KeyOrName, Conn, Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Conn = <a href="#type-handle" class="seealso">handle()</a></code></li><li><code>Options = <a href="#type-session_options" class="seealso">session_options()</a></code></li><li><code>KeyOrName = <a href="ct.html#type-key_or_name" class="seealso">ct:key_or_name()</a></code></li><li><code>Result = {ok, <a href="#type-handle" class="seealso">handle()</a>} | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <ul class="type"><li><code>session_options() = [<a href="#type-session_option" class="seealso">session_option()</a>]</code></li></ul>
+      <ul class="type"><li><code>session_option() = {timeout, timeout()}</code></li></ul>
+      <div class="description">
+	<p>Opens a NETCONF session as a channel on the given SSH
+          connection, and exchanges hello messages with the server.</p>
+
+        <p>The opaque <a href="#type-handle" class="seealso"><code>handle()</code></a>
+	  reference returned from this
+          function can be used as client identifier when calling any
+          other function in this module. However, if <code><anno>KeyOrName</anno></code>
+          is used and it is a <code>target_name()</code>, that is, if the
+          server is named through a call
+          to <a href="ct.html#require/2" class="seealso"><code>ct:require/2</code></a>
+          or a <code>require</code> statement in the test suite, then this
+          name can be used instead of
+	  <a href="#type-handle" class="seealso"><code>handle()</code></a>.</p>
+
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="unlock/2">unlock(Client, Target) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      <h3 id="unlock/3">unlock(Client, Target, Timeout) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Client = <a href="#type-client" class="seealso">client()</a></code></li><li><code>Target = <a href="#type-netconf_db" class="seealso">netconf_db()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Result = ok | {error, <a href="#type-error_reason" class="seealso">error_reason()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Unlocks the configuration target.</p>
+
+        <p>If the client earlier has acquired a lock through
+          <a href="#lock/2" class="seealso"><code>lock/2,3</code></a>, this
+          operation releases the associated lock. To access another target
+          than <code>running</code>, the server must support <code>:candidate</code>
+          and/or <code>:startup</code>.</p>
+      </div>
+    </div>
+  </div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

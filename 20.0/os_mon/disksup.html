@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>disksup (os_mon) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>disksup</h1>
+  <h2 class="modsummary">A Disk Supervisor Process</h2>
+  <div class="description">
+    <p><code>disksup</code> is a process which supervises the available disk
+      space in the system. It is part of the OS_Mon application, see
+      <a href="os_mon_app.html" class="seealso">os_mon(6)</a>. Available for Unix
+      and Windows.</p>
+    <p>Periodically checks the disks. For each disk or partition which
+      uses more than a certain amount of the available space, the alarm
+      <code>{{disk_almost_full, MountedOn}, []}</code> is set.</p>
+    <taglist>
+      <dt>On Unix</dt>
+      <item>
+        <p>All (locally) mounted disks are checked, including the swap
+          disk if it is present.</p>
+      </item>
+      <dt>On WIN32</dt>
+      <item>
+        <p>All logical drives of type "FIXED_DISK" are checked.</p>
+      </item>
+    </taglist>
+    <p>Alarms are reported to the SASL alarm handler, see
+      <a href="../sasl/alarm_handler.html" class="seealso">alarm_handler(3)</a>.
+      To set an alarm, <code>alarm_handler:set_alarm(Alarm)</code> is called
+      where <code>Alarm</code> is the alarm specified above.</p>
+    <p>The alarms are cleared automatically when the alarm cause is no
+      longer valid.</p>
+  </div>
+
+  <div class="section">
+    <span id="config"> </span>
+    <h4>Configuration</h4>
+    <p>The following configuration parameters can be used to change
+      the default values for time interval and threshold:</p>
+    <taglist>
+      <dt><code>disk_space_check_interval = int()&gt;0</code></dt>
+      <item>
+        <p>The time interval, in minutes, for the periodic disk space
+          check. The default is 30 minutes.</p>
+      </item>
+      <dt><code>disk_almost_full_threshold = float()</code></dt>
+      <item>
+        <p>The threshold, as percentage of total disk space, for how
+          much disk can be utilized before the <code>disk_almost_full</code>
+          alarm is set. The default is 0.80 (80%).</p>
+      </item>
+      <dt><code>disksup_posix_only = bool()</code></dt>
+      <item>
+        <p>Specifies whether the <code>disksup</code> helper process should only
+          use POSIX conformant commands (<code>true</code>) or not. The default is
+          <code>false</code>. Setting this parameter to <code>true</code> can be
+          necessary on embedded systems with stripped-down versions
+          of Unix tools like <code>df</code>. The returned disk data and alarms
+          can be different when using this option.</p>
+        <p>The parameter is ignored on platforms that are known to not be
+          posix compatible (Windows and SunOS).</p>
+      </item>
+    </taglist>
+    <p>See <a href="../kernel/config.html" class="seealso">config(4)</a> for
+      information about how to change the value of configuration
+      parameters.</p>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="get_disk_data/0">get_disk_data() -&gt; [DiskData]</h3>
+      
+      <ul class="type">
+        <li><code>DiskData = {Id, KByte, Capacity}</code></li>
+        <li><code> Id = string()</code></li>
+        <li><code> KByte = int()</code></li>
+        <li><code> Capacity = int()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the result of the latest disk check. <code>Id</code> is a
+          string that identifies the disk or partition. <code>KByte</code> is
+          the total size of the disk or partition in kbytes.
+          <code>Capacity</code> is the percentage of disk space used.</p>
+        <p>The function is asynchronous in the sense that it does not
+          invoke a disk check, but returns the latest available value.</p>
+        <p>Returns <code>[{"none",0,0}]</code> if <code>disksup</code> is not
+          available.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_check_interval/0">get_check_interval() -&gt; MS</h3>
+      
+      <ul class="type">
+        <li><code>MS = int()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the time interval, in milliseconds, for the periodic
+          disk space check.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="set_check_interval/1">set_check_interval(Minutes) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Minutes = int()&gt;=1</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes the time interval, given in minutes, for the periodic
+          disk space check.</p>
+        <p>The change will take effect after the next disk space check
+          and is non-persist. That is, in case of a process restart,
+          this value is forgotten and the default value will be used.
+          See <a href="#config" class="seealso">Configuration</a> above.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_almost_full_threshold/0">get_almost_full_threshold() -&gt; Percent</h3>
+      
+      <ul class="type">
+        <li><code>Percent = int()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the threshold, in percent, for disk space utilization.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="set_almost_full_threshold/1">set_almost_full_threshold(Float) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Float = float(), 0=&lt;Float=&lt;1</code></li>
+      </ul>
+      <div class="description">
+        <p>Changes the threshold, given as a float, for disk space
+          utilization.</p>
+        <p>The change will take effect during the next disk space check
+          and is non-persist. That is, in case of a process restart,
+          this value is forgotten and the default value will be used.
+          See <a href="#config" class="seealso">Configuration</a> above.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="../sasl/alarm_handler.html" class="seealso">alarm_handler(3)</a>,
+      <a href="os_mon_app.html" class="seealso">os_mon(3)</a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
