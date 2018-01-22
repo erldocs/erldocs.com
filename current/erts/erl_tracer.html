@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>erl_tracer (erts) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>erl_tracer</h1>
+  <h2 class="modsummary">Erlang tracer behavior.</h2>
+  <div class="description">
+    <p>This behavior module implements the back end of the Erlang
+      tracing system. The functions in this module are called whenever
+      a trace probe is triggered. Both the <code>enabled</code> and <code>trace</code>
+      functions are called in the context of the entity that triggered the
+      trace probe.
+      This means that the overhead by having the tracing enabled is
+      greatly effected by how much time is spent in these functions. So, do as
+      little work as possible in these functions.</p>
+
+    <div class="note"><h2>Note!</h2>
+      <p>All functions in this behavior must be implemented as NIFs.
+        This limitation can be removed in a future releases.
+        An <a href="#example" class="seealso">example tracer module NIF</a>
+        implementation is provided at the end of this page.</p>
+    </div>
+
+    <div class="warning"><h2>Warning!</h2>
+      <p>Do not send messages or issue port commands to the <code>Tracee</code>
+        in any of the callbacks. This is not allowed and can cause all
+        sorts of strange behavior, including, but not limited to, infinite
+        recursions.</p>
+    </div>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-trace_tag_call">trace_tag_call() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;call | return_to | return_from | exception_from</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_gc">trace_tag_gc() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gc_minor_start | gc_minor_end | gc_major_start | gc_major_end</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_ports">trace_tag_ports() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;open |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;closed |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;link |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;getting_linked |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;getting_unlinked</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_procs">trace_tag_procs() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spawn |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;spawned |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;link |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;getting_linked |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;getting_unlinked |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;register |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unregister</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_receive">trace_tag_receive() = 'receive'</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_running_ports">trace_tag_running_ports() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in | out | in_exiting | out_exiting | out_exited</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_running_procs">trace_tag_running_procs() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in | out | in_exiting | out_exiting | out_exited</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag_send">trace_tag_send() = send | send_to_non_existing_process</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_tag">trace_tag() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_send" class="seealso">trace_tag_send()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_receive" class="seealso">trace_tag_receive()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_call" class="seealso">trace_tag_call()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_procs" class="seealso">trace_tag_procs()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_ports" class="seealso">trace_tag_ports()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_running_procs" class="seealso">trace_tag_running_procs()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_running_ports" class="seealso">trace_tag_running_ports()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-trace_tag_gc" class="seealso">trace_tag_gc()</a></h3>
+      <div class="description">
+        <p>The different trace tags that the tracer is called with.
+          Each trace tag is described in detail in
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-tracee">tracee() = port() | pid() | undefined</h3>
+      <div class="description">
+        <p>The process or port that the trace belongs to.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-trace_opts">trace_opts() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{extra =&gt; term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;match_spec_result =&gt; term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scheduler_id =&gt; integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timestamp =&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timestamp | cpu_timestamp | monotonic | strict_monotonic}</h3>
+      <div class="description">
+        <p>The options for the tracee:</p>
+        <taglist>
+          <dt><code>timestamp</code></dt>
+          <item>If set the tracer has been requested to include a
+            time stamp.</item>
+          <dt><code>extra</code></dt>
+          <item>If set the tracepoint has included additional data about
+            the trace event. What the additional data is depends on which
+            <code>TraceTag</code> has been triggered. The <code>extra</code> trace data
+            corresponds to the fifth element in the trace tuples described in
+            <a href="erlang.html#trace_3_trace_messages" class="seealso">
+              erlang:trace/3</a>.</item>
+          <dt><code>match_spec_result</code></dt>
+          <item>If set the tracer has been requested to include the output
+            of a match specification that was run.</item>
+          <dt><code>scheduler_id</code></dt>
+          <item>If set the scheduler id is to be included by the tracer.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-tracer_state">tracer_state() = term()</h3>
+      <div class="description">
+        <p>The state specified when calling
+          <a href="erlang.html#trace/3" class="seealso">
+          <code>erlang:trace(PidPortSpec,true,[{tracer,Module,TracerState}])</code></a>.
+          The tracer state is an immutable value that is passed to
+          <code>erl_tracer</code> callbacks and is to
+          contain all the data that is needed to generate the trace event.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Callback Functions</h4>
+    <p>The following functions are to be exported from an <code>erl_tracer</code>
+      callback module:</p>
+
+    <taglist>
+      <dt><a href="../#Module/enabled/3.html" class="seealso">
+        <code>Module:enabled/3</code></a></dt>
+      <item>Mandatory</item>
+      <dt><a href="../#Module/trace/5.html" class="seealso">
+        <code>Module:trace/5</code></a></dt>
+      <item>Mandatory</item>
+      <dt><a href="../#Module/enabled_call/3.html" class="seealso">
+        <code>Module:enabled_call/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_call/5.html" class="seealso">
+        <code>Module:trace_call/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_garbage_collection/3.html" class="seealso">
+        <code>Module:enabled_garbage_collection/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_garbage_collection/5.html" class="seealso">
+        <code>Module:trace_garbage_collection/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_ports/3.html" class="seealso">
+        <code>Module:enabled_ports/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_ports/5.html" class="seealso">
+        <code>Module:trace_ports/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_procs/3.html" class="seealso">
+        <code>Module:enabled_procs/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_procs/5.html" class="seealso">
+        <code>Module:trace_procs/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_receive/3.html" class="seealso">
+        <code>Module:enabled_receive/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_receive/5.html" class="seealso">
+        <code>Module:trace_receive/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_running_ports/3.html" class="seealso">
+        <code>Module:enabled_running_ports/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_running_ports/5.html" class="seealso">
+        <code>Module:trace_running_ports/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_running_procs/3.html" class="seealso">
+        <code>Module:enabled_running_procs/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_running_procs/5.html" class="seealso">
+        <code>Module:trace_running_procs/5</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/enabled_send/3.html" class="seealso">
+        <code>Module:enabled_send/3</code></a></dt>
+      <item>Optional</item>
+      <dt><a href="../#Module/trace_send/5.html" class="seealso">
+        <code>Module:trace_send/5</code></a></dt>
+      <item>Optional</item>
+   </taglist>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="enabled/3">Module:enabled(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag" class="seealso">
+          trace_tag()</a> | trace_status</code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint is triggered. It
+          allows the tracer to decide whether a trace is to be generated or not.
+          This check is made as early as possible to limit the amount of
+          overhead associated with tracing. If <code>trace</code> is returned, the
+          necessary trace data is created and the trace callback of the tracer
+          is called. If <code>discard</code> is returned, this trace call is
+          discarded and no call to trace is done.</p>
+        <p><code>trace_status</code> is a special type of <code>TraceTag</code>, which is
+          used to check if the tracer is still to be active. It is called in
+          multiple scenarios, but most significantly it is used when tracing
+          is started using this tracer. If <code>remove</code> is returned when the
+          <code>trace_status</code> is checked, the tracer is removed from the
+          tracee.</p>
+        <p>This function can be called multiple times per tracepoint, so it
+          is important that it is both fast and without side effects.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_call/3">Module:enabled_call(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_call" class="seealso">
+          trace_tag_call()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>call | return_to</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_call/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_garbage_collection/3">Module:enabled_garbage_collection(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_gc" class="seealso">
+          trace_tag_gc()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>garbage_collection</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_garbage_collection/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_ports/3">Module:enabled_ports(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_ports" class="seealso">
+          trace_tag_ports()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>ports</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_ports/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_procs/3">Module:enabled_procs(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_procs" class="seealso">
+          trace_tag_procs()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>procs</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_procs/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_receive/3">Module:enabled_receive(TraceTag, TracerState, Tracee) -&gt; Result
+      </h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_receive" class="seealso">
+          trace_tag_receive()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>'receive'</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_receive/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_running_ports/3">Module:enabled_running_ports(TraceTag, TracerState, Tracee) -&gt;
+        Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_running_ports" class="seealso">
+          trace_tag_running_ports()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>running_ports</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_running_ports/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_running_procs/3">Module:enabled_running_procs(TraceTag, TracerState, Tracee) -&gt;
+        Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_running_procs" class="seealso">
+          trace_tag_running_procs()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso">
+          <code>running_procs | running</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_running_procs/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="enabled_send/3">Module:enabled_send(TraceTag, TracerState, Tracee) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_send" class="seealso">
+          trace_tag_send()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>Result = trace | discard | remove</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called whenever a tracepoint with trace flag
+          <a href="erlang.html#trace/3" class="seealso"><code>send</code></a>
+          is triggered.</p>
+        <p>If <code>enabled_send/3</code> is undefined,
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace/5">Module:trace(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag" class="seealso">
+          trace_tag()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled/3.html" class="seealso"><code>Module:enabled/3</code></a>
+          callback returned <code>trace</code>. In it any side effects needed by
+          the tracer are to be done. The tracepoint payload is located in
+          the <code>TraceTerm</code>. The content of the <code>TraceTerm</code>
+          depends on which <code>TraceTag</code> is triggered.
+          <code>TraceTerm</code> corresponds to the
+          fourth element in the trace tuples described in
+          <a href="erlang.html#trace_3_trace_messages" class="seealso">
+          <code>erlang:trace/3</code></a>.</p>
+        <p>If the trace tuple has five elements, the fifth element
+          will be sent as the <code>extra</code> value in the <code>Opts</code> maps.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name name="trace">Module:trace(seq_trace, TracerState, Label,
+        SeqTraceInfo, Opts) -&gt; Result</name>
+      
+      <ul class="type">
+        <li><code>TracerState = term()</code></li>
+        <li><code>Label = term()</code></li>
+        <li><code>SeqTraceInfo = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>The <code>TraceTag</code> <code>seq_trace</code> is handled slightly
+          differently. There is no <code>Tracee</code> for <code>seq_trace</code>, instead
+          the <code>Label</code> associated with the <code>seq_trace</code> event is
+          specified.</p>
+        <p>For more information on what <code>Label</code> and <code>SeqTraceInfo</code>
+          can be, see <a href="../kernel/seq_trace.html" class="seealso">
+          <code>seq_trace(3)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_call/5">Module:trace_call(TraceTag, TracerState, Tracee, TraceTerm,
+          Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_call" class="seealso">
+          trace_tag_call()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_call/3.html" class="seealso">
+          <code>Module:enabled_call/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_call/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_garbage_collection/5">Module:trace_garbage_collection(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_gc" class="seealso">
+          trace_tag_gc()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_garbage_collection/3.html" class="seealso">
+          <code>Module:enabled_garbage_collection/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_garbage_collection/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_ports/5">Module:trace_ports(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_ports" class="seealso">
+          trace_tag()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_ports/3.html" class="seealso">
+          <code>Module:enabled_ports/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_ports/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_procs/5">Module:trace_procs(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_procs" class="seealso">
+          trace_tag()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_procs/3.html" class="seealso">
+          <code>Module:enabled_procs/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_procs/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_receive/5">Module:trace_receive(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_receive" class="seealso">
+          trace_tag_receive()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_receive/3.html" class="seealso">
+          <code>Module:enabled_receive/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_receive/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_running_ports/5">Module:trace_running_ports(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_running_ports" class="seealso">
+          trace_tag_running_ports()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_running_ports/3.html" class="seealso">
+          <code>Module:enabled_running_ports/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_running_ports/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_running_procs/5">Module:trace_running_procs(TraceTag, TracerState, Tracee,
+        TraceTerm, Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_running_procs" class="seealso">
+          trace_tag_running_procs()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_running_procs/3.html" class="seealso">
+          <code>Module:enabled_running_procs/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_running_procs/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace_send/5">Module:trace_send(TraceTag, TracerState, Tracee, TraceTerm,
+        Opts) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>TraceTag = <a href="#type-trace_tag_send" class="seealso">
+          trace_tag_send()</a></code></li>
+        <li><code>TracerState = term()</code></li>
+        <li><code>Tracee = <a href="#type-tracee" class="seealso">tracee()</a></code></li>
+        <li><code>TraceTerm = term()</code></li>
+        <li><code>Opts = <a href="#type-trace_opts" class="seealso">trace_opts()</a></code></li>
+        <li><code>Result = ok</code></li>
+      </ul>
+      <div class="description">
+        <p>This callback is called when a tracepoint is triggered and the
+          <a href="../#Module/enabled_send/3.html" class="seealso">
+          <code>Module:enabled_send/3</code></a>
+          callback returned <code>trace</code>.</p>
+        <p>If <code>trace_send/5</code> is undefined,
+          <a href="../#Module/trace/5.html" class="seealso"><code>Module:trace/5</code></a>
+          is called instead.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="example"> </span>
+    <h4>Erl Tracer Module Example</h4>
+    <p>In this example, a tracer module with a NIF back end sends a
+      message for each <code>send</code> trace tag containing only the sender and
+      receiver. Using this tracer module, a much more lightweight message
+      tracer is used, which only records who sent messages to who.</p>
+
+    <p>The following is an example session using it on Linux:</p>
+
+    <pre class="sh_erlang">
+$ gcc -I erts-8.0/include/ -fPIC -shared -o erl_msg_tracer.so erl_msg_tracer.c
+$ erl
+Erlang/OTP 19 [DEVELOPMENT] [erts-8.0] [source-ed2b56b] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false]
+
+Eshell V8.0  (abort with ^G)
+1&gt; c(erl_msg_tracer), erl_msg_tracer:load().
+ok
+2&gt; Tracer = spawn(fun F() -&gt; receive M -&gt; io:format("~p~n",[M]), F() end end).
+&lt;0.37.0&gt;
+3&gt; erlang:trace(new, true, [send,{tracer, erl_msg_tracer, Tracer}]).
+0
+{trace,&lt;0.39.0&gt;,&lt;0.27.0&gt;}
+4&gt; {ok, D} = file:open("/tmp/tmp.data",[write]).
+{trace,#Port&lt;0.486&gt;,&lt;0.40.0&gt;}
+{trace,&lt;0.40.0&gt;,&lt;0.21.0&gt;}
+{trace,#Port&lt;0.487&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.488&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.489&gt;,&lt;0.4.0&gt;}
+{trace,#Port&lt;0.490&gt;,&lt;0.4.0&gt;}
+{ok,&lt;0.40.0&gt;}
+{trace,&lt;0.41.0&gt;,&lt;0.27.0&gt;}
+5&gt;</pre>
+
+    <p><code>erl_msg_tracer.erl</code>:</p>
+
+    <pre class="sh_erlang">
+-module(erl_msg_tracer).
+
+-export([enabled/3, trace/5, load/0]).
+
+load() -&gt;
+    erlang:load_nif("erl_msg_tracer", []).
+
+enabled(_, _, _) -&gt;
+    error.
+
+trace(_, _, _, _, _) -&gt;
+    error.</pre>
+
+    <p><code>erl_msg_tracer.c</code>:</p>
+
+    <pre class="sh_erlang">
+#include &lt;erl_nif.h&gt;
+
+/* NIF interface declarations */
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
+static void unload(ErlNifEnv* env, void* priv_data);
+
+/* The NIFs: */
+static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ErlNifFunc nif_funcs[] = {
+    {"enabled", 3, enabled},
+    {"trace", 5, trace}
+};
+
+ERL_NIF_INIT(erl_msg_tracer, nif_funcs, load, NULL, upgrade, unload)
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    *priv_data = NULL;
+    return 0;
+}
+
+static void unload(ErlNifEnv* env, void* priv_data)
+{
+
+}
+
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
+		   ERL_NIF_TERM load_info)
+{
+    if (*old_priv_data != NULL || *priv_data != NULL) {
+	return -1; /* Don't know how to do that */
+    }
+    if (load(env, priv_data, load_info)) {
+	return -1;
+    }
+    return 0;
+}
+
+/*
+ * argv[0]: TraceTag
+ * argv[1]: TracerState
+ * argv[2]: Tracee
+ */
+static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid to_pid;
+    if (enif_get_local_pid(env, argv[1], &to_pid))
+        if (!enif_is_process_alive(env, &to_pid))
+            if (enif_is_identical(enif_make_atom(env, "trace_status"), argv[0]))
+                /* tracer is dead so we should remove this tracepoint */
+                return enif_make_atom(env, "remove");
+            else
+                return enif_make_atom(env, "discard");
+
+    /* Only generate trace for when tracer != tracee */
+    if (enif_is_identical(argv[1], argv[2]))
+        return enif_make_atom(env, "discard");
+
+    /* Only trigger trace messages on 'send' */
+    if (enif_is_identical(enif_make_atom(env, "send"), argv[0]))
+        return enif_make_atom(env, "trace");
+
+    /* Have to answer trace_status */
+    if (enif_is_identical(enif_make_atom(env, "trace_status"), argv[0]))
+        return enif_make_atom(env, "trace");
+
+    return enif_make_atom(env, "discard");
+}
+
+/*
+ * argv[0]: TraceTag, should only be 'send'
+ * argv[1]: TracerState, process to send {Tracee, Recipient} to
+ * argv[2]: Tracee
+ * argv[3]: Message
+ * argv[4]: Options, map containing Recipient
+ */
+static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid to_pid;
+    ERL_NIF_TERM recipient, msg;
+
+    if (enif_get_local_pid(env, argv[1], &to_pid)) {
+      if (enif_get_map_value(env, argv[4], enif_make_atom(env, "extra"), &recipient)) {
+        msg = enif_make_tuple3(env, enif_make_atom(env, "trace"), argv[2], recipient);
+        enif_send(env, &to_pid, NULL, msg);
+      }
+    }
+
+    return enif_make_atom(env, "ok");
+}</pre>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

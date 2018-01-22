@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>diameter_transport (diameter) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+
+<h1>diameter_transport</h1>
+<h2 class="modsummary">Diameter transport interface.</h2>
+
+<div class="description">
+
+<p>
+A module specified as a <code>transport_module</code> to <a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>
+must implement the interface documented here.
+The interface consists of a function with which
+diameter starts a transport process and a message interface with which
+the transport process communicates with the process that starts it (aka its
+parent).</p>
+
+</div>
+
+<div class="section">
+<h4>DATA TYPES</h4>
+
+<taglist>
+
+<dt>
+<span id="message"> </span><code>message() = binary() | <a href="diameter_codec.html#packet" class="seealso">diameter_codec:packet()</a></code></dt>
+<item>
+<p>
+A Diameter message as passed over the transport interface.</p>
+
+<p>
+For an inbound message from a transport process, a <a href="diameter_codec.html#packet" class="seealso">diameter_codec:packet()</a> must
+contain the received message in its <code>bin</code> field.
+In the case of an inbound request, any value set in the
+<code>transport_data</code> field will passed back to the transport module
+in the corresponding answer message, unless the sender supplies
+another value.</p>
+
+<p>
+For an outbound message to a transport process, a <a href="diameter_codec.html#packet" class="seealso">diameter_codec:packet()</a> has a
+value other than <code>undefined</code> in its <code>transport_data</code> field
+and has the binary() to send in its <code>bin</code> field.</p>
+</item>
+
+</taglist>
+
+</div>
+
+<div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+<div class="function">
+<h3 id="start/4">Mod:start({Type, Ref}, Svc, Config)
+         -&gt; {ok, Pid}
+          | {ok, Pid, LAddrs}
+          | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>Type = connect | accept</code></li>
+<li><code>Ref = <a href="diameter.html#transport_ref" class="seealso">diameter:transport_ref()</a></code></li>
+<li><code>Svc = #diameter_service{}</code></li>
+<li><code>Config = term()</code></li>
+<li><code>Pid = pid()</code></li>
+<li><code>LAddrs = [<a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a>]</code></li>
+<li><code>Reason = term()</code></li>
+</ul>
+<div class="description">
+<p>
+Start a transport process.
+Called by diameter as a consequence of a call to <a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a> in
+order to establish or accept a transport connection respectively.
+A transport process maintains a connection with a single remote peer.</p>
+
+<p>
+<code>Type</code> indicates whether the transport process in question
+is being started for a connecting (<code>Type=connect</code>) or listening
+(<code>Type=accept</code>) transport.
+In the latter case, transport processes are started as required to
+accept connections from multiple peers.</p>
+
+<p>
+Ref is the value that was returned from the call to <a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>
+that has lead to starting of a transport process.</p>
+
+<p>
+<code>Svc</code> contains capabilities passed to <a href="diameter.html#start_service/2" class="seealso">diameter:start_service/2</a> and
+<a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>, values passed to the latter overriding those
+passed to the former.</p>
+
+<p>
+<code>Config</code> is as passed in <code>transport_config</code> tuple in the
+<a href="diameter.html#transport_opt" class="seealso">diameter:transport_opt()</a> list passed to <a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>.</p>
+
+<p>
+The start function should use the <code>Host-IP-Address</code> list in
+<code>Svc</code> and/or <code>Config</code> to select and return an appropriate
+list of local IP addresses.
+In the connecting case, the local address list can instead be
+communicated in a <code>connected</code> message (see <a href="#MESSAGES" class="seealso">MESSAGES</a> below)
+following connection establishment.
+In either case, the local address list is used to populate
+<code>Host-IP-Address</code> AVPs in outgoing capabilities exchange
+messages if <code>Host-IP-Address</code> is unspecified.</p>
+
+<p>
+A transport process must implement the message interface documented below.
+It should retain the pid of its parent, monitor the parent and terminate if
+it dies.
+It should not link to the parent.
+It should exit if its transport connection with its peer is lost.</p>
+
+</div>
+</div>
+
+</div>
+
+<div class="section">
+<span id="MESSAGES"> </span>
+<h4>MESSAGES</h4>
+
+<p>
+All messages sent over the transport interface are of the
+form <code>{diameter, term()}</code>.</p>
+
+<p>
+A transport process can expect messages of the following types from
+its parent.</p>
+
+<taglist>
+
+<dt><code>{diameter, {send, <a href="#message" class="seealso">message()</a>}}</code></dt>
+<item>
+<p>
+An outbound Diameter message.</p>
+</item>
+
+<dt><code>{diameter, {close, Pid}}</code></dt>
+<item>
+<p>
+A request to terminate the transport process after having received DPA
+in response to DPR.
+The transport process should exit.
+<code>Pid</code> is the pid() of the parent process.</p>
+</item>
+
+<dt><code>{diameter, {tls, Ref, Type, Bool}}</code></dt>
+<item>
+<p>
+Indication of whether or not capabilities exchange has selected
+inband security using TLS.
+<code>Ref</code> is a reference() that must be included in the
+<code>{diameter, {tls, Ref}}</code> reply message to the transport's
+parent process (see below).
+<code>Type</code> is either <code>connect</code> or <code>accept</code> depending on
+whether the process has been started for a connecting or listening
+transport respectively.
+<code>Bool</code> is a boolean() indicating whether or not the transport
+connection should be upgraded to TLS.</p>
+
+<p>
+If TLS is requested (<code>Bool=true</code>) then a connecting process should
+initiate a TLS handshake with the peer and an accepting process should
+prepare to accept a handshake.
+A successful handshake should be followed by a <code>{diameter, {tls, Ref}}</code>
+message to the parent process.
+A failed handshake should cause the process to exit.</p>
+
+<p>
+This message is only sent to a transport process over whose
+<code>Inband-Security-Id</code> configuration has indicated support for
+TLS.</p>
+</item>
+
+</taglist>
+
+<p>
+A transport process should send messages of the following types
+to its parent.</p>
+
+<taglist>
+
+<dt><code>{diameter, {self(), connected}}</code></dt>
+<item>
+<p>
+Inform the parent that the transport process with <code>Type=accept</code> has
+established a connection with the peer.
+Not sent if the transport process has <code>Type=connect</code>.</p>
+</item>
+
+<dt><code>{diameter, {self(), connected, Remote}}</code></dt><item/>
+<dt><code>{diameter, {self(), connected, Remote, [LocalAddr]}}</code></dt>
+<item>
+<p>
+Inform the parent that the transport process with <code>Type=connect</code>
+has established a connection with a peer.
+Not sent if the transport process has <code>Type=accept</code>. 
+<code>Remote</code> is an arbitrary term that uniquely identifies the remote
+endpoint to which the transport has connected.
+A <code>LocalAddr</code> list has the same semantics as one returned from
+<a href="#start/3" class="seealso">start/3</a>.</p>
+</item>
+
+<dt><code>{diameter, {recv, <a href="#message" class="seealso">message()</a>}}</code></dt>
+<item>
+<p>
+An inbound Diameter message.</p>
+</item>
+
+<dt><code>{diameter, {tls, Ref}}</code></dt>
+<item>
+<p>
+Acknowledgment of a successful TLS handshake.
+<code>Ref</code> is the reference() received in the
+<code>{diameter, {tls, Ref, Type, Bool}}</code> message in response
+to which the reply is sent.
+A transport must exit if a handshake is not successful.</p>
+</item>
+
+</taglist>
+
+</div>
+
+<div class="section">
+<h4>SEE ALSO</h4>
+
+<p>
+<a href="diameter_tcp.html" class="seealso">diameter_tcp(3)</a>, <a href="diameter_sctp.html" class="seealso">diameter_sctp(3)</a></p>
+
+</div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
