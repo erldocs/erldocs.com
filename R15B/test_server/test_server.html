@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>test_server (test_server) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>test_server</h1>
+  <h2 class="modsummary">This module provides support for test suite authors.</h2>
+  <div class="description">
+    <p>The <code>test_server</code> module aids the test suite author by providing
+      various support functions. The supported functionality includes:
+      </p>
+    <list type="bulleted">
+      <item>Logging and timestamping
+      </item>
+      <item>Capturing output to stdout
+      </item>
+      <item>Retrieving and flushing the message queue of a process
+      </item>
+      <item>Watchdog timers, process sleep, time measurement and unit
+       conversion
+      </item>
+      <item>Private scratch directory for all test suites
+      </item>
+      <item>Start and stop of slave- or peer nodes</item>
+    </list>
+    <p>For more information on how to write test cases and for
+      examples, please see the Test Server User's Guide. 
+      </p>
+  </div>
+
+  <div class="section">
+    <h4>TEST SUITE SUPPORT FUNCTIONS</h4>
+    <p>The following functions are supposed to be used inside a test
+      suite.
+      </p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="os_type/0">os_type() -&gt; OSType</h3>
+      
+      <ul class="type">
+        <li><code>OSType = term()</code></li>
+        <d>This is the same as returned from <code>os:type/0</code></d>
+      </ul>
+      <div class="description">
+        <p>This function can be called on controller or target node, and
+          it will always return the OS type of the target node.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="fail/0">fail()</h3>
+      <h3 id="fail/1">fail(Reason)</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+        <d>The reason why the test case failed.</d>
+      </ul>
+      <div class="description">
+        <p>This will make the test suite fail with a given reason, or
+          with <code>suite_failed</code> if no reason was given. Use this
+          function if you want to terminate a test case, as this will
+          make it easier to read the log- and HTML files. <code>Reason</code>
+          will appear in the comment field in the HTML log.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="timetrap/1">timetrap(Timout) -&gt; Handle</h3>
+      
+      <ul class="type">
+        <li><code>Timeout = integer() | {hours,H} | {minutes,M} | {seconds,S}</code></li>
+        <li><code>H = M = S = integer()</code></li>
+        <li><code>Pid = pid()</code></li>
+        <d>The process that is to be timetrapped (<code>self()</code>by default)</d>
+      </ul>
+      <div class="description">
+        <p>Sets up a time trap for the current process. An expired
+          timetrap kills the process with reason
+          <code>timetrap_timeout</code>. The returned handle is to be given
+          as argument to <code>timetrap_cancel</code> before the timetrap
+          expires.  If <code>Timeout</code> is an integer, it is expected to
+          be milliseconds.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>If the current process is trapping exits, it will not be killed
+            by the exit signal with reason <code>timetrap_timeout</code>.
+            If this happens, the process will be sent an exit signal
+            with reason <code>kill</code> 10 seconds later which will kill the
+            process. Information about the timetrap timeout will in
+            this case not be found in the test logs. However, the
+            error_logger will be sent a warning.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="timetrap_cancel/1">timetrap_cancel(Handle) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Handle = term()</code></li>
+        <d>Handle returned from <code>timetrap</code></d>
+      </ul>
+      <div class="description">
+        <p>This function cancels a timetrap. This must be done before
+          the timetrap expires.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="timetrap_scale_factor/0">timetrap_scale_factor() -&gt; ScaleFactor</h3>
+      
+      <ul class="type">
+        <li><code>ScaleFactor = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>This function returns the scale factor by which all timetraps
+	are scaled. It is normally 1, but can be greater than 1 if
+	the test_server is running <code>cover</code>, using a larger amount of
+	scheduler threads than the amount of logical processors on the
+	system, running under purify, valgrind or in a debug-compiled
+	emulator. The scale factor can be used if you need to scale you
+	own timeouts in test cases with same factor as the test_server
+	uses.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sleep/1">sleep(MSecs) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>MSecs = integer() | float() | infinity</code></li>
+        <d>The number of milliseconds to sleep</d>
+      </ul>
+      <div class="description">
+        <p>This function suspends the calling process for at least the
+          supplied number of milliseconds. There are two major reasons
+          why you should use this function instead of
+          <code>timer:sleep</code>, the first being that the module
+          <code>timer</code> may be unavailable at the time the test suite is
+          run, and the second that it also accepts floating point
+          numbers.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="adjusted_sleep/1">adjusted_sleep(MSecs) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>MSecs = integer() | float() | infinity</code></li>
+        <d>The default number of milliseconds to sleep</d>
+      </ul>
+      <div class="description">
+        <p>This function suspends the calling process for at least the
+          supplied number of milliseconds. The function behaves the same
+	  way as <code>test_server:sleep/1</code>, only <code>MSecs</code>
+	  will be multiplied by the 'multiply_timetraps' value, if set,
+	  and also automatically scaled up if 'scale_timetraps' is set
+	  to true (which it is by default).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="hours/1">hours(N) -&gt; MSecs</h3>
+      <h3 id="minutes/1">minutes(N) -&gt; MSecs</h3>
+      <h3 id="seconds/1">seconds(N) -&gt; MSecs</h3>
+      
+      <ul class="type">
+        <li><code>N = integer()</code></li>
+        <d>Value to convert to milliseconds.</d>
+      </ul>
+      <div class="description">
+        <p>Theese functions convert <code>N</code> number of hours, minutes
+          or seconds into milliseconds.
+          </p>
+        <p>Use this function when you want to
+          <code>test_server:sleep/1</code> for a number of seconds, minutes or
+          hours(!).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format/1">format(Format) -&gt; ok</h3>
+      <h3 id="format/2">format(Format, Args)</h3>
+      <h3 id="format/2-1">format(Pri, Format)</h3>
+      <h3 id="format/3">format(Pri, Format, Args)</h3>
+      
+      <ul class="type">
+        <li><code>Format = string()</code></li>
+        <d>Format as described for <code>io_:format</code>.</d>
+        <li><code>Args = list()</code></li>
+        <d>List of arguments to format.</d>
+      </ul>
+      <div class="description">
+        <p>Formats output just like <code>io:format</code> but sends the
+          formatted string to a logfile. If the urgency value,
+          <code>Pri</code>, is lower than some threshold value, it will also
+          be written to the test person's console. Default urgency is
+          50, default threshold for display on the console is 1.
+          </p>
+        <p>Typically, the test person don't want to see everything a
+          test suite outputs, but is merely interested in if the test
+          cases succeeded or not, which the test server tells him. If he
+          would like to see more, he could manually change the threshold
+          values by using the <code>test_server_ctrl:set_levels/3</code>
+          function.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="capture_start/0">capture_start() -&gt; ok</h3>
+      <h3 id="capture_stop/0">capture_stop() -&gt; ok</h3>
+      <h3 id="capture_get/0">capture_get() -&gt; list()</h3>
+      
+      <div class="description">
+        <p>These functions makes it possible to capture all output to
+          stdout from a process started by the test suite. The list of
+          characters captured can be purged by using <code>capture_get</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="messages_get/0">messages_get() -&gt; list()</h3>
+      
+      <div class="description">
+        <p>This function will empty and return all the messages
+          currently in the calling process' message queue.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="timecall/3">timecall(M, F, A) -&gt; {Time, Value}</h3>
+      
+      <ul class="type">
+        <li><code>M = atom()</code></li>
+        <d>The name of the module where the function resides.</d>
+        <li><code>F = atom()</code></li>
+        <d>The name of the function to call in the module.</d>
+        <li><code>A = list()</code></li>
+        <d>The arguments to supply the called function.</d>
+        <li><code>Time = integer()</code></li>
+        <d>The number of seconds it took to call the function.</d>
+        <li><code>Value = term()</code></li>
+        <d>Value returned from the called function.</d>
+      </ul>
+      <div class="description">
+        <p>This function measures the time (in seconds) it takes to
+          call a certain function. The function call is <em>not</em>
+          caught within a catch.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="do_times/4">do_times(N, M, F, A) -&gt; ok</h3>
+      <h3 id="do_times/2">do_times(N, Fun)</h3>
+      
+      <ul class="type">
+        <li><code>N = integer()</code></li>
+        <d>Number of times to call MFA.</d>
+        <li><code>M = atom()</code></li>
+        <d>Module name where the function resides.</d>
+        <li><code>F = atom()</code></li>
+        <d>Function name to call.</d>
+        <li><code>A = list()</code></li>
+        <d>Arguments to M:F.</d>
+      </ul>
+      <div class="description">
+        <p>Calls MFA or Fun N times. Useful for extensive testing of a
+          sensitive function.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="m_out_of_n/3">m_out_of_n(M, N, Fun) -&gt; ok | exit({m_out_of_n_failed, {R,left_to_do}}</h3>
+      
+      <ul class="type">
+        <li><code>N = integer()</code></li>
+        <d>Number of times to call the Fun.</d>
+        <li><code>M = integer()</code></li>
+        <d>Number of times to require a successful return.</d>
+      </ul>
+      <div class="description">
+        <p>Repeatedly evaluates the given function until it succeeds
+          (doesn't crash) M times. If, after N times, M successful
+          attempts have not been accomplished, the process crashes with
+          reason {m_out_of_n_failed, {R,left_to_do}}, where R indicates
+          how many cases that was still to be successfully completed.
+          </p>
+        <p>For example:
+          </p>
+        <p><code>m_out_of_n(1,4,fun() -&gt; tricky_test_case() end)</code>          <br  />
+Tries to run tricky_test_case() up to 4 times, and is
+          happy if it succeeds once.
+          </p>
+        <p><code>m_out_of_n(7,8,fun() -&gt; clock_sanity_check() end)</code>          <br  />
+Tries running clock_sanity_check() up to 8 times,and
+          allows the function to fail once.  This might be useful if
+          clock_sanity_check/0 is known to fail if the clock crosses an
+          hour boundary during the test (and the up to 8 test runs could
+          never cross 2 boundaries)</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="call_crash/3">call_crash(M, F, A) -&gt; Result</h3>
+      <h3 id="call_crash/4">call_crash(Time, M, F, A) -&gt; Result</h3>
+      <h3 id="call_crash/5">call_crash(Time, Crash, M, F, A) -&gt; Result</h3>
+      
+      <ul class="type">
+        <li><code>Result = ok | exit(call_crash_timeout) | exit({wrong_crash_reason, Reason})</code></li>
+        <li><code>Crash = term()</code></li>
+        <d>Crash return from the function.</d>
+        <li><code>Time = integer()</code></li>
+        <d>Timeout in milliseconds.</d>
+        <li><code>M = atom()</code></li>
+        <d>Module name where the function resides.</d>
+        <li><code>F = atom()</code></li>
+        <d>Function name to call.</d>
+        <li><code>A = list()</code></li>
+        <d>Arguments to M:F.</d>
+      </ul>
+      <div class="description">
+        <p>Spawns a new process that calls MFA. The call is considered
+          successful if the call crashes with the gives reason
+          (<code>Crash</code>) or any reason if not specified. The call must
+          terminate within the given time (default <code>infinity</code>), or
+          it is considered a failure.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="temp_name/1">temp_name(Stem) -&gt; Name</h3>
+      
+      <ul class="type">
+        <li><code>Stem = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a unique filename starting with <code>Stem</code> with
+          enough extra characters appended to make up a unique
+          filename. The filename returned is guaranteed not to exist in
+          the filesystem at the time of the call.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="break/1">break(Comment) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Comment = string()</code></li>
+      </ul>
+      <div class="description">
+        <p><code>Comment</code> is a string which will be written in
+          the shell, e.g. explaining what to do.</p>
+        <p>This function will cancel all timetraps and pause the
+          execution of the test case until the user executes the
+          <code>continue/0</code> function. It gives the user the opportunity
+          to interact with the erlang node running the tests, e.g. for
+          debugging purposes or for manually executing a part of the
+          test case.</p>
+        <p>When the <code>break/1</code> function is called, the shell will
+          look something like this:</p>
+        <pre class="sh_erlang">
+   --- SEMIAUTOMATIC TESTING ---
+   The test case executes on process &lt;0.51.0&gt;
+
+
+   "Here is a comment, it could e.g. instruct to pull out a card"
+
+
+   -----------------------------
+
+   Continue with --&gt; test_server:continue().        </pre>
+        <p>The user can now interact with the erlang node, and when
+          ready call <code>test_server:continue().</code></p>
+        <p>Note that this function can not be used if the test is
+          executed with <code>ts:run/0/1/2/3/4</code> in <code>batch</code> mode.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="continue/0">continue() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>This function must be called in order to continue after a
+          test case has called <code>break/1</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="run_on_shielded_node/2">run_on_shielded_node(Fun, CArgs) -&gt; term()</h3>
+      
+      <ul class="type">
+        <li><code>Fun = function() (arity 0)</code></li>
+        <d>Function to execute on the shielded node.</d>
+        <li><code>CArg = string()</code></li>
+        <d>Extra command line arguments to use when starting the shielded node.</d>
+      </ul>
+      <div class="description">
+        <p><code>Fun</code> is executed in a process on a temporarily created
+          hidden node with a proxy for communication with the test server
+          node. The node is called a shielded node (should have been called
+          a shield node). If <code>Fun</code> is successfully executed, the result
+          is returned. A peer node (see <code>start_node/3</code>) started from
+          the shielded node will be shielded from test server node, i.e.
+          they will not be aware of each other. This is useful when you want
+          to start nodes from earlier OTP releases than the OTP release of
+          the test server node.</p>
+        <p>Nodes from an earlier OTP release can normally not be started
+          if the test server hasn't been started in compatibility mode
+          (see the <code>+R</code> flag in the <code>erl(1)</code> documentation) of
+          an earlier release. If a shielded node is started in compatibility
+          mode of an earlier OTP release than the OTP release of the test
+          server node, the shielded node can start nodes of an earlier OTP
+          release.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>You <em>must</em> make sure that nodes started by the shielded
+            node never communicate directly with the test server node.</p>
+        </div>
+        <div class="note"><h2>Note!</h2>
+          <p>Slave nodes always communicate with the test server node;
+            therefore, <em>never</em> start <em>slave nodes</em> from the
+            shielded node, <em>always</em> start <em>peer nodes</em>.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start_node/3">start_node(Name, Type, Options) -&gt; {ok, Node} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Name = atom() | string()</code></li>
+        <d>Name of the slavenode to start (as given to -sname or -name)</d>
+        <li><code>Type = slave | peer</code></li>
+        <d>The type of node to start.</d>
+        <li><code>Options = [{atom(), term()]</code></li>
+        <d>Tuplelist of options</d>
+      </ul>
+      <div class="description">
+        <p>This functions starts a node, possibly on a remote machine,
+          and guarantees cross architecture transparency. Type is set to
+          either <code>slave</code> or <code>peer</code>.
+          </p>
+        <p><code>slave</code> means that the new node will have a master,
+          i.e. the slave node will terminate if the master terminates,
+          TTY output produced on the slave will be sent back to the
+          master node and file I/O is done via the master. The master is
+          normally the target node unless the target is itself a slave.
+          </p>
+        <p><code>peer</code> means that the new node is an independent node
+          with no master.
+          </p>
+        <p><code>Options</code> is a tuplelist which can contain one or more
+          of
+          </p>
+        <taglist>
+          <dt><code>{remote, true}</code></dt>
+          <item>Start the node on a remote host. If not specified, the
+           node will be started on the local host (with some
+           exceptions, as for the case of VxWorks, where
+           all nodes are started on a remote host).  Test cases that
+           require a remote host will fail with a reasonable comment if
+           no remote hosts are available at the time they are run.
+          </item>
+          <dt><code>{args, Arguments}</code></dt>
+          <item>Arguments passed directly to the node. This is
+           typically a string appended to the command line.
+          </item>
+          <dt><code>{wait, false}</code></dt>
+          <item>Don't wait until the node is up. By default, this
+           function does not return until the node is up and running,
+           but this option makes it return as soon as the node start
+           command is given..
+                    <br  />
+Only valid for peer nodes
+          </item>
+          <dt><code>{fail_on_error, false}</code></dt>
+          <item>Returns <code>{error, Reason}</code> rather than failing the
+           test case.
+                    <br  />
+Only valid for peer nodes. Note that slave nodes always
+           act as if they had <code>fail_on_error=false</code></item>
+          <dt><code>{erl, ReleaseList}</code></dt>
+          <item>Use an Erlang emulator determined by ReleaseList when
+           starting nodes, instead of the same emulator as the test
+           server is running. ReleaseList is a list of specifiers,
+           where a specifier is either {release, Rel}, {prog, Prog}, or
+           'this'. Rel is either the name of a release, e.g., "r12b_patched"
+           or 'latest'. 'this' means using the same emulator as the test
+           server. Prog is the name of an emulator executable.  If the
+           list has more than one element, one of them is picked
+           randomly.  (Only works on Solaris and Linux, and the test server 
+           gives warnings when it notices that nodes are not of the same
+           version as itself.)
+                    <br  />
+          <br  />
+
+           When specifying this option to run a previous release, use
+          <code>is_release_available/1</code> function to test if the given
+           release is available and skip the test case if not.
+                    <br  />
+          <br  />
+
+           In order to avoid compatibility problems (may not appear right
+           away), use a shielded node (see <code>run_on_shielded_node/2</code>)
+           when starting nodes from different OTP releases than the test
+           server.
+          </item>
+          <dt><code>{cleanup, false}</code></dt>
+          <item>Tells the test server not to kill this node if it is
+           still alive after the test case is completed. This is useful
+           if the same node is to be used by a group of test cases.
+          </item>
+          <dt><code>{env, Env}</code></dt>
+          <item><code>Env</code> should be a list of tuples <code>{Name, Val}</code>,
+           where <code>Name</code> is the name of an environment variable, and
+          <code>Val</code> is the value it is to have in the started node.
+           Both <code>Name</code> and <code>Val</code> must be strings. The one
+           exception is <code>Val</code> being the atom <code>false</code> (in
+           analogy  with  <code>os:getenv/1</code>),  which  removes  the
+           environment variable. Only valid for peer nodes. Not
+           available on VxWorks.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop_node/1">stop_node(NodeName) -&gt; bool()</h3>
+      
+      <ul class="type">
+        <li><code>NodeName = term()</code></li>
+        <d>Name of the node to stop</d>
+      </ul>
+      <div class="description">
+        <p>This functions stops a node previously started with
+          <code>start_node/3</code>. Use this function to stop any node you
+          start, or the test server will produce a warning message in
+          the test logs, and kill the nodes automatically unless it was
+          started with the <code>{cleanup, false}</code> option.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="is_commercial/0">is_commercial() -&gt; bool()</h3>
+      
+      <div class="description">
+        <p>This function test whether the emulator is commercially supported
+	emulator. The tests for a commercially supported emulator could be more
+	stringent (for instance, a commercial release should always contain
+	documentation for all applications).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="is_release_available/1">is_release_available(Release) -&gt; bool()</h3>
+      
+      <ul class="type">
+        <li><code>Release = string() | atom()</code></li>
+        <d>Release to test for</d>
+      </ul>
+      <div class="description">
+        <p>This function test whether the release given by
+          <code>Release</code> (for instance, "r12b_patched") is available
+          on the computer that the test_server controller is running on.
+          Typically, you should skip the test case if not.</p>
+        <p>Caution: This function may not be called from the <code>suite</code>
+          clause of a test case, as the test_server will deadlock.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="is_native/1">is_native(Mod) -&gt; bool()</h3>
+      
+      <ul class="type">
+        <li><code>Mod = atom()</code></li>
+        <d>A module name</d>
+      </ul>
+      <div class="description">
+        <p>Checks whether the module is natively compiled or not</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="app_test/1">app_test(App) -&gt; ok | test_server:fail()</h3>
+      <h3 id="app_test/2">app_test(App,Mode)</h3>
+      
+      <ul class="type">
+        <li><code>App = term()</code></li>
+        <d>The name of the application to test</d>
+        <li><code>Mode = pedantic | tolerant</code></li>
+        <d>Default is pedantic</d>
+      </ul>
+      <div class="description">
+        <p>Checks an applications .app file for obvious errors.
+          The following is checked:
+          </p>
+        <list type="bulleted">
+          <item>required fields
+          </item>
+          <item>that all modules specified actually exists
+          </item>
+          <item>that all requires applications exists
+          </item>
+          <item>that no module included in the application has export_all
+          </item>
+          <item>that all modules in the ebin/ dir is included (If
+          <code>Mode==tolerant</code> this only produces a warning, as all
+           modules does not have to be included)</item>
+        </list>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="comment/1">comment(Comment) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Comment = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>The given String will occur in the comment field of the
+          table on the HTML result page. If called several times, only
+          the last comment is printed.  comment/1 is also overwritten by
+          the return value {comment,Comment} from a test case or by
+          fail/1 (which prints Reason as a comment).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>TEST SUITE EXPORTS</h4>
+    <p>The following functions must be exported from a test suite
+      module.
+      </p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="all/1">all(suite) -&gt; TestSpec | {skip, Comment}</h3>
+      
+      <ul class="type">
+        <li><code>TestSpec = list()</code></li>
+        <li><code>Comment = string()</code></li>
+        <d>This comment will be printed on the HTML result page</d>
+      </ul>
+      <div class="description">
+        <p>This function must return the test specification for the
+          test suite module. The syntax of a test specification is
+          described in the Test Server User's Guide.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="init_per_suite/1">init_per_suite(Config0) -&gt; Config1 | {skip, Comment}</h3>
+      
+      <ul class="type">
+        <li><code>Config0 = Config1 = [tuple()]</code></li>
+        <li><code>Comment = string()</code></li>
+	<d>Describes why the suite is skipped</d>
+      </ul>
+      <div class="description">
+        <p>This function is called before all other test cases in the
+          suite. <code>Config</code> is the configuration which can be modified
+          here. Whatever is returned from this function is given as
+          <code>Config</code> to the test cases.
+          </p>
+        <p>If this function fails, all test cases in the suite will be
+          skipped.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="end_per_suite/1">end_per_suite(Config) -&gt; void()</h3>
+      
+      <ul class="type">
+        <li><code>Config = [tuple()]</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called after the last test case in the
+          suite, and can be used to clean up whatever the test cases
+          have done. The return value is ignored.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="init_per_testcase/2">init_per_testcase(Case, Config0) -&gt; Config1 | {skip, Comment}</h3>
+      
+      <ul class="type">
+        <li><code>Case = atom()</code></li>
+        <li><code>Config0 = Config1 = [tuple()]</code></li>
+        <li><code>Comment = string()</code></li>
+	<d>Describes why the test case is skipped</d>
+      </ul>
+      <div class="description">
+        <p>This function is called before each test case. The
+          <code>Case</code> argument is the name of the test case, and
+          <code>Config</code> is the configuration which can be modified
+          here. Whatever is returned from this function is given as
+          <code>Config</code> to the test case.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="end_per_testcase/2">end_per_testcase(Case, Config) -&gt; void()</h3>
+      
+      <ul class="type">
+        <li><code>Case = atom()</code></li>
+        <li><code>Config = [tuple()]</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is called after each test case, and can be
+          used to clean up whatever the test case has done. The return
+          value is ignored.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="Case/1">Case(doc) -&gt; [Decription]</h3>
+      <h3 id="Case/1-1">Case(suite) -&gt; [] | TestSpec | {skip, Comment}</h3>
+      <h3 id="Case/1-2">Case(Config) -&gt; {skip, Comment} | {comment, Comment} | Ok</h3>
+      
+      <ul class="type">
+        <li><code>Description = string()</code></li>
+        <d>Short description of the test case</d>
+        <li><code>TestSpec = list()</code></li>
+        <li><code>Comment = string()</code></li>
+        <d>This comment will be printed on the HTML result page</d>
+        <li><code>Ok = term()</code></li>
+        <li><code>Config = [tuple()]</code></li>
+        <d>Elements from the Config parameter can be read with the ?config macro, see section about test suite support macros</d>
+      </ul>
+      <div class="description">
+        <p>The <em>documentation clause</em> (argument <code>doc</code>) can
+          be used for automatic generation of test documentation or test
+          descriptions.
+          </p>
+        <p>The <em>specification clause</em> (argument <code>spec</code>)
+          shall return an empty list, the test specification for the
+          test case or <code>{skip,Comment}</code>. The syntax of a test
+          specification is described in the Test Server User's Guide.
+          </p>
+        <p><em>Note that the specification clause always is executed on the controller host.</em></p>
+        <p>The <em>execution clause</em> (argument <code>Config</code>) is
+          only called if the specification clause returns an empty list.
+          The execution clause is the real test case. Here you must call
+          the functions you want to test, and do whatever you need to
+          check the result. If something fails, make sure the process
+          crashes or call <code>test_server:fail/0/1</code> (which also will
+          cause the process to crash).
+          </p>
+        <p>You can return <code>{skip,Comment}</code> if you decide not to
+          run the test case after all, e.g. if it is not applicable on
+          this platform.
+          </p>
+        <p>You can return <code>{comment,Comment}</code> if you wish to
+          print some information in the 'Comment' field on the HTML
+          result page.
+          </p>
+        <p>If the execution clause returns anything else, it is
+          considered a success, unless it is <code>{'EXIT',Reason}</code> or
+          <code>{'EXIT',Pid,Reason}</code> which can't be distinguished from a
+          crash, and thus will be considered a failure.
+          </p>
+        <p>A <em>conf test case</em> is a group of test cases with an
+          init and a cleanup function. The init and cleanup functions
+          are also test cases, but they have special rules:</p>
+	  <list type="bulleted">
+	  <item>They do not need a specification clause.</item>
+	  <item>They must always have the execution clause.</item>
+	  <item>They must return the <code>Config</code> parameter, a modified
+          version of it or <code>{skip,Comment}</code> from the execution clause.</item>
+	  <item>The cleanup function may also return a tuple 
+	  <code>{return_group_result,Status}</code>, which is used to return the
+	  status of the conf case to Test Server and/or to a conf case on a
+	  higher level. (<code>Status = ok | skipped | failed</code>).</item>
+	  <item><code>init_per_testcase</code> and <code>end_per_testcase</code> are
+          not called before and after these functions.</item>
+	  </list>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>TEST SUITE LINE NUMBERS</h4>
+    <p>If a test case fails, the test server can report the exact line
+      number at which it failed. There are two ways of doing this,
+      either by using the <code>line</code> macro or by using the
+      <code>test_server_line</code> parse transform.
+      </p>
+    <p>The <code>line</code> macro is described under TEST SUITE SUPPORT
+      MACROS below. The <code>line</code> macro will only report the last line
+      executed when a test case failed.
+      </p>
+    <p>The <code>test_server_line</code> parse transform is activated by
+      including the headerfile <code>test_server_line.hrl</code> in the test
+      suite. When doing this, it is important that the
+      <code>test_server_line</code> module is in the code path of the erlang
+      node compiling the test suite. The parse transform will report a
+      history of a maximum of 10 lines when a test case
+      fails. Consecutive lines in the same function are not shown.
+      </p>
+    <p>The attribute <code>-no_lines(FuncList).</code> can be used in the
+      test suite to exclude specific functions from the parse
+      transform. This is necessary e.g. for functions that are executed
+      on old (i.e. &lt;R10B) OTP releases. <code>FuncList = [{Func,Arity}]</code>.
+      </p>
+    <p>If both the <code>line</code> macro and the parse transform is used in
+      the same module, the parse transform will overrule the macro.
+      </p>
+  </div>
+
+  <div class="section">
+    <h4>TEST SUITE SUPPORT MACROS</h4>
+    <p>There are some macros defined in the <code>test_server.hrl</code>
+      that are quite useful for test suite programmers:
+      </p>
+    <p>The <em>line</em> macro, is quite
+      essential when writing test cases. It tells the test server
+      exactly what line of code that is being executed, so that it can
+      report this line back if the test case fails. Use this macro at
+      the beginning of every test case line of code.
+      </p>
+    <p>The <em>config</em> macro, is used to
+      retrieve information from the <code>Config</code> variable sent to all
+      test cases. It is used with two arguments, where the first is the
+      name of the configuration variable you wish to retrieve, and the
+      second is the <code>Config</code> variable supplied to the test case
+      from the test server.
+      </p>
+    <p>Possible configuration variables include:</p>
+    <list type="bulleted">
+      <item><code>data_dir</code>  - Data file directory.</item>
+      <item><code>priv_dir</code>  - Scratch file directory.</item>
+      <item><code>nodes</code>     - Nodes specified in the spec file</item>
+      <item><code>nodenames</code> - Generated nodenames.</item>
+      <item>Whatever added by conf test cases or
+      <code>init_per_testcase/2</code></item>
+    </list>
+    <p>Examples of the <code>line</code> and <code>config</code> macros can be
+      seen in the Examples chapter in the user's guide.
+      </p>
+    <p>If the <code>line_trace</code> macro is defined, you will get a
+      timestamp (<code>erlang:now()</code>) in your minor log for each
+      <code>line</code> macro in your suite. This way you can at any time see
+      which line is currently being executed, and when the line was
+      called.
+      </p>
+    <p>The <code>line_trace</code> macro can also be used together with the
+      <code>test_server_line</code> parse transform described above. A
+      timestamp will then be written for each line in the suite, except
+      for functions stated in the <code>-no_lines</code> attribute.
+      </p>
+    <p>The <code>line_trace</code> macro can e.g. be defined as a compile
+      option, like this:
+            <br  />
+<code>erlc -W -Dline_trace my_SUITE.erl</code></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#os_type/0">os_type/0</a></li><li><a href="#fail/0">fail/0</a></li><li><a href="#fail/1">fail/1</a></li><li><a href="#timetrap/1">timetrap/1</a></li><li><a href="#timetrap_cancel/1">timetrap_cancel/1</a></li><li><a href="#timetrap_scale_factor/0">timetrap_scale_factor/0</a></li><li><a href="#sleep/1">sleep/1</a></li><li><a href="#adjusted_sleep/1">adjusted_sleep/1</a></li><li><a href="#hours/1">hours/1</a></li><li><a href="#minutes/1">minutes/1</a></li><li><a href="#seconds/1">seconds/1</a></li><li><a href="#format/1">format/1</a></li><li><a href="#format/2">format/2</a></li><li><a href="#format/2-1">format/2-1</a></li><li><a href="#format/3">format/3</a></li><li><a href="#capture_start/0">capture_start/0</a></li><li><a href="#capture_stop/0">capture_stop/0</a></li><li><a href="#capture_get/0">capture_get/0</a></li><li><a href="#messages_get/0">messages_get/0</a></li><li><a href="#timecall/3">timecall/3</a></li><li><a href="#do_times/4">do_times/4</a></li><li><a href="#do_times/2">do_times/2</a></li><li><a href="#m_out_of_n/3">m_out_of_n/3</a></li><li><a href="#call_crash/3">call_crash/3</a></li><li><a href="#call_crash/4">call_crash/4</a></li><li><a href="#call_crash/5">call_crash/5</a></li><li><a href="#temp_name/1">temp_name/1</a></li><li><a href="#break/1">break/1</a></li><li><a href="#continue/0">continue/0</a></li><li><a href="#run_on_shielded_node/2">run_on_shielded_node/2</a></li><li><a href="#start_node/3">start_node/3</a></li><li><a href="#stop_node/1">stop_node/1</a></li><li><a href="#is_commercial/0">is_commercial/0</a></li><li><a href="#is_release_available/1">is_release_available/1</a></li><li><a href="#is_native/1">is_native/1</a></li><li><a href="#app_test/1">app_test/1</a></li><li><a href="#app_test/2">app_test/2</a></li><li><a href="#comment/1">comment/1</a></li><li><a href="#all/1">all/1</a></li><li><a href="#init_per_suite/1">init_per_suite/1</a></li><li><a href="#end_per_suite/1">end_per_suite/1</a></li><li><a href="#init_per_testcase/2">init_per_testcase/2</a></li><li><a href="#end_per_testcase/2">end_per_testcase/2</a></li><li><a href="#Case/1">Case/1</a></li><li><a href="#Case/1-1">Case/1-1</a></li><li><a href="#Case/1-2">Case/1-2</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

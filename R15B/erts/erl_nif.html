@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>erl_nif (erts) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>erl_nif</h1>
+  <libsummary>API functions for an Erlang NIF library</libsummary>
+  <div class="description">
+     <div class="note"><h2>Note!</h2><p>The NIF concept is officially supported from R14B. NIF source code
+     written for earlier experimental versions might need adaption to run on R14B.</p>
+    <p>No incompatible changes between <em>R14B</em> and R14A.</p>
+    <p>Incompatible changes between <em>R14A</em> and R13B04:</p>
+  <list>
+    <item>Environment argument removed for <code>enif_alloc</code>,
+    <code>enif_realloc</code>, <code>enif_free</code>, <code>enif_alloc_binary</code>,
+    <code>enif_realloc_binary</code>, <code>enif_release_binary</code>,
+    <code>enif_alloc_resource</code>, <code>enif_release_resource</code>,
+    <code>enif_is_identical</code> and <code>enif_compare</code>.</item>
+    <item>Character encoding argument added to <code>enif_get_atom</code>
+    and <code>enif_make_existing_atom</code>.</item>
+    <item>Module argument added to <code>enif_open_resource_type</code>
+      while changing name spaces of resource types from global to module local.</item>
+  </list>
+  <p>Incompatible changes between <em>R13B04</em> and R13B03:</p>
+  <list>
+    <item>The function prototypes of the NIFs have  changed to expect <code>argc</code> and <code>argv</code>
+	  arguments. The arity of a NIF is by that no longer limited to 3.</item>
+    <item><code>enif_get_data</code> renamed as <code>enif_priv_data</code>.</item>
+    <item><code>enif_make_string</code> got a third argument for character encoding.</item>
+  </list>
+  </div>
+
+    <p>A NIF library contains native implementation of some functions
+    of an Erlang module. The native implemented functions (NIFs) are
+    called like any other functions without any difference to the
+    caller. Each NIF must also have an implementation in Erlang that
+    will be invoked if the function is called before the NIF library
+    has been successfully loaded. A typical such stub implementation
+    is to throw an exception. But it can also be used as a fallback
+    implementation if the NIF library is not implemented for some
+    architecture.</p>     
+    <p>A minimal example of a NIF library can look like this:</p>
+      <p  />
+      <pre class="sh_erlang">
+/* niftest.c */
+#include "erl_nif.h"
+
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_string(env, "Hello world!", ERL_NIF_LATIN1);
+}
+
+static ErlNifFunc nif_funcs[] =
+{
+    {"hello", 0, hello}
+};
+
+ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)
+</pre>
+
+    <p>and the Erlang module would have to look something like
+    this:</p>
+      <p  />
+      <pre class="sh_erlang">
+-module(niftest).
+
+-export([init/0, hello/0]).
+
+init() -&gt;
+      erlang:load_nif("./niftest", 0).
+
+hello() -&gt;
+      "NIF library not loaded".
+</pre>
+    <p>and compile and test something like this (on Linux):</p>
+      <p  />
+      <pre class="sh_erlang">
+$&gt; gcc -fPIC -shared -o niftest.so niftest.c -I $ERL_ROOT/usr/include/
+$&gt; erl
+
+1&gt; c(niftest).
+{ok,niftest}
+2&gt; niftest:hello().
+"NIF library not loaded"
+3&gt; niftest:init().
+ok
+4&gt; niftest:hello().
+"Hello world!"
+</pre>
+
+     <p>A better solution for a real module is to take advantage of
+     the new directive <a href="../doc/reference_manual/code_loading.html#on_load" class="seealso">on_load</a> to automatically
+     load the NIF library when the module is loaded.</p>
+     <div class="note"><h2>Note!</h2><p>A NIF does not have to be exported, it can be local to the module.
+     Note however that unused local stub functions will be optimized
+     away by the compiler causing loading of the NIF library to fail.</p>
+    </div>
+     <p>A loaded NIF library is tied to the Erlang module code version
+     that loaded it. If the module is upgraded with a new version, the
+     new Erlang code will have to load its own NIF library (or maybe choose not
+     to). The new code version can however choose to load the exact
+     same NIF library as the old code if it wants to. Sharing the same
+     dynamic library will mean that static data defined by the library
+     will be shared as well. To avoid unintentionally shared static
+     data, each Erlang module code can keep its own private data. This
+     private data can be set when the NIF library is loaded and
+     then retrieved by calling <a href="#enif_priv_data" class="seealso">enif_priv_data</a>.</p>
+    <p>There is no way to explicitly unload a NIF library. A library will be
+     automatically unloaded when the module code that it belongs to is purged
+     by the code server.</p> 
+  </div>
+  <div class="section">
+  <h4>FUNCTIONALITY</h4>
+  <p>All functions that a NIF library needs to do with Erlang are
+      performed through the NIF API functions. There are functions
+      for the following functionality:</p>
+    <taglist>
+      <dt>Read and write Erlang terms</dt>
+      <item><p>Any Erlang terms can be passed to a NIF as function arguments and
+      be returned as function return values. The terms are of C-type
+      <a href="#ERL_NIF_TERM" class="seealso">ERL_NIF_TERM</a>
+      and can only be read or written using API functions. Most functions to read
+      the content of a term are prefixed <code>enif_get_</code> and usually return
+      true (or false) if the term was of the expected type (or not).    
+      The functions to write terms are all prefixed <code>enif_make_</code> and usually
+      return the created <code>ERL_NIF_TERM</code>. There are also some functions
+      to query terms, like <code>enif_is_atom</code>, <code>enif_is_identical</code> and
+      <code>enif_compare</code>.</p>
+      <p>All terms of type <code>ERL_NIF_TERM</code> belong to an environment of type
+      <a href="#ErlNifEnv" class="seealso">ErlNifEnv</a>. The lifetime of a term is
+      controlled by the lifetime of its environment object. All API functions that read
+      or write terms has the environment, that the term belongs to, as the first
+      function argument.</p></item>
+      <dt>Binaries</dt>
+      <item><p>Terms of type binary are accessed with the help of the struct type
+      <a href="#ErlNifBinary" class="seealso">ErlNifBinary</a>    
+      that contains a pointer (<code>data</code>) to the raw binary data and the length
+      (<code>size</code>) of the data in bytes. Both <code>data</code> and <code>size</code> are
+      read-only and should only be written using calls to API functions.
+      Instances of <code>ErlNifBinary</code> are however always allocated by the user
+      (usually as local variables).</p>
+      <p>The raw data pointed to by <code>data</code> is only mutable after a call to
+      <a href="#enif_alloc_binary" class="seealso">enif_alloc_binary</a> or
+      <a href="#enif_realloc_binary" class="seealso">enif_realloc_binary</a>.
+      All other functions that operates on a binary will leave the data as read-only.
+      A mutable binary must in the end either be freed with
+      <a href="#enif_release_binary" class="seealso">enif_release_binary</a>
+      or made read-only by transferring it to an Erlang term with
+      <a href="#enif_make_binary" class="seealso">enif_make_binary</a>.
+      But it does not have to happen in the same NIF call. Read-only binaries
+      do not have to be released.</p>
+      <p><a href="#enif_make_new_binary" class="seealso">enif_make_new_binary</a>
+      can be used as a shortcut to allocate and return a binary in the same NIF call.</p>
+      <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
+      bit length have no support yet.</p>
+       </item>
+      <dt>Resource objects</dt>
+      <item><p>The use of resource objects is a way to return pointers to
+      native data structures from a NIF in a safe way. A resource object is
+      just a block of memory allocated with
+      <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.
+      A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
+      <a href="#enif_make_resource" class="seealso">enif_make_resource</a>.
+      The term returned by <code>enif_make_resource</code>
+      is totally opaque in nature. It can be stored and passed between processes
+      on the same node, but the only real end usage is to pass it back as an argument to a NIF.
+      The NIF can then call <a href="#enif_get_resource" class="seealso">enif_get_resource</a>
+      and get back a pointer to the memory block that is guaranteed to still be
+      valid. A resource object will not be deallocated until the last handle term
+      has been garbage collected by the VM and the resource has been
+      released with <a href="#enif_release_resource" class="seealso">enif_release_resource</a>
+      (not necessarily in that order).</p>      
+      <p>All resource objects are created as instances of some <em>resource type</em>.
+      This makes resources from different modules to be distinguishable. 
+      A resource type is created by calling
+      <a href="#enif_open_resource_type" class="seealso">enif_open_resource_type</a>
+      when a library is loaded. Objects of that resource type can then later be allocated
+      and <code>enif_get_resource</code> verifies that the resource is of the expected type.
+      A resource type can have a user supplied destructor function that is
+      automatically called when resources of that type are released (by either
+      the garbage collector or <code>enif_release_resource</code>). Resource types
+      are uniquely identified by a supplied name string and the name of the
+      implementing module.</p>
+      <span id="enif_resource_example"> </span><p>Here is a template example of how to create and return a resource object.</p>
+      <p  />
+      <pre class="sh_erlang">
+    ERL_NIF_TERM term;
+    MyStruct* obj = enif_alloc_resource(my_resource_type, sizeof(MyStruct));
+
+    /* initialize struct ... */
+
+    term = enif_make_resource(env, obj);
+
+    if (keep_a_reference_of_our_own) {
+        /* store 'obj' in static variable, private data or other resource object */
+    }
+    else {
+        enif_release_resource(obj);
+        /* resource now only owned by "Erlang" */
+    }
+    return term;
+    </pre>
+      <p>Note that once <code>enif_make_resource</code> creates the term to
+      return to Erlang, the code can choose to either keep its own
+      native pointer to the allocated struct and release it later, or
+      release it immediately and rely solely on the garbage collector
+      to eventually deallocate the resource object when it collects
+      the term.</p> 
+      <p>Another usage of resource objects is to create binary terms with
+      user defined memory management.
+      <a href="#enif_make_resource_binary" class="seealso">enif_make_resource_binary</a>
+      will create a binary term that is connected to a resource object. The
+      destructor of the resource will be called when the binary is garbage
+      collected, at which time the binary data can be released. An example of
+      this can be a binary term consisting of data from a <code>mmap</code>'ed file.
+      The destructor can then do <code>munmap</code> to release the memory
+      region.</p>
+      <p>Resource types support upgrade in runtime by allowing a loaded NIF
+      library to takeover an already existing resource type and thereby
+      "inherit" all existing objects of that type. The destructor of the new
+      library will thereafter be called for the inherited objects and the
+      library with the old destructor function can be safely unloaded. Existing
+      resource objects, of a module that is upgraded, must either be deleted
+      or taken over by the new NIF library. The unloading of a library will be
+      postponed as long as there exist resource objects with a destructor
+      function in the library.
+      </p>
+      </item>
+      <dt>Threads and concurrency</dt>
+      <item><p>A NIF is thread-safe without any explicit synchronization as
+      long as it acts as a pure function and only reads the supplied
+      arguments. As soon as you write towards a shared state either through
+      static variables or <a href="#enif_priv_data" class="seealso">enif_priv_data</a>
+      you need to supply your own explicit synchronization. This includes terms
+      in process independent environments that are shared between threads.
+      Resource objects will also require synchronization if you treat them as
+      mutable.</p>
+      <p>The library initialization callbacks <code>load</code>, <code>reload</code> and
+      <code>upgrade</code> are all thread-safe even for shared state data.</p>
+      <p>Avoid doing lengthy work in NIF calls as that may degrade the
+      responsiveness of the VM. NIFs are called directly by the same scheduler
+      thread that executed the calling Erlang code. The calling scheduler will thus
+      be blocked from doing any other work until the NIF returns.</p>
+      </item>
+    </taglist>
+  </div>
+  <div class="section">
+    <h4>INITIALIZATION</h4>
+    <taglist>
+      <dt><span id="ERL_NIF_INIT"> </span>ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, reload, upgrade, unload)</dt>
+      <item><p>This is the magic macro to initialize a NIF library. It
+      should be evaluated in global file scope.</p>
+      <p><code>MODULE</code> is the name of the Erlang module as an
+      identifier without string quotations. It will be stringified by
+      the macro.</p>
+      <p><code>funcs</code> is a static array of function descriptors for
+      all the implemented NIFs in this library.</p>
+      <p><code>load</code>, <code>reload</code>, <code>upgrade</code> and <code>unload</code>
+      are pointers to functions. One of <code>load</code>, <code>reload</code> or
+      <code>upgrade</code> will be called to initialize the library.
+      <code>unload</code> is called to release the library. They are all
+      described individually below.</p>
+      </item>
+
+      <dt><span id="load"> </span>int (*load)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</dt>
+       <item><p><code>load</code> is called when the NIF library is loaded
+        and there is no previously loaded library for this module.</p>
+        <p><code>*priv_data</code> can be set to point to some private data
+           that the library needs in order to keep a state between NIF
+           calls. <code>enif_priv_data</code> will return this pointer.
+           <code>*priv_data</code> will be initialized to NULL when <code>load</code> is
+           called.</p> 
+        <p><code>load_info</code> is the second argument to <a href="erlang.html#load_nif-2" class="seealso">erlang:load_nif/2</a>.</p>
+        <p>The library will fail to load if <code>load</code> returns
+           anything other than 0. <code>load</code> can be NULL in case no
+           initialization is needed.</p> 
+       </item>
+
+      <dt><span id="upgrade"> </span>int (*upgrade)(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</dt>
+       <item><p><code>upgrade</code> is called when the NIF library is loaded
+        and there is old code of this module with a loaded NIF library.</p>
+        <p>Works the same as <code>load</code>. The only difference is that
+        <code>*old_priv_data</code> already contains the value set by the
+         last call to <code>load</code> or <code>reload</code> for the old module
+         code. <code>*priv_data</code> will be initialized to NULL when <code>upgrade</code>
+         is called. It is allowed to write to both *priv_data and *old_priv_data.</p> 
+        <p>The library will fail to load if <code>upgrade</code> returns
+           anything other than 0 or if <code>upgrade</code> is NULL.</p>
+      </item>
+
+      <dt><span id="unload"> </span>void (*unload)(ErlNifEnv* env, void* priv_data)</dt>
+       <item><p><code>unload</code> is called when the module code that
+       the NIF library belongs to is purged as old. New code
+       of the same module may or may not exist. Note that <code>unload</code> is not
+       called for a replaced library as a consequence of <code>reload</code>.</p>
+      </item>
+
+      <dt><span id="reload"> </span>int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</dt>
+     <div class="note"><h2>Note!</h2><p>The reload mechanism is <em>deprecated</em>. It was only intended
+     as a development feature. Do not use it as an upgrade method for
+     live production systems. It might be removed in future releases. Be sure
+     to pass <code>reload</code> as <code>NULL</code> to <a href="#ERL_NIF_INIT" class="seealso">ERL_NIF_INIT</a>
+     to disable it when not used.</p>
+     </div>
+       <item><p><code>reload</code> is called when the NIF library is loaded
+        and there is already a previously loaded library for this
+        module code.</p>
+        <p>Works the same as <code>load</code>. The only difference is that
+        <code>*priv_data</code> already contains the value set by the
+        previous call to <code>load</code> or <code>reload</code>.</p>
+        <p>The library will fail to load if <code>reload</code> returns
+           anything other than 0 or if <code>reload</code> is NULL.</p> 
+      </item>
+
+    </taglist>
+  </div>
+
+  <div class="section">
+    <h4>DATA TYPES</h4>
+
+    <taglist>
+      <dt><span id="ERL_NIF_TERM"> </span>ERL_NIF_TERM</dt>
+       <item>
+        <p>Variables of type <code>ERL_NIF_TERM</code> can refer to any Erlang term.
+        This is an opaque type and values of it can only by used either as
+        arguments to API functions or as return values from NIFs. All
+        <code>ERL_NIF_TERM</code>'s belong to an environment
+        (<a href="#ErlNifEnv" class="seealso">ErlNifEnv</a>). A term can not be
+        destructed individually, it is valid until its environment is destructed.</p>
+      </item>
+     <dt><span id="ErlNifEnv"> </span>ErlNifEnv</dt>
+      <item>
+        <p><code>ErlNifEnv</code> represents an environment that can host Erlang terms.
+        All terms in an environment are valid as long as the environment is valid.
+        <code>ErlNifEnv</code> is an opaque type and pointers to it can only be passed
+        on to API functions. There are two types of environments; process
+        bound and process independent.</p>
+        <p>A <em>process bound environment</em> is passed as the first argument to all NIFs.
+        All function arguments passed to a NIF will belong to that environment.
+        The return value from a NIF must also be a term belonging to the same
+        environment.
+        In addition a process bound environment contains transient information
+        about the calling Erlang process. The environment is only valid in the 
+        thread where it was supplied as argument until the NIF returns. It is
+        thus useless and dangerous to store pointers to process bound
+        environments between NIF calls. </p>
+        <p>A <em>process independent environment</em> is created by calling
+        <a href="#enif_alloc_env" class="seealso">enif_alloc_env</a>. It can be
+        used to store terms between NIF calls and to send terms with
+        <a href="#enif_send" class="seealso">enif_send</a>. A process
+        independent environment with all its terms is valid until you explicitly
+        invalidates it with <a href="#enif_free_env" class="seealso">enif_free_env</a>
+        or <code>enif_send</code>.</p>
+        <p>All elements of a list/tuple must belong to the same environment as the
+        list/tuple itself. Terms can be copied between environments with
+        <a href="#enif_make_copy" class="seealso">enif_make_copy</a>.</p>
+      </item>
+    <dt><span id="ErlNifFunc"> </span>ErlNifFunc</dt>
+     <item>
+      <p  />
+      <pre class="sh_erlang">
+typedef struct {
+    const char* <em>name</em>;
+    unsigned <em>arity</em>;
+    ERL_NIF_TERM (*<em>fptr</em>)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+} ErlNifFunc;
+</pre>
+        <p>Describes a NIF by its name, arity and implementation.
+        <code>fptr</code> is a pointer to the function that implements the
+        NIF. The argument <code>argv</code> of a NIF will contain the
+        function arguments passed to the NIF and <code>argc</code> is the
+        length of the array, i.e. the function arity. <code>argv[N-1]</code>
+        will thus denote the Nth argument to the NIF. Note that the
+        <code>argc</code> argument allows for the same C function to
+        implement several Erlang functions with different arity (but
+        same name probably).</p>
+      </item>
+    <dt><span id="ErlNifBinary"> </span>ErlNifBinary</dt>
+     <item>
+      <p  />
+      <pre class="sh_erlang">
+typedef struct {
+    unsigned <em>size</em>;
+    unsigned char* <em>data</em>;
+} ErlNifBinary;
+</pre>
+        <p><code>ErlNifBinary</code> contains transient information about an
+          inspected binary term. <code>data</code> is a pointer to a buffer
+          of <code>size</code> bytes with the raw content of the binary.</p>
+          <p>Note that <code>ErlNifBinary</code> is a semi-opaque type and you are
+          only allowed to read fields <code>size</code> and <code>data</code>.</p>
+      </item>
+      <dt><span id="ErlNifPid"> </span>ErlNifPid</dt>
+       <item>
+          <p><code>ErlNifPid</code> is a process identifier (pid). In contrast to
+          pid terms (instances of <code>ERL_NIF_TERM</code>), <code>ErlNifPid</code>'s are self
+          contained and not bound to any
+          <a href="#ErlNifEnv" class="seealso">environment</a>. <code>ErlNifPid</code>
+          is an opaque type.</p>
+        </item>
+
+      <dt><span id="ErlNifResourceType"> </span>ErlNifResourceType</dt>
+       <item>
+          <p>Each instance of <code>ErlNifResourceType</code> represent a class of
+          memory managed resource objects that can be garbage collected.
+          Each resource type has a unique name and a destructor function that
+          is called when objects of its type are released.</p>
+        </item>
+        <dt><span id="ErlNifResourceDtor"> </span>ErlNifResourceDtor</dt>
+         <item>
+           <p  />
+           <pre class="sh_erlang">
+typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
+</pre>
+            <p>The function prototype of a resource destructor function.
+            A destructor function is not allowed to call any term-making functions.</p>
+          </item>
+          <dt><span id="ErlNifCharEncoding"> </span>ErlNifCharEncoding</dt>
+           <item>
+             <p  />
+             <pre class="sh_erlang">
+typedef enum {
+    ERL_NIF_LATIN1
+}ErlNifCharEncoding;
+</pre>
+              <p>The character encoding used in strings and atoms. The only
+              supported encoding is currently <code>ERL_NIF_LATIN1</code> for
+              iso-latin-1 (8-bit ascii).</p>
+            </item>
+            <dt><span id="ErlNifSysInfo"> </span>ErlNifSysInfo</dt>
+             <item>
+                <p>Used by <a href="#enif_system_info" class="seealso">enif_system_info</a>
+                to return information about the runtime system. Contains currently
+                the exact same content as <a href="erl_driver.html#ErlDrvSysInfo" class="seealso">ErlDrvSysInfo</a>.</p>
+              </item>
+              <dt><span id="ErlNifSInt64"> </span>ErlNifSInt64</dt>
+               <item><p>A native signed 64-bit integer type.</p></item>
+              <dt><span id="ErlNifUInt64"> </span>ErlNifUInt64</dt>
+               <item><p>A native unsigned 64-bit integer type.</p></item>
+
+    </taglist>
+  </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function"><pre>void* enif_alloc(size_t size)</pre>
+      
+      <div class="description"><p>Allocate memory of <code>size</code> bytes. Return NULL if allocation failed.</p></div>
+    </div>
+    <div class="function"><pre>int enif_alloc_binary(size_t size, ErlNifBinary* bin)</pre>
+      
+      <div class="description"><p>Allocate a new binary of size <code>size</code>
+      bytes. Initialize the structure pointed to by <code>bin</code> to
+      refer to the allocated binary. The binary must either be released by 
+      <a href="#enif_release_binary" class="seealso">enif_release_binary</a> 
+      or ownership transferred to an Erlang term with 
+      <a href="#enif_make_binary" class="seealso">enif_make_binary</a>. 
+      An allocated (and owned) <code>ErlNifBinary</code> can be kept between NIF
+      calls.</p>
+        <p>Return true on success or false if allocation failed.</p>
+      </div>
+    </div>
+    <div class="function"><pre>ErlNifEnv* enif_alloc_env()</pre>
+      
+      <div class="description"><p>Allocate a new process independent environment. The environment can
+      be used to hold terms that is not bound to any process. Such terms can
+      later be copied to a process environment with
+      <a href="#enif_make_copy" class="seealso">enif_make_copy</a>
+      or be sent to a process as a message with <a href="#enif_send" class="seealso">enif_send</a>.</p>
+      <p>Return pointer to the new environment.</p>
+      </div>
+    </div>
+    <div class="function"><pre>void* enif_alloc_resource(ErlNifResourceType* type, unsigned size)</pre>
+      
+      <div class="description"><p>Allocate a memory managed resource object of type <code>type</code> and size <code>size</code> bytes.</p></div>
+    </div>
+    <div class="function"><pre>void enif_clear_env(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Free all terms in an environment and clear it for reuse. The environment must
+      have been allocated with <a href="#enif_alloc_env" class="seealso">enif_alloc_env</a>.
+      </p></div>
+    </div>
+    <div class="function"><pre>int enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</pre>
+      
+      <div class="description"><p>Return an integer less than, equal to, or greater than
+      zero if <code>lhs</code> is found, respectively, to be less than,
+      equal, or greater than <code>rhs</code>. Corresponds to the Erlang
+      operators <code>==</code>, <code>/=</code>, <code>=&lt;</code>, <code>&lt;</code>,
+      <code>&gt;=</code> and <code>&gt;</code> (but <em>not</em> <code>=:=</code> or <code>=/=</code>).</p></div>
+    </div>
+    <div class="function"><pre>void enif_cond_broadcast(ErlNifCond *cnd)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_cond_broadcast" class="seealso">erl_drv_cond_broadcast</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>ErlNifCond* enif_cond_create(char *name)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_cond_create" class="seealso">erl_drv_cond_create</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_cond_destroy(ErlNifCond *cnd)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_cond_destroy" class="seealso">erl_drv_cond_destroy</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_cond_signal(ErlNifCond *cnd)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_cond_signal" class="seealso">erl_drv_cond_signal</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_cond_wait" class="seealso">erl_drv_cond_wait</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_equal_tids" class="seealso">erl_drv_equal_tids</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_free(void* ptr)</pre>
+      
+      <div class="description"><p>Free memory allocated by <code>enif_alloc</code>.</p></div>
+    </div>
+    <div class="function"><pre>void enif_free_env(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Free an environment allocated with <a href="#enif_alloc_env" class="seealso">enif_alloc_env</a>.
+      All terms created in the environment will be freed as well.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM term, char* buf, unsigned size, ErlNifCharEncoding encode)</pre>
+      
+      <div class="description"><p>Write a null-terminated string, in the buffer pointed to by
+              <code>buf</code> of size <code>size</code>, consisting of the string 
+              representation of the atom <code>term</code> with encoding
+              <a href="#ErlNifCharEncoding" class="seealso">encode</a>. Return
+              the number of bytes written (including terminating null character) or 0 if
+              <code>term</code> is not an atom with maximum length of 
+              <code>size-1</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</pre>
+      
+      <div class="description"><p>Set <code>*len</code> to the length (number of bytes excluding
+      terminating null character) of the atom <code>term</code> with encoding
+      <code>encode</code>. Return true on success or false if <code>term</code> is not an
+      atom.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</pre>
+      
+      <div class="description"><p>Set <code>*dp</code> to the floating point value of
+      <code>term</code>. Return true on success or false if <code>term</code> is not a float.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the integer value of
+      <code>term</code>. Return true on success or false if <code>term</code> is not an
+      integer or is outside the bounds of type <code>int</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the integer value of
+      <code>term</code>. Return true on success or false if <code>term</code> is not an
+      integer or is outside the bounds of a signed 64-bit integer.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)</pre>
+    
+    <div class="description"><p>If <code>term</code> is the pid of a node local process, initialize the
+    pid variable <code>*pid</code> from it and return true. Otherwise return false.
+    No check if the process is alive is done.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</pre>
+      
+      <div class="description"><p>Set <code>*head</code> and <code>*tail</code> from
+      <code>list</code> and return true, or return false if <code>list</code> is not a
+      non-empty list.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</pre>
+      
+      <div class="description"><p>Set <code>*len</code> to the length of list <code>term</code> and return true,
+      or return false if <code>term</code> is not a list.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the long integer value of <code>term</code> and
+      return true, or return false if <code>term</code> is not an integer or is
+      outside the bounds of type <code>long int</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</pre>
+      
+      <div class="description"><p>Set <code>*objp</code> to point to the resource object referred to by <code>term</code>.</p>
+      <p>Return true on success or false if <code>term</code> is not a handle to a resource object
+      of type <code>type</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_string(ErlNifEnv* env, 
+                                ERL_NIF_TERM list, char* buf, unsigned size,
+                                ErlNifCharEncoding encode)</pre>
+      
+      <div class="description"><p>Write a null-terminated string, in the buffer pointed to by
+              <code>buf</code> with size <code>size</code>, consisting of the characters
+              in the string <code>list</code>. The characters are written using encoding
+              <a href="#ErlNifCharEncoding" class="seealso">encode</a>.
+              Return the number of bytes written (including terminating null
+              character), or <code>-size</code> if the string was truncated due to
+              buffer space, or 0 if <code>list</code> is not a string that can be
+              encoded with <code>encode</code> or if <code>size</code> was less than 1.              
+              The written string is always null-terminated unless buffer
+              <code>size</code> is less than 1.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</pre>
+      
+      <div class="description"><p>If <code>term</code> is a tuple, set <code>*array</code> to point
+      to an array containing the elements of the tuple and set
+      <code>*arity</code> to the number of elements. Note that the array
+      is read-only and <code>(*array)[N-1]</code> will be the Nth element of
+      the tuple. <code>*array</code> is undefined if the arity of the tuple
+      is zero.</p><p>Return true on success or false if <code>term</code> is not a
+      tuple.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the unsigned integer value of <code>term</code> and
+      return true, or return false if <code>term</code> is not an unsigned integer or
+      is outside the bounds of type <code>unsigned int</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the unsigned integer value of <code>term</code> and
+      return true, or return false if <code>term</code> is not an unsigned integer or
+      is outside the bounds of an unsigned 64-bit integer.</p></div>
+    </div>
+    <div class="function"><pre>int enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</pre>
+      
+      <div class="description"><p>Set <code>*ip</code> to the unsigned long integer value of <code>term</code>
+      and return true, or return false if <code>term</code> is not an unsigned integer or is
+      outside the bounds of type <code>unsigned long</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</pre>
+      
+      <div class="description"><p>Initialize the structure pointed to by <code>bin</code> with 
+              information about the binary term
+      <code>bin_term</code>. Return true on success or false if <code>bin_term</code> is not a binary.</p></div> 
+    </div>
+    <div class="function"><pre>int enif_inspect_iolist_as_binary(ErlNifEnv* 
+                                env, ERL_NIF_TERM term, ErlNifBinary* bin)
+                              </pre>
+      
+      <div class="description"><p>Initialize the structure pointed to by <code>bin</code> with one
+      continuous buffer with the same byte content as <code>iolist</code>. As with 
+      inspect_binary, the data pointed to by <code>bin</code> is transient and does 
+      not need to be released. Return true on success or false if <code>iolist</code> is not an
+      iolist.</p>
+      </div> 
+    </div>
+    <div class="function"><pre>int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is an atom.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a binary</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is an empty list.</p></div>
+    </div>
+    <span id="enif_is_exception"> </span><div class="function"><pre>int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is an exception.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a number.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a fun.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_identical(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</pre>
+      
+      <div class="description"><p>Return true if the two terms are identical. Corresponds to the
+      Erlang operators <code>=:=</code> and
+      <code>=/=</code>.</p></div> 
+    </div>
+    <div class="function"><pre>int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a pid.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a port.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a reference.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a tuple.</p></div>
+    </div>
+    <div class="function"><pre>int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)</pre>
+      
+      <div class="description"><p>Return true if <code>term</code> is a list.</p></div>
+    </div>
+    <div class="function"><pre>int enif_keep_resource(void* obj)</pre>
+      
+      <div class="description"><p>Add a reference to resource object <code>obj</code> obtained from
+      <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.
+      Each call to <code>enif_keep_resource</code> for an object must be balanced by
+      a call to <a href="#enif_release_resource" class="seealso">enif_release_resource</a>
+      before the object will be destructed.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)</pre>
+      
+      <div class="description"><p>Create an atom term from the null-terminated C-string <code>name</code>
+      with iso-latin-1 encoding.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</pre>
+      
+      <div class="description"><p>Create an atom term from the string <code>name</code> with length <code>len</code>.
+      Null-characters are treated as any other characters.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Make a badarg exception to be returned from a NIF, and set
+      an associated exception reason in <code>env</code>. If
+      <code>enif_make_badarg</code> is called, the term it returns <em>must</em>
+      be returned from the function that called it. No other return value
+      is allowed. Also, the term returned from <code>enif_make_badarg</code> may
+      be passed only to
+      <a href="#enif_is_exception" class="seealso">enif_is_exception</a> and
+      not to any other NIF API function.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</pre>
+      
+      <div class="description"><p>Make a binary term from <code>bin</code>. Any ownership of 
+              the binary data will be transferred to the created term and
+              <code>bin</code> should be considered read-only for the rest of the NIF
+              call and then as released.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)</pre>
+      
+      <div class="description"><p>Make a copy of term <code>src_term</code>. The copy will be created in
+      environment <code>dst_env</code>. The source term may be located in any
+      environment.</p></div>        
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)</pre>
+      
+      <div class="description"><p>Create a floating-point term from a <code>double</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</pre>
+      
+      <div class="description"><p>Try to create the term of an already existing atom from
+      the null-terminated C-string <code>name</code> with encoding
+      <a href="#ErlNifCharEncoding" class="seealso">encode</a>. If the atom
+      already exists store the term in <code>*atom</code> and return true, otherwise
+      return false.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</pre>
+      
+      <div class="description"><p>Try to create the term of an already existing atom from the
+      string <code>name</code> with length <code>len</code> and encoding
+      <a href="#ErlNifCharEncoding" class="seealso">encode</a>. Null-characters
+      are treated as any other characters. If the atom already exists store the term
+      in <code>*atom</code> and return true, otherwise return false.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)</pre>
+      
+      <div class="description"><p>Create an integer term.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)</pre>
+      
+      <div class="description"><p>Create an integer term from a signed 64-bit integer.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</pre>
+      
+      <div class="description"><p>Create an ordinary list term of length <code>cnt</code>. Expects
+      <code>cnt</code> number of arguments (after <code>cnt</code>) of type ERL_NIF_TERM as the
+      elements of the list. An empty list is returned if <code>cnt</code> is 0.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)</pre>
+    <pre>ERL_NIF_TERM enif_make_list2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</pre>
+    <pre>ERL_NIF_TERM enif_make_list3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</pre>
+    <pre>ERL_NIF_TERM enif_make_list4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</pre>
+    <pre>ERL_NIF_TERM enif_make_list5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</pre>
+    <pre>ERL_NIF_TERM enif_make_list6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</pre>
+    <pre>ERL_NIF_TERM enif_make_list7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</pre>
+    <pre>ERL_NIF_TERM enif_make_list8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</pre>
+    <pre>ERL_NIF_TERM enif_make_list9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</pre>
+      
+      <div class="description"><p>Create an ordinary list term with length indicated by the
+      function name. Prefer these functions (macros) over the variadic
+      <code>enif_make_list</code>  to get a compile time error if the number of
+      arguments does not match.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</pre>
+      
+      <div class="description"><p>Create a list cell <code>[head | tail]</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</pre>
+      
+      <div class="description"><p>Create an ordinary list containing the elements of array <code>arr</code>
+      of length <code>cnt</code>. An empty list is returned if <code>cnt</code> is 0.</p></div>
+    </div>
+    <div class="function"><pre>int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)</pre>
+      
+      <div class="description"><p>Set <code>*list</code> to the reverse list of the list <code>term</code> and return true,
+      or return false if <code>term</code> is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long int i)</pre>
+      
+      <div class="description"><p>Create an integer term from a <code>long int</code>.</p></div>
+    </div>
+    <div class="function"><pre>unsigned char* enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)</pre>
+      
+      <div class="description"><p>Allocate a binary of size <code>size</code> bytes and create an owning
+      term. The binary data is mutable until the calling NIF returns. This is a
+      quick way to create a new binary without having to use
+      <a href="#ErlNifBinary" class="seealso">ErlNifBinary</a>. The drawbacks are
+      that the binary can not be kept between NIF calls and it can not be
+      reallocated.</p><p>Return a pointer to the raw binary data and set
+      <code>*termp</code> to the binary term.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</pre>
+      
+      <div class="description"><p>Make a pid term from <code>*pid</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Create a reference like <a href="erlang.html#make_ref-0" class="seealso">erlang:make_ref/0</a>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)</pre>
+      
+      <div class="description"><p>Create an opaque handle to a memory managed resource object
+      obtained by <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.
+      No ownership transfer is done, as the resource object still needs to be released by
+      <a href="#enif_release_resource" class="seealso">enif_release_resource</a>,
+      but note that the call to <code>enif_release_resource</code> can occur
+      immediately after obtaining the term from <code>enif_make_resource</code>,
+      in which case the resource object will be deallocated when the
+      term is garbage collected. See the
+      <a href="#enif_resource_example" class="seealso">example of creating and
+      returning a resource object</a> for more details.</p> 
+      <p>Note that the only defined behaviour of using a resource term in
+      an Erlang program is to store it and send it between processes on the
+      same node. Other operations such as matching or <code>term_to_binary</code>
+      will have unpredictable (but harmless) results.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj, const void* data, size_t size)</pre>
+      
+      <div class="description"><p>Create a binary term that is memory managed by a resource object
+      <code>obj</code> obtained by <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.
+      The returned binary term will consist of <code>size</code> bytes pointed to
+      by <code>data</code>. This raw binary data must be kept readable and unchanged
+      until the destructor of the resource is called. The binary data may be
+      stored external to the resource object in which case it is the responsibility
+      of the destructor to release the data.</p>
+      <p>Several binary terms may be managed by the same resource object. The
+      destructor will not be called until the last binary is garbage collected.
+      This can be useful as a way to return different parts of a larger binary
+      buffer.</p>
+      <p>As with <a href="#enif_make_resource" class="seealso">enif_make_resource</a>,
+      no ownership transfer is done. The resource still needs to be released with
+      <a href="#enif_release_resource" class="seealso">enif_release_resource</a>.</p>
+      </div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</pre>
+      
+      <div class="description"><p>Create a list containing the characters of the
+      null-terminated string <code>string</code> with encoding <a href="#ErlNifCharEncoding" class="seealso">encoding</a>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)</pre>
+      
+      <div class="description"><p>Create a list containing the characters of the string <code>string</code> with
+      length <code>len</code> and encoding <a href="#ErlNifCharEncoding" class="seealso">encoding</a>.
+      Null-characters are treated as any other characters.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_sub_binary(ErlNifEnv* 
+      env, ERL_NIF_TERM bin_term, size_t pos, size_t size)</pre>
+      
+      <div class="description"><p>Make a subbinary of binary <code>bin_term</code>, starting at 
+              zero-based position <code>pos</code> with a length of <code>size</code> bytes. 
+              <code>bin_term</code> must be a binary or bitstring and
+              <code>pos+size</code> must be less or equal to the number of whole
+              bytes in <code>bin_term</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</pre>
+      
+      <div class="description"><p>Create a tuple term of arity <code>cnt</code>. Expects
+      <code>cnt</code> number of arguments (after <code>cnt</code>) of type ERL_NIF_TERM as the
+      elements of the tuple.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_tuple1(ErlNifEnv* env, ERL_NIF_TERM e1)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</pre>
+    <pre>ERL_NIF_TERM enif_make_tuple9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</pre>
+      
+      <div class="description"><p>Create a tuple term with length indicated by the
+      function name. Prefer these functions (macros) over the variadic
+      <code>enif_make_tuple</code>  to get a compile time error if the number of
+      arguments does not match.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</pre>
+      
+      <div class="description"><p>Create a tuple containing the elements of array <code>arr</code>
+      of length <code>cnt</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned int i)</pre>
+      
+      <div class="description"><p>Create an integer term from an <code>unsigned int</code>.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)</pre>
+      
+      <div class="description"><p>Create an integer term from an unsigned 64-bit integer.</p></div>
+    </div>
+    <div class="function"><pre>ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)</pre>
+      
+      <div class="description"><p>Create an integer term from an <code>unsigned long int</code>.</p></div>
+    </div>
+    <div class="function"><pre>ErlNifMutex* enif_mutex_create(char *name)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_mutex_create" class="seealso">erl_drv_mutex_create</a>.
+    </p></div>
+    </div>
+    <div class="function"><pre>void enif_mutex_destroy(ErlNifMutex *mtx)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_mutex_destroy" class="seealso">erl_drv_mutex_destroy</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_mutex_lock(ErlNifMutex *mtx)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_mutex_lock" class="seealso">erl_drv_mutex_lock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_mutex_trylock(ErlNifMutex *mtx)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_mutex_trylock" class="seealso">erl_drv_mutex_trylock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_mutex_unlock(ErlNifMutex *mtx)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_mutex_unlock" class="seealso">erl_drv_mutex_unlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>ErlNifResourceType* enif_open_resource_type(ErlNifEnv* env,
+                             const char* module_str, const char* name,
+                             ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</pre>
+      
+      <div class="description"><p>Create or takeover a resource type identified by the string
+      <code>name</code> and give it the destructor function pointed to by <a href="#ErlNifResourceDtor" class="seealso">dtor</a>.
+      Argument <code>flags</code> can have the following values:</p>
+      <taglist>
+        <dt><code>ERL_NIF_RT_CREATE</code></dt>
+              <item>Create a new resource type that does not already exist.</item>
+        <dt><code>ERL_NIF_RT_TAKEOVER</code></dt>
+              <item>Open an existing resource type and take over ownership of all its instances.
+               The supplied destructor <code>dtor</code> will be called both for existing instances
+               as well as new instances not yet created by the calling NIF library.</item>            
+      </taglist>
+      <p>The two flag values can be combined with bitwise-or. The name of the
+      resource type is local to the calling module. Argument <code>module_str</code>
+      is not (yet) used and must be NULL. The <code>dtor</code> may  be <code>NULL</code>
+      in case no destructor is needed.</p>
+      <p>On success, return a pointer to the resource type and <code>*tried</code>
+      will be set to either <code>ERL_NIF_RT_CREATE</code> or
+      <code>ERL_NIF_RT_TAKEOVER</code> to indicate what was actually done.
+       On failure, return <code>NULL</code> and set <code>*tried</code> to <code>flags</code>.
+       It is allowed to set <code>tried</code> to <code>NULL</code>.</p>
+       <p>Note that <code>enif_open_resource_type</code> is only allowed to be called in the three callbacks
+       <a href="#load" class="seealso">load</a>, <a href="#reload" class="seealso">reload</a>
+       and <a href="#upgrade" class="seealso">upgrade</a>.</p>
+      </div>
+    </div>
+    <div class="function"><pre>void* enif_priv_data(ErlNifEnv* env)</pre>
+      
+      <div class="description"><p>Return the pointer to the private data that was set by <code>load</code>,
+      <code>reload</code> or <code>upgrade</code>.</p>
+      <p>Was previously named <code>enif_get_data</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_realloc_binary(ErlNifBinary* bin, size_t size)</pre>
+      
+      <div class="description"><p>Change the size of a binary <code>bin</code>. The source binary
+      may be read-only, in which case it will be left untouched and
+      a mutable copy is allocated and assigned to <code>*bin</code>. Return true on success,
+      false if memory allocation failed.</p></div>
+    </div>
+    <div class="function"><pre>void enif_release_binary(ErlNifBinary* bin)</pre>
+      
+      <div class="description"><p>Release a binary obtained from <code>enif_alloc_binary</code>.</p></div>
+    </div>
+    <div class="function"><pre>void enif_release_resource(void* obj)</pre>
+      
+      <div class="description"><p>Remove a reference to resource object <code>obj</code>obtained from
+      <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.
+      The resource object will be destructed when the last reference is removed.
+      Each call to <code>enif_release_resource</code> must correspond to a previous
+      call to <code>enif_alloc_resource</code> or
+      <a href="#enif_keep_resource" class="seealso">enif_keep_resource</a>.
+      References made by <a href="#enif_make_resource" class="seealso">enif_make_resource</a>
+      can only be removed by the garbage collector.</p></div>
+    </div>
+    <div class="function"><pre>ErlNifRWLock* enif_rwlock_create(char *name)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_create" class="seealso">erl_drv_rwlock_create</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_rwlock_destroy(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_destroy" class="seealso">erl_drv_rwlock_destroy</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_rwlock_rlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_rlock" class="seealso">erl_drv_rwlock_rlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_rwlock_runlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_runlock" class="seealso">erl_drv_rwlock_runlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_rwlock_rwlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_rwlock" class="seealso">erl_drv_rwlock_rwlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_rwlock_rwunlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_rwunlock" class="seealso">erl_drv_rwlock_rwunlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_rwlock_tryrlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_tryrlock" class="seealso">erl_drv_rwlock_tryrlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_rwlock_tryrwlock" class="seealso">erl_drv_rwlock_tryrwlock</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>ErlNifPid* enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</pre>
+      
+      <div class="description"><p>Initialize the pid variable <code>*pid</code> to represent the
+      calling process. Return <code>pid</code>.</p></div>
+    </div>
+    <div class="function"><pre>int enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</pre>
+      
+      <div class="description"><p>Send a message to a process.</p>
+      <taglist>
+        <dt><code>env</code></dt>
+              <item>The environment of the calling process. Must be NULL if and
+              only if calling from a created thread.</item>
+        <dt><code>*to_pid</code></dt>
+              <item>The pid of the receiving process. The pid should refer to a process on the local node.</item>
+        <dt><code>msg_env</code></dt>
+              <item>The environment of the message term. Must be a process
+              independent environment allocated with
+               <a href="#enif_alloc_env" class="seealso">enif_alloc_env</a>.</item>
+        <dt><code>msg</code></dt>
+              <item>The message term to send.</item>
+      </taglist>
+      <p>Return true on success, or false if <code>*to_pid</code> does not refer to an alive local process.</p>
+      <p>The message environment <code>msg_env</code> with all its terms (including
+      <code>msg</code>) will be invalidated by a successful call to <code>enif_send</code>. The environment
+      should either be freed with <a href="#enif_free_env" class="seealso">enif_free_env</a>
+      of cleared for reuse with <a href="#enif_clear_env" class="seealso">enif_clear_env</a>.</p>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p>
+      </div>
+    </div>
+    <div class="function"><pre>unsigned enif_sizeof_resource(void* obj)</pre>
+      
+      <div class="description"><p>Get the byte size of a resource object <code>obj</code> obtained by
+      <a href="#enif_alloc_resource" class="seealso">enif_alloc_resource</a>.</p></div>
+    </div>
+    <div class="function">
+      <pre>void enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</pre>
+      
+      <div class="description"><p>Same as <a href="erl_driver.html#driver_system_info" class="seealso">driver_system_info</a>.
+            </p></div>
+    </div>
+    <div class="function"><pre>int enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_create" class="seealso">erl_drv_thread_create</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_thread_exit(void *resp)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_exit" class="seealso">erl_drv_thread_exit</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_thread_join(ErlNifTid, void **respp)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_join" class="seealso">erl_drv_thread_join </a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>ErlNifThreadOpts* enif_thread_opts_create(char *name)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_opts_create" class="seealso">erl_drv_thread_opts_create</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_thread_opts_destroy(ErlNifThreadOpts *opts)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_opts_destroy" class="seealso">erl_drv_thread_opts_destroy</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>ErlNifTid enif_thread_self(void)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_thread_self" class="seealso">erl_drv_thread_self</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>int enif_tsd_key_create(char *name, ErlNifTSDKey *key)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_tsd_key_create" class="seealso">erl_drv_tsd_key_create</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_tsd_key_destroy(ErlNifTSDKey key)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_tsd_key_destroy" class="seealso">erl_drv_tsd_key_destroy</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void* enif_tsd_get(ErlNifTSDKey key)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_tsd_get" class="seealso">erl_drv_tsd_get</a>.
+          </p></div>
+    </div>
+    <div class="function"><pre>void enif_tsd_set(ErlNifTSDKey key, void *data)</pre>
+    
+    <div class="description"><p>Same as <a href="erl_driver.html#erl_drv_tsd_set" class="seealso">erl_drv_tsd_set</a>.
+          </p></div>
+    </div>
+  </div>
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><a href="erlang.html#load_nif-2" class="seealso">erlang:load_nif/2</a></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs" />
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

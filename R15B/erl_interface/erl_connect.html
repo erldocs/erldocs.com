@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>erl_connect (erl_interface) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>erl_connect</h1>
+  <libsummary>Communicate with Distributed Erlang</libsummary>
+  <div class="description">
+    <p>This module provides support for communication between distributed
+      Erlang nodes and C nodes, in a manner that is transparent to Erlang
+      processes.</p>
+    <p>A C node appears to Erlang as a
+      <em>hidden node</em>.
+      That is, Erlang processes that know the name of the
+      C node are able to communicate with it in a normal manner, but
+      the node name will not appear in the listing provided by the
+      Erlang function <code>nodes/0</code>.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <pre>int erl_connect_init(number, cookie, creation)</pre>
+      <pre>int erl_connect_xinit(host, alive, node, addr, cookie, creation)</pre>
+      
+      <ul class="type">
+        <li><code>int number;</code></li>
+        <li><code>char *cookie;</code></li>
+        <li><code>short creation;</code></li>
+        <li><code>char *host,*alive,*node;</code></li>
+        <li><code>struct in_addr *addr;</code></li>
+      </ul>
+      <div class="description">
+        <p>These functions initialize the <code>erl_connect</code>
+          module. In particular, they are used to identify the name of the
+          C-node from which they are called. One of these functions must
+          be called before any of the other functions in the erl_connect 
+          module are used.</p>
+        <p><code>erl_connect_xinit()</code> stores for later use information about
+          the node's host name <code>host</code>, alive name <code>alive</code>, node
+          name <code>node</code>, IP address <code>addr</code>, cookie <code>cookie</code>,
+          and creation number <code>creation</code>. <code>erl_connect_init()</code>
+          provides an alternative interface which does not require as much
+          information from the caller. Instead, <code>erl_connect_init()</code>
+          uses <code>gethostbyname()</code> to obtain default values. 
+          </p>
+        <p>If you use <code>erl_connect_init()</code> your node will have a
+          short name, i.e., it will not be fully qualified. If you need to
+          use fully qualified (a.k.a. long) names, use
+          <code>erl_connect_xinit()</code> instead. 
+          </p>
+        <p><code>host</code> is the name of the host on which the node is running.</p>
+        <p><code>alive</code> is the alivename of the node.</p>
+        <p><code>node</code> is the name of the node. The nodename should
+          be of the form <em>alivename@hostname</em>.</p>
+        <p><code>addr</code> is the 32-bit IP address of <code>host</code>.</p>
+        <p><code>cookie</code> is the authorization string required for access
+          to the remote node. If NULL the user HOME directory is
+          searched for a cookie file <code>.erlang.cookie</code>. The path to
+          the home directory is retrieved from the environment variable
+          <code>HOME</code> on Unix and from the <code>HOMEDRIVE</code> and
+          <code>HOMEPATH</code> variables on Windows. Refer to the <code>auth</code>
+          module for more details.</p>
+        <p><code>creation</code> helps identify a particular instance of a C
+          node. In particular, it can help prevent us from receiving
+          messages sent to an earlier process with the same registered
+          name.</p>
+        <p>A C node acting as a server will be assigned a creation number
+          when it calls <code>erl_publish()</code>.</p>
+        <p><code>number</code> is used by <code>erl_connect_init()</code> to
+          construct the actual node name. In the second example shown
+          below, <em>"c17@a.DNS.name"</em> will be the resulting node
+          name.</p>
+        <p>Example 1:</p>
+        <pre class="sh_erlang">
+struct in_addr addr;
+addr = inet_addr("150.236.14.75");
+if (!erl_connect_xinit("chivas",
+                       "madonna",
+                       "madonna@chivas.du.etx.ericsson.se",
+                       &addr;
+                       "samplecookiestring..."),
+                       0)
+  erl_err_quit("&lt;ERROR&gt; when initializing !");
+        </pre>
+        <p>Example 2:</p>
+        <pre class="sh_erlang">
+if (!erl_connect_init(17, "samplecookiestring...", 0))
+  erl_err_quit("&lt;ERROR&gt; when initializing !");
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_connect(node)</pre>
+      <pre>int erl_xconnect(addr, alive)</pre>
+      
+      <ul class="type">
+        <li><code>char *node, *alive;</code></li>
+        <li><code>struct in_addr *addr;</code></li>
+      </ul>
+      <div class="description">
+        <p>These functions set up a connection to an Erlang node.</p>
+        <p><code>erl_xconnect()</code> requires the IP address of the remote
+          host and the alive name of the remote node
+          to be specified. <code>erl_connect()</code> provides an alternative
+          interface, and determines the information from the node name
+          provided.</p>
+        <p><code>addr</code> is the 32-bit IP address of the remote host.</p>
+        <p><code>alive</code> is the alivename of the remote node.</p>
+        <p><code>node</code> is the name of the remote node.</p>
+        <p>These functions return an open file descriptor on success, or
+          a negative value indicating that an error occurred --- in
+          which case they will set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EHOSTUNREACH</code></dt>
+          <item>The remote host <code>node</code> is unreachable</item>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+        <p>Additionally, <code>errno</code> values from
+          <code>socket</code><em>(2)</em> and <code>connect</code><em>(2)</em>
+          system calls may be propagated into <code>erl_errno</code>.</p>
+        <pre class="sh_erlang">
+#define NODE   "madonna@chivas.du.etx.ericsson.se"
+#define ALIVE  "madonna"
+#define IP_ADDR "150.236.14.75"
+
+/*** Variant 1 ***/
+erl_connect( NODE );
+
+/*** Variant 2 ***/
+struct in_addr addr;
+addr = inet_addr(IP_ADDR);
+erl_xconnect( &addr , ALIVE );
+        </pre>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_close_connection(fd)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function closes an open connection to an Erlang node.</p>
+        <p><code>Fd</code> is a file descriptor obtained from
+          <code>erl_connect()</code> or <code>erl_xconnect()</code>.</p>
+        <p>On success, 0 is returned. If the call fails, a non-zero value
+          is returned, and the reason for
+          the error can be obtained with the appropriate platform-dependent
+          call.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_receive(fd, bufp, bufsize)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>char *bufp;</code></li>
+        <li><code>int bufsize;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function receives a message consisting of a sequence
+          of bytes in the Erlang external format.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>bufp</code> is a buffer large enough to hold the expected
+          message. </p>
+        <p><code>bufsize</code> indicates the size of <code>bufp</code>.</p>
+        <p>If a <em>tick</em> occurs, i.e., the Erlang node on the
+          other end of the connection has polled this node to see if it
+          is still alive, the function will return <code>ERL_TICK</code> and
+          no message will be placed in the buffer. Also,
+          <code>erl_errno</code> will be set to <code>EAGAIN</code>.</p>
+        <p>On success, the message is placed in the specified buffer
+          and the function returns the number of bytes actually read. On
+          failure, the function returns a negative value and will set
+          <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EAGAIN</code></dt>
+          <item>Temporary error: Try again.</item>
+          <dt><code>EMSGSIZE</code></dt>
+          <item>Buffer too small.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_receive_msg(fd, bufp, bufsize, emsg)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>unsigned char *bufp;</code></li>
+        <li><code>int bufsize;</code></li>
+        <li><code>ErlMessage *emsg;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function receives the message into the specified buffer, 
+          and decodes into the <code>(ErlMessage *) emsg</code>.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>bufp</code> is a buffer large enough to hold the expected message.</p>
+        <p><code>bufsize</code> indicates the size of <code>bufp</code>.</p>
+        <p><code>emsg</code> is a pointer to an <code>ErlMessage</code> structure,
+          into which the message will be decoded. <code>ErlMessage</code> is
+          defined as follows:</p>
+        <pre class="sh_erlang">
+typedef struct {
+  int type;
+  ETERM *msg;
+  ETERM *to;
+  ETERM *from;
+  char to_name[MAXREGLEN];
+} ErlMessage;
+        </pre>
+        <div class="note"><h2>Note!</h2>
+          <p>The definition of <code>ErlMessage</code> has changed since
+            earlier versions of Erl_Interface.</p>
+        </div>
+        <p><code>type</code> identifies the type of message, one of 
+          <code>ERL_SEND</code>, <code>ERL_REG_SEND</code>, <code>ERL_LINK</code>,
+          <code>ERL_UNLINK</code> and <code>ERL_EXIT</code>. 
+          </p>
+        <p>If <code>type</code> contains <code>ERL_SEND</code>
+          this indicates that an ordinary send operation has taken
+          place, and <code>emsg-&gt;to</code> contains the Pid of the
+          recipient. If <code>type</code> contains <code>ERL_REG_SEND</code> then a
+          registered send operation took place, and <code>emsg-&gt;from</code>
+          contains the Pid of the sender. In both cases, the actual
+          message will be in <code>emsg-&gt;msg</code>.
+          </p>
+        <p>If <code>type</code> contains one of <code>ERL_LINK</code> or
+          <code>ERL_UNLINK</code>, then <code>emsg-&gt;to</code> and <code>emsg-&gt;from</code>
+          contain the pids of the sender and recipient of the link or unlink.
+          <code>emsg-&gt;msg</code> is not used in these cases.
+          </p>
+        <p>If <code>type</code> contains <code>ERL_EXIT</code>, then this
+          indicates that a link has been broken. In this case,
+          <code>emsg-&gt;to</code> and <code>emsg-&gt;from</code> contain the pids of the
+          linked processes, and <code>emsg-&gt;msg</code> contains the reason for
+          the exit.
+          </p>
+        <div class="note"><h2>Note!</h2>
+          <p>It is the caller's responsibility to release the
+            memory pointed to by <code>emsg-&gt;msg</code>, <code>emsg-&gt;to</code> and
+            <code>emsg-&gt;from</code>.</p>
+        </div>
+        <p>If a <em>tick</em> occurs, i.e., the Erlang node on the
+          other end of the connection has polled this node to see if it
+          is still alive, the function will return <code>ERL_TICK</code>
+          indicating that the tick has been received and responded to,
+          but no message will be placed in the buffer. In this case you
+          should call <code>erl_receive_msg()</code> again.</p>
+        <p>On success, the function returns <code>ERL_MSG</code> and the
+          <code>Emsg</code> struct will be initialized as described above, or
+          <code>ERL_TICK</code>, in which case no message is returned. On
+          failure, the function returns <code>ERL_ERROR</code> and will set
+          <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EMSGSIZE</code></dt>
+          <item>Buffer too small.</item>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_xreceive_msg(fd, bufpp, bufsizep, emsg)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>unsigned char **bufpp;</code></li>
+        <li><code>int *bufsizep;</code></li>
+        <li><code>ErlMessage *emsg;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is similar to <code>erl_receive_msg</code>. The
+          difference is that <code>erl_xreceive_msg</code> expects the buffer to
+          have been allocated by <code>malloc</code>, and reallocates it if the received
+          message does not fit into the original buffer. For that reason,
+          both buffer and buffer length are given as pointers - their values
+          may change by the call.
+          </p>
+        <p>On success, the function returns <code>ERL_MSG</code> and the
+          <code>Emsg</code> struct will be initialized as described above, or
+          <code>ERL_TICK</code>, in which case no message is returned. On
+          failure, the function returns <code>ERL_ERROR</code> and will set
+          <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EMSGSIZE</code></dt>
+          <item>Buffer too small.</item>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_send(fd, to, msg)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>ETERM *to, *msg;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function sends an Erlang term to a process.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>to</code> is an Erlang term containing the Pid of the
+          intended recipient of the message.</p>
+        <p><code>msg</code> is the Erlang term to be sent.</p>
+        <p>The function returns 1 if successful, otherwise 0 --- in
+          which case it will set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>EINVAL</code></dt>
+          <item>Invalid argument: <code>to</code> is not a valid Erlang pid.</item>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_reg_send(fd, to, msg)</pre>
+      
+      <ul class="type">
+        <li><code>int fd;</code></li>
+        <li><code>char *to;</code></li>
+        <li><code>ETERM *msg;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function sends an Erlang term to a registered process.</p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>to</code> is a string containing the registered name of
+          the intended recipient of the message.</p>
+        <p><code>msg</code> is the Erlang term to be sent.</p>
+        <p>The function returns 1 if successful, otherwise 0 --- in
+          which case it will set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>ETERM * erl_rpc(fd, mod, fun, args)</pre>
+      <pre>int erl_rpc_to(fd, mod, fun, args)</pre>
+      <pre>int erl_rpc_from(fd, timeout, emsg)</pre>
+      
+      <ul class="type">
+        <li><code>int fd, timeout;</code></li>
+        <li><code>char *mod, *fun;</code></li>
+        <li><code>ETERM *args;</code></li>
+        <li><code>ErlMessage *emsg;</code></li>
+      </ul>
+      <div class="description">
+        <p>These functions support calling Erlang functions on remote nodes.
+          <code>erl_rpc_to()</code> sends an rpc request to a remote node and
+          <code>erl_rpc_from()</code> receives the results of such a call.
+          <code>erl_rpc()</code> combines the functionality of these two functions
+          by sending an rpc request and waiting for the results. See also
+          <code>rpc:call/4</code>. </p>
+        <p><code>fd</code> is an open descriptor to an Erlang connection.</p>
+        <p><code>timeout</code> is the maximum time (in ms) to wait for
+          results. Specify <code>ERL_NO_TIMEOUT</code> to wait forever.
+          When erl_rpc() calls erl_rpc_from(), the call will never
+          timeout.</p>
+        <p><code>mod</code> is the name of the module containing the function
+          to be run on the remote node.</p>
+        <p><code>fun</code> is the name of the function to run.</p>
+        <p><code>args</code> is an Erlang list, containing the arguments to be
+          passed to the function. </p>
+        <p><code>emsg</code> is a message containing the result of the
+          function call.</p>
+        <p>The actual message returned by the rpc server
+          is a 2-tuple <code>{rex,Reply}</code>. If you are using
+          <code>erl_rpc_from()</code> in your code then this is the message you
+          will need to parse. If you are using <code>erl_rpc()</code> then the
+          tuple itself is parsed for you, and the message returned to your
+          program is the erlang term containing <code>Reply</code> only. Replies
+          to rpc requests are always ERL_SEND messages.
+          </p>
+        <div class="note"><h2>Note!</h2>
+          <p>It is the caller's responsibility to free the returned
+            <code>ETERM</code> structure as well as the memory pointed to by
+            <code>emsg-&gt;msg</code> and <code>emsg-&gt;to</code>.  </p>
+        </div>
+        <p><code>erl_rpc()</code> returns the remote function's return value (or
+          <code>NULL</code> if it failed). <code>erl_rpc_to()</code> returns 0 on
+          success, and a negative number on failure. <code>erl_rcp_from()</code>
+          returns <code>ERL_MSG</code> when successful (with <code>Emsg</code> now
+          containing the reply tuple), and one of <code>ERL_TICK</code>,
+          <code>ERL_TIMEOUT</code> and <code>ERL_ERROR</code> otherwise. When failing,
+          all three functions set <code>erl_errno</code> to one of:</p>
+        <taglist>
+          <dt><code>ENOMEM</code></dt>
+          <item>No more memory available.</item>
+          <dt><code>EIO</code></dt>
+          <item>I/O error.</item>
+          <dt><code>ETIMEDOUT</code></dt>
+          <item>Timeout expired.</item>
+          <dt><code>EAGAIN</code></dt>
+          <item>Temporary error: Try again.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_publish(port)</pre>
+      
+      <ul class="type">
+        <li><code>int port;</code></li>
+      </ul>
+      <div class="description">
+        <p>These functions are used by a server process to register
+          with the local name server <em>epmd</em>, thereby allowing
+          other processes to send messages by using the registered name.
+          Before calling either of these functions, the process should
+          have called <code>bind()</code> and <code>listen()</code> on an open socket.</p>
+        <p><code>port</code> is the local name to register, and should be the
+          same as the port number that was previously bound to the socket.</p>
+        <p>To unregister with epmd, simply close the returned
+          descriptor.
+          </p>
+        <p>On success, the functions return a descriptor connecting the
+          calling process to epmd. On failure, they return -1 and set
+          <code>erl_errno</code> to:</p>
+        <taglist>
+          <dt><code>EIO</code></dt>
+          <item>I/O error</item>
+        </taglist>
+        <p>Additionally, <code>errno</code> values from <code>socket</code><em>(2)</em>
+          and <code>connect</code><em>(2)</em> system calls may be propagated
+          into <code>erl_errno</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_accept(listensock, conp)</pre>
+      
+      <ul class="type">
+        <li><code>int listensock;</code></li>
+        <li><code>ErlConnect *conp;</code></li>
+      </ul>
+      <div class="description">
+        <p>This function is used by a server process to accept a
+          connection from a client process.</p>
+        <p><code>listensock</code> is an open socket descriptor on which
+          <code>listen()</code> has previously been called.</p>
+        <p><code>conp</code> is a pointer to an <code>ErlConnect</code> struct,
+          described as follows:</p>
+        <pre class="sh_erlang">
+typedef struct {
+  char ipadr[4];             
+  char nodename[MAXNODELEN];
+} ErlConnect;
+        </pre>
+        <p>On success, <code>conp</code> is filled in with the address and
+          node name of the connecting client and a file descriptor is
+          returned. On failure, <code>ERL_ERROR</code> is returned and
+          <code>erl_errno</code> is set to <code>EIO</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>const char * erl_thiscookie()</pre>
+      <pre>const char * erl_thisnodename()</pre>
+      <pre>const char * erl_thishostname()</pre>
+      <pre>const char * erl_thisalivename()</pre>
+      <pre>short erl_thiscreation()</pre>
+      
+      <div class="description">
+        <p>These functions can be used to retrieve information about
+          the C Node. These values are initially set with
+          <code>erl_connect_init()</code> or <code>erl_connect_xinit()</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_unpublish(alive)</pre>
+      
+      <ul class="type">
+        <li><code>char *alive;</code></li>
+      </ul>
+      <div class="description">
+       <p>This function can be called by a process to unregister a
+          specified node from epmd on the localhost. This is however usually not 
+	  allowed, unless epmd was started with the -relaxed_command_check 
+	  flag, which it normally isn't.</p>
+
+	  <p>To unregister a node you have published, you should instead
+	  close the descriptor that was returned by  
+	  <code>ei_publish()</code>.</p> 
+
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future 
+	  release.</p>
+        </div>
+        <p><code>alive</code> is the name of the node to unregister, i.e., the
+          first component of the nodename, without the <code>@hostname</code>.</p>
+        <p>If the node was successfully unregistered from epmd, the
+          function returns 0. Otherwise, it returns -1 and sets
+          <code>erl_errno</code> is to <code>EIO</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>struct hostent *erl_gethostbyname(name)</pre>
+      <pre>struct hostent *erl_gethostbyaddr(addr, length, type)</pre>
+      <pre>struct hostent *erl_gethostbyname_r(name, hostp, buffer, buflen, h_errnop)</pre>
+      <pre>struct hostent *erl_gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, h_errnop)</pre>
+      
+      <ul class="type">
+        <li><code>const char *name;</code></li>
+        <li><code>const char *addr;</code></li>
+        <li><code>int length;</code></li>
+        <li><code>int type;</code></li>
+        <li><code>struct hostent *hostp;</code></li>
+        <li><code>char *buffer;</code></li>
+        <li><code>int buflen;</code></li>
+        <li><code>int *h_errnop;</code></li>
+      </ul>
+      <div class="description">
+        <p>These are convenience functions for some common name lookup functions.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Debug Information</h4>
+    <p>If a connection attempt fails, the following can be checked:</p>
+    <list type="bulleted">
+      <item><code>erl_errno</code></item>
+      <item>that the right cookie was used</item>
+      <item>that <em>epmd</em> is running</item>
+      <item>the remote Erlang node on the other side is running the same
+       version of Erlang as the <code>erl_interface</code> library.</item>
+    </list>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs" />
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

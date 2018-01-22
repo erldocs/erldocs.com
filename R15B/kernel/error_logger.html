@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>error_logger (kernel) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>error_logger</h1>
+  <h2 class="modsummary">Erlang Error Logger</h2>
+  <div class="description">
+    <p>The Erlang <em>error logger</em> is an event manager (see
+      <a href="../doc/design_principles/des_princ.html" class="seealso">OTP Design Principles</a> and
+      <a href="../stdlib/gen_event.html" class="seealso">gen_event(3)</a>),
+      registered as <code>error_logger</code>. Error, warning and info events
+      are sent to the error logger from the Erlang runtime system and
+      the different Erlang/OTP applications. The events are, by default,
+      logged to tty. Note that an event from a process <code>P</code> is
+      logged at the node of the group leader of <code>P</code>. This means
+      that log output is directed to the node from which a process was
+      created, which not necessarily is the same node as where it is
+      executing.</p>
+    <p>Initially, <code>error_logger</code> only has a primitive event
+      handler, which buffers and prints the raw event messages. During
+      system startup, the application Kernel replaces this with a
+      <em>standard event handler</em>, by default one which writes
+      nicely formatted output to tty. Kernel can also be configured so
+      that events are logged to file instead, or not logged at all, see
+      <a href="kernel_app.html" class="seealso">kernel(6)</a>.</p>
+    <p>Also the SASL application, if started, adds its own event
+      handler, which by default writes supervisor-, crash- and progress
+      reports to tty. See
+      <a href="../sasl/sasl_app.html" class="seealso">sasl(6)</a>.</p>
+    <p>It is recommended that user defined applications should report
+      errors through the error logger, in order to get uniform reports.
+      User defined event handlers can be added to handle application
+      specific events. (<code>add_report_handler/1,2</code>). Also, there is
+      a useful event handler in STDLIB for multi-file logging of events,
+      see <code>log_mf_h(3)</code>.</p>
+    <p>Warning events was introduced in Erlang/OTP R9C. To retain
+      backwards compatibility, these are by default tagged as errors,
+      thus showing up as error reports in the logs. By using
+      the command line flag <code>+W &lt;w | i&gt;</code>, they can instead
+      be tagged as warnings or info. Tagging them as warnings may
+      require rewriting existing user defined event handlers.</p>
+  </div>
+  <datatypes>
+    <datatype>
+      <name name="report" />
+    </datatype>
+  </datatypes>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="error_msg/1">error_msg(Format) -&gt; ok</h3>
+      <h3 id="error_msg/2">error_msg(Format, Data) -&gt; ok</h3>
+      <h3 id="format/2">format(Format, Data) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard error event to the error logger.
+          The <code><anno>Format</anno></code> and <code><anno>Data</anno></code> arguments are the same as
+          the arguments of <code>io:format/2</code>. The event is handled by
+          the standard event handler.</p>
+        <pre class="sh_erlang">
+1&gt; <code>error_logger:error_msg("An error occurred in ~p~n", [a_module]).</code>
+
+=ERROR REPORT==== 11-Aug-2005::14:03:19 ===
+An error occurred in a_module
+ok</pre>
+        <div class="warning"><h2>Warning!</h2>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <code>error_report/1</code> instead.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="error_report/1">error_report(Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard error report event to the error logger.
+          The event is handled by the standard event handler.</p>
+        <pre class="sh_erlang">
+2&gt; <code>error_logger:error_report([{tag1,data1},a_term,{tag2,data}]).</code>
+
+=ERROR REPORT==== 11-Aug-2005::13:45:41 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3&gt; <code>error_logger:error_report("Serious error in my module").</code>
+
+=ERROR REPORT==== 11-Aug-2005::13:45:49 ===
+Serious error in my module
+ok</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="error_report/2">error_report(Type, Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a user defined error report event to the error logger.
+          An event handler to handle the event is supposed to have been
+          added. The event is ignored by the standard event handler.</p>
+        <p>It is recommended that <code><anno>Report</anno></code> follows the same
+          structure as for <code>error_report/1</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="warning_map/0">warning_map() -&gt; Tag</h3>
+      
+      <ul class="type">
+        <li><code>Tag = error | warning | info</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the current mapping for warning events. Events sent
+          using <code>warning_msg/1,2</code> or <code>warning_report/1,2</code>
+          are tagged as errors (default), warnings or info, depending
+          on the value of the command line flag <code>+W</code>.</p>
+        <pre class="sh_erlang">
+os$ <code>erl</code>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1&gt; <code>error_logger:warning_map().</code>
+error
+2&gt; <code>error_logger:warning_msg("Warnings tagged as: ~p~n", [error]).</code>
+
+=ERROR REPORT==== 11-Aug-2005::15:31:23 ===
+Warnings tagged as: error
+ok
+3&gt; 
+User switch command
+ --&gt; q
+os$ <code>erl +W w</code>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1&gt; <code>error_logger:warning_map().</code>
+warning
+2&gt; <code>error_logger:warning_msg("Warnings tagged as: ~p~n", [warning]).</code>
+
+=WARNING REPORT==== 11-Aug-2005::15:31:55 ===
+Warnings tagged as: warning
+ok</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="warning_msg/1">warning_msg(Format) -&gt; ok</h3>
+      <h3 id="warning_msg/2">warning_msg(Format, Data) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard warning event to the error logger.
+          The <code><anno>Format</anno></code> and <code><anno>Data</anno></code> arguments are the same as
+          the arguments of <code>io:format/2</code>. The event is handled by
+          the standard event handler. It is tagged either as an error,
+          warning or info, see
+          <a href="#warning_map/0" class="seealso">warning_map/0</a>.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <code>warning_report/1</code> instead.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="warning_report/1">warning_report(Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard warning report event to the error logger.
+          The event is handled by the standard event handler. It is
+          tagged either as an error, warning or info, see
+          <a href="#warning_map/0" class="seealso">warning_map/0</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="warning_report/2">warning_report(Type, Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a user defined warning report event to the error
+          logger. An event handler to handle the event is supposed to
+          have been added. The event is ignored by the standard event
+          handler. It is tagged either as an error, warning or info,
+          depending on the value of
+          <a href="#warning_map/0" class="seealso">warning_map/0</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info_msg/1">info_msg(Format) -&gt; ok</h3>
+      <h3 id="info_msg/2">info_msg(Format, Data) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard information event to the error logger.
+          The <code><anno>Format</anno></code> and <code><anno>Data</anno></code> arguments are the same as
+          the arguments of <code>io:format/2</code>. The event is handled by
+          the standard event handler.</p>
+        <pre class="sh_erlang">
+1&gt; <code>error_logger:info_msg("Something happened in ~p~n", [a_module]).</code>
+
+=INFO REPORT==== 11-Aug-2005::14:06:15 ===
+Something happened in a_module
+ok</pre>
+        <div class="warning"><h2>Warning!</h2>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <code>info_report/1</code> instead.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info_report/1">info_report(Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a standard information report event to the error
+          logger. The event is handled by the standard event handler.</p>
+        <pre class="sh_erlang">
+2&gt; <code>error_logger:info_report([{tag1,data1},a_term,{tag2,data}]).</code>
+
+=INFO REPORT==== 11-Aug-2005::13:55:09 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3&gt; <code>error_logger:info_report("Something strange happened").</code>
+
+=INFO REPORT==== 11-Aug-2005::13:55:36 ===
+Something strange happened
+ok</pre>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info_report/2">info_report(Type, Report) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Sends a user defined information report event to the error
+          logger. An event handler to handle the event is supposed to
+          have been added. The event is ignored by the standard event
+          handler.</p>
+        <p>It is recommended that <code><anno>Report</anno></code> follows the same
+          structure as for <code>info_report/1</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="add_report_handler/1">add_report_handler(Handler) -&gt; any()</h3>
+      <h3 id="add_report_handler/2">add_report_handler(Handler, Args) -&gt; Result</h3>
+      
+      <div class="description">
+        <p>Adds a new event handler to the error logger. The event
+          handler must be implemented as a <code>gen_event</code> callback
+          module, see
+          <a href="../stdlib/gen_event.html" class="seealso">gen_event(3)</a>.</p>
+        <p><code><anno>Handler</anno></code> is typically the name of the callback module
+          and <code><anno>Args</anno></code> is an optional term (defaults to []) passed
+          to the initialization callback function <code><anno>Handler</anno>:init/1</code>.
+          The function returns <code>ok</code> if successful.</p>
+        <p>The event handler must be able to handle the
+          <a href="#events" class="seealso">events</a> described below.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete_report_handler/1">delete_report_handler(Handler) -&gt; Result</h3>
+      
+      <div class="description">
+        <p>Deletes an event handler from the error logger by calling
+          <code>gen_event:delete_handler(error_logger, <anno>Handler</anno>, [])</code>,
+          see <a href="../stdlib/gen_event.html" class="seealso">gen_event(3)</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="tty/1">tty(Flag) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Enables (<code><anno>Flag</anno> == true</code>) or disables
+          (<code><anno>Flag</anno> == false</code>) printout of standard events to the tty.</p>
+        <p>This is done by adding or deleting the standard event handler
+          for output to tty, thus calling this function overrides
+          the value of the Kernel <code>error_logger</code> configuration
+          parameter.</p>
+      </div>
+    </div>
+    <div class="function">
+      <name name="logfile" arity="1" clause_i="1" />
+      <name name="logfile" arity="1" clause_i="2" />
+      <name name="logfile" arity="1" clause_i="3" />
+      <type variable="Filename" />
+      <type variable="OpenReason" name_i="1" />
+      <type variable="CloseReason" name_i="2" />
+      <type variable="FilenameReason" name_i="3" />
+      <type name="open_error" />
+      
+      <div class="description">
+        <p>Enables or disables printout of standard events to a file.</p>
+        <p>This is done by adding or deleting the standard event handler
+          for output to file, thus calling this function overrides
+          the value of the Kernel <code>error_logger</code> configuration
+          parameter.</p>
+        <p>Enabling file logging can be used in combination with calling
+          <code>tty(false)</code>, in order to have a silent system, where
+          all standard events are logged to a file only.
+          There can only be one active log file at a time.</p>
+        <p><code>Request</code> is one of:</p>
+        <taglist>
+          <dt><code>{open, <anno>Filename</anno>}</code></dt>
+          <item>
+            <p>Opens the log file <code><anno>Filename</anno></code>. Returns <code>ok</code> if
+              successful, or <code>{error, allready_have_logfile}</code> if
+              logging to file is already enabled, or an error tuple if
+              another error occurred. For example, if <code><anno>Filename</anno></code>
+              could not be opened.</p>
+          </item>
+          <dt><code>close</code></dt>
+          <item>
+            <p>Closes the current log file. Returns <code>ok</code>, or
+              <code>{error, module_not_found}</code>.</p>
+          </item>
+          <dt><code>filename</code></dt>
+          <item>
+            <p>Returns the name of the log file <code><anno>Filename</anno></code>, or
+              <code>{error, no_log_file}</code> if logging to file is not
+              enabled.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="events"> </span>
+    <h4>Events</h4>
+    <p>All event handlers added to the error logger must handle
+      the following events. <code>Gleader</code> is the group leader pid of
+      the process which sent the event, and <code>Pid</code> is the process
+      which sent the event.</p>
+    <taglist>
+      <dt><code>{error, Gleader, {Pid, Format, Data}}</code></dt>
+      <item>
+        <p>Generated when <code>error_msg/1,2</code> or <code>format</code> is
+          called.</p>
+      </item>
+      <dt><code>{error_report, Gleader, {Pid, std_error, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>error_report/1</code> is called.</p>
+      </item>
+      <dt><code>{error_report, Gleader, {Pid, Type, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>error_report/2</code> is called.</p>
+      </item>
+      <dt><code>{warning_msg, Gleader, {Pid, Format, Data}}</code></dt>
+      <item>
+        <p>Generated when <code>warning_msg/1,2</code> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <dt><code>{warning_report, Gleader, {Pid, std_warning, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>warning_report/1</code> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <dt><code>{warning_report, Gleader, {Pid, Type, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>warning_report/2</code> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <dt><code>{info_msg, Gleader, {Pid, Format, Data}}</code></dt>
+      <item>
+        <p>Generated when <code>info_msg/1,2</code> is called.</p>
+      </item>
+      <dt><code>{info_report, Gleader, {Pid, std_info, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>info_report/1</code> is called.</p>
+      </item>
+      <dt><code>{info_report, Gleader, {Pid, Type, Report}}</code></dt>
+      <item>
+        <p>Generated when <code>info_report/2</code> is called.</p>
+      </item>
+    </taglist>
+    <p>Note that also a number of system internal events may be
+      received, a catch-all clause last in the definition of
+      the event handler callback function <code>Module:handle_event/2</code>
+      is necessary. This also holds true for
+      <code>Module:handle_info/2</code>, as there are a number of system
+      internal messages the event handler must take care of as well.</p>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p>gen_event(3), log_mf_h(3), kernel(6), sasl(6)</p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#error_msg">error_msg</a></li><li><a href="#error_msg-1">error_msg-1</a></li><li><a href="#format">format</a></li><li><a href="#error_report">error_report</a></li><li><a href="#error_report-1">error_report-1</a></li><li><a href="#warning_map/0">warning_map/0</a></li><li><a href="#warning_msg">warning_msg</a></li><li><a href="#warning_msg-1">warning_msg-1</a></li><li><a href="#warning_report">warning_report</a></li><li><a href="#warning_report-1">warning_report-1</a></li><li><a href="#info_msg">info_msg</a></li><li><a href="#info_msg-1">info_msg-1</a></li><li><a href="#info_report">info_report</a></li><li><a href="#info_report-1">info_report-1</a></li><li><a href="#add_report_handler">add_report_handler</a></li><li><a href="#add_report_handler-1">add_report_handler-1</a></li><li><a href="#delete_report_handler">delete_report_handler</a></li><li><a href="#tty">tty</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

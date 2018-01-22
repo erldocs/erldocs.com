@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>qlc (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>qlc</h1>
+  <h2 class="modsummary">Query Interface to Mnesia, ETS, Dets, etc</h2>
+  <div class="description">
+    <p>The <code>qlc</code> module provides a query interface to Mnesia, ETS,
+      Dets and other data structures that implement an iterator style
+      traversal of objects. </p>
+  </div>
+
+  <div class="section"><h4>Overview</h4>
+
+    <p>The <code>qlc</code> module implements a query interface to <em>QLC
+      tables</em>. Typical QLC tables are ETS, Dets, and Mnesia
+      tables. There is also support for user defined tables, see the
+      <a href="#implementing_a_qlc_table" class="seealso">Implementing a QLC
+      table</a> section. <span id="query_list_comprehension"> </span>
+      A <em>query</em> is stated using
+      <em>Query List Comprehensions</em> (QLCs). The answers to a
+      query are determined by data in QLC tables that fulfill the
+      constraints expressed by the QLCs of the query. QLCs are similar
+      to ordinary list comprehensions as described in the Erlang
+      Reference Manual and Programming Examples except that variables
+      introduced in patterns cannot be used in list expressions. In
+      fact, in the absence of optimizations and options such as
+      <code>cache</code> and <code>unique</code> (see below), every QLC free of
+      QLC tables evaluates to the same list of answers as the
+      identical ordinary list comprehension.</p>
+
+    <p>While ordinary list comprehensions evaluate to lists, calling
+      <a href="#q" class="seealso">qlc:q/1,2</a> returns a <span id="query_handle"> </span><em> Query
+      Handle</em>. To obtain all the answers to a query, <a href="#eval" class="seealso">qlc:eval/1,2</a> should be called with the
+      query handle as first argument. Query handles are essentially
+      functional objects ("funs") created in the module calling <code>q/1,2</code>.
+      As the funs refer to the module's code, one should
+      be careful not to keep query handles too long if the module's
+      code is to be replaced.
+      Code replacement is described in the <a href="../doc/reference_manual/code_loading.html" class="seealso">Erlang Reference
+      Manual</a>. The list of answers can also be traversed in
+      chunks by use of a <span id="query_cursor"> </span><em>Query Cursor</em>. Query cursors are
+      created by calling <a href="#cursor" class="seealso">qlc:cursor/1,2</a> with a query handle as
+      first argument. Query cursors are essentially Erlang processes.
+      One answer at a time is sent from the query cursor process to
+      the process that created the cursor.</p>
+
+  </div>
+
+  <div class="section"><h4>Syntax</h4>
+
+    <p>Syntactically QLCs have the same parts as ordinary list
+      comprehensions:</p>
+
+    <pre class="sh_erlang">[Expression || Qualifier1, Qualifier2, ...]</pre>
+
+    <p><code>Expression</code> (the <em>template</em>) is an arbitrary
+      Erlang expression. Qualifiers are either <em>filters</em> or
+      <em>generators</em>. Filters are Erlang expressions returning
+      <code>bool()</code>. Generators have the form
+      <code>Pattern &lt;- ListExpression</code>, where
+      <code>ListExpression</code> is an expression evaluating to a query
+      handle or a list. Query handles are returned from
+      <code>qlc:table/2</code>, <code>qlc:append/1,2</code>, <code>qlc:sort/1,2</code>,
+      <code>qlc:keysort/2,3</code>, <code>qlc:q/1,2</code>, and
+      <code>qlc:string_to_handle/1,2,3</code>.</p>
+
+  </div>
+
+  <div class="section"><h4>Evaluation</h4>
+
+    <p>The evaluation of a query handle begins by the inspection of
+      options and the collection of information about tables. As a
+      result qualifiers are modified during the optimization phase.
+      Next all list expressions are evaluated. If a cursor has been
+      created evaluation takes place in the cursor process. For those
+      list expressions that are QLCs, the list expressions of the
+      QLCs' generators are evaluated as well. One has to be careful if
+      list expressions have side effects since the order in which list
+      expressions are evaluated is unspecified. Finally the answers
+      are found by evaluating the qualifiers from left to right,
+      backtracking when some filter returns <code>false</code>, or
+      collecting the template when all filters return <code>true</code>.</p>
+
+    <p>Filters that do not return <code>bool()</code> but fail are handled
+      differently depending on their syntax: if the filter is a guard
+      it returns <code>false</code>, otherwise the query evaluation fails.
+      This behavior makes it possible for the <code>qlc</code> module to do
+      some optimizations without affecting the meaning of a query. For
+      example, when testing some position of a table and one or more
+      constants for equality, only
+      the objects with equal values are candidates for further
+      evaluation. The other objects are guaranteed to make the filter
+      return <code>false</code>, but never fail. The (small) set of
+      candidate objects can often be found by looking up some key
+      values of the table or by traversing the table using a match
+      specification. It is necessary to place the guard filters
+      immediately after the table's generator, otherwise the candidate
+      objects will not be restricted to a small set. The reason is
+      that objects that could make the query evaluation fail must not
+      be excluded by looking up a key or running a match
+      specification.</p>
+
+  </div>
+
+  <div class="section"><h4>Join</h4>
+
+    <p>The <code>qlc</code> module supports fast join of two query handles.
+      Fast join is possible if some position <code>P1</code> of one query
+      handler and some position <code>P2</code> of another query handler are
+      tested for equality. Two fast join methods have been
+      implemented:</p>
+
+    <list type="bulleted">
+      <item>Lookup join traverses all objects of one query handle and
+         finds objects of the other handle (a QLC table) such that the
+         values at <code>P1</code> and <code>P2</code> match or compare equal.
+         The <code>qlc</code> module does not create
+         any indices but looks up values using the key position and
+         the indexed positions of the QLC table.
+      </item>
+      <item>Merge join sorts the objects of each query handle if
+         necessary and filters out objects where the values at
+         <code>P1</code> and <code>P2</code> do not compare equal. If there are
+         many objects with the same value of <code>P2</code> a temporary
+         file will be used for the equivalence classes.
+      </item>
+    </list>
+
+    <p>The <code>qlc</code> module warns at compile time if a QLC
+      combines query handles in such a way that more than one join is
+      possible. In other words, there is no query planner that can
+      choose a good order between possible join operations. It is up
+      to the user to order the joins by introducing query handles.</p>
+
+    <p>The join is to be expressed as a guard filter. The filter must
+      be placed immediately after the two joined generators, possibly
+      after guard filters that use variables from no other generators
+      but the two joined generators. The <code>qlc</code> module inspects 
+      the operands of
+      <code>=:=/2</code>, <code>==/2</code>, <code>is_record/2</code>, <code>element/2</code>,
+      and logical operators (<code>and/2</code>, <code>or/2</code>,
+      <code>andalso/2</code>, <code>orelse/2</code>, <code>xor/2</code>) when
+      determining which joins to consider.</p>
+
+  </div>
+
+  <div class="section"><h4>Common options</h4>
+
+    <p>The following options are accepted by <code>cursor/2</code>,
+      <code>eval/2</code>, <code>fold/4</code>, and <code>info/2</code>:</p>
+
+    <list type="bulleted">
+      <item><code>{cache_all, Cache}</code> where <code>Cache</code> is
+        equal to <code>ets</code> or <code>list</code> adds a
+        <code>{cache,&nbsp;Cache}</code> option to every list expression
+        of the query except tables and lists. Default is
+        <code>{cache_all,&nbsp;no}</code>. The option <code>cache_all</code> is
+        equivalent to <code>{cache_all,&nbsp;ets}</code>.
+      </item>
+      <item><code>{max_list_size, MaxListSize}</code> <span id="max_list_size"> </span> where <code>MaxListSize</code> is the
+        size in bytes of terms on the external format. If the
+        accumulated size of collected objects exceeds
+        <code>MaxListSize</code> the objects are written onto a temporary
+        file. This option is used by the <code>{cache,&nbsp;list}</code>
+        option as well as by the merge join method. Default is
+        512*1024 bytes.
+      </item>
+      <item><code>{tmpdir_usage, TmpFileUsage}</code> determines the
+        action taken when <code>qlc</code> is about to create temporary
+        files on the directory set by the <code>tmpdir</code> option. If the
+        value is <code>not_allowed</code> an error tuple is returned,
+        otherwise temporary files are created as needed. Default is
+        <code>allowed</code> which means that no further action is taken.
+        The values <code>info_msg</code>, <code>warning_msg</code>, and
+        <code>error_msg</code> mean that the function with the corresponding
+        name in the module <code>error_logger</code> is called for printing
+        some information (currently the stacktrace).
+      </item>
+      <item><code>{tmpdir, TempDirectory}</code> sets the directory used by
+        merge join for temporary files and by the
+        <code>{cache,&nbsp;list}</code> option. The option also overrides
+        the <code>tmpdir</code> option of <code>keysort/3</code> and
+        <code>sort/2</code>. The default value is <code>""</code> which means that
+        the directory returned by <code>file:get_cwd()</code> is used.
+      </item>
+      <item><code>{unique_all, true}</code> adds a
+        <code>{unique,&nbsp;true}</code> option to every list expression of
+        the query. Default is <code>{unique_all,&nbsp;false}</code>. The
+        option <code>unique_all</code> is equivalent to
+        <code>{unique_all,&nbsp;true}</code>.
+      </item>
+    </list>
+
+  </div>
+
+  <div class="section"><h4>Getting started</h4>
+
+    <p><span id="getting_started"> </span> As already mentioned
+      queries are stated in the list comprehension syntax as described
+      in the <a href="../doc/reference_manual/expressions.html" class="seealso">Erlang
+      Reference Manual</a>. In the following some familiarity
+      with list comprehensions is assumed. There are examples in
+      <a href="../doc/programming_examples/list_comprehensions.html" class="seealso">Programming
+      Examples</a> that can get you started. It should be
+      stressed that list comprehensions do not add any computational
+      power to the language; anything that can be done with list
+      comprehensions can also be done without them. But they add a
+      syntax for expressing simple search problems which is compact
+      and clear once you get used to it.</p>
+
+    <p>Many list comprehension expressions can be evaluated by the
+      <code>qlc</code> module. Exceptions are expressions such that
+      variables introduced in patterns (or filters) are used in some
+      generator later in the list comprehension. As an example
+      consider an implementation of lists:append(L): 
+      <code>[X ||Y &lt;- L, X &lt;- Y]</code>. 
+      Y is introduced in the first generator and used in the second.
+      The ordinary list comprehension is normally to be preferred when
+      there is a choice as to which to use. One difference is that
+      <code>qlc:eval/1,2</code> collects answers in a list which is finally
+      reversed, while list comprehensions collect answers on the stack
+      which is finally unwound.</p>
+
+    <p>What the <code>qlc</code> module primarily adds to list
+      comprehensions is that data can be read from QLC tables in small
+      chunks. A QLC table is created by calling <code>qlc:table/2</code>.
+      Usually <code>qlc:table/2</code> is not called directly from the query
+      but via an interface function of some data structure. There are
+      a few examples of such functions in Erlang/OTP:
+      <code>mnesia:table/1,2</code>, <code>ets:table/1,2</code>, and
+      <code>dets:table/1,2</code>. For a given data structure there can be
+      several functions that create QLC tables, but common for all
+      these functions is that they return a query handle created by
+      <code>qlc:table/2</code>. Using the QLC tables provided by OTP is
+      probably sufficient in most cases, but for the more advanced
+      user the section <a href="#implementing_a_qlc_table" class="seealso">Implementing a QLC
+      table</a> describes the implementation of a function
+      calling <code>qlc:table/2</code>.</p>
+
+    <p>Besides <code>qlc:table/2</code> there are other functions that
+      return query handles. They might not be used as often as tables,
+      but are useful from time to time. <code>qlc:append</code> traverses
+      objects from several tables or lists after each other. If, for
+      instance, you want to traverse all answers to a query QH and
+      then finish off by a term <code>{finished}</code>, you can do that by
+      calling <code>qlc:append(QH, [{finished}])</code>. <code>append</code> first
+      returns all objects of QH, then <code>{finished}</code>. If there is
+      one tuple <code>{finished}</code> among the answers to QH it will be
+      returned twice from <code>append</code>.</p>
+
+    <p>As another example, consider concatenating the answers to two
+      queries QH1 and QH2 while removing all duplicates. The means to
+      accomplish this is to use the <code>unique</code> option:</p> 
+
+    <pre class="sh_erlang">
+qlc:q([X || X &lt;- qlc:append(QH1, QH2)], {unique, true})</pre>
+
+    <p>The cost is substantial: every returned answer will be stored
+      in an ETS table. Before returning an answer it is looked up in
+      the ETS table to check if it has already been returned. Without
+      the <code>unique</code> options all answers to QH1 would be returned
+      followed by all answers to QH2. The <code>unique</code> options keeps
+      the order between the remaining answers.</p>
+
+    <p>If the order of the answers is not important there is the
+      alternative to sort the answers uniquely:</p>
+
+    <pre class="sh_erlang">
+qlc:sort(qlc:q([X || X &lt;- qlc:append(QH1, QH2)], {unique, true})).</pre>
+
+    <p>This query also removes duplicates but the answers will be
+      sorted. If there are many answers temporary files will be used.
+      Note that in order to get the first unique answer all answers
+      have to be found and sorted. Both alternatives find duplicates
+      by comparing answers, that is, if A1 and A2 are answers found in
+      that order, then A2 is a removed if A1 == A2.</p>
+
+    <p>To return just a few answers cursors can be used. The following
+      code returns no more than five answers using an ETS table for
+      storing the unique answers:</p>
+
+    <pre class="sh_erlang">
+C = qlc:cursor(qlc:q([X || X &lt;- qlc:append(QH1, QH2)],{unique,true})),
+R = qlc:next_answers(C, 5),
+ok = qlc:delete_cursor(C),
+R.</pre>
+
+    <p>Query list comprehensions are convenient for stating
+      constraints on data from two or more tables. An example that
+      does a natural join on two query handles on position 2:</p>
+
+    <pre class="sh_erlang">
+qlc:q([{X1,X2,X3,Y1} || 
+          {X1,X2,X3} &lt;- QH1, 
+          {Y1,Y2} &lt;- QH2, 
+          X2 =:= Y2])</pre>
+
+    <p>The <code>qlc</code> module will evaluate this differently depending on 
+      the query
+      handles <code>QH1</code> and <code>QH2</code>. If, for example, <code>X2</code> is
+      matched against the key of a QLC table the lookup join method
+      will traverse the objects of <code>QH2</code> while looking up key
+      values in the table. On the other hand, if neither <code>X2</code> nor
+      <code>Y2</code> is matched against the key or an indexed position of a
+      QLC table, the merge join method will make sure that <code>QH1</code>
+      and <code>QH2</code> are both sorted on position 2 and next do the
+      join by traversing the objects one by one.</p>
+
+    <p>The <code>join</code> option can be used to force the <code>qlc</code> module 
+      to use a
+      certain join method. For the rest of this section it is assumed
+      that the excessively slow join method called "nested loop" has
+      been chosen:</p>
+
+    <pre class="sh_erlang">
+qlc:q([{X1,X2,X3,Y1} || 
+          {X1,X2,X3} &lt;- QH1, 
+          {Y1,Y2} &lt;- QH2, 
+          X2 =:= Y2],
+      {join, nested_loop})</pre>
+
+    <p>In this case the filter will be applied to every possible pair
+      of answers to QH1 and QH2, one at a time. If there are M answers
+      to QH1 and N answers to QH2 the filter will be run M*N
+      times.</p>
+
+    <p>If QH2 is a call to the function for <code>gb_trees</code> as defined
+      in the <a href="#implementing_a_qlc_table" class="seealso">Implementing
+      a QLC table</a> section, <code>gb_table:table/1</code>, the
+      iterator for the gb-tree will be initiated for each answer to
+      QH1 after which the objects of the gb-tree will be returned one
+      by one. This is probably the most efficient way of traversing
+      the table in that case since it takes minimal computational
+      power to get the following object. But if QH2 is not a table but
+      a more complicated QLC, it can be more efficient use some RAM
+      memory for collecting the answers in a cache, particularly if
+      there are only a few answers. It must then be assumed that
+      evaluating QH2 has no side effects so that the meaning of the
+      query does not change if QH2 is evaluated only once. One way of
+      caching the answers is to evaluate QH2 first of all and
+      substitute the list of answers for QH2 in the query. Another way
+      is to use the <code>cache</code> option. It is stated like this:</p>
+
+    <pre class="sh_erlang">
+QH2' = qlc:q([X || X &lt;- QH2], {cache, ets})</pre>
+
+    <p>or just</p> 
+
+    <pre class="sh_erlang">
+QH2' = qlc:q([X || X &lt;- QH2], cache)</pre>
+
+    <p>The effect of the <code>cache</code> option is that when the
+      generator QH2' is run the first time every answer is stored in
+      an ETS table. When next answer of QH1 is tried, answers to QH2'
+      are copied from the ETS table which is very fast. As for the
+      <code>unique</code> option the cost is a possibly substantial amount
+      of RAM memory. The <code>{cache,&nbsp;list}</code> option offers the
+      possibility to store the answers in a list on the process heap.
+      While this has the potential of being faster than ETS tables
+      since there is no need to copy answers from the table it can
+      often result in slower evaluation due to more garbage
+      collections of the process' heap as well as increased RAM memory
+      consumption due to larger heaps. Another drawback with cache
+      lists is that if the size of the list exceeds a limit a
+      temporary file will be used. Reading the answers from a file is
+      very much slower than copying them from an ETS table. But if the
+      available RAM memory is scarce setting the <a href="#max_list_size" class="seealso">limit</a> to some low value is an
+      alternative.</p>
+
+    <p>There is an option <code>cache_all</code> that can be set to
+      <code>ets</code> or <code>list</code> when evaluating a query. It adds a
+      <code>cache</code> or <code>{cache,&nbsp;list}</code> option to every list
+      expression except QLC tables and lists on all levels of the
+      query. This can be used for testing if caching would improve
+      efficiency at all. If the answer is yes further testing is
+      needed to pinpoint the generators that should be cached.</p>
+
+  </div>
+
+  <div class="section"><h4>Implementing a QLC table</h4>
+
+    <p><span id="implementing_a_qlc_table"> </span>As an example of
+      how to use the <a href="#q" class="seealso">qlc:table/2</a>
+      function the implementation of a QLC table for the <a href="gb_trees.html" class="seealso">gb_trees</a> module is given:</p>
+
+    <pre class="sh_erlang">
+-module(gb_table).
+
+-export([table/1]).
+
+table(T) -&gt;
+    TF = fun() -&gt; qlc_next(gb_trees:next(gb_trees:iterator(T))) end,
+    InfoFun = fun(num_of_objects) -&gt; gb_trees:size(T);
+                 (keypos) -&gt; 1;
+                 (is_sorted_key) -&gt; true;
+                 (is_unique_objects) -&gt; true;
+                 (_) -&gt; undefined
+              end,
+    LookupFun =
+        fun(1, Ks) -&gt;
+                lists:flatmap(fun(K) -&gt;
+                                      case gb_trees:lookup(K, T) of
+                                          {value, V} -&gt; [{K,V}];
+                                          none -&gt; []
+                                      end
+                              end, Ks)
+        end,
+    FormatFun =
+        fun({all, NElements, ElementFun}) -&gt;
+                ValsS = io_lib:format("gb_trees:from_orddict(~w)",
+                                      [gb_nodes(T, NElements, ElementFun)]),
+                io_lib:format("gb_table:table(~s)", [ValsS]);
+           ({lookup, 1, KeyValues, _NElements, ElementFun}) -&gt;
+                ValsS = io_lib:format("gb_trees:from_orddict(~w)",
+                                      [gb_nodes(T, infinity, ElementFun)]),
+                io_lib:format("lists:flatmap(fun(K) -&gt; "
+                              "case gb_trees:lookup(K, ~s) of "
+                              "{value, V} -&gt; [{K,V}];none -&gt; [] end "
+                              "end, ~w)",
+                              [ValsS, [ElementFun(KV) || KV &lt;- KeyValues]])
+        end,
+    qlc:table(TF, [{info_fun, InfoFun}, {format_fun, FormatFun},
+                   {lookup_fun, LookupFun},{key_equality,'=='}]).
+
+qlc_next({X, V, S}) -&gt;
+    [{X,V} | fun() -&gt; qlc_next(gb_trees:next(S)) end];
+qlc_next(none) -&gt;
+    [].
+
+gb_nodes(T, infinity, ElementFun) -&gt;
+    gb_nodes(T, -1, ElementFun);
+gb_nodes(T, NElements, ElementFun) -&gt;
+    gb_iter(gb_trees:iterator(T), NElements, ElementFun).
+
+gb_iter(_I, 0, _EFun) -&gt;
+    '...';
+gb_iter(I0, N, EFun) -&gt;
+    case gb_trees:next(I0) of
+        {X, V, I} -&gt;
+            [EFun({X,V}) | gb_iter(I, N-1, EFun)];
+        none -&gt;
+            []
+    end.</pre>
+
+    <p><code>TF</code> is the traversal function. The <code>qlc</code> module
+      requires that there is a way of traversing all objects of the
+      data structure; in <code>gb_trees</code> there is an iterator function
+      suitable for that purpose. Note that for each object returned a
+      new fun is created. As long as the list is not terminated by
+      <code>[]</code> it is assumed that the tail of the list is a nullary
+      function and that calling the function returns further objects
+      (and functions).</p>
+
+    <p>The lookup function is optional. It is assumed that the lookup
+      function always finds values much faster than it would take to
+      traverse the table. The first argument is the position of the
+      key. Since <code>qlc_next</code> returns the objects as
+      {Key,&nbsp;Value} pairs the position is 1. Note that the lookup
+      function should return {Key,&nbsp;Value} pairs, just as the
+      traversal function does.</p>
+
+    <p>The format function is also optional. It is called by
+      <code>qlc:info</code> to give feedback at runtime of how the query
+      will be evaluated. One should try to give as good feedback as
+      possible without showing too much details. In the example at
+      most 7 objects of the table are shown. The format function
+      handles two cases: <code>all</code> means that all objects of the
+      table will be traversed; <code>{lookup,&nbsp;1,&nbsp;KeyValues}</code>
+      means that the lookup function will be used for looking up key
+      values.</p>
+
+    <p>Whether the whole table will be traversed or just some keys
+      looked up depends on how the query is stated. If the query has
+      the form</p>
+
+    <pre class="sh_erlang">
+qlc:q([T || P &lt;- LE, F])</pre>
+
+    <p>and P is a tuple, the <code>qlc</code> module analyzes P and F in
+      compile time to find positions of the tuple P that are tested
+      for equality to constants. If such a position at runtime turns
+      out to be the key position, the lookup function can be used,
+      otherwise all objects of the table have to be traversed. It is
+      the info function <code>InfoFun</code> that returns the key position.
+      There can be indexed positions as well, also returned by the
+      info function. An index is an extra table that makes lookup on
+      some position fast. Mnesia maintains indices upon request,
+      thereby introducing so called secondary keys. The <code>qlc</code>
+      module prefers to look up objects using the key before secondary
+      keys regardless of the number of constants to look up.</p>
+
+  </div>
+
+  <div class="section"><h4>Key equality</h4>
+
+    <p>In Erlang there are two operators for testing term equality,
+      namely <code>==/2</code> and <code>=:=/2</code>. The difference between them
+      is all about the integers that can be represented by floats. For
+      instance, <code>2 == 2.0</code> evaluates to
+      <code>true</code> while <code>2 =:= 2.0</code> evaluates to <code>false</code>.
+      Normally this is a minor issue, but the <code>qlc</code> module cannot
+      ignore the difference, which affects the user's choice of
+      operators in QLCs.</p>
+
+    <p>If the <code>qlc</code> module can find out at compile time that some
+      constant is free of integers, it does not matter which one of
+      <code>==/2</code> or <code>=:=/2</code> is used:</p>
+
+    <pre class="sh_erlang">
+1&gt; <code>E1 = ets:new(t, [set]), % uses =:=/2 for key equality</code>
+<code>Q1 = qlc:q([K ||</code>
+<code>{K} &lt;- ets:table(E1),</code>
+<code>K == 2.71 orelse K == a]),</code>
+<code>io:format("~s~n", [qlc:info(Q1)]).</code>
+ets:match_spec_run(lists:flatmap(fun(V) -&gt;
+                                        ets:lookup(20493, V)
+                                 end,
+                                 [a,2.71]),
+                   ets:match_spec_compile([{{'$1'},[],['$1']}]))</pre>
+
+    <p>In the example the <code>==/2</code> operator has been handled
+      exactly as <code>=:=/2</code> would have been handled. On the other
+      hand, if it cannot be determined at compile time that some
+      constant is free of integers and the table uses <code>=:=/2</code>
+      when comparing keys for equality (see the option <a href="#key_equality" class="seealso">key_equality</a>), the
+      <code>qlc</code> module will not try to look up the constant. The
+      reason is that there is in the general case no upper limit on
+      the number of key values that can compare equal to such a
+      constant; every combination of integers and floats has to be
+      looked up:</p>
+
+    <pre class="sh_erlang">
+2&gt; <code>E2 = ets:new(t, [set]),</code>
+<code>true = ets:insert(E2, [{{2,2},a},{{2,2.0},b},{{2.0,2},c}]),</code>
+<code>F2 = fun(I) -&gt;</code>
+<code>qlc:q([V || {K,V} &lt;- ets:table(E2), K == I])</code>
+<code>end,</code>
+<code>Q2 = F2({2,2}),</code>
+<code>io:format("~s~n", [qlc:info(Q2)]).</code>
+ets:table(53264,
+          [{traverse,
+            {select,[{{'$1','$2'},[{'==','$1',{const,{2,2}}}],['$2']}]}}])
+3&gt; <code>lists:sort(qlc:e(Q2)).</code>
+[a,b,c]</pre>
+
+    <p>Looking up just <code>{2,2}</code> would not return <code>b</code> and
+      <code>c</code>.</p>
+
+    <p>If the table uses <code>==/2</code> when comparing keys for equality,
+      the <code>qlc</code> module will look up the constant regardless of
+      which operator is used in the QLC. However, <code>==/2</code> is to
+      be preferred:</p>
+
+    <pre class="sh_erlang">
+4&gt; <code>E3 = ets:new(t, [ordered_set]), % uses ==/2 for key equality</code>
+<code>true = ets:insert(E3, [{{2,2.0},b}]),</code>
+<code>F3 = fun(I) -&gt;</code>
+<code>qlc:q([V || {K,V} &lt;- ets:table(E3), K == I])</code>
+<code>end,</code>
+<code>Q3 = F3({2,2}),</code>
+<code>io:format("~s~n", [qlc:info(Q3)]).</code>
+ets:match_spec_run(ets:lookup(86033, {2,2}),
+                   ets:match_spec_compile([{{'$1','$2'},[],['$2']}]))
+5&gt; <code>qlc:e(Q3).</code>
+[b]</pre>
+
+    <p>Lookup join is handled analogously to lookup of constants in a
+      table: if the join operator is <code>==/2</code> and the table where
+      constants are to be looked up uses <code>=:=/2</code> when testing
+      keys for equality, the <code>qlc</code> module will not consider
+      lookup join for that table.</p>
+
+  </div>
+
+  <datatypes>
+    <datatype>
+      <name name="abstract_expr" />
+      <div class="description"><p>Parse trees for Erlang expression, see the <a href="../erts/absform.html" class="seealso">abstract format</a>
+        documentation in the ERTS User's Guide.</p></div>
+    </datatype>
+    <datatype>
+      <name name="answer" />
+    </datatype>
+    <datatype>
+      <name name="answers" />
+    </datatype>
+    <datatype>
+      <name name="cache" />
+    </datatype>
+    <datatype>
+      <name name="match_expression" />
+      <div class="description"><p>Match&nbsp;specification, see the <a href="../erts/match_spec.html" class="seealso">match specification</a>
+          documentation in the ERTS User's Guide and <a href="ms_transform.html" class="seealso">ms_transform(3).</a></p></div>
+    </datatype>
+    <datatype>
+      <name name="no_files" />
+      <div class="description"><p>Actually an integer &gt; 1.</p></div>
+    </datatype>
+    <datatype>
+      <name name="key_pos" />
+    </datatype>
+    <datatype>
+      <name name="max_list_size" />
+    </datatype>
+    <datatype>
+      <name name="order" />
+    </datatype>
+    <datatype>
+      <name name="order_fun" />
+    </datatype>
+    <datatype>
+      <name name="query_cursor" />
+      <div class="description"><p>A <a href="#query_cursor" class="seealso">query cursor</a>.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="query_handle" />
+      <div class="description"><p>A <a href="#query_handle" class="seealso">query handle</a>.</p>
+      </div>
+    </datatype>
+    <datatype>
+      <name name="query_handle_or_list" />
+    </datatype>
+    <datatype>
+      <name name="query_list_comprehension" />
+      <div class="description"><p>A literal
+        <a href="#query_list_comprehension" class="seealso">query
+         list comprehension</a>.</p></div>
+    </datatype>
+    <datatype>
+      <name name="spawn_options" />
+    </datatype>
+    <datatype>
+      <name name="sort_options" />
+    </datatype>
+    <datatype>
+      <name name="sort_option" />
+      <div class="description"><p>See <a href="file_sorter.html" class="seealso">file_sorter(3)</a>.</p></div>
+    </datatype>
+    <datatype>
+      <name name="tmp_directory" />
+    </datatype>
+    <datatype>
+      <name name="tmp_file_usage" />
+    </datatype>
+  </datatypes>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+
+    <div class="function">
+      <h3 id="append/1">append(QHL) -&gt; QH</h3>
+      
+      <div class="description">
+        <p>Returns a query handle. When evaluating the query handle
+          <code><anno>QH</anno></code> all answers to the first query handle in
+          <code><anno>QHL</anno></code> are returned followed by all answers
+          to the rest of the query handles in <code><anno>QHL</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="append/2">append(QH1, QH2) -&gt; QH3</h3>
+      
+      <div class="description">
+        <p>Returns a query handle. When evaluating the query handle
+          <code><anno>QH3</anno></code> all answers to
+          <code><anno>QH1</anno></code> are returned followed by all answers
+          to <code><anno>QH2</anno></code>.</p>
+
+        <p><code>append(QH1,&nbsp;QH2)</code> is equivalent to
+          <code>append([QH1,&nbsp;QH2])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="cursor/1">cursor(QH) -&gt; Cursor</h3>
+      <h3 id="cursor/2">cursor(QH, Options) -&gt; Cursor</h3>
+      
+      <div class="description">
+        <p><span id="cursor"> </span>Creates a query cursor and
+          makes the calling process the owner of the cursor. The
+          cursor is to be used as argument to <code>next_answers/1,2</code>
+          and (eventually) <code>delete_cursor/1</code>. Calls
+          <code>erlang:spawn_opt</code> to spawn and link a process which
+          will evaluate the query handle. The value of the option
+          <code>spawn_options</code> is used as last argument when calling
+          <code>spawn_opt</code>. The default value is <code>[link]</code>.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>QH = qlc:q([{X,Y} || X &lt;- [a,b], Y &lt;- [1,2]]),</code>
+<code>QC = qlc:cursor(QH),</code>
+<code>qlc:next_answers(QC, 1).</code>
+[{a,1}]
+2&gt; <code>qlc:next_answers(QC, 1).</code>
+[{a,2}]
+3&gt; <code>qlc:next_answers(QC, all_remaining).</code>
+[{b,1},{b,2}]
+4&gt; <code>qlc:delete_cursor(QC).</code>
+ok</pre>
+        <p><code>cursor(<anno>QH</anno>)</code> is equivalent to
+          <code>cursor(<anno>QH</anno>, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="delete_cursor/1">delete_cursor(QueryCursor) -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Deletes a query cursor. Only the owner of the cursor can
+          delete the cursor.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="eval/1">eval(QH) -&gt; Answers | Error</h3>
+      <h3 id="eval/2">eval(QH, Options) -&gt; Answers | Error</h3>
+      <h3 id="e/1">e(QH) -&gt; Answers | Error</h3>
+      <h3 id="e/2">e(QH, Options) -&gt; Answers | Error</h3>
+      
+      <div class="description">
+        <p><span id="eval"> </span>Evaluates a query handle in the
+          calling process and collects all answers in a list.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>QH = qlc:q([{X,Y} || X &lt;- [a,b], Y &lt;- [1,2]]),</code>
+<code>qlc:eval(QH).</code>
+[{a,1},{a,2},{b,1},{b,2}]</pre>
+        <p><code>eval(<anno>QH</anno>)</code> is equivalent to
+          <code>eval(<anno>QH</anno>, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="fold/3">fold(Function, Acc0, QH) -&gt; Acc1 | Error</h3>
+      <h3 id="fold/4">fold(Function, Acc0, QH, Options) -&gt; Acc1 | Error</h3>
+      
+      <div class="description">
+        <p>Calls <code><anno>Function</anno></code> on successive answers to
+          the query handle together with an extra argument
+          <code><anno>AccIn</anno></code>. The query handle and the function
+          are evaluated in the calling process.
+          <code><anno>Function</anno></code> must return a new accumulator
+          which is passed to the next call.
+          <code><anno>Acc0</anno></code> is returned if there are no answers
+          to the query handle.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>QH = [1,2,3,4,5,6],</code>
+<code>qlc:fold(fun(X, Sum) -&gt; X + Sum end, 0, QH).</code>
+21</pre>
+        <p><code>fold(<anno>Function</anno>, <anno>Acc0</anno>,
+          <anno>QH</anno>)</code> is equivalent to
+          <code>fold(<anno>Function</anno>, <anno>Acc0</anno>,
+          <anno>QH</anno>, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="format_error/1">format_error(Error) -&gt; Chars</h3>
+      
+      <div class="description">
+        <p>Returns a descriptive string in English of an error tuple
+          returned by some of the functions of the <code>qlc</code> module
+          or the parse transform. This function is mainly used by the
+          compiler invoking the parse transform.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/1">info(QH) -&gt; Info</h3>
+      <h3 id="info/2">info(QH, Options) -&gt; Info</h3>
+      
+      <div class="description">
+        <p><span id="info"> </span>Returns information about a
+          query handle. The information describes the simplifications
+          and optimizations that are the results of preparing the
+          query for evaluation. This function is probably useful
+          mostly during debugging.</p>
+
+        <p>The information has the form of an Erlang expression where
+          QLCs most likely occur. Depending on the format functions of
+          mentioned QLC tables it may not be absolutely accurate.</p>
+
+        <p>The default is to return a sequence of QLCs in a block, but
+          if the option <code>{flat,&nbsp;false}</code> is given, one single
+          QLC is returned. The default is to return a string, but if
+          the option <code>{format,&nbsp;abstract_code}</code> is given,
+          abstract code is returned instead. In the abstract code
+          port identifiers, references, and pids are represented by
+          strings. The default is to return
+          all elements in lists, but if the
+          <code>{n_elements,&nbsp;NElements}</code> option is given, only a
+          limited number of elements are returned. The default is to
+          show all of objects and match specifications, but if the
+          <code>{depth,&nbsp;Depth}</code> option is given, parts of terms
+          below a certain depth are replaced by <code>'...'</code>.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>QH = qlc:q([{X,Y} || X &lt;- [x,y], Y &lt;- [a,b]]),</code>
+<code>io:format("~s~n", [qlc:info(QH, unique_all)]).</code>
+begin
+    V1 =
+        qlc:q([
+               SQV ||
+                   SQV &lt;- [x,y]
+              ],
+              [{unique,true}]),
+    V2 =
+        qlc:q([
+               SQV ||
+                   SQV &lt;- [a,b]
+              ],
+              [{unique,true}]),
+    qlc:q([
+           {X,Y} ||
+               X &lt;- V1,
+               Y &lt;- V2
+          ],
+          [{unique,true}])
+end</pre>
+
+        <p>In this example two simple QLCs have been inserted just to
+          hold the <code>{unique,&nbsp;true}</code> option.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>E1 = ets:new(e1, []),</code>
+<code>E2 = ets:new(e2, []),</code>
+<code>true = ets:insert(E1, [{1,a},{2,b}]),</code>
+<code>true = ets:insert(E2, [{a,1},{b,2}]),</code>
+<code>Q = qlc:q([{X,Z,W} ||</code>
+<code>{X, Z} &lt;- ets:table(E1),</code>
+<code>{W, Y} &lt;- ets:table(E2),</code>
+<code>X =:= Y]),</code>
+<code>io:format("~s~n", [qlc:info(Q)]).</code>
+begin
+    V1 =
+        qlc:q([
+               P0 ||
+                   P0 = {W,Y} &lt;- ets:table(17)
+              ]),
+    V2 =
+        qlc:q([
+               [G1|G2] ||
+                   G2 &lt;- V1,
+                   G1 &lt;- ets:table(16),
+                   element(2, G1) =:= element(1, G2)
+              ],
+              [{join,lookup}]),
+    qlc:q([
+           {X,Z,W} ||
+               [{X,Z}|{W,Y}] &lt;- V2
+          ])
+end</pre>
+
+        <p>In this example the query list comprehension <code>V2</code> has
+          been inserted to show the joined generators and the join
+          method chosen. A convention is used for lookup join: the
+          first generator (<code>G2</code>) is the one traversed, the second
+          one (<code>G1</code>) is the table where constants are looked up.</p>
+
+        <p><code>info(<anno>QH</anno>)</code> is equivalent to
+          <code>info(<anno>QH</anno>, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="keysort/2">keysort(KeyPos, QH1) -&gt; QH2</h3>
+      <h3 id="keysort/3">keysort(KeyPos, QH1, SortOptions) -&gt; QH2</h3>
+      
+      <div class="description">
+        <p>Returns a query handle. When evaluating the query handle
+          <code><anno>QH2</anno></code> the answers to the query handle
+          <code><anno>QH1</anno></code> are sorted by <a href="file_sorter.html" class="seealso">file_sorter:keysort/4</a>
+          according to the options.</p>
+
+        <p>The sorter will use temporary files only if
+          <code><anno>QH1</anno></code> does not evaluate to a list and the
+          size of the binary representation of the answers exceeds
+          <code>Size</code> bytes, where <code>Size</code> is the value of the
+          <code>size</code> option.</p>
+
+        <p><code>keysort(<anno>KeyPos</anno>, <anno>QH1</anno>)</code>
+          is equivalent to
+          <code>keysort(<anno>KeyPos</anno>, <anno>QH1</anno>, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="next_answers/1">next_answers(QueryCursor) -&gt; Answers | Error</h3>
+      <h3 id="next_answers/2">next_answers(QueryCursor, NumberOfAnswers) -&gt; Answers | Error</h3>
+      
+      <div class="description">
+        <p>Returns some or all of the remaining answers to a query
+          cursor. Only the owner of <code><anno>QueryCursor</anno></code> can
+          retrieve answers.</p>
+        <p>The optional argument <code>NumberOfAnswers</code>determines the
+          maximum number of answers returned. The default value is
+          <code>10</code>. If less than the requested number of answers is
+          returned, subsequent calls to <code>next_answers</code> will
+          return <code>[]</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="q/1">q(QLC) -&gt; QH</h3>
+      <h3 id="q/2">q(QLC, Options) -&gt; QH</h3>
+      
+      <div class="description">
+        <p><span id="q"> </span>Returns a query handle for a query
+          list comprehension. The query list comprehension must be the
+          first argument to <code>qlc:q/1,2</code> or it will be evaluated
+          as an ordinary list comprehension. It is also necessary to
+          add the line</p>
+
+        <pre class="sh_erlang">
+-include_lib("stdlib/include/qlc.hrl").</pre>
+
+        <p>to the source file. This causes a parse transform to
+          substitute a fun for the query list comprehension. The
+          (compiled) fun will be called when the query handle is
+          evaluated.</p>
+
+        <p>When calling <code>qlc:q/1,2</code> from the Erlang shell the
+          parse transform is automatically called. When this happens
+          the fun substituted for the query list comprehension is not
+          compiled but will be evaluated by <code>erl_eval(3)</code>. This
+          is also true when expressions are evaluated by means of
+          <code>file:eval/1,2</code> or in the debugger.</p>
+
+        <p>To be very explicit, this will not work:</p>
+
+        <pre class="sh_erlang">
+...
+A = [X || {X} &lt;- [{1},{2}]],
+QH = qlc:q(A),
+...</pre>
+
+        <p>The variable <code>A</code> will be bound to the evaluated value
+          of the list comprehension (<code>[1,2]</code>). The compiler
+          complains with an error message ("argument is not a query
+          list comprehension"); the shell process stops with a
+          <code>badarg</code> reason.</p>
+
+        <p><code>q(<anno>QLC</anno>)</code> is equivalent to
+          <code>q(<anno>QLC</anno>, [])</code>.</p>
+
+        <p>The <code>{cache,&nbsp;ets}</code> option can be used to cache
+          the answers to a query list comprehension. The answers are
+          stored in one ETS table for each cached query list
+          comprehension. When a cached query list comprehension is
+          evaluated again, answers are fetched from the table without
+          any further computations. As a consequence, when all answers
+          to a cached query list comprehension have been found, the
+          ETS tables used for caching answers to the query list
+          comprehension's qualifiers can be emptied. The option
+          <code>cache</code> is equivalent to <code>{cache,&nbsp;ets}</code>.</p>
+
+        <p>The <code>{cache,&nbsp;list}</code> option can be used to cache
+          the answers to a query list comprehension just like
+          <code>{cache,&nbsp;ets}</code>. The difference is that the answers
+          are kept in a list (on the process heap). If the answers
+          would occupy more than a certain amount of RAM memory a
+          temporary file is used for storing the answers. The option
+          <code>max_list_size</code> sets the limit in bytes and the temporary
+          file is put on the directory set by the <code>tmpdir</code> option.</p>
+
+        <p>The <code>cache</code> option has no effect if it is known that
+          the query list comprehension will be evaluated at most once.
+          This is always true for the top-most query list
+          comprehension and also for the list expression of the first
+          generator in a list of qualifiers. Note that in the presence
+          of side effects in filters or callback functions the answers
+          to query list comprehensions can be affected by the
+          <code>cache</code> option.</p>
+
+        <p>The <code>{unique,&nbsp;true}</code> option can be used to remove
+          duplicate answers to a query list comprehension. The unique
+          answers are stored in one ETS table for each query list
+          comprehension. The table is emptied every time it is known
+          that there are no more answers to the query list
+          comprehension. The option <code>unique</code> is equivalent to
+          <code>{unique,&nbsp;true}</code>. If the <code>unique</code> option is
+          combined with the <code>{cache,&nbsp;ets}</code> option, two ETS
+          tables are used, but the full answers are stored in one
+          table only. If the <code>unique</code> option is combined with the
+          <code>{cache,&nbsp;list}</code> option the answers are sorted
+          twice using <code>keysort/3</code>; once to remove duplicates, and
+          once to restore the order.</p>
+
+        <p>The <code>cache</code> and <code>unique</code> options apply not only
+          to the query list comprehension itself but also to the
+          results of looking up constants, running match
+          specifications, and joining handles. </p>
+
+        <pre class="sh_erlang">
+1&gt; <code>Q = qlc:q([{A,X,Z,W} ||</code>
+<code>A &lt;- [a,b,c],</code>
+<code>{X,Z} &lt;- [{a,1},{b,4},{c,6}],</code>
+<code>{W,Y} &lt;- [{2,a},{3,b},{4,c}],</code>
+<code>X =:= Y],</code>
+<code>{cache, list}),</code>
+<code>io:format("~s~n", [qlc:info(Q)]).</code>
+begin
+    V1 =
+        qlc:q([
+               P0 ||
+                   P0 = {X,Z} &lt;-
+                       qlc:keysort(1, [{a,1},{b,4},{c,6}], [])
+              ]),
+    V2 =
+        qlc:q([
+               P0 ||
+                   P0 = {W,Y} &lt;-
+                       qlc:keysort(2, [{2,a},{3,b},{4,c}], [])
+              ]),
+    V3 =
+        qlc:q([
+               [G1|G2] ||
+                   G1 &lt;- V1,
+                   G2 &lt;- V2,
+                   element(1, G1) == element(2, G2)
+              ],
+              [{join,merge},{cache,list}]),
+    qlc:q([
+           {A,X,Z,W} ||
+               A &lt;- [a,b,c],
+               [{X,Z}|{W,Y}] &lt;- V3,
+               X =:= Y
+          ])
+end</pre>
+
+        <p>In this example the cached results of the merge join are
+          traversed for each value of <code>A</code>. Note that without the
+          <code>cache</code> option the join would have been carried out
+          three times, once for each value of <code>A</code></p>
+
+        <p><code>sort/1,2</code> and <code>keysort/2,3</code> can also be used for
+          caching answers and for removing duplicates. When sorting
+          answers are cached in a list, possibly stored on a temporary
+          file, and no ETS tables are used.</p>
+
+        <p>Sometimes (see <a href="#lookup_fun" class="seealso">qlc:table/2</a> below) traversal
+          of tables can be done by looking up key values, which is
+          assumed to be fast. Under certain (rare) circumstances it
+          could happen that there are too many key values to look up.
+          <span id="max_lookup"> </span> The
+          <code>{max_lookup,&nbsp;MaxLookup}</code> option can then be used
+          to limit the number of lookups: if more than
+          <code>MaxLookup</code> lookups would be required no lookups are
+          done but the table traversed instead. The default value is
+          <code>infinity</code> which means that there is no limit on the
+          number of keys to look up.</p>
+        <pre class="sh_erlang">
+1&gt; <code>T = gb_trees:empty(),</code>
+<code>QH = qlc:q([X || {{X,Y},_} &lt;- gb_table:table(T),</code>
+<code>((X == 1) or (X == 2)) andalso</code>
+<code>((Y == a) or (Y == b) or (Y == c))]),</code>
+<code>io:format("~s~n", [qlc:info(QH)]).</code>
+ets:match_spec_run(
+       lists:flatmap(fun(K) -&gt;
+                            case
+                                gb_trees:lookup(K,
+                                                gb_trees:from_orddict([]))
+                            of
+                                {value,V} -&gt;
+                                    [{K,V}];
+                                none -&gt;
+                                    []
+                            end
+                     end,
+                     [{1,a},{1,b},{1,c},{2,a},{2,b},{2,c}]),
+       ets:match_spec_compile([{{{'$1','$2'},'_'},[],['$1']}]))</pre>
+
+        <p>In this example using the <code>gb_table</code> module from the
+          <a href="#implementing_a_qlc_table" class="seealso">Implementing a
+          QLC table</a> section there are six keys to look up:
+          <code>{1,a}</code>, <code>{1,b}</code>, <code>{1,c}</code>, <code>{2,a}</code>,
+          <code>{2,b}</code>, and <code>{2,c}</code>. The reason is that the two
+          elements of the key {X,&nbsp;Y} are compared separately.</p>
+
+        <p>The <code>{lookup,&nbsp;true}</code> option can be used to ensure
+          that the <code>qlc</code> module will look up constants in some
+          QLC table. If there
+          are more than one QLC table among the generators' list
+          expressions, constants have to be looked up in at least one
+          of the tables. The evaluation of the query fails if there
+          are no constants to look up. This option is useful in
+          situations when it would be unacceptable to traverse all
+          objects in some table. Setting the <code>lookup</code> option to
+          <code>false</code> ensures that no constants will be looked up
+          (<code>{max_lookup,&nbsp;0}</code> has the same effect). The
+          default value is <code>any</code> which means that constants will
+          be looked up whenever possible.</p>
+
+        <p>The <code>{join,&nbsp;Join}</code> option can be used to ensure
+          that a certain join method will be used:
+          <code>{join,&nbsp;lookup}</code> invokes the lookup join method;
+          <code>{join,&nbsp;merge}</code> invokes the merge join method; and
+          <code>{join,&nbsp;nested_loop}</code> invokes the method of
+          matching every pair of objects from two handles. The last
+          method is mostly very slow. The evaluation of the query
+          fails if the <code>qlc</code> module cannot carry out the chosen
+          join method. The
+          default value is <code>any</code> which means that some fast join
+          method will be used if possible.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sort/1">sort(QH1) -&gt; QH2</h3>
+      <h3 id="sort/2">sort(QH1, SortOptions) -&gt; QH2</h3>
+      
+      <div class="description">
+        <p>Returns a query handle. When evaluating the query handle
+          <code><anno>QH2</anno></code> the answers to the query handle
+          <code><anno>QH1</anno></code> are sorted by <a href="file_sorter.html" class="seealso">file_sorter:sort/3</a> according
+          to the options.</p>
+
+        <p>The sorter will use temporary files only if
+          <code><anno>QH1</anno></code> does not evaluate to a list and the
+          size of the binary representation of the answers exceeds
+          <code>Size</code> bytes, where <code>Size</code> is the value of the
+          <code>size</code> option.</p>
+
+        <p><code>sort(<anno>QH1</anno>)</code> is equivalent to
+          <code>sort(<anno>QH1</anno>, [])</code>.</p>
+
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="string_to_handle/1">string_to_handle(QueryString) -&gt; QH | Error</h3>
+      <h3 id="string_to_handle/2">string_to_handle(QueryString, Options) -&gt; QH | Error</h3>
+      <h3 id="string_to_handle/3">string_to_handle(QueryString, Options, Bindings) -&gt; QH | Error</h3>
+      
+      <div class="description">
+        <p>A string version of <code>qlc:q/1,2</code>. When the query handle
+          is evaluated the fun created by the parse transform is
+          interpreted by <code>erl_eval(3)</code>. The query string is to be
+          one single query list comprehension terminated by a
+          period.</p>
+
+        <pre class="sh_erlang">
+1&gt; <code>L = [1,2,3],</code>
+<code>Bs = erl_eval:add_binding('L', L, erl_eval:new_bindings()),</code>
+<code>QH = qlc:string_to_handle("[X+1 || X &lt;- L].", [], Bs),</code>
+<code>qlc:eval(QH).</code>
+[2,3,4]</pre>
+
+        <p><code>string_to_handle(<anno>QueryString</anno>)</code>
+          is equivalent to
+          <code>string_to_handle(<anno>QueryString</anno>, [])</code>.</p>
+
+        <p><code>string_to_handle(<anno>QueryString</anno>,
+          <anno>Options</anno>)</code>
+          is equivalent to
+          <code>string_to_handle(<anno>QueryString</anno>,
+          <anno>Options</anno>, erl_eval:new_bindings())</code>.</p>
+
+        <p>This function is probably useful mostly when called from
+          outside of Erlang, for instance from a driver written in C.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="table/2">table(TraverseFun, Options) -&gt; QH</h3>
+      
+      <div class="description">
+        <p><span id="table"> </span>Returns a query handle for a
+          QLC table. In Erlang/OTP there is support for ETS, Dets and
+          Mnesia tables, but it is also possible to turn many other
+          data structures into QLC tables. The way to accomplish this
+          is to let function(s) in the module implementing the data
+          structure create a query handle by calling
+          <code>qlc:table/2</code>. The different ways to traverse the table
+          as well as properties of the table are handled by callback
+          functions provided as options to <code>qlc:table/2</code>.</p>
+
+        <p>The callback function <code><anno>TraverseFun</anno></code> is
+          used for traversing the table. It is to return a list of
+          objects terminated by either <code>[]</code> or a nullary fun to
+          be used for traversing the not yet traversed objects of the
+          table. Any other return value is immediately returned as
+          value of the query evaluation. Unary
+          <code><anno>TraverseFun</anno></code>s are to accept a match
+          specification as argument. The match specification is
+          created by the parse transform by analyzing the pattern of
+          the generator calling <code>qlc:table/2</code> and filters using
+          variables introduced in the pattern. If the parse transform
+          cannot find a match specification equivalent to the pattern
+          and filters, <code><anno>TraverseFun</anno></code> will be called
+          with a match specification returning every object. Modules
+          that can utilize match specifications for optimized
+          traversal of tables should call <code>qlc:table/2</code> with a
+          unary
+          <code><anno>TraverseFun</anno></code> while other modules can
+          provide a nullary
+          <code><anno>TraverseFun</anno></code>. <code>ets:table/2</code> is an
+          example of the former; <code>gb_table:table/1</code> in the
+          <a href="#implementing_a_qlc_table" class="seealso">Implementing a
+          QLC table</a> section is an example of the latter.</p>
+
+        <p><code><anno>PreFun</anno></code> is a unary callback function
+          that is called once before the table is read for the first
+          time. If the call fails, the query evaluation fails.
+          Similarly, the nullary callback function
+          <code><anno>PostFun</anno></code> is called once after the table
+          was last read. The return value, which is caught, is
+          ignored. If <code><anno>PreFun</anno></code> has been called for a
+          table,
+          <code><anno>PostFun</anno></code> is guaranteed to be called for
+          that table, even if the evaluation of the query fails for
+          some reason. The order in which pre (post) functions for
+          different tables are evaluated is not specified. Other table
+          access than reading, such as calling
+          <code><anno>InfoFun</anno></code>, is assumed to be OK at any
+          time. The argument <code><anno>PreArgs</anno></code> is a list of
+          tagged values. Currently there are two tags,
+          <code>parent_value</code> and <code>stop_fun</code>, used by Mnesia for
+          managing transactions. The value of <code>parent_value</code> is
+          the value returned by <code><anno>ParentFun</anno></code>, or
+          <code>undefined</code> if there is no <code>ParentFun</code>.
+          <code><anno>ParentFun</anno></code> is called once just before the
+          call of
+          <code><anno>PreFun</anno></code> in the context of the process
+          calling
+          <code>eval</code>, <code>fold</code>, or
+          <code>cursor</code>. The value of <code>stop_fun</code> is a nullary fun
+          that deletes the cursor if called from the parent, or
+          <code>undefined</code> if there is no cursor.</p>
+
+        <p><span id="lookup_fun"> </span>The binary callback
+          function <code><anno>LookupFun</anno></code> is used for looking
+          up objects in the table. The first argument
+          <code><anno>Position</anno></code> is the key position or an
+          indexed position and the second argument
+          <code><anno>Keys</anno></code> is a sorted list of unique values.
+          The return value is to be a list of all objects (tuples)
+          such that the element at <code>Position</code> is a member of
+          <code><anno>Keys</anno></code>. Any other return value is
+          immediately returned as value of the query evaluation.
+          <code><anno>LookupFun</anno></code> is called instead of
+          traversing the table if the parse transform at compile time
+          can find out that the filters match and compare the element
+          at <code><anno>Position</anno></code> in such a way that only
+          <code><anno>Keys</anno></code> need to be looked up in order to
+          find all potential answers. The key position is obtained by
+          calling
+          <code><anno>InfoFun</anno>(keypos)</code> and the indexed
+          positions by calling
+          <code><anno>InfoFun</anno>(indices)</code>. If the key position
+          can be used for lookup it is always chosen, otherwise the
+          indexed position requiring the least number of lookups is
+          chosen. If there is a tie between two indexed positions the
+          one occurring first in the list returned by
+          <code><anno>InfoFun</anno></code> is chosen. Positions requiring
+          more than <a href="#max_lookup" class="seealso">max_lookup</a>
+          lookups are ignored.</p>
+
+        <p>The unary callback function <code><anno>InfoFun</anno></code> is
+          to return information about the table. <code>undefined</code>
+          should be returned if the value of some tag is unknown:</p>
+
+        <list type="bulleted">
+          <item><code>indices</code>. Returns a list of indexed
+           positions, a list of positive integers.
+          </item>
+          <item><code>is_unique_objects</code>. Returns <code>true</code> if
+           the objects returned by <code>TraverseFun</code> are unique.
+          </item>
+          <item><code>keypos</code>. Returns the position of the table's
+           key, a positive integer.
+          </item>
+          <item><code>is_sorted_key</code>. Returns <code>true</code> if
+           the objects returned by <code>TraverseFun</code> are sorted
+           on the key.
+          </item>
+          <item><code>num_of_objects</code>. Returns the number of
+           objects in the table, a non-negative integer.
+          </item>
+        </list>
+
+        <p>The unary callback function <code><anno>FormatFun</anno></code>
+          is used by <a href="#info" class="seealso">qlc:info/1,2</a>
+          for displaying the call that created the table's query
+          handle. The default value, <code>undefined</code>, means that
+          <code>info/1,2</code> displays a call to <code>'$MOD':'$FUN'/0</code>.
+          It is up to <code><anno>FormatFun</anno></code> to present the
+          selected objects of the table in a suitable way. However, if
+          a character list is chosen for presentation it must be an
+          Erlang expression that can be scanned and parsed (a trailing
+          dot will be added by <code>qlc:info</code> though).
+          <code><anno>FormatFun</anno></code> is called with an argument
+          that describes the selected objects based on optimizations
+          done as a result of analyzing the filters of the QLC where
+          the call to
+          <code>qlc:table/2</code> occurs. The possible values of the
+          argument are:</p>
+
+        <list type="bulleted">
+          <item><code>{lookup, Position, Keys, NElements, DepthFun}</code>.
+          <code>LookupFun</code> is used for looking up objects in the
+           table.
+          </item>
+          <item><code>{match_spec, MatchExpression}</code>. No way of
+           finding all possible answers by looking up keys was
+           found, but the filters could be transformed into a
+           match specification. All answers are found by calling
+          <code>TraverseFun(MatchExpression)</code>.
+          </item>
+          <item><code>{all, NElements, DepthFun}</code>. No optimization was
+           found. A match specification matching all objects will be
+           used if <code>TraverseFun</code> is unary.
+          </item>
+        </list>
+
+        <p><code>NElements</code> is the value of the <code>info/1,2</code> option
+          <code>n_elements</code>, and <code>DepthFun</code> is a function that
+          can be used for limiting the size of terms; calling
+          <code>DepthFun(Term)</code> substitutes <code>'...'</code> for parts of
+          <code>Term</code> below the depth specified by the <code>info/1,2</code>
+          option <code>depth</code>. If calling
+          <code><anno>FormatFun</anno></code> with an argument including
+          <code>NElements</code> and <code>DepthFun</code> fails,
+          <code><anno>FormatFun</anno></code> is called once again with an
+          argument excluding
+          <code>NElements</code> and <code>DepthFun</code>
+          (<code>{lookup,&nbsp;Position,&nbsp;Keys}</code> or
+          <code>all</code>).</p>
+
+        <p><span id="key_equality"> </span>The value of
+          <code>key_equality</code> is to be <code>'=:='</code> if the table
+          considers two keys equal if they match, and to be
+          <code>'=='</code> if two keys are equal if they compare equal. The
+          default is <code>'=:='</code>.</p>
+
+        <p>See <a href="ets.html#qlc_table" class="seealso">ets(3)</a>,
+          <a href="dets.html#qlc_table" class="seealso">dets(3)</a> and
+          <a href="../mnesia/mnesia.html#qlc_table" class="seealso">mnesia(3)</a>
+          for the various options recognized by <code>table/1,2</code> in
+          respective module.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="dets.html" class="seealso">dets(3)</a>,
+      <a href="../doc/reference_manual/users_guide.html" class="seealso">
+           Erlang Reference Manual</a>,
+      <a href="erl_eval.html" class="seealso">erl_eval(3)</a>,
+      <a href="../erts/erlang.html" class="seealso">erlang(3)</a>,
+      <a href="ets.html" class="seealso">ets(3)</a>,
+      <a href="../kernel/file.html" class="seealso">file(3)</a>,
+      <a href="../error_logger/file.html" class="seealso">error_logger(3)</a>,
+      <a href="file_sorter.html" class="seealso">file_sorter(3)</a>,
+      <a href="../mnesia/mnesia.html" class="seealso">mnesia(3)</a>,
+      <a href="../doc/programming_examples/users_guide.html" class="seealso">
+           Programming Examples</a>,
+      <a href="shell.html" class="seealso">shell(3)</a></p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#append">append</a></li><li><a href="#append-1">append-1</a></li><li><a href="#cursor">cursor</a></li><li><a href="#cursor-1">cursor-1</a></li><li><a href="#delete_cursor">delete_cursor</a></li><li><a href="#eval">eval</a></li><li><a href="#eval-1">eval-1</a></li><li><a href="#e">e</a></li><li><a href="#e-1">e-1</a></li><li><a href="#fold">fold</a></li><li><a href="#fold-1">fold-1</a></li><li><a href="#format_error">format_error</a></li><li><a href="#info">info</a></li><li><a href="#info-1">info-1</a></li><li><a href="#keysort">keysort</a></li><li><a href="#keysort-1">keysort-1</a></li><li><a href="#next_answers">next_answers</a></li><li><a href="#next_answers-1">next_answers-1</a></li><li><a href="#q">q</a></li><li><a href="#q-1">q-1</a></li><li><a href="#sort">sort</a></li><li><a href="#sort-1">sort-1</a></li><li><a href="#string_to_handle">string_to_handle</a></li><li><a href="#string_to_handle-1">string_to_handle-1</a></li><li><a href="#string_to_handle-2">string_to_handle-2</a></li><li><a href="#table">table</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

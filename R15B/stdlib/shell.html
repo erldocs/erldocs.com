@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>shell (stdlib) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>shell</h1>
+  <h2 class="modsummary">The Erlang Shell</h2>
+  <div class="description">
+    <p>The module <code>shell</code> implements an Erlang shell.
+      </p>
+    <p>The shell is a user interface program 
+      for entering expression sequences. The expressions are
+      evaluated and a value is returned. 
+      A history mechanism saves previous commands and their
+      values, which can then be incorporated in later commands.
+      How many commands and results to save can be determined by the user,
+      either interactively, by calling <code>shell:history/1</code> and
+      <code>shell:results/1</code>, or by setting the application configuration
+      parameters <code>shell_history_length</code> and
+      <code>shell_saved_results</code> for the application STDLIB.
+      </p>
+    <p>The shell uses a helper process for evaluating commands in
+      order to protect the history mechanism from exceptions. By
+      default the evaluator process is killed when an exception
+      occurs, but by calling <code>shell:catch_exception/1</code> or by
+      setting the application configuration parameter
+      <code>shell_catch_exception</code> for the application STDLIB
+      this behavior can be changed. See also the example below.
+      </p>
+    <p>Variable bindings, and local process dictionary changes
+      which are generated in user expressions are preserved, and the variables
+      can be used in later commands to access their values. The
+      bindings can also be forgotten so the variables can be re-used.
+      </p>
+    <p>The special shell commands all have the syntax of (local)
+      function calls. They are evaluated as
+      normal function calls and many commands can be used in one
+      expression sequence.
+      </p>
+    <p>If a command (local function call) is not recognized by the
+      shell, an attempt is first made to find the function in the
+      module <code>user_default</code>, where customized local commands
+      can be placed. If found, then the function is evaluated.
+      Otherwise, an attempt is made to evaluate the function in the
+      module <code>shell_default</code>. The module
+      <code>user_default</code> must be explicitly loaded.
+      </p>
+    <p>The shell also permits the user to start multiple concurrent
+      jobs. A job can be regarded as a set of processes which can
+      communicate with the shell.
+      </p>
+    <p>There is some support for reading and printing records in
+      the shell. During compilation record expressions are translated
+      to tuple expressions. In runtime it is not known whether a tuple
+      actually represents a record. Nor are the record definitions
+      used by compiler available at runtime. So in order to read the
+      record syntax and print tuples as records when possible, record
+      definitions have to be maintained by the shell itself. The shell
+      commands for reading, defining, forgetting, listing, and
+      printing records are described below. Note that each job has its
+      own set of record definitions. To facilitate matters record
+      definitions in the modules <code>shell_default</code> and
+      <code>user_default</code> (if loaded) are read each time a new job is
+      started. For instance, adding the line</p>
+    <pre class="sh_erlang">
+          -include_lib("kernel/include/file.hrl").</pre>
+    <p>to <code>user_default</code> makes the definition of <code>file_info</code>
+      readily available in the shell.
+      </p>
+    <p>The shell runs in two modes: </p>
+    <list type="bulleted">
+      <item><code>Normal (possibly restricted)</code> mode, in which
+       commands can be edited and expressions evaluated.
+      </item>
+      <item>Job Control Mode <code>JCL</code>, in which jobs can be
+       started, killed, detached and connected.
+      </item>
+    </list>
+    <p>Only the currently connected job can 'talk' to the shell.</p>
+  </div>
+
+  <div class="section">
+    <h4>Shell Commands</h4>
+    <taglist>
+      <dt><code>b()</code></dt>
+      <item>
+        <p>Prints the current variable bindings.</p>
+      </item>
+      <dt><code>f()</code></dt>
+      <item>
+        <p>Removes all variable bindings.
+          </p>
+      </item>
+      <dt><code>f(X)</code></dt>
+      <item>
+        <p>Removes the binding of variable <code>X</code>.
+          </p>
+      </item>
+      <dt><code>h()</code></dt>
+      <item>
+        <p>Prints the history list.
+          </p>
+      </item>
+      <dt><code>history(N)</code></dt>
+      <item>
+        <p>Sets the number of previous commands to keep in the
+          history list to <code>N</code>. The previous number is returned.
+          The default number is 20.
+          </p>
+      </item>
+      <dt><code>results(N)</code></dt>
+      <item>
+        <p>Sets the number of results from previous commands to keep in
+          the history list to <code>N</code>. The previous number is returned.
+          The default number is 20.
+          </p>
+      </item>
+      <dt><code>e(N)</code></dt>
+      <item>
+        <p>Repeats the command <code>N</code>, if <code>N</code> is positive. If
+          it is negative, the <code>N</code>th previous command is repeated
+          (i.e., <code>e(-1)</code> repeats the previous command).
+          </p>
+      </item>
+      <dt><code>v(N)</code></dt>
+      <item>
+        <p>Uses the return value of the command <code>N</code> in the
+          current command, if <code>N</code> is positive. If it is negative,
+          the return value of the <code>N</code>th previous command is used
+          (i.e., <code>v(-1)</code> uses the value of the previous command).
+          </p>
+      </item>
+      <dt><code>help()</code></dt>
+      <item>
+        <p>Evaluates <code>shell_default:help()</code>.
+          </p>
+      </item>
+      <dt><code>c(File)</code></dt>
+      <item>
+        <p>Evaluates <code>shell_default:c(File)</code>. This compiles
+          and loads code in <code>File</code> and purges old versions of
+          code, if necessary. Assumes that the file and module names
+          are the same.
+          </p>
+      </item>
+      <dt><code>catch_exception(Bool)</code></dt>
+      <item>
+        <p>Sets the exception handling of the evaluator process. The
+          previous exception handling is returned. The default
+          (<code>false</code>) is to kill the evaluator process when an
+          exception occurs, which causes the shell to create a new
+          evaluator process. When the exception handling is set to
+          <code>true</code> the evaluator process lives on which means that
+          for instance ports and ETS tables as well as processes
+          linked to the evaluator process survive the exception.
+        </p>
+      </item>
+      <dt><code>rd(RecordName, RecordDefinition)</code></dt>
+      <item>
+        <p>Defines a record in the shell. <code>RecordName</code> is
+          an atom and <code>RecordDefinition</code> lists the field names
+          and the default values. Usually record definitions are made
+          known to the shell by use of the <code>rr</code> commands
+          described below, but sometimes it is handy to define records
+          on the fly.
+          </p>
+      </item>
+      <dt><code>rf()</code></dt>
+      <item>
+        <p>Removes all record definitions, then reads record
+          definitions from the modules <code>shell_default</code> and
+          <code>user_default</code> (if loaded). Returns the names of the
+          records defined.
+          </p>
+      </item>
+      <dt><code>rf(RecordNames)</code></dt>
+      <item>
+        <p>Removes selected record definitions.
+          <code>RecordNames</code> is a record name or a list of record names.
+          Use <code>'_'</code> to remove all record definitions.
+          </p>
+      </item>
+      <dt><code>rl()</code></dt>
+      <item>
+        <p>Prints all record definitions.
+          </p>
+      </item>
+      <dt><code>rl(RecordNames)</code></dt>
+      <item>
+        <p>Prints selected record definitions.
+          <code>RecordNames</code> is a record name or a list of record names.
+          </p>
+      </item>
+      <dt><code>rp(Term)</code></dt>
+      <item>
+        <p>Prints a term using the record definitions known to the
+          shell. All of <code>Term</code> is printed; the depth is not
+          limited as is the case when a return value is printed.
+          </p>
+      </item>
+      <dt><code>rr(Module)</code></dt>
+      <item>
+        <p>Reads record definitions from a module's BEAM file. If
+          there are no record definitions in the BEAM file, the
+          source file is located and read instead. Returns the names
+          of the record definitions read. <code>Module</code> is an atom.
+          </p>
+      </item>
+      <dt><code>rr(Wildcard)</code></dt>
+      <item>
+        <p>Reads record definitions from files. Existing
+          definitions of any of the record names read are replaced.
+          <code>Wildcard</code> is a wildcard string as defined in
+          <code>filelib(3)</code> but not an atom.
+          </p>
+      </item>
+      <dt><code>rr(WildcardOrModule, RecordNames)</code></dt>
+      <item>
+        <p>Reads record definitions from files but
+          discards record names not mentioned in <code>RecordNames</code> (a
+          record name or a list of record names).
+          </p>
+      </item>
+      <dt><code>rr(WildcardOrModule, RecordNames, Options)</code></dt>
+      <item>
+        <p>Reads record definitions from files. The compiler
+          options <code>{i,&nbsp;Dir}</code>, <code>{d,&nbsp;Macro}</code>, and
+          <code>{d,&nbsp;Macro,&nbsp;Value}</code> are recognized and used
+          for setting up the include path and macro definitions. Use
+          <code>'_'</code> as value of <code>RecordNames</code> to read all record
+          definitions.
+          </p>
+      </item>
+    </taglist>
+  </div>
+
+  <div class="section">
+    <h4>Example</h4>
+    <p>The following example is a long dialogue with the shell. Commands
+      starting with <code>&gt;</code> are inputs to the shell. All other lines
+      are output from the shell. All commands in this example are explained at the end of the dialogue.
+      .</p>
+    <pre class="sh_erlang">
+strider 1&gt; <code>erl</code>
+Erlang (BEAM) emulator version 5.3 [hipe] [threads:0]
+
+Eshell V5.3  (abort with ^G)
+1&gt;<code>Str = "abcd".</code>
+"abcd"
+2&gt; <code>L = length(Str).</code>
+4
+3&gt; <code>Descriptor = {L, list_to_atom(Str)}.</code>
+{4,abcd}
+4&gt; <code>L.</code> 
+4
+5&gt; <code>b().</code>
+Descriptor = {4,abcd}
+L = 4
+Str = "abcd"
+ok
+6&gt; <code>f(L).</code> 
+ok
+7&gt; <code>b().</code>
+Descriptor = {4,abcd}
+Str = "abcd"
+ok
+8&gt; <code>f(L).</code>
+ok
+9&gt; <code>{L, _} = Descriptor.</code>
+{4,abcd}
+10&gt; <code>L.</code>
+4
+11&gt; <code>{P, Q, R} = Descriptor.</code>
+** exception error: no match of right hand side value {4,abcd}
+12&gt; <code>P.</code>
+* 1: variable 'P' is unbound **
+13&gt; <code>Descriptor.</code>
+{4,abcd}
+14&gt;<code>{P, Q} = Descriptor.</code>
+{4,abcd}
+15&gt; <code>P.</code>
+4
+16&gt; <code>f().</code>
+ok
+17&gt; <code>put(aa, hello).</code>
+undefined
+18&gt; <code>get(aa).</code>
+hello
+19&gt; <code>Y = test1:demo(1).</code>
+11
+20&gt; <code>get().</code>
+[{aa,worked}]
+21&gt; <code>put(aa, hello).</code>
+worked
+22&gt; <code>Z = test1:demo(2).</code>
+** exception error: no match of right hand side value 1
+     in function  test1:demo/1
+23&gt; <code>Z.</code>
+* 1: variable 'Z' is unbound **
+24&gt; <code>get(aa).</code>
+hello
+25&gt; <code>erase(), put(aa, hello).</code>
+undefined
+26&gt; <code>spawn(test1, demo, [1]).</code>
+&lt;0.57.0&gt;
+27&gt; <code>get(aa).</code>
+hello
+28&gt; <code>io:format("hello hello\n").</code>
+hello hello
+ok
+29&gt; <code>e(28).</code>
+hello hello
+ok
+30&gt; <code>v(28).</code>
+ok
+31&gt; <code>c(ex).</code>
+{ok,ex}
+32&gt; <code>rr(ex).</code>
+[rec]
+33&gt; <code>rl(rec).</code>
+-record(rec,{a,b = val()}).
+ok
+34&gt; <code>#rec{}.</code>
+** exception error: undefined shell command val/0
+35&gt; <code>#rec{b = 3}.</code>
+#rec{a = undefined,b = 3}
+36&gt; <code>rp(v(-1)).</code>
+#rec{a = undefined,b = 3}
+ok
+37&gt; <code>rd(rec, {f = orddict:new()}).</code>
+rec
+38&gt; <code>#rec{}.</code>
+#rec{f = []}
+ok
+39&gt; <code>rd(rec, {c}), A.</code>
+* 1: variable 'A' is unbound **
+40&gt; <code>#rec{}.</code>
+#rec{c = undefined}
+ok
+41&gt; <code>test1:loop(0).</code>
+Hello Number: 0
+Hello Number: 1
+Hello Number: 2
+Hello Number: 3
+
+User switch command
+ --&gt; i
+ --&gt; c
+.
+.
+.
+Hello Number: 3374
+Hello Number: 3375
+Hello Number: 3376
+Hello Number: 3377
+Hello Number: 3378
+** exception exit: killed
+42&gt; <code>E = ets:new(t, []).</code>
+17
+43&gt; <code>ets:insert({d,1,2}).</code>
+** exception error: undefined function ets:insert/1
+44&gt; <code>ets:insert(E, {d,1,2}).</code>
+** exception error: argument is of wrong type
+     in function  ets:insert/2
+        called as ets:insert(16,{d,1,2})
+45&gt; <code>f(E).</code>
+ok
+46&gt; <code>catch_exception(true).</code>
+false
+47&gt; <code>E = ets:new(t, []).</code>
+18
+48&gt; <code>ets:insert({d,1,2}).</code>
+* exception error: undefined function ets:insert/1
+49&gt; <code>ets:insert(E, {d,1,2}).</code>
+true
+50&gt; <code>halt().</code>
+strider 2&gt;</pre>
+  </div>
+
+  <div class="section">
+    <h4>Comments</h4>
+    <p>Command 1 sets the variable <code>Str</code> to the string
+      <code>"abcd"</code>.
+      </p>
+    <p>Command 2 sets <code>L</code> to the length of the string evaluating
+      the BIF <code>atom_to_list</code>.
+      </p>
+    <p>Command 3 builds the tuple <code>Descriptor</code>.
+      </p>
+    <p>Command 4 prints the value of the variable <code>L</code>.
+      </p>
+    <p>Command 5 evaluates the internal shell command <code>b()</code>, which
+      is an abbreviation of "bindings". This prints 
+      the current shell variables and their bindings. The <code>ok</code> at
+      the end is the return value of the <code>b()</code> function.
+      </p>
+    <p>Command 6 <code>f(L)</code> evaluates the internal shell command
+      <code>f(L)</code> (abbreviation of "forget"). The value of the variable
+      <code>L</code> is removed.
+      </p>
+    <p>Command 7 prints the new bindings.
+      </p>
+    <p>Command 8 has no effect since <code>L</code> has no value.</p>
+    <p>Command 9 performs a pattern matching operation on
+      <code>Descriptor</code>, binding a new value to <code>L</code>.
+      </p>
+    <p>Command 10 prints the current value of <code>L</code>.
+      </p>
+    <p>Command 11 tries to match <code>{P, Q, R}</code> against
+      <code>Descriptor</code> which is <code>{4, abc}</code>. The match fails and
+      none of the new variables become bound. The printout starting
+      with "<code>** exception error:</code>" is not the value of the
+      expression (the expression had no value because its evaluation
+      failed), but rather a warning printed by the system to inform
+      the user that an error has occurred. The values of the other
+      variables (<code>L</code>, <code>Str</code>, etc.) are unchanged.
+      </p>
+    <p>Commands 12 and 13 show that <code>P</code> is unbound because the
+      previous command failed, and that <code>Descriptor</code> has not
+      changed.
+      </p>
+    <p>Commands 14 and 15 show a correct match where <code>P</code> and
+      <code>Q</code> are bound.
+      </p>
+    <p>Command 16 clears all bindings.
+      </p>
+    <p>The next few commands assume that <code>test1:demo(X)</code> is
+      defined in the following way:</p>
+    <pre class="sh_erlang">
+demo(X) -&gt;
+    put(aa, worked),
+    X = 1,
+    X + 10.    </pre>
+    <p>Commands 17 and 18 set and inspect the value of the item
+      <code>aa</code> in the process dictionary.
+      </p>
+    <p>Command 19 evaluates <code>test1:demo(1)</code>. The evaluation
+      succeeds and the changes made in the process dictionary become
+      visible to the shell. The new value of the dictionary item
+      <code>aa</code> can be seen in command 20.
+      </p>
+    <p>Commands 21 and 22 change the value of the dictionary item
+      <code>aa</code> to <code>hello</code> and call <code>test1:demo(2)</code>. Evaluation
+      fails and the changes made to the dictionary in
+      <code>test1:demo(2)</code>, before the error occurred, are discarded.
+      </p>
+    <p>Commands 23 and 24 show that <code>Z</code> was not bound and that the
+      dictionary item <code>aa</code> has retained its original value.
+      </p>
+    <p>Commands 25, 26 and 27 show the effect of evaluating
+      <code>test1:demo(1)</code> in the background. In this case, the
+      expression is evaluated in a newly spawned process. Any
+      changes made in the process dictionary are local to the newly
+      spawned process and therefore not visible to the shell.
+      </p>
+    <p>Commands 28, 29 and 30 use the history facilities of the shell.
+      </p>
+    <p>Command 29 is <code>e(28)</code>. This re-evaluates command
+      28. Command 30 is <code>v(28)</code>. This uses the value (result) of
+      command 28. In the cases of a pure function (a function
+      with no side effects), the result is the same. For a function
+      with side effects, the result can be different.
+      </p>
+    <p>The next few commands show some record manipulation. It is 
+      assumed that <code>ex.erl</code> defines a record like this:</p>
+    <pre class="sh_erlang">
+-record(rec, {a, b = val()}).
+
+val() -&gt;
+    3.    </pre>
+    <p>Commands 31 and 32 compiles the file <code>ex.erl</code> and reads
+      the record definitions in <code>ex.beam</code>. If the compiler did not
+      output any record definitions on the BEAM file, <code>rr(ex)</code>
+      tries to read record definitions from the source file instead.
+      </p>
+    <p>Command 33 prints the definition of the record named
+      <code>rec</code>. 
+      </p>
+    <p>Command 34 tries to create a <code>rec</code> record, but fails
+      since the function <code>val/0</code> is undefined. Command 35 shows
+      the workaround: explicitly assign values to record fields that
+      cannot otherwise be initialized.
+      </p>
+    <p>Command 36 prints the newly created record using record
+      definitions maintained by the shell.
+      </p>
+    <p>Command 37 defines a record directly in the shell. The 
+      definition replaces the one read from the file <code>ex.beam</code>.
+      </p>
+    <p>Command 38 creates a record using the new definition, and
+      prints the result.
+      </p>
+    <p>Command 39 and 40 show that record definitions are updated
+      as side effects. The evaluation of the command fails but
+      the definition of <code>rec</code> has been carried out.
+      </p>
+    <p>For the next command, it is assumed that <code>test1:loop(N)</code> is
+      defined in the following way:</p>
+    <pre class="sh_erlang">
+loop(N) -&gt;
+    io:format("Hello Number: ~w~n", [N]), 
+    loop(N+1).</pre>
+    <p>Command 41 evaluates <code>test1:loop(0)</code>, which puts the
+      system into an infinite loop. At this point the user types
+      <code>Control G</code>, which suspends output from the current process,
+      which is stuck in a loop, and activates <code>JCL</code> mode. In <code>JCL</code>
+      mode the user can start and stop jobs.
+      </p>
+    <p>In this particular case, the <code>i</code> command ("interrupt") is
+      used to terminate the looping program, and the <code>c</code> command
+      is used to connect to the shell again. Since the process was
+      running in the background before we killed it, there will be
+      more printouts before the "<code>** exception exit: killed</code>"
+      message is shown.
+      </p>
+    <p>Command 42 creates an ETS table.</p>
+    <p>Command 43 tries to insert a tuple into the ETS table but the
+      first argument (the table) is missing. The exception kills the
+      evaluator process.</p>
+    <p>Command 44 corrects the mistake, but the ETS table has been
+      destroyed since it was owned by the killed evaluator process.</p>
+    <p>Command 46 sets the exception handling of the evaluator process
+      to <code>true</code>. The exception handling can also be set when
+      starting Erlang, like this: <code>erl -stdlib shell_catch_exception
+      true</code>.</p>
+    <p>Command 48 makes the same mistake as in command 43, but this time
+      the evaluator process lives on. The single star at the beginning
+      of the printout signals that the exception has been caught.</p>
+    <p>Command 49 successfully inserts the tuple into the ETS table.</p>
+    <p>The <code>halt()</code> command exits the Erlang runtime system.
+      </p>
+  </div>
+
+  <div class="section">
+    <h4>JCL Mode</h4>
+    <p>When the shell starts, it starts a single evaluator
+      process. This process, together with any local processes which
+      it spawns, is referred to as a <code>job</code>. Only the current job,
+      which is said to be <code>connected</code>, can perform operations
+      with standard IO. All other jobs, which are said to be <code>detached</code>, are
+      <code>blocked</code> if they attempt to use standard IO.
+      </p>
+    <p>All jobs which do not use standard IO run in the normal way.
+      </p>
+    <p>The shell escape key <em><code>^G</code></em> (Control G) detaches the current job 
+      and activates <code>JCL</code> mode. The <code>JCL</code> mode prompt is <code>"--&gt;"</code>. If <code>"?"</code> is entered at the prompt, the following help message is
+      displayed:</p>
+    <pre class="sh_erlang">
+          --&gt; ?
+          c [nn]            - connect to job
+          i [nn]            - interrupt job
+          k [nn]            - kill job
+          j                 - list all jobs
+          s [shell]         - start local shell
+          r [node [shell]]  - start remote shell
+          q        - quit erlang
+          ? | h             - this message    </pre>
+    <p>The <code>JCL</code> commands have the following meaning:</p>
+    <taglist>
+      <dt><code>c [nn]</code></dt>
+      <item>
+        <p>Connects to job number <code>&lt;nn&gt;</code> or the current
+          job. The standard shell is resumed. Operations which use
+          standard IO by the current job will be interleaved with
+          user inputs to the shell.
+          </p>
+      </item>
+      <dt><code>i [nn]</code></dt>
+      <item>
+        <p>Stops the current evaluator process for job number
+          <code>nn</code> or the current job, but does not kill the shell
+          process. Accordingly, any variable bindings and the process dictionary
+          will be preserved and the job can be connected again.
+          This command can be used to interrupt an endless loop.
+          </p>
+      </item>
+      <dt><code>k [nn]</code></dt>
+      <item>
+        <p>Kills job number <code>nn</code> or the current
+          job. All spawned processes in the job are
+          killed, provided they have not evaluated the
+          <code>group_leader/1</code> BIF and are located on
+          the local machine. Processes spawned on remote nodes will
+          not be killed.
+          </p>
+      </item>
+      <dt><code>j</code></dt>
+      <item>
+        <p>Lists all jobs. A list of all known jobs is
+          printed. The current job name is prefixed with '*'.
+          </p>
+      </item>
+      <dt><code>s</code></dt>
+      <item>
+        <p>Starts a new job. This will be assigned the new index
+          <code>[nn]</code> which can be used in references.
+          </p>
+      </item>
+      <dt><code>s [shell]</code></dt>
+      <item>
+        <p>Starts a new job. This will be assigned the new index
+          <code>[nn]</code> which can be used in references.
+	  If the optional argument <code>shell</code> is given, it is assumed
+	  to be a module that implements an alternative shell.
+          </p>
+      </item>
+      <dt><code>r [node]</code></dt>
+      <item>
+        <p>Starts a remote job on <code>node</code>. This is used in
+          distributed Erlang to allow a shell running on one node to
+          control a number of applications running on a network of
+          nodes.
+	  If the optional argument <code>shell</code> is given, it is assumed
+	  to be a module that implements an alternative shell.
+          </p>
+      </item>
+      <dt><code>q</code></dt>
+      <item>
+        <p>Quits Erlang. Note that this option is disabled if
+          Erlang is started with the ignore break, <code>+Bi</code>, 
+          system flag (which may be useful e.g. when running
+          a restricted shell, see below).
+          </p>
+      </item>
+      <dt><code>?</code></dt>
+      <item>
+        <p>Displays this message.</p>
+      </item>
+    </taglist>
+    <p>It is possible to alter the behavior of shell escape by means 
+      of the STDLIB application variable <code>shell_esc</code>. The value of
+      the variable can be either <code>jcl</code> (<code>erl -stdlib shell_esc jcl</code>) 
+      or <code>abort</code> (<code>erl -stdlib shell_esc abort</code>). The 
+      first option sets ^G to activate <code>JCL</code> mode (which is also 
+      default behavior). The latter sets ^G to terminate the current 
+      shell and start a new one. <code>JCL</code> mode cannot be invoked when 
+      <code>shell_esc</code> is set to <code>abort</code>. </p>
+    <p>If you want an Erlang node to have a remote job active from the start 
+      (rather than the default local job), you start Erlang with the 
+      <code>-remsh</code> flag. Example: <code>erl -sname this_node -remsh other_node@other_host</code></p>
+  </div>
+
+  <div class="section">
+    <h4>Restricted Shell</h4>
+    <p>The shell may be started in a
+      restricted mode. In this mode, the shell evaluates a function call
+      only if allowed. This feature makes it possible to, for example,
+      prevent a user from accidentally calling a function from the
+      prompt that could harm a running system (useful in combination
+      with the the system flag <em><code>+Bi</code></em>).</p>
+    <p>When the restricted shell evaluates an expression and
+      encounters a function call or an operator application, 
+      it calls a callback function (with
+      information about the function call in question). This callback
+      function returns <code>true</code> to let the shell go ahead with the
+      evaluation, or <code>false</code> to abort it. There are two possible
+      callback functions for the user to implement:</p>
+    <p><em><code>local_allowed(Func, ArgList, State) -&gt; {true,NewState} | {false,NewState}</code></em></p>
+    <p>to determine if the call to the local function <code>Func</code>
+      with arguments <code>ArgList</code> should be allowed.</p>
+    <p><em><code>non_local_allowed(FuncSpec, ArgList, State) -&gt; {true,NewState} | {false,NewState} |  {{redirect,NewFuncSpec,NewArgList},NewState}</code></em></p>
+    <p>to determine if the call to non-local function
+      <code>FuncSpec</code> (<code>{Module,Func}</code> or a fun) with arguments
+      <code>ArgList</code> should be allowed. The return value 
+      <code>{redirect,NewFuncSpec,NewArgList}</code> can be used to let 
+      the shell evaluate some other function than the one specified by 
+      <code>FuncSpec</code> and <code>ArgList</code>.</p>
+    <p>These callback functions are in fact called from local and
+      non-local evaluation function handlers, described in the
+      <a href="erl_eval.html" class="seealso">erl_eval</a> 
+      manual page. (Arguments in <code>ArgList</code> are evaluated before the
+      callback functions are called.)</p>
+    <p>The <code>State</code> argument is a tuple
+      <code>{ShellState,ExprState}</code>. The return value <code>NewState</code>
+      has the same form. This may be used to carry a state between calls
+      to the callback functions. Data saved in <code>ShellState</code> lives
+      through an entire shell session. Data saved in <code>ExprState</code>
+      lives only through the evaluation of the current expression.</p>
+    <p>There are two ways to start a restricted shell session:</p>
+    <list type="bulleted">
+      <item>Use the STDLIB application variable <code>restricted_shell</code>
+       and specify, as its value, the name of the callback
+       module. Example (with callback functions implemented in
+       callback_mod.erl): <code>$ erl -stdlib restricted_shell callback_mod</code></item>
+      <item>From a normal shell session, call function
+      <code>shell:start_restricted/1</code>. This exits the current evaluator
+       and starts a new one in restricted mode.</item>
+    </list>
+    <p><em>Notes:</em></p>
+    <list type="bulleted">
+      <item>When restricted shell mode is activated or
+       deactivated, new jobs started on the node will run in restricted
+       or normal mode respectively.</item>
+      <item>If restricted mode has been enabled on a
+       particular node, remote shells connecting to this node will also
+       run in restricted mode.</item>
+      <item>The callback functions cannot be used to allow or disallow
+       execution of functions called from compiled code (only functions
+       called from expressions entered at the shell prompt).</item>
+    </list>
+    <p>Errors when loading the callback module is handled in different
+      ways depending on how the restricted shell is activated:</p>
+    <list type="bulleted">
+      <item>If the restricted shell is activated by setting the kernel
+       variable during emulator startup and the callback module cannot be
+       loaded, a default restricted shell allowing only the commands
+      <code>q()</code> and <code>init:stop()</code> is used as fallback.</item>
+      <item>If the restricted shell is activated using
+      <code>shell:start_restricted/1</code> and the callback module cannot be
+       loaded, an error report is sent to the error logger and the call
+       returns <code>{error,Reason}</code>.</item>
+    </list>
+  </div>
+
+  <div class="section">
+    <h4>Prompting</h4>
+    <p>The default shell prompt function displays the name of the node
+      (if the node can be part of a distributed system) and the
+      current command number. The user can customize the prompt
+      function by calling
+      <code>shell:prompt_func/1</code> or by setting the application
+      configuration parameter <code>shell_prompt_func</code> for the
+      application STDLIB.</p>
+    <p>A customized prompt function is stated as a tuple
+      <code>{Mod,&nbsp;Func}</code>. The function is called as
+      <code>Mod:Func(L)</code>, where <code>L</code> is a list of key-value pairs
+      created by the shell. Currently there is only one pair:
+      <code>{history, N}</code>, where N is the current command number. The
+      function should return a list of characters or an atom. This
+      constraint is due to the Erlang I/O-protocol. Unicode characters
+      beyond codepoint 255 are allowed in the list. Note
+      that in restricted mode the call <code>Mod:Func(L)</code> must be
+      allowed or the default shell prompt function will be called.</p>
+      </div>
+
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="history/1">history(N) -&gt; integer() &gt;= 0</h3>
+      
+      <div class="description">
+        <p>Sets the number of previous commands to keep in the
+          history list to <code><anno>N</anno></code>. The previous number is returned.
+          The default number is 20.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="results/1">results(N) -&gt; integer() &gt;= 0</h3>
+      
+      <div class="description">
+        <p>Sets the number of results from previous commands to keep in
+          the history list to <code><anno>N</anno></code>. The previous number is returned.
+          The default number is 20.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="catch_exception/1">catch_exception(Bool) -&gt; Bool</h3>
+      
+      <ul class="type">
+        <li><code>Bool = boolean()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets the exception handling of the evaluator process. The
+          previous exception handling is returned. The default
+          (<code>false</code>) is to kill the evaluator process when an
+          exception occurs, which causes the shell to create a new
+          evaluator process. When the exception handling is set to
+          <code>true</code> the evaluator process lives on which means that
+          for instance ports and ETS tables as well as processes
+          linked to the evaluator process survive the exception.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="prompt_func/1">prompt_func(PromptFunc) -&gt; PromptFunc</h3>
+      
+      <div class="description">
+        <p>Sets the shell prompt function to <code>PromptFunc</code>. The
+          previous prompt function is returned.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start_restricted/1">start_restricted(Module) -&gt; {error, Reason}</h3>
+      
+      <div class="description">
+        <p>Exits a normal shell and starts a restricted
+          shell. <code><anno>Module</anno></code> specifies the callback module for the
+          functions <code>local_allowed/3</code> and <code>non_local_allowed/3</code>.
+          The function is meant to be called from the shell.</p>
+        <p>If the callback module cannot be loaded, an error tuple is
+          returned. The <code><anno>Reason</anno></code> in the error tuple is the one
+          returned by the code loader when trying to load the code of the callback
+          module.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop_restricted/0">stop_restricted() -&gt; none()</h3>
+      
+      <div class="description">
+        <p>Exits a restricted shell and starts a normal shell. The function
+          is meant to be called from the shell.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#history">history</a></li><li><a href="#results">results</a></li><li><a href="#catch_exception/1">catch_exception/1</a></li><li><a href="#prompt_func">prompt_func</a></li><li><a href="#start_restricted">start_restricted</a></li><li><a href="#stop_restricted">stop_restricted</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

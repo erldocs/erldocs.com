@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>old_ssl (ssl) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>old_ssl</h1>
+  <h2 class="modsummary">Interface Functions for Secure Socket Layer</h2>
+  <div class="description">
+    <p>This module contains interface functions to the Secure Socket Layer.</p>
+  </div>
+
+  <div class="section">
+    <h4>General</h4>
+
+    <p>This manual page describes functions that are defined
+      in the ssl module and represents the old ssl implementation
+      that coexists with the new one until it has been
+      totally phased out. </p>
+
+   <p>The old implementation can be
+      accessed by providing the option {ssl_imp, old} to the
+      ssl:connect and ssl:listen functions.</p>
+      
+    <p>The reader is advised to also read the <code>ssl(6)</code> manual page
+      describing the SSL application.
+      </p>
+    <div class="warning"><h2>Warning!</h2>
+      <p>It is strongly advised to seed the random generator after
+        the ssl application has been started (see <code>seed/1</code>
+        below), and before any connections are established. Although
+        the port program interfacing to the ssl libraries does a
+        "random" seeding of its own in order to make everything work
+        properly, that seeding is by no means random for the world
+        since it has a constant value which is known to everyone
+        reading the source code of the port program.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Common data types</h4>
+    <p>The following datatypes are used in the functions below:
+      </p>
+    <ul>
+      <li>
+        <p><code>options() = [option()]</code></p>
+      </li>
+      <li>
+        <p><code>option() = socketoption() | ssloption()</code></p>
+      </li>
+      <li>
+        <p><code>socketoption() = {mode, list} | {mode, binary} |  binary | {packet, packettype()} | {header, integer()} | {nodelay, boolean()} | {active, activetype()} |  {backlog, integer()} | {ip, ipaddress()} | {port, integer()}</code></p>
+      </li>
+      <li>
+        <p><code>ssloption() = {verify, code()} | {depth, depth()} |  {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</code></p>
+      </li>
+      <li>
+        <p><code>packettype()</code>  (see inet(3))</p>
+      </li>
+      <li>
+        <p><code>activetype()</code>  (see inet(3))</p>
+      </li>
+      <li>
+        <p><code>reason() = atom() | {atom(), string()}</code></p>
+      </li>
+      <li>
+        <p><code>bytes() = [byte()]</code></p>
+      </li>
+      <li>
+        <p><code>string() = [byte()]</code></p>
+      </li>
+      <li>
+        <p><code>byte() = 0 | 1 | 2 | ... | 255</code></p>
+      </li>
+      <li>
+        <p><code>code() = 0 | 1 | 2</code></p>
+      </li>
+      <li>
+        <p><code>depth() = byte()</code></p>
+      </li>
+      <li>
+        <p><code>address() = hostname() | ipstring() | ipaddress()</code></p>
+      </li>
+      <li>
+        <p><code>ipaddress() = ipstring() | iptuple()</code></p>
+      </li>
+      <li>
+        <p><code>hostname() = string()</code></p>
+      </li>
+      <li>
+        <p><code>ipstring() = string()</code></p>
+      </li>
+      <li>
+        <p><code>iptuple() = {byte(), byte(), byte(), byte()}</code></p>
+      </li>
+      <li>
+        <p><code>sslsocket()</code></p>
+      </li>
+      <li>
+        <p><code>protocol() = sslv2 | sslv3 | tlsv1</code></p>
+      </li>
+      <li>
+        <p><code  /></p>
+      </li>
+    </ul>
+    <p>The socket option <code>{backlog, integer()}</code> is for
+      <code>listen/2</code> only, and the option <code>{port, integer()}</code>
+      is for <code>connect/3/4</code> only. 
+      </p>
+    <p>The following socket options are set by default: <code>{mode, list}</code>, <code>{packet, 0}</code>, <code>{header, 0}</code>, <code>{nodelay, false}</code>, <code>{active, true}</code>, <code>{backlog, 5}</code>,
+      <code>{ip, {0,0,0,0}}</code>, and <code>{port, 0}</code>.
+      </p>
+    <p>Note that the options <code>{mode, binary}</code> and <code>binary</code>
+      are equivalent. Similarly <code>{mode, list}</code> and the absence of
+      option <code>binary</code> are equivalent. 
+      </p>
+    <p>The ssl options are for setting specific SSL parameters as follows:
+      </p>
+    <ul>
+      <li>
+        <p><code>{verify, code()}</code> Specifies type of verification:
+          0 = do not verify peer; 1 = verify peer, 2 = verify peer,
+          fail if no peer certificate.  The default value is 0.
+          </p>
+      </li>
+      <li>
+        <p><code>{depth, depth()}</code> Specifies the maximum
+          verification depth, i.e. how far in a chain of certificates
+          the verification process can proceed before the verification
+          is considered to fail. 
+          </p>
+        <p>Peer certificate = 0, CA certificate = 1, higher level CA
+          certificate = 2, etc.  The value 2 thus means that a chain
+          can at most contain peer cert, CA cert, next CA cert, and an
+          additional CA cert.
+          </p>
+        <p>The default value is 1.
+          </p>
+      </li>
+      <li>
+        <p><code>{certfile, path()}</code> Path to a file containing the
+          user's certificate.
+          chain of PEM encoded certificates.</p>
+      </li>
+      <li>
+        <p><code>{keyfile, path()}</code> Path to file containing user's
+          private PEM encoded key.</p>
+      </li>
+      <li>
+        <p><code>{password, string()}</code> String containing the user's
+          password. Only used if the private keyfile is password protected.</p>
+      </li>
+      <li>
+        <p><code>{cacertfile, path()}</code> Path to file containing PEM encoded
+          CA certificates (trusted certificates used for verifying a peer
+          certificate).</p>
+      </li>
+      <li>
+        <p><code>{ciphers, string()}</code> String of ciphers as a colon
+          separated list of ciphers. The function <code>ciphers/0</code> can
+          be used to find all available ciphers.</p>
+      </li>
+    </ul>
+    <p>The type <code>sslsocket()</code> is opaque to the user.
+      </p>
+    <p>The owner of a socket is the one that created it by a call to
+      <code>transport_accept/[1,2]</code>,  <code>connect/[3,4]</code>,
+      or <code>listen/2</code>.
+      </p>
+    <p>When a socket is in active mode (the default), data from the
+      socket is delivered to the owner of the socket in the form of
+      messages:
+      </p>
+    <ul>
+      <li>
+        <p><code>{ssl, Socket, Data}</code></p>
+      </li>
+      <li>
+        <p><code>{ssl_closed, Socket}</code></p>
+      </li>
+      <li>
+        <p><code>{ssl_error, Socket, Reason}</code></p>
+      </li>
+    </ul>
+    <p>A <code>Timeout</code> argument specifies a timeout in milliseconds. The 
+      default value for a <code>Timeout</code> argument is <code>infinity</code>.
+      </p>
+    <p>Functions listed below may return the value <code>{error, closed}</code>, which only indicates that the SSL socket is
+      considered closed for the operation in question. It is for
+      instance possible to have <code>{error, closed}</code> returned from
+      an call to <code>send/2</code>, and a subsequent call to <code>recv/3</code>
+      returning <code>{ok, Data}</code>.
+      </p>
+    <p>Hence a return value of <code>{error, closed}</code> must not be
+      interpreted as if the socket was completely closed. On the
+      contrary, in order to free all resources occupied by an SSL
+      socket, <code>close/1</code> must be called, or else the process owning
+      the socket has to terminate.
+      </p>
+    <p>For each SSL socket there is an Erlang process representing the
+      socket.  When a socket is opened, that process links to the
+      calling client process.  Implementations that want to detect
+      abnormal exits from the socket process by receiving <code>{'EXIT', Pid, Reason}</code> messages, should use the function <code>pid/1</code>
+      to retrieve the process identifier from the socket, in order to
+      be able to match exit messages properly.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <h3 id="ciphers/0">ciphers() -&gt; {ok, string()} | {error, enotstarted}</h3>
+      
+      <div class="description">
+        <p>Returns a string consisting of colon separated cipher
+          designations that are supported by the current SSL library
+          implementation.
+          </p>
+        <p>The SSL application has to be started to return the string
+          of ciphers.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="close/1">close(Socket) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+      </ul>
+      <div class="description">
+	<p>Closes a socket returned by <code>transport_accept/[1,2]</code>,
+	<code>connect/[3,4]</code>, or <code>listen/2</code></p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="connect/3">connect(Address, Port, Options) -&gt; {ok, Socket} | {error, Reason}</h3>
+      <h3 id="connect/4">connect(Address, Port, Options, Timeout) -&gt; {ok, Socket} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Address = address()</code></li>
+        <li><code>Port = integer()</code></li>
+        <li><code>Options = [connect_option()]</code></li>
+        <li><code>connect_option() = {mode, list} | {mode, binary} | binary | {packet, packettype()} | {header, integer()} | {nodelay, boolean()} | {active, activetype()} | {ip, ipaddress()} | {port, integer()} | {verify, code()} | {depth, depth()} | {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Socket = sslsocket()</code></li>
+      </ul>
+      <div class="description">
+        <p>Connects to <code>Port</code> at <code>Address</code>. If the optional 
+          <code>Timeout</code> argument is specified, and a connection could not
+          be established within the given time, <code>{error, timeout}</code> is
+          returned. The default value for <code>Timeout</code> is <code>infinity</code>.
+          </p>
+        <p>The <code>ip</code> and <code>port</code> options are for binding to a 
+          particular <em>local</em> address and port, respectively.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="connection_info/1">connection_info(Socket) -&gt; {ok, {Protocol, Cipher}} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Protocol = protocol()</code></li>
+        <li><code>Cipher = string()</code></li>
+      </ul>
+      <div class="description">
+        <p>Gets the chosen protocol version and cipher for an established
+          connection (accepted och connected). </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="controlling_process/2">controlling_process(Socket, NewOwner) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>NewOwner = pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>Assigns a new controlling process to <code>Socket</code>. A controlling
+          process is the owner of a socket, and receives all messages from
+          the socket.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format_error/1">format_error(ErrorCode) -&gt; string()</h3>
+      
+      <ul class="type">
+        <li><code>ErrorCode = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns a diagnostic string describing an error.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="getopts/2">getopts(Socket, OptionsTags) -&gt; {ok, Options} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>OptionTags = [optiontag()]()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the options the tags of which are <code>OptionTags</code> for
+          for the socket <code>Socket</code>. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="listen/2">listen(Port, Options) -&gt; {ok, ListenSocket} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Port = integer()</code></li>
+        <li><code>Options = [listen_option()]</code></li>
+        <li><code>listen_option() = {mode, list} | {mode, binary} | binary | {packet, packettype()} | {header, integer()} | {active, activetype()} | {backlog, integer()} | {ip, ipaddress()} | {verify, code()} | {depth, depth()} | {certfile, path()} | {keyfile, path()} | {password, string()} | {cacertfile, path()} | {ciphers, string()}</code></li>
+        <li><code>ListenSocket = sslsocket()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets up a socket to listen on port <code>Port</code> at the local host.
+          If <code>Port</code> is zero, <code>listen/2</code> picks an available port
+          number (use <code>port/1</code> to retrieve it).
+          </p>
+        <p>The listen queue size defaults to 5. If a different value is 
+          wanted, the option <code>{backlog, Size}</code> should be added to the 
+          list of options.
+          </p>
+        <p>An empty <code>Options</code> list is considered an error, and
+          <code>{error, enooptions}</code> is returned.
+          </p>
+        <p>The returned <code>ListenSocket</code> can only be used in calls to 
+          <code>transport_accept/[1,2]</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="peercert/1">peercert(Socket) -&gt; {ok, Cert} |  {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Cert = binary()()</code></li>
+        <li><code>Subject = term()()</code></li>
+      </ul>
+      <div class="description">
+	<p>Returns the DER encoded peer certificate, the certificate can be decoded with
+	  <code>public_key:pkix_decode_cert/2</code>.
+	</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="peername/1">peername(Socket) -&gt; {ok, {Address, Port}} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Address = ipaddress()</code></li>
+        <li><code>Port = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the address and port number of the peer.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pid/1">pid(Socket) -&gt; pid()</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the pid of the socket process. The returned pid should
+          only be used for receiving exit messages.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="recv/2">recv(Socket, Length) -&gt; {ok, Data} | {error, Reason}</h3>
+      <h3 id="recv/3">recv(Socket, Length, Timeout) -&gt; {ok, Data} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Length = integer() &gt;= 0</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Data = bytes() | binary()</code></li>
+      </ul>
+      <div class="description">
+        <p>Receives data on socket <code>Socket</code> when the socket is in
+          passive mode, i.e. when the option <code>{active, false}</code>
+          has been specified.
+          </p>
+        <p>A notable return value is <code>{error, closed}</code> which
+          indicates that the socket is closed.
+          </p>
+        <p>A positive value of the <code>Length</code> argument is only
+          valid when the socket is in raw mode (option <code>{packet, 0}</code> is set, and the option <code>binary</code> is <em>not</em>
+          set); otherwise it should be set to 0, whence all available
+          bytes are returned.
+          </p>
+        <p>If the optional <code>Timeout</code> parameter is specified, and
+          no data was available within the given time, <code>{error, timeout}</code> is returned. The default value for
+          <code>Timeout</code> is <code>infinity</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="seed/1">seed(Data) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Data = iolist() | binary()</code></li>
+      </ul>
+      <div class="description">
+        <p>Seeds the ssl random generator.
+          </p>
+        <p>It is strongly advised to seed the random generator after
+          the ssl application has been started, and before any
+          connections are established. Although the port program
+          interfacing to the OpenSSL libraries does a "random" seeding
+          of its own in order to make everything work properly, that
+          seeding is by no means random for the world since it has a 
+          constant value which is known to everyone reading the source
+          code of the seeding. 
+          </p>
+        <p>A notable return value is <code>{error, edata}}</code> indicating that
+          <code>Data</code> was not a binary nor an iolist.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="send/2">send(Socket, Data) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Data = iolist() | binary()</code></li>
+      </ul>
+      <div class="description">
+        <p>Writes <code>Data</code> to <code>Socket</code>. </p>
+        <p>A notable return value is <code>{error, closed}</code> indicating that
+          the socket is closed.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="setopts/2">setopts(Socket, Options) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Options = [socketoption]()</code></li>
+      </ul>
+      <div class="description">
+        <p>Sets options according to <code>Options</code> for the socket 
+          <code>Socket</code>. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="ssl_accept/1">ssl_accept(Socket) -&gt; ok | {error, Reason}</h3>
+      <h3 id="ssl_accept/2">ssl_accept(Socket, Timeout) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Reason = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>The <code>ssl_accept</code> function establish the SSL connection
+          on the server side. It should be called directly after
+          <code>transport_accept</code>, in the spawned server-loop.</p>
+        <p>Note that the ssl connection is not complete until <code>ssl_accept</code>
+          has returned <code>true</code>, and if an error is returned, the socket
+          is unavailable and for instance <code>close/1</code> will crash.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sockname/1">sockname(Socket) -&gt; {ok, {Address, Port}} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = sslsocket()</code></li>
+        <li><code>Address = ipaddress()</code></li>
+        <li><code>Port = integer()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the local address and port number of the socket
+          <code>Socket</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="transport_accept/1">transport_accept(Socket) -&gt; {ok, NewSocket} | {error, Reason}</h3>
+      <h3 id="transport_accept/2">transport_accept(Socket, Timeout) -&gt; {ok, NewSocket} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Socket = NewSocket = sslsocket()</code></li>
+        <li><code>Timeout = integer()</code></li>
+        <li><code>Reason = atom()</code></li>
+      </ul>
+      <div class="description">
+        <p>Accepts an incoming connection request on a listen socket.
+          <code>ListenSocket</code> must be a socket returned from <code>listen/2</code>.
+          The socket returned should be passed to <code>ssl_accept</code> to
+          complete ssl handshaking and establishing the connection.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>The socket returned can only be used with <code>ssl_accept</code>,
+            no traffic can be sent or received before that call.</p>
+        </div>
+        <p>The accepted socket inherits the options set for <code>ListenSocket</code>
+          in <code>listen/2</code>.</p>
+        <p>The default value for <code>Timeout</code> is <code>infinity</code>. If 
+          <code>Timeout</code> is specified, and no connection is accepted within
+          the given time, <code>{error, timeout}</code> is returned.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="version/0">version() -&gt; {ok, {SSLVsn, CompVsn, LibVsn}}</h3>
+      
+      <ul class="type">
+        <li><code>SSLVsn = CompVsn = LibVsn = string()()</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the SSL application version (<code>SSLVsn</code>), the library
+          version used when compiling the SSL application port program
+          (<code>CompVsn</code>), and the actual library version used when
+          dynamically linking in runtime (<code>LibVsn</code>).
+          </p>
+        <p>If the SSL application has not been started, <code>CompVsn</code> and
+          <code>LibVsn</code> are empty strings.
+          </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>ERRORS</h4>
+    <p>The possible error reasons and the corresponding diagnostic strings 
+      returned by <code>format_error/1</code> are either the same as those defined
+      in the <code>inet(3)</code> reference manual, or as follows:
+      </p>
+    <dl>
+      <dt><code>closed</code></dt>
+      <dd>
+        <p>Connection closed for the operation in question.
+          </p>
+      </dd>
+      <dt><code>ebadsocket</code></dt>
+      <dd>
+        <p>Connection not found (internal error).
+          </p>
+      </dd>
+      <dt><code>ebadstate</code></dt>
+      <dd>
+        <p>Connection not in connect state (internal error).
+          </p>
+      </dd>
+      <dt><code>ebrokertype</code></dt>
+      <dd>
+        <p>Wrong broker type (internal error).
+          </p>
+      </dd>
+      <dt><code>ecacertfile</code></dt>
+      <dd>
+        <p>Own CA certificate file is invalid.
+          </p>
+      </dd>
+      <dt><code>ecertfile</code></dt>
+      <dd>
+        <p>Own certificate file is invalid.
+          </p>
+      </dd>
+      <dt><code>echaintoolong</code></dt>
+      <dd>
+        <p>The chain of certificates provided by peer is too long.
+          </p>
+      </dd>
+      <dt><code>ecipher</code></dt>
+      <dd>
+        <p>Own list of specified ciphers is invalid.
+          </p>
+      </dd>
+      <dt><code>ekeyfile</code></dt>
+      <dd>
+        <p>Own private key file is invalid.
+          </p>
+      </dd>
+      <dt><code>ekeymismatch</code></dt>
+      <dd>
+        <p>Own private key does not match own certificate.
+          </p>
+      </dd>
+      <dt><code>enoissuercert</code></dt>
+      <dd>
+        <p>Cannot find certificate of issuer of certificate provided
+          by peer.
+          </p>
+      </dd>
+      <dt><code>enoservercert</code></dt>
+      <dd>
+        <p>Attempt to do accept without having set own certificate.
+          </p>
+      </dd>
+      <dt><code>enotlistener</code></dt>
+      <dd>
+        <p>Attempt to accept on a non-listening socket.
+          </p>
+      </dd>
+      <dt><code>enoproxysocket</code></dt>
+      <dd>
+        <p>No proxy socket found (internal error).
+          </p>
+      </dd>
+      <dt><code>enooptions</code></dt>
+      <dd>
+        <p>The list of options is empty.
+          </p>
+      </dd>
+      <dt><code>enotstarted</code></dt>
+      <dd>
+        <p>The SSL application has not been started.
+          </p>
+      </dd>
+      <dt><code>eoptions</code></dt>
+      <dd>
+        <p>Invalid list of options.
+          </p>
+      </dd>
+      <dt><code>epeercert</code></dt>
+      <dd>
+        <p>Certificate provided by peer is in error.
+          </p>
+      </dd>
+      <dt><code>epeercertexpired</code></dt>
+      <dd>
+        <p>Certificate provided by peer has expired.
+          </p>
+      </dd>
+      <dt><code>epeercertinvalid</code></dt>
+      <dd>
+        <p>Certificate provided by peer is invalid.
+          </p>
+      </dd>
+      <dt><code>eselfsignedcert</code></dt>
+      <dd>
+        <p>Certificate provided by peer is self signed.
+          </p>
+      </dd>
+      <dt><code>esslaccept</code></dt>
+      <dd>
+        <p>Server SSL handshake procedure between client and server failed.
+          </p>
+      </dd>
+      <dt><code>esslconnect</code></dt>
+      <dd>
+        <p>Client SSL handshake procedure between client and server failed.
+          </p>
+      </dd>
+      <dt><code>esslerrssl</code></dt>
+      <dd>
+        <p>SSL protocol failure. Typically because of a fatal alert 
+          from peer.
+          </p>
+      </dd>
+      <dt><code>ewantconnect</code></dt>
+      <dd>
+        <p>Protocol wants to connect, which is not supported in
+          this version of the SSL application.
+          </p>
+      </dd>
+      <dt><code>ex509lookup</code></dt>
+      <dd>
+        <p>Protocol wants X.509 lookup, which is not supported in
+          this version of the SSL application.
+          </p>
+      </dd>
+      <dt><code>{badcall, Call}</code></dt>
+      <dd>
+        <p>Call not recognized for current mode (active or passive) and
+          state of socket.
+          </p>
+      </dd>
+      <dt><code>{badcast, Cast}</code></dt>
+      <dd>
+        <p>Call not recognized for current mode (active or passive) and
+          state of socket. 
+          </p>
+      </dd>
+      <dt><code>{badinfo, Info}</code></dt>
+      <dd>
+        <p>Call not recognized for current mode (active or passive) and
+          state of socket.
+          </p>
+      </dd>
+    </dl>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p>gen_tcp(3), inet(3) public_key(3) </p>
+  </div>
+  
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs"><li><a href="#ciphers/0">ciphers/0</a></li><li><a href="#close/1">close/1</a></li><li><a href="#connect/3">connect/3</a></li><li><a href="#connect/4">connect/4</a></li><li><a href="#connection_info/1">connection_info/1</a></li><li><a href="#controlling_process/2">controlling_process/2</a></li><li><a href="#format_error/1">format_error/1</a></li><li><a href="#getopts/2">getopts/2</a></li><li><a href="#listen/2">listen/2</a></li><li><a href="#peercert/1">peercert/1</a></li><li><a href="#peername/1">peername/1</a></li><li><a href="#pid/1">pid/1</a></li><li><a href="#recv/2">recv/2</a></li><li><a href="#recv/3">recv/3</a></li><li><a href="#seed/1">seed/1</a></li><li><a href="#send/2">send/2</a></li><li><a href="#setopts/2">setopts/2</a></li><li><a href="#ssl_accept/1">ssl_accept/1</a></li><li><a href="#ssl_accept/2">ssl_accept/2</a></li><li><a href="#sockname/1">sockname/1</a></li><li><a href="#transport_accept/1">transport_accept/1</a></li><li><a href="#transport_accept/2">transport_accept/2</a></li><li><a href="#version/0">version/0</a></li></ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-44246018-1']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+

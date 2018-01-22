@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="latin1" />
+    <title>erl_set_memory_block (erts) -  - erldocs.com (Erlang Documentation)</title>
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="erldocs" href="/search.xml">
+    <link type="text/css" rel="stylesheet" href="../erldocs.css" />
+  </head>
+  <body>
+
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off"
+             placeholder="press TAB to search" />
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>erl_set_memory_block</h1>
+  <libsummary>Custom memory allocation for Erlang on VxWorks®</libsummary>
+  <div class="description">
+    <p>This documentation is specific to VxWorks.</p>
+    <p>The <code>erl_set_memory_block</code> function/command initiates custom
+      memory allocation for the Erlang emulator. It has to be called
+      before the Erlang emulator is started and makes Erlang use one
+      single large memory block for all memory allocation.</p>
+    <p>The memory within the block can be utilized by other tasks than
+      Erlang. This is accomplished by calling the functions
+      <code>sys_alloc</code>, <code>sys_realloc</code> and <code>sys_free</code> instead
+      of <code>malloc</code>, <code>realloc</code> and <code>free</code> respectively.</p>
+    <p>The purpose of this is to avoid problems inherent in the
+      VxWorks systems <code>malloc</code> library. The memory allocation within the
+      large memory block avoids fragmentation by using an "address
+      order first fit" algorithm. Another advantage of using a
+      separate memory block is that resource reclamation can be made
+      more easily when Erlang is stopped.</p>
+    <p>The <code>erl_set_memory_block</code> function is callable from any C
+      program as an ordinary 10 argument function as well as
+      from the commandline.</p>
+  </div>
+  <div class="functions"><h4>Functions</h4><hr  />
+    <div class="function">
+      <pre>int erl_set_memory_block(size_t size,  void *ptr, int warn_mixed_malloc, int realloc_always_moves, int use_reclaim, ...)</pre>
+      
+      <div class="description">
+        <p>The function is called before Erlang is
+          started to specify a large memory block where Erlang can
+          maintain memory internally.</p>
+        <p>Parameters:</p>
+        <taglist>
+          <dt>size_t size</dt>
+          <item>The size in bytes of Erlang's internal memory block. Has to
+           be specified. Note that the VxWorks system uses dynamic
+           memory allocation heavily, so leave some memory to the system.</item>
+          <dt>void *ptr</dt>
+          <item>
+            <p>A pointer to the actual memory block of size
+              <code>size</code>. If this is specified as 0 (NULL), Erlang will
+              allocate the memory when starting and will reclaim the
+              memory block (as a whole) when stopped.</p>
+            <p>If a memory block is allocated and provided here, the
+              <code>sys_alloc</code> etc routines can still be used after
+              the Erlang emulator is stopped. The Erlang emulator can 
+              also be restarted while other tasks using the memory
+              block are running without destroying the memory. If
+              Erlang is to be restarted, also set the
+              <code>use_reclaim</code> flag.</p>
+            <p>If 0 is specified here, the Erlang system should not
+              be stopped while some other task uses the memory block
+              (has called <code>sys_alloc</code>).</p>
+          </item>
+          <dt>int warn_mixed_malloc</dt>
+          <item>
+            <p>If this flag is set to true (anything else than 0), the
+              system will write a warning message on the console if a
+              program is mixing normal <code>malloc</code> with
+              <code>sys_realloc</code> or <code>sys_free</code>.</p>
+          </item>
+          <dt>int realloc_always_moves</dt>
+          <item>
+            <p>If this flag is set to true (anything else than 0), all
+              calls to <code>sys_realloc</code> result in a moved memory
+              block. This can in certain conditions give less
+              fragmentation. This flag may be removed in future releases.</p>
+          </item>
+          <dt>int use_reclaim</dt>
+          <item>
+            <p>If this flag is set to true (anything else than 0), all
+              memory allocated with <code>sys_alloc</code> is automatically
+              reclaimed as soon as a task exits. This is very useful
+              to make writing port programs (and other programs as
+              well) easier. Combine this with using the routines 
+              <code>save_open</code> etc. specified in the reclaim.h 
+              file delivered in the Erlang distribution.</p>
+          </item>
+        </taglist>
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_memory_show(...)</pre>
+      
+      <div class="description">
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int erl_mem_info_get(MEM_PART_STATS *stats)</pre>
+      
+      <div class="description">
+        <p>Parameter:</p>
+        <taglist>
+          <dt>MEM_PART_STATS *stats</dt>
+          <item>A pointer to a MEM_PART_STATS structure as defined in
+          <code>&lt;memLib.h&gt;</code>. A successful call will fill in all
+           fields of the structure, on error all fields are left untouched. </item>
+        </taglist>
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>NOTES</h4>
+    <p>The memory block used by Erlang actually does not need to be
+      inside the area known to ordinary <code>malloc</code>. It is possible
+      to set the <code>USER_RESERVED_MEM</code> preprocessor symbol when compiling
+      the wind kernel and then use user reserved memory for
+      Erlang. Erlang can therefor utilize memory above the 32 Mb limit
+      of VxWorks on the PowerPC architecture.</p>
+    <p>Example:</p>
+    <p>In config.h for the wind kernel:</p>
+    <pre class="sh_erlang">
+      #undef LOCAL_MEM_AUTOSIZE
+      #undef LOCAL_MEM_SIZE
+      #undef USER_RESERVED_MEM
+ 
+      #define LOCAL_MEM_SIZE        0x05000000
+      #define USER_RESERVED_MEM     0x03000000
+    </pre>
+    <p>In the start-up script/code for the VxWorks node:</p>
+    <pre class="sh_erlang">
+erl_set_memory_block(sysPhysMemTop()-sysMemTop(),sysMemTop(),0,0,1);
+    </pre>
+    <p>Setting the <code>use_reclaim</code> flag decreases performance of the
+      system, but makes programming much easier. Other similar
+      facilities are present in the Erlang system even without using a
+      separate memory block. The routines called <code>save_malloc</code>,
+      <code>save_realloc</code> and <code>save_free</code> provide the same
+      facilities by using VxWorks own <code>malloc</code>. Similar routines
+      exist for files, see the file <code>reclaim.h</code> in the distribution.</p>
+  </div>
+
+      </div>
+      <div id="funwrapper">
+        <a id="viewfuns">View Functions</a>
+        <ul id="funs" />
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-59760-14']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script');
+        ga.src = ('https:' == document.location.protocol ?
+          'https://ssl' : 'http://www') +
+          '.google-analytics.com/ga.js';
+        ga.setAttribute('async', 'true');
+        document.documentElement.firstChild.appendChild(ga);
+      })();
+    </script>
+  </body>
+</html>
+
