@@ -1,4 +1,8 @@
+NETLIFY ?= netlifyctl
+
 .PHONY: archives/sha256sum.txt api/v1.json
+
+all: archives/sha256sum.txt api/v1.json
 
 archives/sha256sum.txt:
 	cd archives && sha256sum *.tar.bz2 | tee sha256sum.txt && cd -
@@ -9,3 +13,7 @@ api/v1.json:
 	echo ']}' >>$@~
 	cat $@~ | python -mjson.tool >$@
 	rm $@~
+
+deploy:
+	$(NETLIFY) deploy -D
+	rm netlifyctl-debug.log
