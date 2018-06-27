@@ -205,7 +205,8 @@
 			   ip | 
 			   port | 
 			   socket_opts | 
-	                   verbose</code></li>
+	                   verbose |
+	                   unix_socket</code></li>
 	<li><code>Profile = profile() | pid()</code></li>
 	<d>When started <code>stand_alone</code> only the pid can used.</d>
         <li><code>Values = [{option_item(), term()}]</code></li>
@@ -282,8 +283,7 @@
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
-                           {relaxed,         boolean()} |
-	                   {url_encode,      boolean()}</code></li>
+                           {relaxed,         boolean()}</code></li>
         <li><code>timeout() = integer() &gt;= 0 | infinity</code></li>
         <li><code>Options = options()</code></li>
         <li><code>options() = [option()]</code></li>
@@ -293,8 +293,8 @@
                       {full_result,             boolean()} | 
                       {headers_as_is,           boolean() |
                       {socket_opts,             socket_opts()} | 
-                      {receiver,                receiver()},
-	              {ipv6_host_with_brackets, boolean()}}</code></li>
+                      {receiver,                receiver()} |
+	              {ipv6_host_with_brackets, boolean()}</code></li>
         <li><code>stream_to() = none | self | {self, once} | filename()</code></li>
         <li><code>socket_opts() = [socket_opt()]</code></li>
         <li><code>receiver() = pid() | function()/1 | {Module, Function, Args}</code></li>
@@ -307,8 +307,7 @@
         <li><code>Body = string() | binary()</code></li>
         <li><code>Profile = profile() | pid()</code></li>
 	<d>When started <code>stand_alone</code> only the pid can be used.</d>
-        <li><code>Reason = {connect_failed, term()} | 
-                    {send_failed, term()} | term()</code></li>
+        <li><code>Reason = term()</code></li>
       </ul>
 
       <div class="description">
@@ -374,13 +373,6 @@
 	    from the HTTP-standard are enabled.</p>
             <p>Default is <code>false</code>.</p>
 	  </item>
-
-	  <dt><code>url_encode</code></dt>
-          <item>
-            <p>Applies Percent-encoding, also known as URL encoding on the 
-	    URL.</p>
-	    <p>Default is <code>false</code>.</p>
-	  </item>
         </taglist>
 
         <p>Option (<code>option()</code>) details:</p>
@@ -403,7 +395,7 @@
 	    <code>{self, once}</code>, the first message has an extra
 	    element, that is, <code>{http, {RequestId, stream_start, Headers, Pid}}</code>.
 	    This is the process id to be used as an argument to
-	    <code>http:stream_next/1</code> to trigger the next message to be sent to
+	    <code>httpc:stream_next/1</code> to trigger the next message to be sent to
 	    the calling process.</p>
 	    <p>Notice that chunked encoding can add
 	    headers so that there are more headers in the <code>stream_end</code>
@@ -444,17 +436,22 @@
 
           <dt><code>socket_opts</code></dt>
           <item>
-            <p>Socket options to be used for this and subsequent 
-	    requests.</p>
+            <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
 	    <a href="#set_options/1" class="seealso">set_options</a>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
-            them if they are not correct. Note that the current
-            implementation assumes the requests to the same host, port
-            combination will use the same socket options.
+            them if they are not correct.
 	    </p>
+	    <div class="note"><h2>Note!</h2>
+	      <p>
+		Persistent connections are not supported when setting the
+		<code>socket_opts</code> option. When <code>socket_opts</code> is not
+		set the current implementation assumes the requests to the
+		same host, port combination will use the same socket options.
+	      </p>
+	    </div>
 	    
             <p>By default the socket options set by function
 	    <a href="#set_options/1" class="seealso">set_options/[1,2]</a> 
@@ -536,7 +533,8 @@
 	<li><code>| {ip, IpAddress}</code></li>
 	<li><code>| {port, Port}</code></li>
 	<li><code>| {socket_opts, socket_opts()}</code></li>
-	<li><code>| {verbose, VerboseMode}</code></li>	    
+	<li><code>| {verbose, VerboseMode}</code></li>
+	<li><code>| {unix_socket, UnixSocket}</code></li>
         <li><code>Proxy = {Hostname, Port}</code></li>
         <li><code>Hostname = string()</code></li>
         <d>Example: "localhost" or "foo.bar.se"</d>
@@ -579,7 +577,7 @@
 	If option <code>verify</code> is used, function <code>store_cookies/2</code>
 	has to be called for the cookies to be saved. 
 	Default is <code>disabled</code>.</d>
-	<li><code>IpFamily = inet | inet6 </code></li>
+	<li><code>IpFamily = inet | inet6 | local</code></li>
 	<d>Default is <code>inet</code>.</d>
 	<li><code>IpAddress = ip_address()</code></li>
 	<d>If the host has several network interfaces, this option specifies 
@@ -604,6 +602,12 @@
 	It is a debug feature.</d>
 	<li><code>Profile = profile() | pid()</code></li>
 	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+	<li><code>UnixSocket = path()</code></li>
+	<d>
+	  Experimental option for sending HTTP requests over a unix domain socket. The value
+	  of <code>unix_socket</code> shall be the full path to a unix domain socket file with read/write
+	  permissions for the erlang process. Default is <code>undefined</code>.
+	</d>
       </ul>
       <div class="description">
 	<p>Sets options to be used for subsequent requests.</p>
@@ -620,8 +624,11 @@
 	  to complete. The HTTP/1.1 specification suggests a
 	  limit of two persistent connections per server, which is the
 	  default value of option <code>max_sessions</code>.</p>
+	  <p>
+            The current implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	  </p>
 	</div>
-
         <span id="get_options"> </span>
       </div>
     </div>

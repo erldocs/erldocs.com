@@ -200,7 +200,7 @@ ok
           <a href="#enif_make_resource" class="seealso">
           <code>enif_make_resource</code></a>.
           The term returned by <code>enif_make_resource</code> is opaque in nature.
-          It can be stored and passed between processes on the same node, but
+          It can be stored and passed between processes, but
           the only real end usage is to pass it back as an argument to a NIF.
           The NIF can then call <a href="#enif_get_resource" class="seealso">
           <code>enif_get_resource</code></a> and get back a pointer to the
@@ -338,6 +338,83 @@ return term;</pre>
             <code>enif_convert_time_unit()</code></a></item>
       </list>
       </item>
+      <dt><span id="enif_ioq"> </span>I/O Queues</dt>
+      <item>
+        <p>The Erlang nif library contains function for easily working
+          with I/O vectors as used by the unix system call <code>writev</code>.
+          The I/O Queue is not thread safe, so some other synchronization
+          mechanism has to be used.</p>
+          <list type="bulleted">
+            <item><a href="#SysIOVec" class="seealso">
+            <code>SysIOVec</code></a></item>
+            <item><a href="#ErlNifIOVec" class="seealso">
+            <code>ErlNifIOVec</code></a></item>
+            <item><a href="#enif_ioq_create" class="seealso">
+            <code>enif_ioq_create()</code></a></item>
+            <item><a href="#enif_ioq_destroy" class="seealso">
+            <code>enif_ioq_destroy()</code></a></item>
+            <item><a href="#enif_ioq_enq_binary" class="seealso">
+            <code>enif_ioq_enq_binary()</code></a></item>
+            <item><a href="#enif_ioq_enqv" class="seealso">
+            <code>enif_ioq_enqv()</code></a></item>
+            <item><a href="#enif_ioq_deq" class="seealso">
+            <code>enif_ioq_deq()</code></a></item>
+            <item><a href="#enif_ioq_peek" class="seealso">
+            <code>enif_ioq_peek()</code></a></item>
+            <item><a href="#enif_ioq_peek_head" class="seealso">
+            <code>enif_ioq_peek_head()</code></a></item>
+            <item><a href="#enif_inspect_iovec" class="seealso">
+            <code>enif_inspect_iovec()</code></a></item>
+            <item><a href="#enif_free_iovec" class="seealso">
+            <code>enif_free_iovec()</code></a></item>
+          </list>
+        <p>Typical usage when writing to a file descriptor looks like this:</p>
+          <pre class="sh_erlang">
+int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
+               ErlNifIOQueue *q, int fd) {
+
+    ErlNifIOVec vec, *iovec = &vec;
+    SysIOVec *sysiovec;
+    int saved_errno;
+    int iovcnt, n;
+
+    if (!enif_inspect_iovec(env, 64, term, tail, &iovec))
+        return -2;
+
+    if (enif_ioq_size(q) &gt; 0) {
+        /* If the I/O queue contains data we enqueue the iovec and
+           then peek the data to write out of the queue. */
+        if (!enif_ioq_enqv(q, iovec, 0))
+            return -3;
+
+        sysiovec = enif_ioq_peek(q, &iovcnt);
+    } else {
+        /* If the I/O queue is empty we skip the trip through it. */
+        iovcnt = iovec-&gt;iovcnt;
+        sysiovec = iovec-&gt;iov;
+    }
+
+    /* Attempt to write the data */
+    n = writev(fd, sysiovec, iovcnt);
+    saved_errno = errno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If the I/O queue was initially empty we enqueue any
+           remaining data into the queue for writing later. */
+        if (n &gt;= 0 && !enif_ioq_enqv(q, iovec, n))
+            return -3;
+    } else {
+        /* Dequeue any data that was written from the queue. */
+        if (n &gt; 0 && !enif_ioq_deq(q, n, NULL))
+            return -4;
+    }
+
+    /* return n, which is either number of bytes written or -1 if
+       some error happened */
+    errno = saved_errno;
+    return n;
+}</pre>
+      </item>
       <dt><span id="lengthy_work"> </span>Long-running NIFs</dt>
       <item>
         <p>As mentioned in the <a href="#WARNING" class="seealso">warning</a> text
@@ -457,7 +534,7 @@ return term;</pre>
               have to wait for a very long time. Blocking multi-scheduling, that
               is, calling <a href="erlang.html#system_flag_multi_scheduling" class="seealso">
               <code>erlang:system_flag(multi_scheduling, block)</code></a>, can
-              also take a very long time to complete. This becaue all ongoing
+              also take a very long time to complete. This is because all ongoing
               dirty operations on all dirty schedulers must complete before
               the block operation can complete.</p>
             <p>Many operations communicating with a process executing a
@@ -507,7 +584,7 @@ return term;</pre>
           <code>unload</code> is called to release the library. All are
           described individually below.</p>
        <p>The fourth argument <code>NULL</code> is ignored. It
-          was earlier used for the deprectated <code>reload</code> callback
+          was earlier used for the deprecated <code>reload</code> callback
           which is no longer supported since OTP 20.</p>
         <p>If compiling a NIF for static inclusion through
           <code>--enable-static-nifs</code>, you must define <code>STATIC_ERLANG_NIF</code>
@@ -725,7 +802,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</pre>
       <dt><span id="ErlNifResourceDown"> </span><code>ErlNifResourceDown</code></dt>
       <item>
         <pre class="sh_erlang">
-typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, const ErlNifPid* pid, const ErlNifMonitor* mon);</pre>
+typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</pre>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <a href="#enif_monitor_process" class="seealso">
 	  enif_monitor_process</a>. <code>obj</code> is the resource, <code>pid</code>
@@ -791,7 +868,7 @@ typedef enum {
       <item>
         <p>An enumeration of the properties that can be requested from
           <a href="#enif_make_unique_integer" class="seealso">
-          <code>enif_unique_integer</code></a>.
+          <code>enif_make_unique_integer</code></a>.
           For default properties, use value <code>0</code>.</p>
         <taglist>
           <dt><code>ERL_NIF_UNIQUE_POSITIVE</code></dt>
@@ -829,6 +906,36 @@ typedef enum {
           </item>
         </taglist>
       </item>
+      <dt><span id="SysIOVec"> </span><code>SysIOVec</code></dt>
+      <item>
+        <p>A system I/O vector, as used by <code>writev</code> on
+          Unix and <code>WSASend</code> on Win32. It is used in
+          <code>ErlNifIOVec</code> and by
+          <a href="#enif_ioq_peek" class="seealso"><code>enif_ioq_peek</code></a>.</p>
+      </item>
+      <dt><span id="ErlNifIOVec"> </span><code>ErlNifIOVec</code></dt>
+      <item>
+        <pre class="sh_erlang">
+typedef struct {
+  int iovcnt;
+  size_t size;
+  SysIOVec* iov;
+} ErlNifIOVec;</pre>
+        <p>An I/O vector containing <code>iovcnt</code> <code>SysIOVec</code>s
+          pointing to the data. It is used by
+          <a href="#enif_inspect_iovec" class="seealso">
+            <code>enif_inspect_iovec</code></a> and
+          <a href="#enif_ioq_enqv" class="seealso">
+            <code>enif_ioq_enqv</code></a>.</p>
+      </item>
+      <dt><span id="ErlNifIOQueueOpts"> </span><code>ErlNifIOQueueOpts</code></dt>
+      <item>
+        Options to configure a <code>ErlNifIOQueue</code>.
+        <taglist>
+          <dt>ERL_NIF_IOQ_NORMAL</dt>
+          <item><p>Create a normal I/O Queue</p></item>
+        </taglist>
+      </item>
     </taglist>
   </div>
 
@@ -839,6 +946,8 @@ typedef enum {
       <div class="description">
         <p>Allocates memory of <code>size</code> bytes.</p>
         <p>Returns <code>NULL</code> if the allocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </div>
     </div>
 
@@ -855,6 +964,10 @@ typedef enum {
           <a href="#enif_make_binary" class="seealso"><code>enif_make_binary</code></a>.
           An allocated (and owned) <code>ErlNifBinary</code> can be kept between NIF
           calls.</p>
+        <p>If you do not need to reallocate or keep the data alive across NIF
+          calls, consider using <a href="#enif_make_new_binary" class="seealso">
+          <code>enif_make_new_binary</code></a> instead as it will allocate
+          small binaries on the process heap when possible.</p>
         <p>Returns <code>true</code> on success, or <code>false</code> if allocation
           fails.</p>
       </div>
@@ -971,6 +1084,15 @@ typedef enum {
       <div class="description">
         <p>Same as <a href="erl_driver.html#erl_drv_cond_destroy" class="seealso">
           <code>erl_drv_cond_destroy</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Same as <a href="erl_driver.html#erl_drv_cond_name" class="seealso">
+          <code>erl_drv_cond_name</code></a>.</p>
       </div>
     </div>
 
@@ -1099,6 +1221,18 @@ typedef enum {
     </div>
 
     <div class="function">
+      <pre>int enif_fprintf(FILE *stream, const char *format, ...)</pre>
+      
+      <div class="description">
+        <p>Similar to <code>fprintf</code> but this format string also accepts
+          <code>"%T"</code>, which formats Erlang terms.</p>
+	<p>This function was originally intenden for debugging purpose. It is not
+	  recommended to print very large terms with <code>%T</code>. The function may
+	  change <code>errno</code>, even if successful.</p>
+      </div>
+    </div>
+
+    <div class="function">
       <pre>void enif_free(void* ptr)</pre>
       
       <div class="description">
@@ -1114,6 +1248,30 @@ typedef enum {
         <p>Frees an environment allocated with
           <a href="#enif_alloc_env" class="seealso"><code>enif_alloc_env</code></a>.
           All terms created in the environment are freed as well.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Frees an io vector returned from
+          <a href="#enif_inspect_iovec" class="seealso">
+            <code>enif_inspect_iovec</code></a>.
+          This is needed only if a <code>NULL</code> environment is passed to
+          <a href="#enif_inspect_iovec" class="seealso">
+          <code>enif_inspect_iovec</code></a>.</p>
+          <pre class="sh_erlang">
+ErlNifIOVec *iovec = NULL;
+size_t max_elements = 128;
+ERL_NIF_TERM tail;
+if (!enif_inspect_iovec(NULL, max_elements, term, &tail, &iovec))
+  return 0;
+
+// Do things with the iovec
+
+/* Free the iovector, possibly in another thread or nif function call */
+enif_free_iovec(iovec);</pre>
       </div>
     </div>
 
@@ -1408,6 +1566,133 @@ typedef enum {
         <p>Returns <code>true</code> on success, or <code>false</code> if <code>iolist</code> is
           not an iolist.</p>
       </div> 
+    </div>
+
+    <div class="function">
+      <pre>int enif_inspect_iovec(ErlNifEnv*
+        env, size_t max_elements, ERL_NIF_TERM iovec_term, ERL_NIF_TERM* tail,
+        ErlNifIOVec** iovec)</pre>
+      
+      <div class="description">
+        <p>Fills <code>iovec</code> with the list of binaries provided in
+           <code>iovec_term</code>. The number of elements handled in the call is
+           limited to <code>max_elements</code>, and <code>tail</code> is set to the
+           remainder of the list. Note that the output may be longer than
+           <code>max_elements</code> on some platforms.
+        </p>
+        <p>To create a list of binaries from an arbitrary iolist, use
+           <a href="../erts/erlang.html#iolist_to_iovec/1" class="seealso">
+           <code>erlang:iolist_to_iovec/1</code></a>.</p>
+        <p>When calling this function, <code>iovec</code> should contain a pointer to
+           <code>NULL</code> or a ErlNifIOVec structure that should be used if
+           possible. e.g.
+        </p>
+        <pre class="sh_erlang">
+/* Don't use a pre-allocated structure */
+ErlNifIOVec *iovec = NULL;
+enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
+
+/* Use a stack-allocated vector as an optimization for vectors with few elements */
+ErlNifIOVec vec, *iovec = &vec;
+enif_inspect_iovec(env, max_elements, term, &tail, &iovec);
+</pre>
+        <p>The contents of the <code>iovec</code> is valid until the called nif
+           function returns. If the <code>iovec</code> should be valid after the nif
+           call returns, it is possible to call this function with a
+           <code>NULL</code> environment. If no environment is given the <code>iovec</code>
+           owns the data in the vector and it has to be explicitly freed using
+           <a href="#enif_free_iovec" class="seealso"><code>enif_free_iovec</code>
+           </a>.</p>
+        <p>Returns <code>true</code> on success, or <code>false</code> if <code>iovec_term</code>
+           not an iovec.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Create a new I/O Queue that can be used to store data.
+          <code>opts</code> has to be set to <code>ERL_NIF_IOQ_NORMAL</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Destroy the I/O queue and free all of it's contents</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Dequeue <code>count</code> bytes from the I/O queue.
+          If <code>size</code> is not <code>NULL</code>, the new size of the queue
+          is placed there.</p>
+        <p>Returns <code>true</code> on success, or <code>false</code> if the I/O does
+          not contain <code>count</code> bytes. On failure the queue is left un-altered.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Enqueue the <code>bin</code> into <code>q</code> skipping the first <code>skip</code> bytes.</p>
+        <p>Returns <code>true</code> on success, or <code>false</code> if <code>skip</code> is greater
+        than the size of <code>bin</code>. Any ownership of the binary data is transferred
+        to the queue and <code>bin</code> is to be considered read-only for the rest of the NIF
+        call and then as released.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Enqueue the <code>iovec</code> into <code>q</code> skipping the first <code>skip</code> bytes.</p>
+        <p>Returns <code>true</code> on success, or <code>false</code> if <code>skip</code> is greater
+        than the size of <code>iovec</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Get the I/O queue as a pointer to an array of <code>SysIOVec</code>s.
+           It also returns the number of elements in <code>iovlen</code>.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <a href="#enif_ioq_deq" class="seealso"><code>enif_ioq_deq</code></a>.</p>
+         <p>The returned array is suitable to use with the Unix system
+          call <code>writev</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Get the head of the IO Queue as a binary term.</p>
+        <p>If <code>size</code> is not <code>NULL</code>, the size of the head is placed
+           there.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+           with <a href="#enif_ioq_deq" class="seealso"><code>enif_ioq_deq</code></a>.</p>
+        <p>Returns <code>true</code> on success, or <code>false</code> if the queue is
+           empty.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Get the size of <code>q</code>.</p>
+      </div>
     </div>
 
     <div class="function">
@@ -1816,6 +2101,18 @@ typedef enum {
     </div>
 
     <div class="function">
+      
+      
+      <div class="description">
+        <p>Makes a map term from the given keys and values.</p>
+        <p>If successful, this function sets <code>*map_out</code> to the new map and
+          returns <code>true</code>. Returns <code>false</code> there are any duplicate
+          keys.</p>
+        <p>All keys and values must belong to <code>env</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
       <pre>unsigned char * enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</pre>
       
@@ -1872,10 +2169,33 @@ typedef enum {
           details, see the <a href="#enif_resource_example" class="seealso">example of
           creating and returning a resource object</a> in the User's
           Guide.</p>
-        <p>Notice that the only defined behavior of using a resource term in
-          an Erlang program is to store it and send it between processes on the
-          same node. Other operations, such as matching or
-          <code>term_to_binary</code>, have unpredictable (but harmless) results.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>Since ERTS 9.0 (OTP-20.0), resource terms have a defined behavior
+	  when compared and serialized through <code>term_to_binary</code> or passed
+	  between nodes.</p>
+	  <list type="bulleted">
+	    <item>
+	      <p>Two resource terms will compare equal iff they
+	      would yield the same resource object pointer when passed to
+	      <a href="#enif_get_resource" class="seealso"><code>enif_get_resource</code></a>.</p>
+	    </item>
+	    <item>
+	      <p>A resource term can be serialized with <code>term_to_binary</code> and later
+	      be fully recreated if the resource object is still alive when
+	      <code>binary_to_term</code> is called. A <em>stale</em> resource term will be
+	      returned from <code>binary_to_term</code> if the resource object has
+	      been deallocated. <a href="#enif_get_resource" class="seealso"><code>enif_get_resource</code></a>
+	      will return false for stale resource terms.</p>
+	      <p>The same principles of serialization apply when passing
+	      resource terms in messages to remote nodes and back again. A
+	      resource term will act stale on all nodes except the node where
+	      its resource object is still alive in memory.</p>
+	    </item>
+	  </list>
+	  <p>Before ERTS 9.0 (OTP-20.0), all resource terms did
+	  compare equal to each other and to empty binaries (<code>&lt;&lt;&gt;&gt;</code>).
+	  If serialized, they would be recreated as plain empty binaries.</p>
+	</div>
       </div>
     </div>
 
@@ -2226,6 +2546,15 @@ enif_map_iterator_destroy(env, &iter);</pre>
       
       
       <div class="description">
+        <p>Same as <a href="erl_driver.html#erl_drv_mutex_name" class="seealso">
+          <code>erl_drv_mutex_name</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
         <p>Same as <a href="erl_driver.html#erl_drv_mutex_trylock" class="seealso">
           <code>erl_drv_mutex_trylock</code></a>.</p>
       </div>
@@ -2378,6 +2707,19 @@ enif_map_iterator_destroy(env, &iter);</pre>
       
       
       <div class="description">
+        <p>Reallocates memory allocated by
+          <a href="#enif_alloc" class="seealso"><code>enif_alloc</code></a> to
+          <code>size</code> bytes.</p>
+        <p>Returns <code>NULL</code> if the reallocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
         <p>Changes the size of a binary <code>bin</code>. The source binary
           can be read-only, in which case it is left untouched and
           a mutable copy is allocated and assigned to <code>*bin</code>.</p>
@@ -2429,6 +2771,15 @@ enif_map_iterator_destroy(env, &iter);</pre>
       <div class="description">
         <p>Same as <a href="erl_driver.html#erl_drv_rwlock_destroy" class="seealso">
           <code>erl_drv_rwlock_destroy</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Same as <a href="erl_driver.html#erl_drv_rwlock_name" class="seealso">
+          <code>erl_drv_rwlock_name</code></a>.</p>
       </div>
     </div>
 
@@ -2544,7 +2895,7 @@ enif_map_iterator_destroy(env, &iter);</pre>
 	<p>Argument <code>mode</code> describes the type of events to wait for. It can be
 	  <code>ERL_NIF_SELECT_READ</code>, <code>ERL_NIF_SELECT_WRITE</code> or a bitwise
 	  OR combination to wait for both. It can also be <code>ERL_NIF_SELECT_STOP</code>
-	  which is described further below. When a read or write event is triggerred,
+	  which is described further below. When a read or write event is triggered,
 	  a notification message like this is sent to the process identified by
 	  <code>pid</code>:</p>
 	<pre class="sh_erlang">{select, Obj, Ref, ready_input | ready_output}</pre>
@@ -2595,7 +2946,7 @@ enif_map_iterator_destroy(env, &iter);</pre>
           <item>The stop callback was scheduled to run on some other thread
 	    or later by this thread.</item>
 	</taglist>
-	<p>Returns a negative value if the call failed where the follwing bits can be set:</p>
+	<p>Returns a negative value if the call failed where the following bits can be set:</p>
         <taglist>
           <dt><code>ERL_NIF_SELECT_INVALID_EVENT</code></dt>
           <item>Argument <code>event</code> is not a valid OS event object.</item>
@@ -2603,9 +2954,9 @@ enif_map_iterator_destroy(env, &iter);</pre>
           <item>The system call failed to add the event object to the poll set.</item>
         </taglist>
         <div class="note"><h2>Note!</h2>
-          <p>Use bitwise AND to test for specific bits in the return vaue.
+          <p>Use bitwise AND to test for specific bits in the return value.
 	  New significant bits may be added in future releases to give more detailed
-	  information for both failed and successful calls. Do NOT use equallity tests
+	  information for both failed and successful calls. Do NOT use equality tests
 	  like <code>==</code>, as that may cause your application to stop working.</p>
 	  <p>Example:</p>
 	  <pre class="sh_erlang">
@@ -2626,9 +2977,10 @@ if (retval & ERL_NIF_SELECT_STOP_CALLED) {
       
       
       <div class="description">
-        <p>Initializes the pid variable <code>*pid</code> to represent the
-          calling process.</p>
-        <p>Returns <code>pid</code>.</p>
+        <p>Initializes the <a href="#ErlNifPid" class="seealso"><code>ErlNifPid</code></a>
+	variable at <code>*pid</code> to represent the calling process.</p>
+        <p>Returns <code>pid</code> if successful, or NULL if <code>caller_env</code> is not
+	a <a href="#ErlNifEnv" class="seealso">process-bound environment</a>.</p>
       </div>
     </div>
 
@@ -2667,7 +3019,7 @@ if (retval & ERL_NIF_SELECT_STOP_CALLED) {
           <code>enif_free_env</code></a> of cleared for reuse with
           <a href="#enif_clear_env" class="seealso"><code>enif_clear_env</code></a>.</p>
         <p>If <code>msg_env</code> is set to <code>NULL</code>, the <code>msg</code> term is
-          copied and the original term and its environemt is still valid after
+          copied and the original term and its environment is still valid after
           the call.</p>
         <p>This function is only thread-safe when the emulator with SMP support
           is used. It can only be used in a non-SMP emulator from a NIF-calling
@@ -2696,6 +3048,9 @@ if (retval & ERL_NIF_SELECT_STOP_CALLED) {
       <div class="description">
         <p>Similar to <code>snprintf</code> but this format string also accepts
           <code>"%T"</code>, which formats Erlang terms.</p>
+	<p>This function was originally intenden for debugging purpose. It is not
+	  recommended to print very large terms with <code>%T</code>. The function may
+	  change <code>errno</code>, even if successful.</p>
       </div>
     </div>
 
@@ -2750,6 +3105,15 @@ if (retval & ERL_NIF_SELECT_STOP_CALLED) {
       <div class="description">
         <p>Same as <a href="erl_driver.html#erl_drv_thread_join" class="seealso">
           <code>erl_drv_thread_join</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Same as <a href="erl_driver.html#erl_drv_thread_name" class="seealso">
+          <code>erl_drv_thread_name</code></a>.</p>
       </div>
     </div>
 
@@ -2855,6 +3219,26 @@ if (retval & ERL_NIF_SELECT_STOP_CALLED) {
       <div class="description">
         <p>Same as <a href="erl_driver.html#erl_drv_tsd_set" class="seealso">
           <code>erl_drv_tsd_set</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Equivalent to <a href="#enif_fprintf" class="seealso"><code>enif_fprintf</code></a>
+	except that its called with a <code>va_list</code> instead of a variable number of
+	arguments.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Equivalent to <a href="#enif_snprintf" class="seealso"><code>enif_snprintf</code></a>
+	except that its called with a <code>va_list</code> instead of a variable number of
+	arguments.</p>
       </div>
     </div>
 

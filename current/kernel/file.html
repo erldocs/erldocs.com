@@ -31,15 +31,18 @@
   <div class="description">
     <p>This module provides an interface to the file system.</p>
 
-    <p>On operating systems with thread support,
-      file operations can be performed in threads of their own, allowing
-      other Erlang processes to continue executing in parallel with
-      the file operations. See command-line flag
-      <code>+A</code> in <a href="../erts/erl.html" class="seealso"><code>erl(1)</code></a>.</p>
+    <div class="warning"><h2>Warning!</h2>
+       <p>File operations are only guaranteed to appear atomic when going
+          through the same file server. A NIF or other OS process may observe
+          intermediate steps on certain operations on some operating systems,
+          eg. renaming an existing file on Windows, or
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code>
+          </a> on any OS at the time of writing.</p>
+    </div>
 
     <p>Regarding filename encoding, the Erlang VM can operate in
     two modes. The current mode can be queried using function
-    <a href="#native_name_encoding" class="seealso"><code>native_name_encoding/0</code></a>.
+    <a href="#native_name_encoding/0" class="seealso"><code>native_name_encoding/0</code></a>.
     It returns <code>latin1</code> or <code>utf8</code>.</p>
 
     <p>In <code>latin1</code> mode, the Erlang VM does not change the
@@ -57,7 +60,7 @@
     terminal supports UTF-8, otherwise <code>latin1</code>. The default can
     be overridden using <code>+fnl</code> (to force <code>latin1</code> mode)
     or <code>+fnu</code> (to force <code>utf8</code> mode) when starting
-    <a href="../erts/erl.html" class="seealso"><code>erts:erl</code></a>.</p>
+    <a href="../erts/erl.html" class="seealso"><code>erl</code></a>.</p>
 
     <p>On operating systems with transparent naming, files can be
     inconsistently named, for example, some files are encoded in UTF-8 while
@@ -79,6 +82,16 @@
 
     <p>See also section <a href="../stdlib/unicode_usage.html#notes-about-raw-filenames" class="seealso">Notes About Raw Filenames</a> in the STDLIB User's Guide.</p>
 
+    <div class="note"><h2>Note!</h2><p>
+      File operations used to accept filenames containing
+      null characters (integer value zero). This caused
+      the name to be truncated and in some cases arguments
+      to primitive operations to be mixed up. Filenames
+      containing null characters inside the filename
+      are now <em>rejected</em> and will cause primitive
+      file operations fail.
+    </p></div>
+
   </div>
 
   <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
@@ -94,9 +107,21 @@
     </div>
     <div class="type">
       <h3 id="type-filename">filename() = string()</h3>
+      <div class="description">
+        <p>
+	  See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
+	</p>
+      </div>
     </div>
     <div class="type">
       <h3 id="type-filename_all">filename_all() = string() | binary()</h3>
+      <div class="description">
+        <p>
+	  See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
+	</p>
+      </div>
     </div>
     <div class="type">
       <h3 id="type-io_device">io_device() = pid() | <a href="#type-fd" class="seealso">fd()</a></h3>
@@ -110,7 +135,8 @@
       <h3 id="type-name">name() = string() | atom() | <a href="#type-deep_list" class="seealso">deep_list()</a></h3>
       <div class="description">
         <p>If VM is in Unicode filename mode, <code>string()</code> and <code>char()</code>
-          are allowed to be &gt; 255.
+          are allowed to be &gt; 255. See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
         </p>
       </div>
     </div>
@@ -118,14 +144,15 @@
       <h3 id="type-name_all">name_all() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;string() | atom() | <a href="#type-deep_list" class="seealso">deep_list()</a> | (RawFilename :: binary())</h3>
       <div class="description">
-        <p>If VM is in Unicode filename mode, <code>string()</code> and <code>char()</code>
+        <p>If VM is in Unicode filename mode, characters
           are allowed to be &gt; 255.
           <code><anno>RawFilename</anno></code> is a filename not subject to
           Unicode translation,
           meaning that it can contain characters not conforming to
           the Unicode encoding expected from the file system
           (that is, non-UTF-8 characters although the VM is started
-          in Unicode filename mode).
+          in Unicode filename mode). Null characters (integer value zero)
+	  are <em>not</em> allowed in filenames (not even at the end).
         </p>
       </div>
     </div>
@@ -134,11 +161,15 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eacces |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eagain |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebadf |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebadmsg |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebusy |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edeadlk |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edeadlock |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edquot |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eexist |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efault |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efbig |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eftype |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eintr |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;einval |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eio |<br>
@@ -146,22 +177,33 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eloop |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emfile |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emlink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emultihop |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enametoolong |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enfile |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enobufs |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enodev |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enolck |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enolink |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enoent |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enomem |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enospc |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enosr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enostr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enosys |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotblk |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotdir |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotsup |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enxio |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eopnotsupp |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eoverflow |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eperm |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;epipe |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;erange |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;erofs |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;espipe |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esrch |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;estale |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;etxtbsy |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exdev</h3>
       <div class="description">
         <p>An atom that is named from the POSIX error codes used in
@@ -1093,8 +1135,7 @@ f.txt:  {person, "kalle", 25}.
           </item>
           <dt><code>eisdir</code></dt>
           <item>
-            <p>The named file is not a regular file. It can be a
-              directory, a FIFO, or a device.</p>
+            <p>The named file is a directory.</p>
           </item>
           <dt><code>enotdir</code></dt>
           <item>
@@ -1592,8 +1633,12 @@ f.txt:  {person, "kalle", 25}.
 	    which is 1970-01-01 00:00 UTC.</p></item>
 	  </taglist>
 	<p>Default is <code>{time, local}</code>.</p>
-        <p>If the option <code>raw</code> is set, the file server is not called
-          and only information about local files is returned.</p>
+        <p>If the option <code>raw</code> is set, the file server is not called and
+           only information about local files is returned. Note that this will
+           break this module's atomicity guarantees as it can race with a
+           concurrent call to
+           <a href="#write_file_info/2" class="seealso"><code>write_file_info/1,2</code>
+           </a></p>
 	  <div class="note"><h2>Note!</h2>
           <p>As file times are stored in POSIX time on most OS, it is faster to
 	  query file information with option <code>posix</code>.</p>
@@ -1850,8 +1895,12 @@ f.txt:  {person, "kalle", 25}.
 	except that if <code><anno>Name</anno></code> is a symbolic link, information
 	about the link is returned in the <code>file_info</code> record and
           the <code>type</code> field of the record is set to <code>symlink</code>.</p>
-      <p>If the option <code>raw</code> is set, the file server is not called
-        and only information about local files is returned.</p>
+        <p>If the option <code>raw</code> is set, the file server is not called and
+           only information about local files is returned. Note that this will
+           break this module's atomicity guarantees as it can race with a
+           concurrent call to
+           <a href="#write_file_info/2" class="seealso"><code>write_file_info/1,2</code>
+           </a></p>
         <p>If <code><anno>Name</anno></code> is not a symbolic link, this function returns
           the same result as <code>read_file_info/1</code>.
           On platforms that do not support symbolic links, this function
@@ -2009,24 +2058,16 @@ f.txt:  {person, "kalle", 25}.
 	<p>The file used must be opened using the <code>raw</code> flag, and the process
 	calling <code>sendfile</code> must be the controlling process of the socket.
 	See <a href="gen_tcp.html#controlling_process/2" class="seealso"><code>gen_tcp:controlling_process/2</code></a>.</p>
-	<p>If the OS used does not support <code>sendfile</code>, an Erlang fallback
-	using
-	<a href="#read/2" class="seealso"><code>read/2</code></a> and
-	<a href="gen_tcp.html#send/2" class="seealso"><code>gen_tcp:send/2</code></a> is used.</p>
+	<p>If the OS used does not support non-blocking <code>sendfile</code>, an
+	Erlang fallback using <a href="#read/2" class="seealso"><code>read/2</code></a>
+	and <a href="gen_tcp.html#send/2" class="seealso"><code>gen_tcp:send/2</code></a> is
+        used.</p>
 	<p>The option list can contain the following options:</p>
 	<taglist>
           <dt><code>chunk_size</code></dt>
           <item><p>The chunk size used by the Erlang fallback to send
 	  data. If using the fallback, set this to a value
 	  that comfortably fits in the systems memory. Default is 20 MB.</p></item>
-	  <dt><code>use_threads</code></dt>
-          <item><p>Instructs the emulator to use the <code>async</code> thread pool for the
-	  <code>sendfile</code> system call. This can be useful if the OS you are running
-	  on does not properly support non-blocking <code>sendfile</code> calls. Notice that
-	  using <code>async</code> threads potentially makes your system vulnerable to slow
-	  client attacks. If set to <code>true</code> and no <code>async</code> threads are available,
-	  the <code>sendfile</code> call returns <code>{error,einval}</code>.
-	  Introduced in Erlang/OTP 17.0. Default is <code>false</code>.</p></item>
 	</taglist>
       </div>
     </div>
@@ -2040,7 +2081,7 @@ f.txt:  {person, "kalle", 25}.
         <p>The functions in the module <code>file</code> usually treat binaries
           as raw filenames, that is, they are passed "as is" even when the
 	  encoding of the binary does not agree with
-	  <a href="#native_name_encoding" class="seealso"><code>native_name_encoding()</code></a>.
+	  <a href="#native_name_encoding/0" class="seealso"><code>native_name_encoding()</code></a>.
           However, this function expects binaries to be encoded according to the
           value returned by <code>native_name_encoding()</code>.</p>
         <p>Typical error reasons are:</p>
@@ -2339,144 +2380,77 @@ f.txt:  {person, "kalle", 25}.
 
   <div class="section">
     <h4>Performance</h4>
-    <p>Some operating system file operations, for example, a
-      <code>sync/1</code> or <code>close/1</code> on a huge file, can block their
-      calling thread for seconds. If this affects the emulator main
-      thread, the response time is no longer in the order of
-      milliseconds, depending on the definition of "soft" in soft
-      real-time system.</p>
-    <p>If the device driver thread pool is active, file operations are
-      done through those threads instead, so the emulator can go on
-      executing Erlang processes. Unfortunately, the time for serving a
-      file operation increases because of the extra scheduling required
-      from the operating system.</p>
-    <p>If the device driver thread pool is disabled or of size 0, large
-      file reads and writes are segmented into many smaller, which
-      enable the emulator to serve other processes during the file
-      operation. This has the same effect as when using the thread
-      pool, but with larger overhead. Other file operations, for
-      example, <code>sync/1</code> or <code>close/1</code> on a huge file, still are
-      a problem.</p>
-    <p>For increased performance, raw files are recommended. Raw files
-      use the file system of the host machine of the node.</p>
-    <div class="note"><h2>Note!</h2>
-      <p>
-	For normal files (non-raw), the file server is used to find the files,
-	and if the node is running its file server as slave to the file server
-	of another node, and the other node runs on some other host machine,
-	they can have different file systems.
-        However, this is seldom a problem.</p>
-    </div>
+    <p>For increased performance, raw files are recommended.</p>
     <p>A normal file is really a process so it can be used as an I/O
-      device (see
-      <a href="../stdlib/io.html" class="seealso"><code>io</code></a>).
-      Therefore, when data is written to a
-      normal file, the sending of the data to the file process, copies 
-      all data that are not binaries. Opening the file in binary mode
-      and writing binaries is therefore recommended. If the file is
-      opened on another node, or if the file server runs as slave to
-      the file server of another node, also binaries are copied.</p>
-    <p>Caching data to reduce the number of file operations, or rather
-      the number of calls to the file driver, generally increases
-      performance. The following function writes 4 MBytes in 23
-      seconds when tested:</p>
-    <pre class="sh_erlang">
-create_file_slow(Name, N) when integer(N), N &gt;= 0 -&gt;
-    {ok, FD} = file:open(Name, [raw, write, delayed_write, binary]),
-    ok = create_file_slow(FD, 0, N),
-    ok = ?FILE_MODULE:close(FD),
-    ok.
-      
-create_file_slow(FD, M, M) -&gt;
-    ok;
-create_file_slow(FD, M, N) -&gt;
-    ok = file:write(FD, &lt;&lt;M:32/unsigned&gt;&gt;),
-    create_file_slow(FD, M+1, N).</pre>
-
-    <p>The following, functionally equivalent, function collects 1024
-      entries into a list of 128 32-byte binaries before each call to
-      <a href="#write/2" class="seealso"><code>write/2</code></a> and so
-      does the same work in 0.52 seconds,
-      which is 44 times faster:</p>
-    <pre class="sh_erlang">
-create_file(Name, N) when integer(N), N &gt;= 0 -&gt;
-    {ok, FD} = file:open(Name, [raw, write, delayed_write, binary]),
-    ok = create_file(FD, 0, N),
-    ok = ?FILE_MODULE:close(FD),
-    ok.
-      
-create_file(FD, M, M) -&gt;
-    ok;
-create_file(FD, M, N) when M + 1024 =&lt; N -&gt;
-    create_file(FD, M, M + 1024, []),
-    create_file(FD, M + 1024, N);
-create_file(FD, M, N) -&gt;
-    create_file(FD, M, N, []).
-      
-create_file(FD, M, M, R) -&gt;
-    ok = file:write(FD, R);
-create_file(FD, M, N0, R) when M + 8 =&lt; N0 -&gt;
-    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4, 
-    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8, 
-    create_file(FD, M, N8, 
-                [&lt;&lt;N8:32/unsigned,  N7:32/unsigned, 
-                   N6:32/unsigned,  N5:32/unsigned, 
-                   N4:32/unsigned,  N3:32/unsigned, 
-                   N2:32/unsigned,  N1:32/unsigned&gt;&gt; | R]);
-create_file(FD, M, N0, R) -&gt;
-    N1 = N0-1,
-    create_file(FD, M, N1, [&lt;&lt;N1:32/unsigned&gt;&gt; | R]).</pre>
-
+       device (see <a href="../stdlib/io.html" class="seealso"><code>io</code></a>).
+       Therefore, when data is written to a normal file, the sending of the
+       data to the file process, copies all data that are not binaries. Opening
+       the file in binary mode and writing binaries is therefore recommended.
+       If the file is opened on another node, or if the file server runs as
+       slave to the file server of another node, also binaries are copied.</p>
     <div class="note"><h2>Note!</h2>
-      <p>Trust only your own benchmarks. If the list length in 
-        <code>create_file/2</code> above is increased, it runs slightly
-        faster, but consumes more memory and causes more memory
-        fragmentation. How much this affects your application is
-        something that this simple benchmark cannot predict.</p>
-      <p>If the size of each binary is increased to 64 bytes, it
-        also runs slightly faster, but the code is then twice as clumsy.
-        In the current implementation, binaries larger than 64 bytes are
-        stored in memory common to all processes and not copied when
-        sent between processes, while these smaller binaries are stored
-        on the process heap and copied when sent like any other term.</p>
-      <p>So, with a binary size of 68 bytes, <code>create_file/2</code> runs
-        30 percent slower than with 64 bytes, and causes much more
-        memory fragmentation. Notice that if the binaries were to be sent
-        between processes (for example, a non-raw file), the results
-        would probably be completely different.</p>
+      <p>Raw files use the file system of the host machine of the node.
+         For normal files (non-raw), the file server is used to find the files,
+         and if the node is running its file server as slave to the file server
+         of another node, and the other node runs on some other host machine,
+         they can have different file systems.
+         However, this is seldom a problem.</p>
     </div>
-    <p>A raw file is really a port. When writing data to a port, it is
-      efficient to write a list of binaries. It is not needed to
-      flatten a deep list before writing. On Unix hosts, scatter output,
-      which writes a set of buffers in one operation, is used when
-      possible. In this way <code>write(FD, [Bin1, Bin2 | Bin3])</code>
-      writes the contents of the binaries without copying the data
-      at all, except for perhaps deep down in the operating system
-      kernel.</p>
-    <p>For raw files, <code>pwrite/2</code> and <code>pread/2</code> are
-      efficiently implemented. The file driver is called only once for
-      the whole operation, and the list iteration is done in the file
-      driver.</p>
-    <p>The options <code>delayed_write</code> and <code>read_ahead</code> to 
-      <a href="#open/2" class="seealso"><code>open/2</code></a>
-      make the file driver cache data to reduce
-      the number of operating system calls. The function
-      <code>create_file/2</code> in the recent example takes 60 seconds
-      without option <code>delayed_write</code>, which is 2.6
-      times slower.</p>
-    <p>As a bad example, <code>create_file_slow/2</code>
-      without options <code>raw</code>, <code>binary</code>, and <code>delayed_write</code>,
-      meaning it calls <code>open(Name, [write])</code>, needs
-      1 min 20 seconds for the job, which is 3.5 times slower than
-      the first example, and 150 times slower than the optimized
-      <code>create_file/2</code>.</p>
-      <div class="warning"><h2>Warning!</h2>
-	<p>If an error occurs when accessing an open file with module
-      <a href="../stdlib/io.html" class="seealso"><code>io</code></a>,
-      the process handling the file exits. The dead
-      file process can hang if a process tries to access it later.
-      This will be fixed in a future release.</p>
-      </div>
+    <p><a href="#open/2" class="seealso"><code>open/2</code></a> can be given the
+       options <code>delayed_write</code> and <code>read_ahead</code> to turn on caching,
+       which will reduce the number of operating system calls and greatly
+       improve performance for small reads and writes. However, the overhead
+       won't disappear completely and it's best to keep the number of file
+       operations to a minimum. As a contrived example, the following function
+       writes 4MB in 2.5 seconds when tested:</p>
+
+    <pre class="sh_erlang">
+create_file_slow(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_slow_1(Fd, 4 bsl 20),
+    file:close(Fd).
+
+create_file_slow_1(_Fd, 0) -&gt;
+    ok;
+create_file_slow_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0&gt;&gt;),
+    create_file_slow_1(Fd, M - 1).</pre>
+
+    <p>The following functionally equivalent code writes 128 bytes per call
+       to <a href="#write/2" class="seealso"><code>write/2</code></a> and so does the
+       same work in 0.08 seconds, which is roughly 30 times faster:</p>
+
+    <pre class="sh_erlang">
+create_file(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_1(Fd, 4 bsl 20),
+    file:close(Fd),
+    ok.
+
+create_file_1(_Fd, 0) -&gt;
+    ok;
+create_file_1(Fd, M) when M &gt;= 128 -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(128)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 128);
+create_file_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(M)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 1).</pre>
+
+    <p>When writing data it's generally more efficient to write a list of
+       binaries rather than a list of integers. It is not needed to
+       flatten a deep list before writing. On Unix hosts, scatter output,
+       which writes a set of buffers in one operation, is used when
+       possible. In this way <code>write(FD, [Bin1, Bin2 | Bin3])</code>
+       writes the contents of the binaries without copying the data
+       at all, except for perhaps deep down in the operating system
+       kernel.</p>
+    <div class="warning"><h2>Warning!</h2>
+        <p>If an error occurs when accessing an open file with module
+           <a href="../stdlib/io.html" class="seealso"><code>io</code></a>, the process
+           handling the file exits. The dead file process can hang if a process
+           tries to access it later. This will be fixed in a future release.
+           </p>
+    </div>
   </div>
 
   <div class="section">

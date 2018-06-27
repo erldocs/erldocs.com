@@ -88,10 +88,12 @@
       <p><code>| {#'PBEParameter{}, digest_type()} | #'PBES2-params'{}}</code></p>
       </item>
       
-      <dt><code>public_key() =</code></dt>
+      <dt><span id="type-public_key"> </span>
+      <code>public_key() =</code></dt>
       <item><p><code>rsa_public_key() | dsa_public_key() | ec_public_key()</code></p></item>
       
-      <dt><code>private_key() =</code></dt>
+      <dt><span id="type-private_key"> </span>
+      <code>private_key() =</code></dt>
       <item><p><code>rsa_private_key() | dsa_private_key() | ec_private_key()</code></p></item>
 
       <dt><code>rsa_public_key() =</code></dt>
@@ -112,6 +114,10 @@
       <dt><code>ec_private_key() =</code></dt>
       <item><p><code>#'ECPrivateKey'{}</code></p></item>
 
+      <dt><code>key_params() =</code></dt>
+      <item><p> #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
+      | {rsa, Size::integer(), PubExp::integer()} </p></item>      
+
       <dt><code>public_crypt_options() =</code></dt>
       <item><p><code>[{rsa_pad, rsa_padding()}]</code></p></item>
 
@@ -122,18 +128,31 @@
 	<p><code>| 'rsa_no_padding'</code></p>
       </item>
 
+      <dt><code>public_sign_options() =</code></dt>
+      <item><p><code>[{rsa_pad, rsa_sign_padding()} | {rsa_pss_saltlen, integer()}]</code></p></item>
+
+      <dt><code>rsa_sign_padding() =</code></dt>
+      <item>
+	<p><code>'rsa_pkcs1_padding'</code></p>
+	<p><code>| 'rsa_pkcs1_pss_padding'</code></p>
+      </item>
+
       <dt><code>digest_type() = </code></dt>
       <item><p>Union of <code>rsa_digest_type()</code>, <code>dss_digest_type()</code>, 
       and <code>ecdsa_digest_type()</code>.</p></item>
 
       <dt><code>rsa_digest_type() = </code></dt>
-      <item><p><code>'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p></item>
+      <item><p><code>'md5' | 'ripemd160' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p></item>
 
       <dt><code>dss_digest_type() = </code></dt>
-      <item><p><code>'sha'</code></p></item>
+      <item><p><code>'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p>
+      <p>Note that the actual supported dss_digest_type depends on the underlying crypto library.
+      In OpenSSL version &gt;= 1.0.1 the listed digest are supported, while in 1.0.0 only
+      sha, sha224 and sha256 are supported. In version 0.9.8 only sha is supported.</p>
+      </item>
 
       <dt><code>ecdsa_digest_type() = </code></dt>
-      <item><p><code>'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p></item>
+      <item><p><code>'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'</code></p></item>
       
       <dt><code>crl_reason() = </code></dt>
       <item>
@@ -296,8 +315,7 @@
     <h3 id="generate_key/1">generate_key(Params) -&gt; {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | #'RSAPrivateKey'{}</h3>
     
     <ul class="type">
-      <li><code>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
-      | {rsa, Size::integer(), PubExp::integer} </code></li>
+      <li><code>Params = key_params()</code></li>
     </ul>
   <div class="description">
     <p>Generates a new keypair. Note that except for Diffie-Hellman
@@ -579,8 +597,8 @@ fun(OtpCert :: #'OTPCertificate'{},
        <li><code>OTPCertificate =  #'OTPCertificate'{}</code></li>
        <li><code>DPAndCRLs  = [{DP::#'DistributionPoint'{}, {DerCRL::der_encoded(), CRL::#'CertificateList'{}}}] </code></li>
        <li><code>Options = proplists:proplist()</code></li>
-       <li><code>CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |
-       {bad_cert, {revoked, crl_reason()}}</code></li>
+       <li><code>CRLStatus() =  valid | {bad_cert, revocation_status_undetermined} |  {bad_cert, {revocation_status_undetermined,
+       {bad_crls, Details::term()}}} | {bad_cert, {revoked, crl_reason()}}</code></li>
      </ul>
      <div class="description">
       <p>Performs CRL validation. It is intended to be called from
@@ -608,7 +626,7 @@ fun(OtpCert :: #'OTPCertificate'{},
 	<dt>{issuer_fun, fun()}</dt>
 	<item>
 	  <p>The fun has the following type specification:</p>
-
+	  
 	  <code>
 fun(#'DistributionPoint'{}, #'CertificateList'{},
     {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) -&gt;
@@ -618,7 +636,15 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 	  that has signed the CRL. 
 	  </p>
 	  <code> fun(DP, CRL, Issuer, UserState) -&gt; {ok, RootCert, CertChain}</code>
-	</item>	
+	</item>
+
+	<dt>{undetermined_details, boolean()}</dt>
+	<item>
+	  <p>Defaults to false. When revocation status can not be
+	  determined, and this option is set to true, details of why no
+	  CRLs where accepted are included in the return value.</p>
+	</item>
+
       </taglist>
     </div>
    </div>
@@ -704,6 +730,169 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     </div>
   </div>
 
+  <div class="function">
+    <h3 id="pkix_test_data/1">pkix_test_data(Options) -&gt; Config </h3>
+    <h3 id="pkix_test_data/1-1">pkix_test_data([chain_opts()]) -&gt; [conf_opt()]</h3>
+    
+    <ul class="type">
+      <li><code>Options = #{chain_type() := chain_opts()} </code></li>
+      <d>Options for ROOT, Intermediate and Peer certs</d>
+      
+      <li><code>chain_type() = server_chain | client_chain </code></li>
+
+      <li><code>chain_opts() = #{root := [cert_opt()] | root_cert(),
+      peer := [cert_opt()],
+      intermediates =&gt; [[cert_opt()]]}</code></li>
+      <d>
+	A valid chain must have at least a ROOT and a peer cert.
+	The root cert can be given either as a cert pre-generated by
+	<a href="#pkix_test_root_cert/2" class="seealso">
+	  pkix_test_root_cert/2
+	</a>, or as root cert generation options.
+      </d>
+      <li><code>root_cert() = #{cert := der_encoded(), key := Key}</code></li>
+      <d>
+	A root certificate generated by
+	<a href="#pkix_test_root_cert/2" class="seealso">
+	  pkix_test_root_cert/2
+	</a>.
+      </d>
+      <li><code>cert_opt() = {Key, Value}</code></li>
+      <d>For available options see <a href="#cert_opt" class="seealso"> cert_opt()</a> below.</d>
+
+      <li><code>Config = #{server_config := [conf_opt()],
+      client_config := [conf_opt()]}</code></li>
+
+      <li><code>conf_opt() = {cert, der_encoded()} | {key, PrivateKey} |{cacerts, [der_encoded()]}</code></li>
+      <d>
+	This is a subset of the type
+	<a href="../ssl/ssl.html#type-ssloption" class="seealso"> ssl:ssl_option()</a>.
+	<code>PrivateKey</code> is what
+	<a href="#generate_key/1" class="seealso">generate_key/1</a>
+	returns.
+      </d>
+    </ul>
+    
+    <div class="description">
+      <p>
+	Creates certificate configuration(s) consisting of certificate
+	and its private key plus CA certificate bundle, for a client
+	and a server, intended to facilitate automated testing
+	of applications using X509-certificates,
+	often through SSL/TLS. The test data can be used
+	when you have control over both the client and the server
+	in a test scenario.
+      </p>
+      <p>
+	When this function is called with a map containing
+	client and server chain specifications;
+	it generates both a client and a server certificate chain
+	where the <code>cacerts</code>
+	returned for the server contains the root cert the server
+	should trust and the intermediate certificates the server
+	should present to connecting clients.
+	The root cert the server should trust is the one used
+	as root of the client certificate chain.
+	Vice versa applies to the <code>cacerts</code> returned for the client.
+	The root cert(s) can either be pre-generated with
+	<a href="#pkix_test_root_cert/2" class="seealso">
+	  pkix_test_root_cert/2
+	</a>, or if options are specified; it is (they are)
+	 generated.
+      </p>
+      <p>
+	When this function is called with a list of certificate options;
+	it generates a configuration with just one node certificate
+	where <code>cacerts</code> contains the root cert
+	and the intermediate certs that should be presented to a peer.
+	In this case the same root cert must be used for all peers.
+	This is useful in for example an Erlang distributed cluster
+	where any node,	towards another node, acts either
+	as a server or as a client depending on who connects to whom.
+	The generated certificate contains a subject altname,
+	which is not needed in a client certificate,
+	but makes the certificate useful for both roles.
+      </p>
+      <p>
+	The <span id="cert_opt"> </span><code>cert_opt()</code>
+	type consists of the following options:
+      </p>
+      <taglist>
+	<dt> {digest, digest_type()}</dt>
+	<item><p>Hash algorithm to be used for
+	signing the certificate together with the key option. Defaults to sha that is sha1.
+	</p></item>
+	<dt> {key, key_params() | private_key()}</dt>
+	<item><p>Parameters to be used to call public_key:generate_key/1, to generate a key, or an existing
+	key. Defaults to generating an ECDSA key. Note this could fail if Erlang/OTP is compiled with a very old
+	cryptolib.</p></item>
+	<dt> {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} </dt>
+	<item><p>The validity period of the certificate.</p></item>
+	<dt> {extensions, [#'Extension'{}]}</dt>
+	<item><p> Extensions to include in the certificate.</p>
+	      
+	  <p>Default extensions included in CA certificates if not
+	  otherwise specified are: </p>
+	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [keyCertSign, cRLSign],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-basicConstraints',
+             extnValue = #'BasicConstraints'{cA = true},
+             critical = true}]
+	  </code>
+
+	  <p>Default extensions included in the server peer cert if not
+	  otherwise specified are: </p>
+	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [digitalSignature, keyAgreement],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-subjectAltName',
+             extnValue = [{dNSName, Hostname}],
+             critical = false}]
+	  </code>
+	  <p>Hostname is the result of calling net_adm:localhost() in the Erlang node
+	  where this funcion is called.
+	  </p></item>
+
+	</taglist>
+	  
+	<div class="note"><h2>Note!</h2><p>
+	Note that the generated certificates and keys does not provide a formally correct PKIX-trust-chain 
+	and they can not be used to achieve real security. This function is provided for testing purposes only.
+</p></div>
+    </div>
+  </div>
+  
+  <div class="function">
+    <h3 id="pkix_test_root_cert/2">pkix_test_root_cert(Name, Options) -&gt; RootCert</h3>
+    
+    <ul class="type">
+      <li><code>Name = string()</code></li>
+      <d>The root certificate name.</d>
+      <li><code>Options = [cert_opt()]</code></li>
+      <d>
+	For available options see
+	<a href="#cert_opt" class="seealso">cert_opt()</a>
+	under
+	<a href="#pkix_test_data/1" class="seealso">pkix_test_data/1</a>.
+      </d>
+      <li><code>RootCert = #{cert := der_encoded(), key := Key}</code></li>
+      <d>
+	A root certificate and key.  The <code>Key</code> is generated by
+	<a href="#generate_key/1" class="seealso">generate_key/1</a>.
+      </d>
+    </ul>
+    <div class="description">
+      <p>
+	Generates a root certificate that can be used
+	in multiple calls to
+	<a href="#pkix_test_data/1" class="seealso">pkix_test_data/1</a>
+	when you want the same root certificate for
+	several generated certificates.
+      </p>
+    </div>
+  </div>
+
   <div class="function">  
     <h3 id="pkix_verify/2">pkix_verify(Cert, Key) -&gt; boolean()</h3>
     
@@ -723,33 +912,111 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <ul class="type">
       <li><code>Cert = der_encoded() | #'OTPCertificate'{} </code></li>
       <li><code>ReferenceIDs = [ RefID ]</code></li>
-      <li><code>RefID = {IdType,string()}</code></li>
-      <li><code>IdType = dns_id | srv_id | uri_id</code></li>
+      <li><code>RefID = {dns_id,string()} | {srv_id,string()} | {uri_id,string()} | {ip,inet:ip_address()|string()} | {OtherRefID,term()}}</code></li>
+      <li><code>OtherRefID = atom()</code></li>
       <li><code>Opts = [ PvhOpt() ]</code></li>
       <li><code>PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</code></li>
-      <li><code>MatchOpt = {fun(RefId | FQDN::string(), PresentedID) -&gt; boolean() | default}</code></li>
-      <li><code>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string()}</code></li>
+      <li><code>MatchOpt = {match_fun, fun(RefId | FQDN::string(), PresentedID) -&gt; boolean() | default}</code></li>
+      <li><code>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string() | {iPAddress,list(byte())} | {OtherPresId,term()}}</code></li>
+      <li><code>OtherPresID = atom()</code></li>
       <li><code>FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -&gt; boolean()}</code></li>
       <li><code>FqdnExtractOpt = {fqdn_fun, fun(RefID) -&gt; FQDN::string() | default | undefined}</code></li>
     </ul>
     <div class="description">
       <p>This function checks that the <i>Presented Identifier</i> (e.g hostname) in a peer certificate
-      conforms with the Expected Identifier that the client wants to connect to.
-      This functions is intended to be added as an extra client check to the peer certificate when performing
+      is in agreement with at least one of the <i>Reference Identifier</i> that the client expects to be connected to.
+      The function is intended to be added as an extra client check of the peer certificate when performing
       <a href="../public_key/public_key.html#pkix_path_validation/3" class="seealso">public_key:pkix_path_validation/3</a>
       </p>
       <p>See <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>
       for detailed information about hostname verification.
-      The <a href="using_public_key.html#verify_hostname" class="seealso">User's Manual</a>
+      The <a href="using_public_key.html#verify_hostname" class="seealso">User's Guide</a>
       and
       <a href="using_public_key.html#verify_hostname_examples" class="seealso">code examples</a>
       describes this function more detailed.
       </p>
+      <p>The <code>{OtherRefId,term()}</code> is defined by the user and is passed to the <code>match_fun</code>, if defined.
+      If the term in <code>OtherRefId</code> is a binary, it will be converted to a string.
+      </p>
+      <p>The <code>ip</code> Reference ID takes an <a href="../inet/inet.html#type-ip_address" class="seealso">inet:ip_address()</a>
+      or an ip address in string format (E.g "10.0.1.1" or "1234::5678:9012") as second element.
+      </p>
+      <p>The options are:</p>
+      <taglist>
+	<dt><code>match_fun</code></dt>
+	<item>
+	  The <code>fun/2</code> in this option replaces the default host name matching rules. The fun should return a
+	  boolean to tell if the Reference ID and Presented ID matches or not. The fun can also return a third 
+	  value, the atom <code>default</code>, if the default matching rules shall apply.
+	  This makes it possible to augment the tests with a special case:
+	  <code>
+fun(....) -&gt; true;   % My special case
+   (_, _) -&gt; default % all others falls back to the inherit tests
+end
+	  </code>
+	  <br>
+See <a href="#pkix_verify_hostname_match_fun/1" class="seealso">pkix_verify_hostname_match_fun/1</a> for a
+	  function that takes a protocol name as argument and returns a <code>fun/2</code> suitable for this option and
+	  <a href="using_public_key.html#redefining_match_op" class="seealso">Re-defining the match operation</a>
+	  in the User's Guide for an example.
+	</item>
+
+	<dt><code>fail_callback</code></dt>
+	<item>If a matching fails, there could be circumstances when the certificate should be accepted anyway. Think for
+	example of a web browser where you choose to accept an outdated certificate. This option enables implementation
+	of such a function. This <code>fun/1</code> is called when no <code>ReferenceID</code> matches. The return value of the fun
+	(a <code>boolean()</code>) decides the outcome. If <code>true</code> the the certificate is accepted otherwise
+	it is rejected. See
+	<a href="using_public_key.html#-pinning--a-certificate" class="seealso">"Pinning" a Certificate</a>
+	in the User's Guide.
+	</item>
+
+	<dt><code>fqdn_fun</code></dt>
+	<item>This option augments the host name extraction from URIs and other Reference IDs. It could for example be
+	a very special URI that is not standardised. The fun takes a Reference ID as argument and returns one of:
+	<list>
+	  <item>the hostname</item>
+	  <item>the atom <code>default</code>: the default host name extract function will be used</item>
+	  <item>the atom <code>undefined</code>: a host name could not be extracted. The pkix_verify_hostname/3
+	  will return <code>false</code>.</item>
+	</list>
+	<br>
+For an example, see
+	<a href="using_public_key.html#hostname_extraction" class="seealso">Hostname extraction</a>
+	in the User's Guide.
+	</item>
+      </taglist>
+
     </div>
   </div>
 
   <div class="function">
+    <h3 id="pkix_verify_hostname_match_fun/1">pkix_verify_hostname_match_fun(Protcol) -&gt;  fun(RefId | FQDN::string(), PresentedID) -&gt; boolean() | default</h3>
+    
+    <ul class="type">
+      <li><code>Protocol = https</code></li>
+      <d>The algorithm for wich the fun should implement the special matching rules</d>
+      <li><code>RefId</code></li>
+      <d>See <a href="#pkix_verify_hostname/3" class="seealso">pkix_verify_hostname/3</a>.</d>
+      <li><code>FQDN</code></li>
+      <d>See <a href="#pkix_verify_hostname/3" class="seealso">pkix_verify_hostname/3</a>.</d>
+      <li><code>PresentedID</code></li>
+      <d>See <a href="#pkix_verify_hostname/3" class="seealso">pkix_verify_hostname/3</a>.</d>
+    </ul>
+    <div class="description">
+      <p>The return value of calling this function is intended to be used in the <code>match_fun</code> option in
+      <a href="#pkix_verify_hostname/3" class="seealso">pkix_verify_hostname/3</a>.
+      </p>
+      <p>The returned fun augments the verify hostname matching according to the specific rules for
+      the protocol in the argument.
+      </p>
+    </div>
+  </div>
+  
+
+  <div class="function">
     <h3 id="sign/3">sign(Msg, DigestType, Key) -&gt; binary()</h3>
+    <h3 id="sign/4">sign(Msg, DigestType, Key, Options) -&gt; binary()</h3>
     
     <ul class="type">
        <li><code>Msg = binary() | {digest,binary()}</code></li>
@@ -758,6 +1025,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
        digest.</d>
        <li><code>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</code></li>
        <li><code>Key = rsa_private_key() | dsa_private_key() | ec_private_key()</code></li>
+       <li><code>Options = public_sign_options()</code></li>
   </ul>
   <div class="description">
     <p>Creates a digital signature.</p> 
@@ -849,6 +1117,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
   <div class="function">
     <h3 id="verify/4">verify(Msg, DigestType, Signature, Key) -&gt; boolean()</h3>
+    <h3 id="verify/5">verify(Msg, DigestType, Signature, Key, Options) -&gt; boolean()</h3>
     
     <ul class="type">
       <li><code>Msg = binary() | {digest,binary()}</code></li>
@@ -857,6 +1126,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <li><code>DigestType = rsa_digest_type() | dss_digest_type() | ecdsa_digest_type()</code></li>
       <li><code>Signature = binary()</code></li>
       <li><code>Key = rsa_public_key() | dsa_public_key() | ec_public_key()</code></li>
+      <li><code>Options = public_sign_options()</code></li>
   </ul>
   <div class="description">
     <p>Verifies a digital signature.</p>

@@ -68,7 +68,9 @@ before configuring TLS capability on diameter transports.</p>
           | {rport, integer()}
           | {accept, Match}
           | {port, integer()}
-          | {fragment_timer, infinity | 0..16#FFFFFFFF}</code></li>
+          | {fragment_timer, infinity | 0..16#FFFFFFFF}
+          | {message_cb, <a href="diameter.html#eval" class="seealso">diameter:eval()</a>}
+          | {sender, boolean()}</code></li>
 <li><code>SslOpt = {ssl_options, true | list()}</code></li>
 <li><code>TcpOpt = term()</code></li>
 <li><code>Match = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a> | string() | [Match]</code></li>
@@ -109,6 +111,44 @@ such a message is received over the transport interface after
 two successive timeouts without the reception of additional bytes.
 Defaults to 1000.</p>
 
+<span id="sender"> </span>
+<p>
+Option <code>sender</code> specifies whether or not to use a dedicated
+process for sending outgoing messages, which avoids the possibility of
+send blocking reception.
+Defaults to <code>false</code>.
+If set to <code>true</code> then a <code>message_cb</code> that avoids the
+possibility of messages being queued in the sender process without
+bound should be configured.</p>
+
+<p>
+Option <code>message_cb</code> specifies a callback that is invoked on
+incoming and outgoing messages, that can be used to implement
+flow control.
+It is applied to two arguments: an atom indicating the
+reason for the callback (<code>send</code>, <code>recv</code>, or <code>ack</code> after
+a completed send), and the message in question (binary() on
+<code>recv</code>, binary() or diameter_packet record on <code>send</code> or
+<code>ack</code>, or <code>false</code> on <code>ack</code> when an incoming request has
+been discarded).
+It should return a list of actions and a new callback as
+tail; eg. <code>[fun cb/3, State]</code>.
+Valid actions are the atoms <code>send</code> or <code>recv</code>, to
+cause a following message-valued action to be sent/received,
+a message to send/receive (binary() or
+diameter_packet record), or a boolean() to enable/disable reading on
+the socket.
+More than one <code>send</code>/<code>recv</code>/message sequence can be
+returned from the same callback, and an initial
+<code>send</code>/<code>recv</code> can be omitted if the same as the value passed
+as the callback's first argument.
+Reading is initially enabled, and returning <code>false</code> does not
+imply there cannot be subsequent <code>recv</code> callbacks since
+messages may already have been read.
+An empty tail is equivalent to the prevailing callback.
+Defaults to a callback equivalent to <code>fun(ack, _) -&gt; []; (_, Msg) -&gt;
+[Msg] end</code>.</p>
+
 <p>
 Remaining options are any accepted by <a href="../ssl/ssl.html#connect/3" class="seealso">ssl:connect/3</a> or
 <a href="../kernel/gen_tcp.html#connect/3" class="seealso">gen_tcp:connect/3</a> for
@@ -139,14 +179,11 @@ that will not be forthcoming, which will eventually cause the RFC 3539
 watchdog to take down the connection.</p>
 
 <p>
-If an <code>ip</code> option is not specified then the first element of a
-non-empty <code>Host-IP-Address</code> list in <code>Svc</code> provides the local
-IP address.
-If neither is specified then the default address selected by <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3)</a>
-is used.
-In all cases, the selected address is either returned from
-<a href="#start/3" class="seealso">start/3</a> or passed in a <code>connected</code> message over the transport
-interface.</p>
+The first element of a non-empty <code>Host-IP-Address</code> list in
+<code>Svc</code> provides the local IP address if an <code>ip</code> option is not
+specified.
+The local address is either returned from<a href="#start/3" class="seealso">start/3</a> or passed in a
+<code>connected</code> message over the transport interface.</p>
 </div>
 </div>
 

@@ -30,7 +30,68 @@
   <h2 class="modsummary">Generic state machine behavior.</h2>
   <div class="description">
     <p>
-      This behavior module provides a state machine. Two
+      <code>gen_statem</code> provides a generic state machine behaviour
+      and replaces its predecessor
+      <a href="gen_fsm.html" class="seealso"><code>gen_fsm</code></a>
+      since Erlang/OTP 20.0.
+    </p>
+    <p>
+      This reference manual describes types generated from the types
+      in the <code>gen_statem</code> source code, so they are correct.
+      However, the generated descriptions also reflect the type hiearchy,
+      which makes them kind of hard to read.
+    </p>
+    <p>
+      To get an overview of the concepts and operation of <code>gen_statem</code>,
+      do read the
+      <a href="../doc/design_principles/statem.html" class="seealso">
+	<code>gen_statem</code> Behaviour
+      </a>
+      in
+      <a href="../doc/design_principles/users_guide.html" class="seealso">
+	OTP Design Principles
+      </a>
+      which frequently links back to this reference manual to avoid
+      containing detailed facts that may rot by age.
+    </p>
+    <div class="note"><h2>Note!</h2>
+      <p>
+        This behavior appeared in Erlang/OTP 19.0.
+	In OTP 19.1 a backwards incompatible change of
+	the return tuple from
+	<a href="../#Module/init/1.html" class="seealso"><code>Module:init/1</code></a>
+	was made and the mandatory callback function
+	<a href="../#Module/callback_mode/0.html" class="seealso">
+	  <code>Module:callback_mode/0</code>
+	</a>
+	was introduced.  In OTP 20.0 the
+        <a href="#type-generic_timeout" class="seealso"><code>generic timeouts</code></a>
+	were added.
+      </p>
+    </div>
+    <p>
+      <code>gen_statem</code> has got the same features that
+      <a href="gen_fsm.html" class="seealso"><code>gen_fsm</code></a>
+      had and adds some really useful:
+    </p>
+    <list type="bulleted">
+      <item>Co-located state code</item>
+      <item>Arbitrary term state</item>
+      <item>Event postponing</item>
+      <item>Self-generated events</item>
+      <item>State time-out</item>
+      <item>Multiple generic named time-outs</item>
+      <item>Absolute time-out time</item>
+      <item>Automatic state enter calls</item>
+      <item>
+	Reply from other state than the request, <code>sys</code> traceable
+      </item>
+      <item>Multiple <code>sys</code> traceable replies</item>
+    </list>
+
+
+    <p>
+      Two
       <a href="#type-callback_mode" class="seealso"><em>callback modes</em></a>
       are supported:
     </p>
@@ -47,34 +108,6 @@
           that uses one callback function for all states
         </p>
       </item>
-    </list>
-    <div class="note"><h2>Note!</h2>
-      <p>
-        This is a new behavior in Erlang/OTP 19.0.
-        It has been thoroughly reviewed, is stable enough
-        to be used by at least two heavy OTP applications,
-	and is here to stay.
-        Depending on user feedback, we do not expect
-        but can find it necessary to make minor
-        not backward compatible changes into Erlang/OTP 20.0.
-      </p>
-    </div>
-    <p>
-      The <code>gen_statem</code> behavior replaces 
-      <a href="gen_fsm.html" class="seealso"><code>gen_fsm</code> </a> in Erlang/OTP 20.0.
-      It has the same features and adds some really useful:
-    </p>
-    <list type="bulleted">
-      <item>Gathered state code.</item>
-      <item>Arbitrary term state.</item>
-      <item>Event postponing.</item>
-      <item>Self-generated events.</item>
-      <item>State time-out.</item>
-      <item>Multiple generic named time-outs.</item>
-      <item>Absolute time-out time.</item>
-      <item>Automatic state enter calls.</item>
-      <item>Reply from other state than the request.</item>
-      <item>Multiple <code>sys</code> traceable replies.</item>
     </list>
     <p>
       The callback model(s) for <code>gen_statem</code> differs from
@@ -146,7 +179,7 @@ erlang:'!'            -----&gt; Module:StateName/3
       is <code>state_functions</code>, the state must be an atom and
       is used as the state callback name; see
       <a href="../#Module/StateName/3.html" class="seealso"><code>Module:StateName/3</code></a>.
-      This gathers all code for a specific state
+      This co-locates all code for a specific state
       in one function as the <code>gen_statem</code> engine
       branches depending on state name.
       Note the fact that the callback function
@@ -205,8 +238,10 @@ erlang:'!'            -----&gt; Module:StateName/3
       whenever a new state is entered; see 
       <a href="#type-state_enter" class="seealso"><code>state_enter()</code></a>.
       This is for writing code common to all state entries.
-      Another way to do it is to insert events at state transitions,
-      but you have to do so everywhere it is needed.
+      Another way to do it is to insert an event at the state transition,
+      and/or to use a dedicated state transition function,
+      but that is something you will have to remember
+      at every state transition to the state(s) that need it.
     </p>
     <div class="note"><h2>Note!</h2>
       <p>If you in <code>gen_statem</code>, for example, postpone
@@ -249,6 +284,16 @@ erlang:'!'            -----&gt; Module:StateName/3
       as hibernation can be too costly
       to use after every event; see
       <a href="../erts/erlang.html#hibernate/3" class="seealso"><code>erlang:hibernate/3</code></a>.
+    </p>
+    <p>
+      There is also a server start option
+      <a href="#type-hibernate_after_opt" class="seealso">
+	<code>{hibernate_after, Timeout}</code>
+      </a>
+      for
+      <a href="#start/3" class="seealso"><code>start/3,4</code></a> or
+      <a href="#start_link/3" class="seealso"><code>start_link/3,4</code></a>
+      that may be used to automatically hibernate the server.
     </p>
   </div>
 
@@ -555,16 +600,26 @@ handle_event(_, _, State, Data) -&gt;
     </div>
     <div class="type">
       <h3 id="type-event_type">event_type() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{call, From :: <a href="#type-from" class="seealso">from()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cast |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timeout |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout, Name :: term()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;state_timeout |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;internal</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-external_event_type" class="seealso">external_event_type()</a> | <a href="#type-timeout_event_type" class="seealso">timeout_event_type()</a> | internal</h3>
       <div class="description">
 	<p>
-	  External events are of three types:
+	  There are 3 categories of events:
+	  <a href="#type-external_event_type" class="seealso">external</a>,
+	  <a href="#type-timeout_event_type" class="seealso">timeout</a>,
+	  and <code>internal</code>.
+	</p>
+	<p>
+	  <code>internal</code> events can only be generated by the
+	  state machine itself through the state transition action
+	  <a href="#type-action" class="seealso"><code>next_event</code></a>.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-external_event_type">external_event_type() = {call, From :: <a href="#type-from" class="seealso">from()</a>} | cast | info</h3>
+      <div class="description">
+	<p>
+	  External events are of 3 types:
 	  <code>{call,<anno>From</anno>}</code>, <code>cast</code>, or <code>info</code>.
 	  <a href="#call/2" class="seealso">Calls</a>
 	  (synchronous) and
@@ -572,12 +627,18 @@ handle_event(_, _, State, Data) -&gt;
 	  originate from the corresponding API functions.
 	  For calls, the event contains whom to reply to.
 	  Type <code>info</code> originates from regular process messages sent
-	  to the <code>gen_statem</code>. The state machine
-	  implementation can, in addition to the above,
-	  generate
-	  <a href="#type-event_type" class="seealso"><code>events of types</code></a>
-	  <code>timeout</code>, <code>{timeout,<anno>Name</anno>}</code>,
-	  <code>state_timeout</code>, and <code>internal</code> to itself.
+	  to the <code>gen_statem</code>.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-timeout_event_type">timeout_event_type() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timeout | {timeout, Name :: term()} | state_timeout</h3>
+      <div class="description">
+	<p>
+	  There are 3 types of timeout events that the state machine
+	  can generate for itself with the corresponding
+	  <a href="#type-timeout_action" class="seealso">timeout_action()</a>s.
 	</p>
       </div>
     </div>
@@ -669,9 +730,9 @@ handle_event(_, _, State, Data) -&gt;
 	<p>
 	  If 
 	  <a href="../#Module/code_change/4.html" class="seealso"><code>Module:code_change/4</code></a>
-	  should transform the state to a state with a different
-	  name it is still regarded as the same state so this
-	  does not cause a state enter call.
+	  should transform the state,
+	  it is regarded as a state rename and not a state change,
+	  which will not cause a state enter call.
 	</p>
 	<p>
 	  Note that a state enter call <em>will</em> be done
@@ -694,12 +755,19 @@ handle_event(_, _, State, Data) -&gt;
 	<p>
 	  Transition options can be set by
 	  <a href="#type-action" class="seealso">actions</a>
-	  and they modify how the state transition is done:
+	  and modify the state transition.
+	  Here are the sequence of steps for a state transition:
 	</p>
 	<list type="ordered">
 	  <item>
             <p>
-	      If the state changes, is the initial state,
+	      If
+	      <a href="#type-state_enter" class="seealso">
+		<em>state enter calls</em>
+	      </a>
+	      are used, and either:
+	      the state changes, it is the initial state,
+	      or one of the callback results
 	      <a href="#type-state_callback_result" class="seealso">
 		<code>repeat_state</code>
 	      </a>
@@ -707,16 +775,21 @@ handle_event(_, _, State, Data) -&gt;
 	      <a href="#type-state_callback_result" class="seealso">
 		<code>repeat_state_and_data</code>
 	      </a>
-	      is used, and also
-	      <a href="#type-state_enter" class="seealso"><em>state enter calls</em></a>
-	      are used, the <code>gen_statem</code> calls
+	      is used; the <code>gen_statem</code> calls
 	      the new state callback with arguments
-	      <a href="#type-state_enter" class="seealso">(enter, OldState, Data)</a>.
+	      <a href="#type-state_enter" class="seealso"><code>(enter, OldState, Data)</code></a>.
+	    </p>
+	    <p>
 	      Any 
-	      <a href="#type-enter_action" class="seealso"><code>actions</code></a>
+	      <a href="#type-enter_action" class="seealso">actions</a>
 	      returned from this call are handled as if they were
-	      appended to the actions 
-	      returned by the state callback that changed states.
+	      appended to the actions
+	      returned by the state callback that caused the state entry.
+	    </p>
+	    <p>
+	      Should this state enter call return any of
+	      the mentioned <code>repeat_*</code> callback results
+	      it is repeated again, with the updated <code>Data</code>.
             </p>
 	  </item>
 	  <item>
@@ -745,7 +818,7 @@ handle_event(_, _, State, Data) -&gt;
 	      All events stored with
 	      <a href="#type-action" class="seealso"><code>action()</code></a>
 	      <code>next_event</code>
-	      are inserted to be processed before the other queued events.
+	      are inserted to be processed before previously queued events.
             </p>
 	  </item>
 	  <item>
@@ -759,7 +832,9 @@ handle_event(_, _, State, Data) -&gt;
 	      delivered to the state machine before any external
 	      not yet received event so if there is such a time-out requested,
 	      the corresponding time-out zero event is enqueued as
-	      the newest event.
+	      the newest received event;
+	      that is after already queued events
+	      such as inserted and postponed events.
 	    </p>
 	    <p>
 	      Any event cancels an
@@ -797,7 +872,7 @@ handle_event(_, _, State, Data) -&gt;
 	      When a new message arrives the 
 	      <a href="#state callback" class="seealso">state callback</a>
 	      is called with the corresponding event,
-	      and we start again from the top of this list.
+	      and we start again from the top of this sequence.
 	    </p>
 	  </item>
 	</list>
@@ -822,13 +897,19 @@ handle_event(_, _, State, Data) -&gt;
 	  <a href="proc_lib.html#hibernate/3" class="seealso"><code>proc_lib:hibernate/3</code></a>
 	  before going into <code>receive</code>
 	  to wait for a new external event.
-	  If there are enqueued events,
-	  to prevent receiving any new event, an
-	  <a href="../erts/erlang.html#garbage_collect/0" class="seealso"><code>erlang:garbage_collect/0</code></a>
-	  is done instead to simulate
-	  that the <code>gen_statem</code> entered hibernation
-	  and immediately got awakened by the oldest enqueued event.
 	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    If there are enqueued events to process
+	    when hibrnation is requested,
+	    this is optimized by not hibernating but instead calling
+	    <a href="../erts/erlang.html#garbage_collect/0" class="seealso">
+	      <code>erlang:garbage_collect/0</code>
+	    </a>
+	    to simulate that the <code>gen_statem</code> entered hibernation
+	    and immediately got awakened by an enqueued event.
+	  </p>
+	</div>
       </div>
     </div>
     <div class="type">
@@ -863,7 +944,7 @@ handle_event(_, _, State, Data) -&gt;
 	  no timer is actually started,
 	  instead the the time-out event is enqueued to ensure
 	  that it gets processed before any not yet
-	  received external event.
+	  received external event, but after already queued events.
 	</p>
 	<p>
 	  Note that it is not possible nor needed to cancel this time-out,
@@ -949,7 +1030,9 @@ handle_event(_, _, State, Data) -&gt;
 	  If <code>Abs</code> is <code>true</code> an absolute timer is started,
 	  and if it is <code>false</code> a relative, which is the default.
 	  See
-	  <a href="../erts/erlang.html#start_timer/4" class="seealso"><code>erlang:start_timer/4</code></a>
+	  <a href="../erts/erlang.html#start_timer/4" class="seealso">
+	    <code>erlang:start_timer/4</code>
+	  </a>
 	  for details.
 	</p>
 	<p>
@@ -981,7 +1064,9 @@ handle_event(_, _, State, Data) -&gt;
 	</p>
 	<p>
 	  Actions that set
-	  <a href="#type-transition_option" class="seealso">transition options</a>
+	  <a href="#type-transition_option" class="seealso">
+	    transition options
+	  </a>
 	  override any previous of the same type,
 	  so the last in the containing list wins.
 	  For example, the last
@@ -993,7 +1078,9 @@ handle_event(_, _, State, Data) -&gt;
 	  <item>
 	    <p>
 	      Sets the
-	      <a href="#type-transition_option" class="seealso"><code>transition_option()</code></a>
+	      <a href="#type-transition_option" class="seealso">
+		<code>transition_option()</code>
+	      </a>
 	      <a href="#type-postpone" class="seealso"><code>postpone()</code></a>
 	      for this state transition.
 	      This action is ignored when returned from
@@ -1006,7 +1093,11 @@ handle_event(_, _, State, Data) -&gt;
 	  <dt><code>next_event</code></dt>
 	  <item>
 	    <p>
-	      Stores the specified <code><anno>EventType</anno></code>
+	      This action does not set any
+	      <a href="#type-transition_option" class="seealso">
+		<code>transition_option()</code>
+	      </a>
+	      but instead stores the specified <code><anno>EventType</anno></code>
 	      and <code><anno>EventContent</anno></code> for insertion after all
 	      actions have been executed.
 	    </p>
@@ -1030,26 +1121,7 @@ handle_event(_, _, State, Data) -&gt;
       <h3 id="type-enter_action">enter_action() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hibernate |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{hibernate, Hibernate :: <a href="#type-hibernate" class="seealso">hibernate()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Timeout :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>) |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout, Time :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>, EventContent :: term()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{timeout, Name :: term()},<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-generic_timeout" class="seealso">generic_timeout()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{timeout, Name :: term()},<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-generic_timeout" class="seealso">generic_timeout()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{state_timeout,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-state_timeout" class="seealso">state_timeout()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{state_timeout,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-state_timeout" class="seealso">state_timeout()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-timeout_action" class="seealso">timeout_action()</a> |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-reply_action" class="seealso">reply_action()</a></h3>
       <div class="description">
 	<p>
@@ -1082,15 +1154,54 @@ handle_event(_, _, State, Data) -&gt;
 	      for this state transition.
 	    </p>
 	  </item>
-	  <dt><code>Timeout</code></dt>
+	</taglist>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-timeout_action">timeout_action() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Time :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout, Time :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>, EventContent :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-event_timeout" class="seealso">event_timeout()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{timeout, Name :: term()},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-generic_timeout" class="seealso">generic_timeout()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{timeout, Name :: term()},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-generic_timeout" class="seealso">generic_timeout()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{state_timeout,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-state_timeout" class="seealso">state_timeout()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{state_timeout,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time :: <a href="#type-state_timeout" class="seealso">state_timeout()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EventContent :: term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Options :: <a href="#type-timeout_option" class="seealso">timeout_option()</a> | [<a href="#type-timeout_option" class="seealso">timeout_option()</a>]}</h3>
+      <div class="description">
+	<p>
+	  These state transition actions can be invoked by
+	  returning them from the
+	  <a href="#state callback" class="seealso">state callback</a>, from
+	  <a href="../#Module/init/1.html" class="seealso"><code>Module:init/1</code></a>
+	  or by giving them to
+	  <a href="#enter_loop/5" class="seealso"><code>enter_loop/5,6</code></a>.
+	</p>
+	<p>
+	  These timeout actions sets timeout
+	  <a href="#type-transition_option" class="seealso">transition options</a>.
+	</p>
+	<taglist>
+	  <dt><code>Time</code></dt>
 	  <item>
 	    <p>
-	      Short for <code>{timeout,Timeout,Timeout}</code>, that is,
+	      Short for <code>{timeout,Time,Time}</code>, that is,
 	      the time-out message is the time-out time.
 	      This form exists to make the
 	      <a href="#state callback" class="seealso">state callback</a>
-	      return value <code>{next_state,NextState,NewData,Timeout}</code>
-	      allowed like for <code>gen_fsm</code>'s
+	      return value <code>{next_state,NextState,NewData,Time}</code>
+	      allowed like for <code>gen_fsm</code>.
 	    </p>
 	  </item>
 	  <dt><code>timeout</code></dt>
@@ -1142,7 +1253,11 @@ handle_event(_, _, State, Data) -&gt;
 	  <a href="#enter_loop/5" class="seealso"><code>enter_loop/5,6</code></a>.
 	</p>
 	<p>
-	  It replies to a caller waiting for a reply in
+	  It does not set any
+	  <a href="#type-transition_option" class="seealso">
+	    <code>transition_option()</code>
+	  </a>
+	  but instead replies to a caller waiting for a reply in
 	  <a href="#call/2" class="seealso"><code>call/2</code></a>.
 	  <code><anno>From</anno></code> must be the term from argument
 	  <a href="#type-event_type" class="seealso"><code>{call,<anno>From</anno>}</code></a>
@@ -1392,7 +1507,7 @@ handle_event(_, _, State, Data) -&gt;
 	  <code><anno>T</anno></code> is the time-out time.
 	  <code>{clean_timeout,<anno>T</anno>}</code> works like
 	  just <code>T</code> described in the note above
-	  and uses a proxy process for <code>T &lt; infinity</code>,
+	  and uses a proxy process
 	  while <code>{dirty_timeout,<anno>T</anno>}</code>
 	  bypasses the proxy process which is more lightweight.
 	</p>
@@ -1402,8 +1517,12 @@ handle_event(_, _, State, Data) -&gt;
 	    with <code>{dirty_timeout,<anno>T</anno>}</code>
 	    to avoid that the calling process dies when the call
 	    times out, you will have to be prepared to handle
-	    a late reply.
-	    So why not just let the calling process die?
+	    a late reply.  Note that there is an odd chance
+	    to get a late reply even with
+	    <code>{dirty_timeout,infinity}</code> or <code>infinity</code>
+	    for example in the event of network problems.
+	    So why not just let the calling process die
+	    by not catching the exception?
 	  </p>
 	</div>
 	<p>
@@ -1748,7 +1867,7 @@ handle_event(_, _, State, Data) -&gt;
 	  with the expected reason. Any other reason than <code>normal</code>,
 	  <code>shutdown</code>, or <code>{shutdown,Term}</code> causes an
 	  error report to be issued through
-	  <a href="../kernel/error_logger.html#format/2" class="seealso"><code>error_logger:format/2</code></a>.
+	  <a href="../kernel/logger.html" class="seealso"><code>logger(3)</code></a>.
 	  The default <code><anno>Reason</anno></code> is <code>normal</code>.
 	</p>
 	<p>
@@ -1942,7 +2061,7 @@ handle_event(_, _, State, Data) -&gt;
 	</p>
         <div class="note"><h2>Note!</h2>
 	  <p>
-	    Note that if the <code>gen_statem</code> is started trough
+	    Note that if the <code>gen_statem</code> is started through
 	    <a href="proc_lib.html" class="seealso"><code>proc_lib</code></a>
 	    and
 	    <a href="#enter_loop/4" class="seealso"><code>enter_loop/4-6</code></a>,
@@ -2155,16 +2274,20 @@ init(Args) -&gt; erlang:error(not_implemented, [Args]).</pre>
 	  You may also not change states from this call.
 	  Should you return <code>{next_state,NextState, ...}</code>
 	  with <code>NextState =/= State</code> the <code>gen_statem</code> crashes.
-	  It is possible to use <code>{repeat_state, ...}</code>,
-	  <code>{repeat_state_and_data,_}</code> or
-	  <code>repeat_state_and_data</code> but all of them makes little
+	  Note that it is actually allowed to use
+	  <code>{repeat_state, NewData, ...}</code> although it makes little
 	  sense since you immediately will be called again with a new
 	  <em>state enter call</em> making this just a weird way
 	  of looping, and there are better ways to loop in Erlang.
+	  If you do not update <code>NewData</code> and have some
+	  loop termination condition, or if you use
+	  <code>{repeat_state_and_data, _}</code> or
+	  <code>repeat_state_and_data</code> you have an infinite loop!
 	  You are advised to use <code>{keep_state,...}</code>,
 	  <code>{keep_state_and_data,_}</code> or
-	  <code>keep_state_and_data</code> since you can not change states
-	  from a <em>state enter call</em> anyway.
+	  <code>keep_state_and_data</code>
+	  since changing states from a <em>state enter call</em>
+	  is not possible anyway.
 	</p>
 	<p>
 	  Note the fact that you can use
@@ -2249,7 +2372,7 @@ init(Args) -&gt; erlang:error(not_implemented, [Args]).</pre>
           <code>shutdown</code>, or <code>{shutdown,Term}</code>,
 	  the <code>gen_statem</code> is assumed to terminate because of an error
 	  and an error report is issued using
-          <a href="../kernel/error_logger.html#format/2" class="seealso"><code>error_logger:format/2</code></a>.
+          <a href="../kernel/logger.html" class="seealso"><code>logger(3)</code></a>.
 	</p>
       </div>
     </div>

@@ -62,13 +62,22 @@ list_to_binary([Compressed|Last])</pre>
       <dt><code>badarg</code></dt>
       <item>Bad argument.
       </item>
+      <dt><code>not_initialized</code></dt>
+      <item>The stream hasn't been initialized, eg. if
+      <a href="#inflateInit/1" class="seealso"><code>inflateInit/1</code></a> wasn't
+      called prior to a call to
+      <a href="#inflate/2" class="seealso"><code>inflate/2</code></a>.
+      </item>
+      <dt><code>not_on_controlling_process</code></dt>
+      <item>The stream was used by a process that doesn't control it. Use
+      <a href="#set_controlling_process/2" class="seealso">
+      <code>set_controlling_process/2</code></a> if you need to transfer
+      a stream to a different process.</item>
       <dt><code>data_error</code></dt>
       <item>The data contains errors.
       </item>
       <dt><code>stream_error</code></dt>
       <item>Inconsistent stream state.</item>
-      <dt><code>einval</code></dt>
-      <item>Bad value or wrong function called.</item>
       <dt><code>{need_dictionary,Adler32}</code></dt>
       <item>See <a href="#inflate/2" class="seealso"><code>inflate/2</code></a>.
       </item>
@@ -77,7 +86,7 @@ list_to_binary([Compressed|Last])</pre>
 
   <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
     <div class="type">
-      <h3 id="type-zstream">zstream() = port()</h3>
+      <h3 id="type-zstream">zstream() = reference()</h3>
       <div class="description">
         <p>A zlib stream, see <a href="#open/0" class="seealso"><code>open/0</code></a>.
         </p>
@@ -86,6 +95,9 @@ list_to_binary([Compressed|Last])</pre>
     <div class="type">
       <h3 id="type-zlevel">zlevel() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;none | default | best_compression | best_speed | 0..9</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-zflush">zflush() = none | sync | full | finish</h3>
     </div>
     <div class="type">
       <h3 id="type-zmemlevel">zmemlevel() = 1..9</h3>
@@ -107,16 +119,21 @@ list_to_binary([Compressed|Last])</pre>
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
       <h3 id="adler32/2">adler32(Z, Data) -&gt; CheckSum</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>CheckSum = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>CheckSum = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Calculates the Adler-32 checksum for <code><anno>Data</anno></code>.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#adler32/1" class="seealso">
+             <code>erlang:adler32/1</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
     <div class="function">
       <h3 id="adler32/3">adler32(Z, PrevAdler, Data) -&gt; CheckSum</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>PrevAdler = integer()</code></li><li><code>Data = iodata()</code></li><li><code>CheckSum = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>PrevAdler = integer() &gt;= 0</code></li><li><code>Data = iodata()</code></li><li><code>CheckSum = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Updates a running Adler-32 checksum for <code><anno>Data</anno></code>.
@@ -127,12 +144,17 @@ list_to_binary([Compressed|Last])</pre>
 Crc = lists:foldl(fun(Data,Crc0) -&gt;
                       zlib:adler32(Z, Crc0, Data),
                   end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#adler32/2" class="seealso">
+             <code>erlang:adler32/2</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
     <div class="function">
       <h3 id="adler32_combine/4">adler32_combine(Z, Adler1, Adler2, Size2) -&gt; Adler</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Adler = Adler1 = Adler2 = Size2 = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Adler = Adler1 = Adler2 = Size2 = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Combines two Adler-32 checksums into one. For two binaries or
@@ -142,6 +164,11 @@ Crc = lists:foldl(fun(Data,Crc0) -&gt;
         <p>This function returns the <code><anno>Adler</anno></code> checksum of
           <code>[Data1,Data2]</code>, requiring only <code><anno>Adler1</anno></code>,
           <code><anno>Adler2</anno></code>, and <code><anno>Size2</anno></code>.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#adler32_combine/3" class="seealso">
+             <code>erlang:adler32_combine/3</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
@@ -165,25 +192,36 @@ Crc = lists:foldl(fun(Data,Crc0) -&gt;
 
     <div class="function">
       <h3 id="crc32/1">crc32(Z) -&gt; CRC</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>CRC = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>CRC = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Gets the current calculated CRC checksum.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#crc32/1" class="seealso">
+             <code>erlang:crc32/1</code></a> on the uncompressed data
+             instead.</p>
+        </div>
       </div>
     </div>
 
     <div class="function">
       <h3 id="crc32/2">crc32(Z, Data) -&gt; CRC</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>CRC = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>CRC = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Calculates the CRC checksum for <code><anno>Data</anno></code>.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#crc32/1" class="seealso">
+             <code>erlang:crc32/1</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
     <div class="function">
       <h3 id="crc32/3">crc32(Z, PrevCRC, Data) -&gt; CRC</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>PrevCRC = integer()</code></li><li><code>Data = iodata()</code></li><li><code>CRC = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>PrevCRC = integer() &gt;= 0</code></li><li><code>Data = iodata()</code></li><li><code>CRC = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Updates a running CRC checksum for <code><anno>Data</anno></code>.
@@ -194,12 +232,17 @@ Crc = lists:foldl(fun(Data,Crc0) -&gt;
 Crc = lists:foldl(fun(Data,Crc0) -&gt;
                       zlib:crc32(Z, Crc0, Data),
                   end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#crc32/2" class="seealso">
+             <code>erlang:crc32/2</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
     <div class="function">
       <h3 id="crc32_combine/4">crc32_combine(Z, CRC1, CRC2, Size2) -&gt; CRC</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>CRC = CRC1 = CRC2 = Size2 = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>CRC = CRC1 = CRC2 = Size2 = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Combines two CRC checksums into one. For two binaries or iolists,
@@ -209,6 +252,11 @@ Crc = lists:foldl(fun(Data,Crc0) -&gt;
         <p>This function returns the <code><anno>CRC</anno></code> checksum of
           <code>[Data1,Data2]</code>, requiring only <code><anno>CRC1</anno></code>,
           <code><anno>CRC2</anno></code>, and <code><anno>Size2</anno></code>.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="../erts/erlang.html#crc32_combine/3" class="seealso">
+             <code>erlang:crc32_combine/3</code></a> instead.</p>
+        </div>
       </div>
     </div>
 
@@ -223,7 +271,7 @@ Crc = lists:foldl(fun(Data,Crc0) -&gt;
 
     <div class="function">
       <h3 id="deflate/3">deflate(Z, Data, Flush) -&gt; Compressed</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Flush = none | sync | full | finish</code></li><li><code>Compressed = iolist()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Flush = <a href="#type-zflush" class="seealso">zflush()</a></code></li><li><code>Compressed = iolist()</code></li></ul>
       
       <div class="description">
         <p>Compresses as much data as possible, and
@@ -415,7 +463,7 @@ list_to_binary([B1,B2])</pre>
 
     <div class="function">
       <h3 id="deflateSetDictionary/2">deflateSetDictionary(Z, Dictionary) -&gt; Adler32</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Dictionary = iodata()</code></li><li><code>Adler32 = integer()</code></li></ul>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Dictionary = iodata()</code></li><li><code>Adler32 = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Initializes the compression dictionary from the specified byte
@@ -424,8 +472,8 @@ list_to_binary([B1,B2])</pre>
           <a href="#deflateInit/1" class="seealso"><code>deflateInit/1,2,6</code></a> or
           <a href="#deflateReset/1" class="seealso"><code>deflateReset/1</code></a>,
           before any call of
-          <a href="#deflate/3" class="seealso"><code>deflate/3</code></a>.
-          The compressor and decompressor must use the same dictionary (see
+          <a href="#deflate/3" class="seealso"><code>deflate/3</code></a>.</p>
+        <p>The compressor and decompressor must use the same dictionary (see
           <a href="#inflateSetDictionary/2" class="seealso">
           <code>inflateSetDictionary/2</code></a>).</p>
         <p>The Adler checksum of the dictionary is returned.</p>
@@ -433,11 +481,15 @@ list_to_binary([B1,B2])</pre>
     </div>
 
     <div class="function">
-      <h3 id="getBufSize/1">getBufSize(Z) -&gt; Size</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Size = integer() &gt;= 0</code></li></ul>
+      <h3 id="getBufSize/1">getBufSize(Z) -&gt; integer() &gt;= 0</h3>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li></ul>
       
       <div class="description">
         <p>Gets the size of the intermediate buffer.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release.</p>
+        </div>
       </div>
     </div>
 
@@ -464,14 +516,36 @@ list_to_binary([B1,B2])</pre>
       <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Decompressed = iolist()</code></li></ul>
       
       <div class="description">
-        <p>Decompresses as much data as possible.
-          It can introduce some output latency (reading
-          input without producing any output).</p>
-        <p>If a preset dictionary is needed at this point (see
-          <a href="#inflateSetDictionary/2" class="seealso">
-          <code>inflateSetDictionary/2</code></a>), <code>inflate/2</code> throws a
-          <code>{need_dictionary,Adler}</code> exception, where <code>Adler</code> is
-          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
+        <p>Equivalent to
+           <a href="#inflate/3" class="seealso"><code>inflate(Z, Data, [])</code></a>
+           </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="inflate/3">inflate(Z, Data, Options) -&gt; Decompressed</h3>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Options = [{exception_on_need_dict, boolean()}]</code></li><li><code>Decompressed = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;iolist() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{need_dictionary,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Adler32 :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Output :: iolist()}</code></li></ul>
+      
+      <div class="description">
+        <p>Decompresses as much data as possible. It can introduce some output
+           latency (reading input without producing any output).</p>
+        <p>Currently the only available option is
+           <code>{exception_on_need_dict,boolean()}</code> which controls whether the
+           function should throw an exception when a preset dictionary is
+           required for decompression. When set to false, a
+           <code>need_dictionary</code> tuple will be returned instead. See
+           <a href="#inflateSetDictionary/2" class="seealso">
+           <code>inflateSetDictionary/2</code></a> for details.</p>
+        <div class="warning"><h2>Warning!</h2>
+           <p>This option defaults to <code>true</code> for backwards compatibility
+              but we intend to remove the exception behavior in a future
+              release. New code that needs to handle dictionaries manually
+              should always specify <code>{exception_on_need_dict,false}</code>.</p>
+        </div>
       </div>
     </div>
 
@@ -480,6 +554,11 @@ list_to_binary([B1,B2])</pre>
       <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Decompressed = iolist()</code></li></ul>
       
       <div class="description">
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="#safeInflate/2" class="seealso"><code>safeInflate/2</code>
+             </a> instead.</p>
+        </div>
         <p>Reads the next chunk of uncompressed data, initialized by
           <a href="#inflateChunk/2" class="seealso"><code>inflateChunk/2</code></a>.</p>
         <p>This function is to be repeatedly called, while it returns
@@ -492,23 +571,27 @@ list_to_binary([B1,B2])</pre>
       <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Decompressed = iolist()</code></li></ul>
       
       <div class="description">
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <a href="#safeInflate/2" class="seealso"><code>safeInflate/2</code>
+             </a> instead.</p>
+        </div>
         <p>Like <a href="#inflate/2" class="seealso"><code>inflate/2</code></a>,
-          but decompresses no more data than will fit in the buffer configured
-          through <a href="#setBufSize/2" class="seealso"><code>setBufSize/2</code></a>.
-          Is is useful when decompressing a stream with a high compression
-          ratio, such that a small amount of compressed input can expand up to
-          1000 times.</p>
+           but decompresses no more data than will fit in the buffer configured
+           through <a href="#setBufSize/2" class="seealso"><code>setBufSize/2</code>
+           </a>. Is is useful when decompressing a stream with a high
+           compression ratio, such that a small amount of compressed input can
+           expand up to 1000 times.</p>
         <p>This function returns <code>{more, Decompressed}</code>, when there is
-          more output available, and
-          <a href="#inflateChunk/1" class="seealso"><code>inflateChunk/1</code></a>
-          is to be used to read it.</p>
-        <p>This function can introduce some output latency (reading
-          input without producing any output).</p>
-        <p>If a preset dictionary is needed at this point (see
-          <a href="#inflateSetDictionary/2" class="seealso">
-          <code>inflateSetDictionary/2</code></a>), this function throws a
-          <code>{need_dictionary,Adler}</code> exception, where <code>Adler</code> is
-          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
+           more output available, and
+           <a href="#inflateChunk/1" class="seealso"><code>inflateChunk/1</code></a>
+           is to be used to read it.</p>
+        <p>This function can introduce some output latency (reading input
+           without producing any output).</p>
+        <p>An exception will be thrown if a preset dictionary is required for
+           further decompression. See
+           <a href="#inflateSetDictionary/2" class="seealso">
+           <code>inflateSetDictionary/2</code></a> for details.</p>
         <p>Example:</p>
         <pre class="sh_erlang">
 walk(Compressed, Handler) -&gt;
@@ -537,6 +620,19 @@ loop(Z, Handler, Uncompressed) -&gt;
           that this function throws a <code>data_error</code> exception
           if no end of stream was found (meaning that not all data
           has been uncompressed).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="inflateGetDictionary/1">inflateGetDictionary(Z) -&gt; Dictionary</h3>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Dictionary = binary()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the decompression dictionary currently in use
+          by the stream. This function must be called between
+          <a href="#inflateInit/1" class="seealso"><code>inflateInit/1,2</code></a>
+          and <a href="#inflateEnd/1" class="seealso"><code>inflateEnd</code></a>.</p>
+        <p>Only supported if ERTS was compiled with zlib &gt;= 1.2.8.</p>
       </div>
     </div>
 
@@ -590,38 +686,38 @@ loop(Z, Handler, Uncompressed) -&gt;
       
       <div class="description">
         <p>Initializes the decompression dictionary from the specified
-          uncompressed byte sequence. This function must be called
-          immediately after a call of
-          <a href="#inflate/2" class="seealso"><code>inflate/2</code></a>
-          if this call threw a <code>{need_dictionary,Adler}</code> exception.
-          The dictionary chosen by the compressor can be determined from the
-          Adler value thrown by the call to <code>inflate/2</code>.
-          The compressor and decompressor must use the same dictionary (see
-          <a href="#deflateSetDictionary/2" class="seealso">
-          <code>deflateSetDictionary/2</code></a>).</p>
+           uncompressed byte sequence. This function must be called as a
+           response to an inflate operation (eg.
+           <a href="#safeInflate/2" class="seealso"><code>safeInflate/2</code></a>)
+           returning <code>{need_dictionary,Adler,Output}</code> or in the case of
+           deprecated functions, throwing an
+           <code>{'EXIT',{{need_dictionary,Adler},_StackTrace}}</code> exception.</p>
+        <p>The dictionary chosen by the compressor can be determined from the
+           Adler value returned or thrown by the call to the inflate function.
+           The compressor and decompressor must use the same dictionary (See
+           <a href="#deflateSetDictionary/2" class="seealso">
+           <code>deflateSetDictionary/2</code></a>).</p>
+        <p>After setting the dictionary the inflate operation should be
+           retried without new input.</p>
         <p>Example:</p>
         <pre class="sh_erlang">
-unpack(Z, Compressed, Dict) -&gt;
+deprecated_unpack(Z, Compressed, Dict) -&gt;
      case catch zlib:inflate(Z, Compressed) of
-          {'EXIT',{{need_dictionary,DictID},_}} -&gt;
-                   zlib:inflateSetDictionary(Z, Dict),
+          {'EXIT',{{need_dictionary,_DictID},_}} -&gt;
+                 ok = zlib:inflateSetDictionary(Z, Dict),
                  Uncompressed = zlib:inflate(Z, []);
           Uncompressed -&gt;
                  Uncompressed
-     end.</pre>
-      </div>
-    </div>
+     end.
 
-    <div class="function">
-      <h3 id="inflateGetDictionary/1">inflateGetDictionary(Z) -&gt; Dictionary</h3>
-      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Dictionary = iolist()</code></li></ul>
-      
-      <div class="description">
-        <p>Returns the decompression dictionary currently in use
-          by the stream. This function must be called between
-          <a href="#inflateInit/1" class="seealso"><code>inflateInit/1,2</code></a>
-          and <a href="#inflateEnd/1" class="seealso"><code>inflateEnd</code></a>.</p>
-        <p>Only supported if ERTS was compiled with zlib &gt;= 1.2.8.</p>
+new_unpack(Z, Compressed, Dict) -&gt;
+    case zlib:inflate(Z, Compressed, [{exception_on_need_dict, false}]) of
+        {need_dictionary, _DictId, Output} -&gt;
+            ok = zlib:inflateSetDictionary(Z, Dict),
+            [Output | zlib:inflate(Z, [])];
+        Uncompressed -&gt;
+            Uncompressed
+    end.</pre>
       </div>
     </div>
 
@@ -634,11 +730,68 @@ unpack(Z, Compressed, Dict) -&gt;
     </div>
 
     <div class="function">
+      <h3 id="safeInflate/2">safeInflate(Z, Data) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Data = iodata()</code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{continue, Output :: iolist()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{finished, Output :: iolist()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{need_dictionary,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Adler32 :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Output :: iolist()}</code></li></ul>
+      
+      <div class="description">
+        <p>Like <a href="#inflate/2" class="seealso"><code>inflate/2</code></a>,
+           but returns once it has expanded beyond a small 
+           implementation-defined threshold. It's useful when decompressing
+           untrusted input which could have been maliciously crafted to expand
+           until the system runs out of memory.</p>
+        <p>This function returns <code>{continue | finished, Output}</code>, where
+           <anno>Output</anno> is the data that was decompressed in this call.
+           New input can be queued up on each call if desired, and the function
+           will return <code>{finished, Output}</code> once all queued data has been
+           decompressed.</p>
+        <p>This function can introduce some output latency (reading
+           input without producing any output).</p>
+        <p>If a preset dictionary is required for further decompression, this
+           function returns a <code>need_dictionary</code> tuple. See
+           <a href="#inflateSetDictionary/2" class="seealso">
+           <code>inflateSetDictionary/2</code></a>) for details.</p>
+        <p>Example:</p>
+        <pre class="sh_erlang">
+walk(Compressed, Handler) -&gt;
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    loop(Z, Handler, zlib:safeInflate(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {continue, Output}) -&gt;
+    Handler(Output),
+    loop(Z, Handler, zlib:safeInflate(Z, []));
+loop(Z, Handler, {finished, Output}) -&gt;
+    Handler(Output).</pre>
+      </div>
+    </div>
+
+    <div class="function">
       <h3 id="setBufSize/2">setBufSize(Z, Size) -&gt; ok</h3>
       <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Size = integer() &gt;= 0</code></li></ul>
       
       <div class="description">
         <p>Sets the intermediate buffer size.</p>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is deprecated and will be removed in a future
+             release.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_controlling_process/2">set_controlling_process(Z, Pid) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Z = <a href="#type-zstream" class="seealso">zstream()</a></code></li><li><code>Pid = pid()</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the controlling process of <code><anno>Z</anno></code> to
+           <code><anno>Pid</anno></code>, which must be a local process.</p>
       </div>
     </div>
 

@@ -47,14 +47,16 @@
       associated with each key. A <code>bag</code> or <code>duplicate_bag</code> table can
       have many objects associated with each key.</p>
 
+   <span id="max_ets_tables"> </span>
    <div class="note"><h2>Note!</h2>
      <p>
        The number of tables stored at one Erlang node <em>used</em> to
        be limited. This is no longer the case (except by memory usage).
        The previous default limit was about 1400 tables and
        could be increased by setting the environment variable
-       <code>ERL_MAX_ETS_TABLES</code> before starting the Erlang runtime
-       system. This hard limit has been removed, but it is currently
+       <code>ERL_MAX_ETS_TABLES</code> or the command line option
+       <a href="../erts/erl.html#+e" class="seealso"><code>+e</code></a> before starting the
+       Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <code>ERL_MAX_ETS_TABLES</code> anyway. It should be
        set to an approximate of the maximum amount of tables used. This since
        an internal table for named tables is sized using this value. If
@@ -331,7 +333,7 @@
         <p><code><anno>Acc0</anno></code> is returned if the table is empty.
           This function is similar to
           <a href="lists.html#foldl/3" class="seealso"><code>lists:foldl/3</code></a>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <code>ordered_set</code> tables, where they are traversed first to last.</p>
         <p>If <code><anno>Function</anno></code> inserts objects into the table,
           or another
@@ -348,7 +350,7 @@
         <p><code><anno>Acc0</anno></code> is returned if the table is empty.
           This function is similar to
           <a href="lists.html#foldr/3" class="seealso"><code>lists:foldr/3</code></a>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <code>ordered_set</code> tables, where they are traversed last to first.</p>
         <p>If <code><anno>Function</anno></code> inserts objects into the table,
           or another
@@ -415,9 +417,9 @@
           calls cannot be in the guard or body of the fun. Calls to built-in
           match specification functions is of course allowed:</p>
         <pre class="sh_erlang">
-4&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X, is_atomm(M) -&gt; M end).</code>
+4&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X, my_fun(M) -&gt; M end).</code>
 Error: fun containing local Erlang function calls
-('is_atomm' called in guard) cannot be translated into match_spec
+('my_fun' called in guard) cannot be translated into match_spec
 {error,transform_error}
 5&gt; <code>ets:fun2ms(fun({M,N}) when N &gt; X, is_atom(M) -&gt; M end).</code>
 [{{'$1','$2'},[{'&gt;','$2',{const,3}},{is_atom,'$1'}],['$1']}]</pre>
@@ -481,6 +483,7 @@ Error: fun containing local Erlang function calls
       <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>InfoList = [InfoTuple]</code></li><li><code>InfoTuple = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;{compressed, boolean()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;{heir, pid() | none} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{id, <a href="#type-tid" class="seealso">tid()</a>} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;{keypos, integer() &gt;= 1} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;{memory, integer() &gt;= 0} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;{name, atom()} |<br>
@@ -508,6 +511,11 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The pid of the heir of the table, or <code>none</code> if no heir
               is set.</p>
+          </item>
+          <dt><code>{id,</code><a href="#type-tid" class="seealso">
+              <code>tid()</code></a><code>}</code></dt>
+          <item>
+            <p>The table identifier.</p>
           </item>
           <dt><code>{keypos, integer() &gt;= 1}</code></dt>
           <item>
@@ -567,6 +575,7 @@ Error: fun containing local Erlang function calls
 &nbsp;&nbsp;&nbsp;&nbsp;compressed |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;fixed |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;heir |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;id |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;keypos |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;memory |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;name |<br>
@@ -1008,12 +1017,12 @@ ets:is_compiled_ms(Broken).</pre>
 
     <div class="function">
       <h3 id="match_spec_run/2">match_spec_run(List, CompiledMatchSpec) -&gt; list()</h3>
-      <ul class="type_desc"><li><code>List = [tuple()]</code></li><li><code>CompiledMatchSpec = <a href="#type-comp_match_spec" class="seealso">comp_match_spec()</a></code></li></ul>
+      <ul class="type_desc"><li><code>List = [term()]</code></li><li><code>CompiledMatchSpec = <a href="#type-comp_match_spec" class="seealso">comp_match_spec()</a></code></li></ul>
       
       <div class="description">
         <p>Executes the matching specified in a compiled
           <a href="#match_spec" class="seealso">match specification</a> on a list
-          of tuples. Term <code><anno>CompiledMatchSpec</anno></code> is to be
+          of terms. Term <code><anno>CompiledMatchSpec</anno></code> is to be
           the result of a call to <a href="#match_spec_compile/1" class="seealso">
           <code>match_spec_compile/1</code></a> and is hence the internal
           representation of the match specification one wants to use.</p>
@@ -1031,7 +1040,7 @@ Table = ets:new...
 MatchSpec = ...
 % The following call...
 ets:match_spec_run(ets:tab2list(Table),
-ets:match_spec_compile(MatchSpec)),
+                   ets:match_spec_compile(MatchSpec)),
 % ...gives the same result as the more common (and more efficient)
 ets:select(Table, MatchSpec),</pre>
         <div class="note"><h2>Note!</h2>
@@ -1132,10 +1141,13 @@ ets:select(Table, MatchSpec),</pre>
           </item>
           <dt><code>named_table</code></dt>
           <item>
-            <p>If this option is present, name <code><anno>Name</anno></code> is
-              associated with the table identifier. The name can then
-              be used instead of the table identifier in subsequent
-              operations.</p>
+            <p>If this option is present, the table is registered under its
+              <code><anno>Name</anno></code> which can then be used instead of the
+              table identifier in subsequent operations.</p>
+            <p>The function will also return the <code><anno>Name</anno></code>
+              instead of the table identifier. To get the table identifier of a
+              named table, use
+              <a href="#whereis/1" class="seealso"><code>whereis/1</code></a>.</p>
           </item>
           <dt><code>{keypos,<anno>Pos</anno>}</code></dt>
           <item>
@@ -2048,7 +2060,7 @@ true</pre>
           The return value is a list of the new counter values from each 
           update operation in the same order as in the operation list. If an 
           empty list is specified, nothing is updated and an empty list is 
-          returned. If the function fails, no updates is done.</p>
+          returned. If the function fails, no updates are done.</p>
         <p>The specified <code><anno>Key</anno></code> is used to identify the object
           by either <em>matching</em> the key of an object in a <code>set</code>
           table, or <em>compare equal</em> to the key of an object in an
@@ -2123,6 +2135,22 @@ true</pre>
           <item><code><anno>Pos</anno></code> &gt; object arity.</item>
           <item>The element to update is also the key.</item>
         </list>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="whereis/1">whereis(TableName) -&gt; <a href="#type-tid" class="seealso">tid()</a> | undefined</h3>
+      <ul class="type_desc"><li><code>TableName = atom()</code></li></ul>
+      
+      <div class="description">
+        <p>This function returns the
+          <a href="#type-tid" class="seealso"><code>tid()</code></a> of the named table
+          identified by <code><anno>TableName</anno></code>, or <code>undefined</code> if
+          no such table exists. The <code>tid()</code> can be used in place of the
+          table name in all operations, which is slightly faster since the name
+          does not have to be resolved on each call.</p>
+        <p>If the table is deleted, the <code>tid()</code> will be invalid even if
+          another named table is created with the same name.</p>
       </div>
     </div>
   </div>

@@ -29,12 +29,19 @@
   <h1>rand</h1>
   <h2 class="modsummary">Pseudo random number generation.</h2>
   <div class="description">
-    <p>This module provides a random number generator. The module contains
-      a number of algorithms. The uniform distribution algorithms use the
-      <url href="http://xorshift.di.unimi.it">scrambled Xorshift algorithms by
-      Sebastiano Vigna</url>. The normal distribution algorithm uses the
-      <url href="http://www.jstatsoft.org/v05/i08">Ziggurat Method by Marsaglia
-      and Tsang</url>.</p>
+    <p>
+      This module provides a pseudo random number generator.
+      The module contains a number of algorithms.
+      The uniform distribution algorithms use the
+      <url href="http://xorshift.di.unimi.it">
+	xoroshiro116+ and xorshift1024* algorithms by Sebastiano Vigna.
+      </url>
+      The normal distribution algorithm uses the
+      <url href="http://www.jstatsoft.org/v05/i08">
+	Ziggurat Method by Marsaglia and Tsang
+      </url>
+      on top of the uniform distribution algorithm.
+    </p>
     <p>For some algorithms, jump functions are provided for generating
         non-overlapping sequences for parallel computations.
         The jump functions perform calculations
@@ -60,7 +67,7 @@
         <p>Jump function: equivalent to 2^64 calls</p>
 	<p>
 	  This is a corrected version of the previous default algorithm,
-	  that now has been superseeded by Xoroshiro116+ (<code>exrop</code>).
+	  that now has been superseded by Xoroshiro116+ (<code>exrop</code>).
 	  Since there is no native 58 bit rotate instruction this
 	  algorithm executes a little (say &lt; 15%) faster than <code>exrop</code>.
 	  See the 
@@ -120,8 +127,9 @@
       variable <code>rand_seed</code> to remember the current state.</p>
 
     <p>If a process calls
-      <a href="#uniform/0" class="seealso"><code>uniform/0</code></a> or
-      <a href="#uniform/1" class="seealso"><code>uniform/1</code></a> without
+      <a href="#uniform/0" class="seealso"><code>uniform/0</code></a>,
+      <a href="#uniform/1" class="seealso"><code>uniform/1</code></a> or
+      <a href="#uniform_real/0" class="seealso"><code>uniform_real/0</code></a> without
       setting a seed first, <a href="#seed/1" class="seealso"><code>seed/1</code></a>
       is called automatically with the default algorithm and creates a
       non-constant seed.</p>
@@ -155,10 +163,17 @@ R3 = rand:uniform(),</pre>
 S0 = rand:seed_s(exrop),
 {R4, S1} = rand:uniform_s(S0),</pre>
 
+   <p>Textbook basic form Box-Muller standard normal deviate</p>
+
+   <pre class="sh_erlang">
+R5 = rand:uniform_real(),
+R6 = rand:uniform(),
+SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
+
    <p>Create a standard normal deviate:</p>
 
    <pre class="sh_erlang">
-{SND0, S2} = rand:normal_s(S1),</pre>
+{SND1, S2} = rand:normal_s(S1),</pre>
 
    <p>Create a normal deviate with mean -3 and variance 0.5:</p>
 
@@ -413,9 +428,71 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <h3 id="uniform/0">uniform() -&gt; X :: float()</h3>
       
       <div class="description">
-        <p>Returns a random float uniformly distributed in the value
+        <p>
+	  Returns a random float uniformly distributed in the value
           range <code>0.0 =&lt; <anno>X</anno> &lt; 1.0</code> and
-          updates the state in the process dictionary.</p>
+          updates the state in the process dictionary.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<div class="warning"><h2>Warning!</h2>
+	  <p>
+	    This function may return exactly <code>0.0</code> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <code>(1.0 - rand:uniform())</code> to get the
+	    interval <code>0.0 &lt; <anno>X</anno> =&lt; 1.0</code>, or instead use
+	    <a href="#uniform_real/0" class="seealso"><code>uniform_real/0</code></a>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre class="sh_erlang">
+my_uniform() -&gt;
+    case rand:uniform() of
+        0.0 -&gt; my_uniform();
+	X -&gt; X
+    end
+end.</pre>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_real/0">uniform_real() -&gt; X :: float()</h3>
+      
+      <div class="description">
+        <p>
+	  Returns a random float
+	  uniformly distributed in the value range
+	  <code>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</code>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <code>R</code> is generated
+	  from the interval <code>0 =&lt; R &lt; 1</code> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <a href="#uniform/0" class="seealso"><code>uniform/0</code></a>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <code>1.0 / <anno>X</anno></code> or <code>math:log(<anno>X</anno>)</code>.
+	  </p>
+	</div>
+	<p>
+	  See
+	  <a href="#uniform_real_s/1" class="seealso"><code>uniform_real_s/1</code></a>
+	  for more explanation.
+	</p>
       </div>
     </div>
 
@@ -434,9 +511,98 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <h3 id="uniform_s/1">uniform_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; {X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
       
       <div class="description">
-        <p>Returns, for a specified state, random float
+        <p>
+	  Returns, for a specified state, random float
           uniformly distributed in the value range <code>0.0 =&lt;
-          <anno>X</anno> &lt; 1.0</code> and a new state.</p>
+          <anno>X</anno> &lt; 1.0</code> and a new state.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<div class="warning"><h2>Warning!</h2>
+	  <p>
+	    This function may return exactly <code>0.0</code> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <code>(1.0 - rand:uniform(State))</code> to get the
+	    interval <code>0.0 &lt; <anno>X</anno> =&lt; 1.0</code>, or instead use
+	    <a href="#uniform_real_s/1" class="seealso"><code>uniform_real_s/1</code></a>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre class="sh_erlang">
+my_uniform(State) -&gt;
+    case rand:uniform(State) of
+        {0.0, NewState} -&gt; my_uniform(NewState);
+	Result -&gt; Result
+    end
+end.</pre>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_real_s/1">uniform_real_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>
+	  Returns, for a specified state, a random float
+	  uniformly distributed in the value range
+	  <code>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</code>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <code>R</code> is generated
+	  from the interval <code>0 =&lt; R &lt; 1</code> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <code>1.0 / <anno>X</anno></code> or <code>math:log(<anno>X</anno>)</code>.
+	  </p>
+	</div>
+	<p>
+	  The concept implicates that the probability to get
+	  exactly zero is extremely low; so low that this function
+	  is in fact guaranteed to never return zero.  The smallest
+	  number that it might return is <code>DBL_MIN</code>, which is
+	  2.0^(-1022).
+	</p>
+	<p>
+	  The value range stated at the top of this function
+	  description is technically correct, but
+	  <code>0.0 =&lt; <anno>X</anno> &lt; 1.0</code>
+	  is a better description of the generated numbers'
+	  statistical distribution.  Except that exactly 0.0
+	  is never returned, which is not possible to observe
+	  statistically.
+	</p>
+	<p>
+	  For example; for all sub ranges
+	  <code>N*2.0^(-53) =&lt; X &lt; (N+1)*2.0^(-53)</code>
+	  where
+	  <code>0 =&lt; integer(N) &lt; 2.0^53</code>
+	  the probability is the same.
+	  Compare that with the form of the numbers generated by
+	  <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>.
+	</p>
+	<p>
+	  Having to generate extra random bits for
+	  small numbers costs a little performance.
+	  This function is about 20% slower than the regular
+	  <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>
+	</p>
       </div>
     </div>
 

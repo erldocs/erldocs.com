@@ -34,20 +34,118 @@
       only run on a specific platform. On the other hand, with careful
       use, these functions can be of help in enabling a program to run on
       most platforms.</p>
+
+    <div class="note"><h2>Note!</h2>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+      <p>
+	Also environment variable operations used to accept
+	names and values of environment variables containing
+	null characters (integer value zero). This caused
+	operations to silently produce erroneous results.
+	Environment variable names and values containing
+	null characters inside the name or value are now
+	<em>rejected</em> and will cause environment variable
+	operations to fail.
+      </p>
+    </div>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-env_var_name">env_var_name() = nonempty_string()</h3>
+      <div class="description">
+        <p>A string containing valid characters on the specific
+	OS for environment variable names using
+	<a href="file.html#native_name_encoding/0" class="seealso"><code>file:native_name_encoding()</code></a>
+	encoding. Note that specifically null characters (integer
+	value zero) and <code>$=</code> characters are not allowed.
+	However, note that not all invalid characters necessarily
+	will cause the primitiv operations to fail, but may instead
+	produce invalid results.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-env_var_value">env_var_value() = string()</h3>
+      <div class="description">
+        <p>A string containing valid characters on the specific
+	OS for environment variable values using
+	<a href="file.html#native_name_encoding/0" class="seealso"><code>file:native_name_encoding()</code></a>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters necessarily will cause the primitiv
+	operations to fail, but may instead produce invalid results.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-env_var_name_value">env_var_name_value() = nonempty_string()</h3>
+      <div class="description">
+        <p>
+	  Assuming that environment variables has been correctly
+	  set, a strings containing valid characters on the specific
+	  OS for environment variable names and values using
+	  <a href="file.html#native_name_encoding/0" class="seealso"><code>file:native_name_encoding()</code></a>
+	  encoding. The first <code>$=</code> characters appearing in
+	  the string separates environment variable name (on the
+	  left) from environment variable value (on the right).
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-os_command">os_command() = atom() | <a href="io_lib.html#type-chars" class="seealso">io_lib:chars()</a></h3>
+      <div class="description">
+        <p>All characters needs to be valid characters on the
+	specific OS using
+	<a href="file.html#native_name_encoding/0" class="seealso"><code>file:native_name_encoding()</code></a>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters not necessarily will cause
+	<a href="#cmd/1" class="seealso"><code>os:cmd/1</code></a>
+	to fail, but may instead produce invalid results.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-os_command_opts">os_command_opts() = #{max_size =&gt; integer() &gt;= 0 | infinity}</h3>
+      <div class="description">
+        <p>Options for <a href="#cmd/2" class="seealso"><code>os:cmd/2</code></a></p>
+        <taglist>
+          <dt><code>max_size</code></dt>
+          <item>
+            <p>The maximum size of the data returned by the <code>os:cmd</code> call.
+            See the <a href="#cmd/2" class="seealso"><code>os:cmd/2</code></a>
+            documentation for more details.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
   </div>
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
       <h3 id="cmd/1">cmd(Command) -&gt; string()</h3>
-      <ul class="type_desc"><li><code>Command = atom() | <a href="io_lib.html#type-chars" class="seealso">io_lib:chars()</a></code></li></ul>
+      <ul class="type_desc"><li><code>Command = <a href="#type-os_command" class="seealso">os_command()</a></code></li></ul>
+      <h3 id="cmd/2">cmd(Command, Options) -&gt; string()</h3>
+      <ul class="type_desc"><li><code>Command = <a href="#type-os_command" class="seealso">os_command()</a></code></li><li><code>Options = <a href="#type-os_command_opts" class="seealso">os_command_opts()</a></code></li></ul>
       
       <div class="description">
         <p>Executes <code><anno>Command</anno></code> in a command shell of the
-          target OS,
-          captures the standard output of the command, and returns this
-          result as a string. This function is a replacement of
-          the previous function <code>unix:cmd/1</code>; they are equivalent on a
-          Unix platform.</p>
+	  target OS, captures the standard output of the command,
+          and returns this result as a string.</p>
+	  <div class="warning"><h2>Warning!</h2><p>Previous implementation used to allow all characters
+	  as long as they were integer values greater than or equal to zero.
+	  This sometimes lead to unwanted results since null characters
+	  (integer value zero) often are interpreted as string termination. The
+	  current implementation rejects these.</p></div>
         <p><em>Examples:</em></p>
         <pre class="sh_erlang">
 LsOut = os:cmd("ls"), % on unix platform
@@ -56,6 +154,21 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
           called from another program (for example, <code>os:cmd/1</code>)
           can differ, compared with the standard output of the command
           when called directly from an OS command shell.</p>
+        <p><code>os:cmd/2</code> was added in kernel-5.5 (OTP-20.2.1). It makes it
+          possible to pass an options map as the second argument in order to
+          control the behaviour of <code>os:cmd</code>. The possible options are:
+        </p>
+        <taglist>
+          <dt><code>max_size</code></dt>
+          <item>
+            <p>The maximum size of the data returned by the <code>os:cmd</code> call.
+              This option is a safety feature that should be used when the command
+              executed can return a very large, possibly infinite, result.</p>
+            <pre class="sh_erlang">
+&gt; os:cmd("cat /dev/zero", #{ max_size =&gt; 20 }).
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]</pre>
+          </item>
+        </taglist>
       </div>
     </div>
 
@@ -79,7 +192,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
     </div>
 
     <div class="function">
-      <h3 id="getenv/0">getenv() -&gt; [string()]</h3>
+      <h3 id="getenv/0">getenv() -&gt; [<a href="#type-env_var_name_value" class="seealso">env_var_name_value()</a>]</h3>
       
       <div class="description">
         <p>Returns a list of all environment variables.
@@ -95,7 +208,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
 
     <div class="function">
       <h3 id="getenv/1">getenv(VarName) -&gt; Value | false</h3>
-      <ul class="type_desc"><li><code>VarName = Value = string()</code></li></ul>
+      <ul class="type_desc"><li><code>VarName = <a href="#type-env_var_name" class="seealso">env_var_name()</a></code></li><li><code>Value = <a href="#type-env_var_value" class="seealso">env_var_value()</a></code></li></ul>
       
       <div class="description">
         <p>Returns the <code><anno>Value</anno></code> of the environment variable
@@ -111,7 +224,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
 
     <div class="function">
       <h3 id="getenv/2">getenv(VarName, DefaultValue) -&gt; Value</h3>
-      <ul class="type_desc"><li><code>VarName = DefaultValue = Value = string()</code></li></ul>
+      <ul class="type_desc"><li><code>VarName = <a href="#type-env_var_name" class="seealso">env_var_name()</a></code></li><li><code>DefaultValue = Value = <a href="#type-env_var_value" class="seealso">env_var_value()</a></code></li></ul>
       
       <div class="description">
         <p>Returns the <code><anno>Value</anno></code> of the environment variable
@@ -143,7 +256,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
 
     <div class="function">
       <h3 id="putenv/2">putenv(VarName, Value) -&gt; true</h3>
-      <ul class="type_desc"><li><code>VarName = Value = string()</code></li></ul>
+      <ul class="type_desc"><li><code>VarName = <a href="#type-env_var_name" class="seealso">env_var_name()</a></code></li><li><code>Value = <a href="#type-env_var_value" class="seealso">env_var_value()</a></code></li></ul>
       
       <div class="description">
         <p>Sets a new <code><anno>Value</anno></code> for environment variable
@@ -156,6 +269,15 @@ DirOut = os:cmd("dir"), % on Win32 platform</pre>
 	<p>On Unix platforms, the environment is set using UTF-8 encoding
 	  if Unicode filename translation is in effect. On Windows, the
 	  environment is set using wide character interfaces.</p>
+	  <div class="note"><h2>Note!</h2>
+	    <p>
+	      <code><anno>VarName</anno></code> is not allowed to contain
+	      an <code>$=</code> character. Previous implementations used
+	      to just let the <code>$=</code> character through which
+	      silently caused erroneous results. Current implementation
+	      will instead throw a <code>badarg</code> exception.
+	    </p>
+	  </div>
       </div>
     </div>
 
@@ -316,7 +438,7 @@ calendar:now_to_universal_time(TS),
 
     <div class="function">
       <h3 id="unsetenv/1">unsetenv(VarName) -&gt; true</h3>
-      <ul class="type_desc"><li><code>VarName = string()</code></li></ul>
+      <ul class="type_desc"><li><code>VarName = <a href="#type-env_var_name" class="seealso">env_var_name()</a></code></li></ul>
       
       <div class="description">
 	<p>Deletes the environment variable <code><anno>VarName</anno></code>.</p>

@@ -101,14 +101,6 @@
 		    statistics. If the server held any lock statistics data before the collect then
 		    that data is lost.
 		</p>
-		<div class="note"><h2>Note!</h2>
-		    <p>
-			When collection occurs the runtime system transitions to a single thread,
-			blocking all other threads. No other tasks will be scheduled during this
-			operation. Depending on the size of the data this might take a long time
-			(several seconds) and cause timeouts in the system.
-		    </p>
-		</div>
 	    </div>
 	</div>
 
@@ -321,6 +313,9 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 	<div class="function">
 	    <h3 id="apply/1">apply(Fun) -&gt; term()</h3>
 	    
+	    <ul class="type">
+		<li><code>Fun = fun()</code></li>
+	    </ul>
 	    <div class="description">
 		<p>Same as <code>apply(Fun, [])</code>.</p>
 	    </div>
@@ -333,12 +328,7 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 		<li><code>Args = [term()]</code></li>
 	    </ul>
 	    <div class="description">
-		<p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
-		    After setup the fun is called, passing the elements in <code>Args</code> as arguments.
-		    When the fun returns the statistics are immediately collected to the server. After the
-		    collection the instrumentation is returned to its previous behavior.
-		    The result of the applied fun is returned.
-		</p>
+		<p>Same as <code>apply(Module, Function, Args)</code>.</p>
 	    </div>
 	</div>
 	<div class="function">
@@ -356,6 +346,13 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 		    collection the instrumentation is returned to its previous behavior.
 		    The result of the applied function is returned.
 		</p>
+                <div class="warning"><h2>Warning!</h2>
+                    <p>
+                        This function should only be used for micro-benchmarks; it sets <code>copy_save</code>
+                        to <code>true</code> for the duration of the call, which can quickly lead to running
+                        out of memory.
+                    </p>
+                </div>
 	    </div>
 	</div>
 
@@ -373,7 +370,7 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 		<li><code>Serial = integer()</code></li>
 	    </ul>
 	    <div class="description">
-		<p>Creates a process id with creation 0. Example:</p>
+		<p>Creates a process id with creation 0.</p>
 	    </div>
 	</div>
 
@@ -428,6 +425,68 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 	    <div class="description"> <p>Clear the internal counters. Same as <code>lcnt:clear(Node)</code>.</p></div>
 	</div>
 
+        <div class="function">
+            <h3 id="rt_mask/0">rt_mask() -&gt; [category_atom()]</h3>
+            
+            <div class="description"><p>Same as <code>rt_mask(node())</code>.</p></div>
+        </div>
+
+        <div class="function">
+            <h3 id="rt_mask/1">rt_mask(Node) -&gt; [category_atom()]</h3>
+            
+            <ul class="type">
+                <li><code>Node = node()</code></li>
+            </ul>
+            <div class="description">
+                <p>
+                    Refer to <code>rt_mask/2</code> for a list of valid categories. All
+                    categories are enabled by default.
+                </p>
+            </div>
+        </div>
+
+        <div class="function">
+            <h3 id="rt_mask/1-1">rt_mask(Categories) -&gt; ok | {error, copy_save_enabled}</h3>
+            
+            <ul class="type">
+                <li><code>Categories = [atom()]</code></li>
+            </ul>
+            <div class="description"><p>Same as <code>rt_mask(node(), Categories)</code>.</p></div>
+        </div>
+
+        <div class="function">
+            <h3 id="rt_mask/2">rt_mask(Node, Categories) -&gt; ok | {error, copy_save_enabled}</h3>
+            
+            <ul class="type">
+                <li><code>Node = node()</code></li>
+                <li><code>Categories = [atom()]</code></li>
+            </ul>
+            <div class="description">
+                <p>
+                    Sets the lock category mask to the given categories.
+                </p>
+                <p>
+                    This will fail if the <code>copy_save</code> option is enabled; see
+                    <code>lcnt:rt_opt/2</code>.
+                </p>
+                <p>Valid categories are:</p>
+                <list>
+                    <item><code>allocator</code></item>
+                    <item><code>db</code> (ETS tables)</item>
+                    <item><code>debug</code></item>
+                    <item><code>distribution</code></item>
+                    <item><code>generic</code></item>
+                    <item><code>io</code></item>
+                    <item><code>process</code></item>
+                    <item><code>scheduler</code></item>
+                </list>
+                <p>
+                    This list is subject to change at any time, as is the category any given lock
+                    may belong to.
+                </p>
+            </div>
+        </div>
+
 	<div class="function">
 	    <h3 id="rt_opt/2">rt_opt({Type, bool()}) -&gt; bool()</h3>
 	    
@@ -441,17 +500,26 @@ Default: <code>[{tries, 0}, {colls, 0}, {time, 0}]</code>
 		<li><code>Type = copy_save | process_locks</code></li>
 	    </ul>
 	    <div class="description">
-		<p>Changes the lock counter behavior and returns the previous behaviour.</p>
 		<p>Option description:</p>
 		<taglist>
 		    <dt><code>{copy_save, bool()}</code></dt>
-		    <item>Enable statistics saving from destroyed locks by copying. This might consume a lot of memory.
+		    <item>Retains the statistics of destroyed locks.
 			<br>
 Default: <code>false</code>
+                        <div class="warning"><h2>Warning!</h2>
+                            <p>
+                                This option will use a lot of memory when enabled, which must be
+                                reclaimed with <code>lcnt:rt_clear</code>. Note that it makes no distinction
+                                between locks that were destroyed and locks for which counting was
+                                disabled, so enabling this option will disable changes to the lock
+                                category mask.
+                            </p>
+                        </div>
 		    </item>
 
 		    <dt><code>{process_locks, bool()}</code></dt>
-		    <item>Profile process locks.
+		    <item>Profile process locks, equal to adding <code>process</code> to the lock category mask;
+            see <code>lcnt:rt_mask/2</code>
 			<br>
 Default: <code>true</code>
 		    </item>

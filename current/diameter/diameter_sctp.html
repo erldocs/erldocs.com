@@ -58,7 +58,11 @@ and implements the behaviour documented in
 <li><code>Reason = term()</code></li>
 <li><code>OwnOpt = {raddr, <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a>}
           | {rport, integer()}
-          | {accept, Match}</code></li>
+          | {accept, Match}
+          | {unordered, boolean() | pos_integer()}
+          | {packet, boolean() | raw}
+          | {message_cb, <a href="diameter.html#eval" class="seealso">diameter:eval()</a>}
+          | {sender, boolean()}</code></li>
 <li><code>SctpOpt = term()</code></li>
 <li><code>Match = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a> | string() | [Match]</code></li>
 </ul>
@@ -86,6 +90,41 @@ A string-valued <code>Match</code> that does not parse as an address is
 interpreted as a regular expression.</p>
 
 <p>
+Option <code>unordered</code> specifies whether or not to use unordered
+delivery, integer <code>N</code> being equivalent to <code>N =&lt; OS</code>,
+where <code>OS</code> is the number of outbound streams negotiated on the
+association in question.
+Regardless of configuration, sending is ordered on stream 0
+until reception of a second incoming message, to ensure that a peer
+receives capabilities exchange messages before any other.
+Defaults to <code>false</code>.</p>
+
+<p>
+Option <code>packet</code> determines how/if an incoming message is
+packaged into a diameter_packet record.
+If <code>false</code> then messages are received as binary().
+If <code>true</code> then as a record with the binary() message in the
+<code>bin</code> field and a <code>{stream, Id}</code> tuple in the
+<code>transport_data</code> field, where <code>Id</code> is the identifier of the
+inbound stream the message was received on.
+If <code>raw</code> then as a record with the received ancillary
+sctp_sndrcvinfo record in the <code>transport_data</code> field.
+Defaults to <code>true</code>.</p>
+
+<p>
+Options <code>message_cb</code> and <code>sender</code> have semantics identical
+to those documented in <a href="diameter_tcp.html#sender" class="seealso">diameter_tcp(3)</a>, but with the message argument
+to a <code>recv</code> callback being as directed by the <code>packet</code>
+option.</p>
+
+<p>
+An <code>{outstream, Id}</code> tuple in the <code>transport_data</code> field of
+a outgoing diameter_packet record sets the outbound stream on which
+the message is sent, modulo the negotiated number of outbound streams.
+Any other value causes successive such sends to cycle though all
+outbound streams.</p>
+
+<p>
 Remaining options are any accepted by <a href="../kernel/gen_sctp.html#open/1" class="seealso">gen_sctp:open/1</a>, with the exception
 of options <code>mode</code>, <code>binary</code>, <code>list</code>, <code>active</code>
 and <code>sctp_events</code>.
@@ -96,35 +135,21 @@ and port respectively.</p>
 Multiple <code>ip</code> options can be specified for a multihomed peer.
 If none are specified then the values of <code>Host-IP-Address</code>
 in the <code>diameter_service</code> record are used.
-(In particular, one of these must be specified.)
 Option <code>port</code> defaults to 3868 for a listening transport and 0 for a
 connecting transport.</p>
 
 <div class="warning"><h2>Warning!</h2>
 <p>
-An insufficiently large receive buffer may result in a peer having to
+An small receive buffer may result in a peer having to
 resend incoming messages: set the <a href="../kernel/inet.html" class="seealso">inet(3)</a> option <code>recbuf</code> to increase
 the buffer size.</p>
 
 <p>
-An insufficiently large send buffer may result in outgoing messages
+An small send buffer may result in outgoing messages
 being discarded: set the <a href="../kernel/inet.html" class="seealso">inet(3)</a> option <code>sndbuf</code> to increase
 the buffer size.</p>
 </div>
 
-<p>
-The <code>transport_data</code> field of record <code>diameter_packet</code>
-is used to communicate the stream on which an inbound message
-has been received, or on which an outbound message should be sent.
-The value will be of the form <code>{stream, Id}</code> for an inbound
-message passed to a <a href="../diameter_app#Mod/handle_request-3.html" class="seealso">handle_request/3</a> or <a href="../diameter_app#Mod/handle_answer-4.html" class="seealso">handle_answer/4</a>
-callback.
-For an outbound message, <code>{outstream, Id}</code> in the return value of
-<a href="../diameter_app#Mod/handle_request-3.html" class="seealso">handle_request/3</a> or <a href="../diameter_app#Mod/prepare_retransmit-3.html" class="seealso">prepare_retransmit/3</a> sets the outbound
-stream, the stream id being interpreted modulo the number of outbound
-streams.
-Any other value, or not setting a value, causes successive such sends
-to cycle though all outbound streams.</p>
 </div>
 </div>
 

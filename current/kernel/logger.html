@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>logger (kernel) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>logger</h1>
+  <h2 class="modsummary">API module for Logger, the standard logging facility
+    in Erlang/OTP.</h2>
+
+  <div class="description">
+    <p>This module implements the main API for logging in
+      Erlang/OTP. To create a log event, use the
+      <a href="#logging_API" class="seealso">API functions</a> or the
+      log
+      <a href="#macros" class="seealso">macros</a>, for example:</p>
+    <code>
+?LOG_ERROR("error happened because: ~p", [Reason]).   % With macro
+logger:error("error happened because: ~p", [Reason]). % Without macro
+    </code>
+    <p>To configure the Logger backend,
+      use <a href="kernel_app.html#logger" class="seealso">Kernel configuration
+      parameters</a>
+      or <a href="#configuration_API" class="seealso">configuration
+      functions</a> in the Logger API.</p>
+
+    <p>By default, the Kernel application installs one log handler at
+      system start. This handler is named <code>default</code>. It receives
+      and processes standard log events produced by the Erlang runtime
+      system, standard behaviours and different Erlang/OTP
+      applications. The log events are by default printed to the
+      terminal.</p>
+    <p>If you want your systems logs to be printed to a file instead,
+      you must configure the default handler to do so. The simplest
+      way is to include the following in
+      your <a href="config.html" class="seealso"><code>sys.config</code></a>:</p>
+      <code>
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{config =&gt; #{type =&gt; {file, "path/to/file.log"}}}}]}]}].
+      </code>
+    <p>
+      For more information about:
+    </p>
+    <list type="bulleted">
+      <item>the Logger facility in general, see
+        the <a href="logger_chapter.html" class="seealso">User's
+        Guide</a>.</item>
+      <item>how to configure Logger, see
+        the <a href="logger_chapter.html#configuration" class="seealso">Configuration</a>
+        section in the User's Guide.</item>
+      <item>the built-in handlers,
+        see <a href="logger_std_h.html" class="seealso">logger_std_h</a> and
+        <a href="logger_disk_log_h.html" class="seealso">logger_disk_log_h</a>.</item>
+      <item>the built-in formatter,
+        see <a href="logger_formatter.html" class="seealso">logger_formatter</a>.</item>
+      <item>built-in filters,
+      see <a href="logger_filters.html" class="seealso">logger_filters</a>.</item>
+    </list>
+
+    <div class="note"><h2>Note!</h2>
+      <p>Since Logger is new in Erlang/OTP 21.0, we do reserve the right
+	to introduce changes to the Logger API and functionality in
+	patches following this release. These changes might or might not
+	be backwards compatible with the initial version.</p>
+    </div>
+
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-primary_config">primary_config() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level =&gt; <a href="#type-level" class="seealso">level()</a> | all | none,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filter_default =&gt; log | stop,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filters =&gt; [{<a href="#type-filter_id" class="seealso">filter_id()</a>, <a href="#type-filter" class="seealso">filter()</a>}]}</h3>
+      <div class="description">
+	<p>Primary configuration data for Logger. The following
+	  default values apply:</p>
+	<list>
+	  <item><code>level =&gt; info</code></item>
+	  <item><code>filter_default =&gt; log</code></item>
+	  <item><code>filters =&gt; []</code></item>
+	</list>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-handler_config">handler_config() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{id =&gt; <a href="#type-handler_id" class="seealso">handler_id()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;config =&gt; term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;level =&gt; <a href="#type-level" class="seealso">level()</a> | all | none,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;module =&gt; module(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filter_default =&gt; log | stop,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filters =&gt; [{<a href="#type-filter_id" class="seealso">filter_id()</a>, <a href="#type-filter" class="seealso">filter()</a>}],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;formatter =&gt; {module(), <a href="#type-formatter_config" class="seealso">formatter_config()</a>}}</h3>
+      <div class="description">
+	<p>Handler configuration data for Logger. The following
+	  default values apply:</p>
+	<list>
+	  <item><code>level =&gt; all</code></item>
+	  <item><code>filter_default =&gt; log</code></item>
+	  <item><code>filters =&gt; []</code></item>
+	  <item><code>formatter =&gt; {logger_formatter, DefaultFormatterConfig</code>}</item>
+	</list>
+	<p>In addition to these, the following fields are
+	  automatically inserted by Logger, values taken from the
+	  two first parameters
+	  to <a href="#add_handler/3" class="seealso"><code>add_handler/3</code></a>:</p>
+	<list>
+	  <item><code>id =&gt; HandlerId</code></item>
+	  <item><code>module =&gt; Module</code></item>
+	</list>
+	<p>Handler specific configuration data is inserted by the
+	  handler callback itself, in a sub structure associated with
+	  the field named <code>config</code>.</p>
+	<p>See the <a href="logger_formatter.html#type-config" class="seealso">
+	    <code>logger_formatter(3)</code></a> manual page for
+	  information about the default configuration for this
+	  formatter.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filter">filter() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{fun((<a href="#type-log_event" class="seealso">log_event()</a>, <a href="#type-filter_arg" class="seealso">filter_arg()</a>) -&gt; <a href="#type-filter_return" class="seealso">filter_return()</a>),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-filter_arg" class="seealso">filter_arg()</a>}</h3>
+      <div class="description">
+	<p>A filter which can be installed as a handler filter, or as
+	  a primary filter in Logger.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filter_arg">filter_arg() = term()</h3>
+      <div class="description">
+	<p>The second argument to the filter fun.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filter_id">filter_id() = atom()</h3>
+      <div class="description">
+	<p>A unique identifier for a filter.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filter_return">filter_return() = stop | ignore | <a href="#type-log_event" class="seealso">log_event()</a></h3>
+      <div class="description">
+	<p>The return value from the filter fun.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-formatter_config">formatter_config() = #{atom() =&gt; term()}</h3>
+      <div class="description">
+	<p>Configuration data for the
+	formatter. See <a href="logger_formatter.html" class="seealso">
+	    <code>logger_formatter(3)</code></a>
+	  for an example of a formatter implementation.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-handler_id">handler_id() = atom()</h3>
+      <div class="description">
+	<p>A unique identifier for a handler instance.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-level">level() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emergency |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alert |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;critical |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;error |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;warning |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;notice |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;debug</h3>
+      <div class="description">
+	<p>The severity level for the message to be logged.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-log_event">log_event() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := <a href="#type-level" class="seealso">level()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;msg :=<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<a href="io.html#type-format" class="seealso">io:format()</a>, [term()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{report, <a href="#type-report" class="seealso">report()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{string, <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;meta := <a href="#type-metadata" class="seealso">metadata()</a>}</h3>
+      <div class="description">
+	<p/>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-metadata">metadata() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{pid =&gt; pid(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gl =&gt; pid(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time =&gt; <a href="#type-timestamp" class="seealso">timestamp()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mfa =&gt; {module(), atom(), integer() &gt;= 0},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;file =&gt; <a href="file.html#type-filename" class="seealso">file:filename()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;line =&gt; integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;domain =&gt; [atom()],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;report_cb =&gt; fun((<a href="#type-report" class="seealso">report()</a>) -&gt; {<a href="io.html#type-format" class="seealso">io:format()</a>, [term()]}),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atom() =&gt; term()}</h3>
+      <div class="description">
+	<p>Metadata for the log event.</p>
+	<p>Logger adds the following metadata to each log event:</p>
+	<list>
+	  <item><code>pid  =&gt; self()</code></item>
+	  <item><code>gl   =&gt; group_leader()</code></item>
+	  <item><code>time =&gt; erlang:system_time(microsecond)</code></item>
+	</list>
+	<p>When a log macro is used, Logger also inserts location
+	  information:</p>
+	<list>
+	  <item><code>mfa  =&gt; {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY}</code></item>
+	  <item><code>file =&gt; ?FILE</code></item>
+	  <item><code>line =&gt; ?LINE</code></item>
+	</list>
+	<p>You can add custom metadata, either by specifying a map as
+	  the last parameter to any of the log macros or the API
+	  functions, or by setting process metadata
+	  with <a href="#set_process_metadata/1" class="seealso">
+	    <code>set_process_metadata/1</code></a>
+	  or <a href="#update_process_metadata/1" class="seealso">
+	    <code>update_process_metadata/1</code></a>.</p>
+	<p>Logger merges all the metadata maps before forwarding the
+	  log event to the handlers. If the same keys occur, values
+	  from the log call overwrite process metadata, which in turn
+	  overwrite values set by Logger.</p>
+	<p>The following custom metadata keys have special meaning:</p>
+	<taglist>
+	  <dt><code>domain</code></dt>
+	  <item>
+	    <p>The value associated with this key is used by filters
+	      for grouping log events originating from, for example,
+	      specific functional
+	      areas. See <a href="logger_filters.html#domain/2" class="seealso">
+		<code>logger_filters:domain/2</code></a>
+	      for a description of how this field can be used.</p>
+	  </item>
+	  <dt><code>report_cb</code></dt>
+	  <item>
+	    <p>If the log message is specified as
+	      a <a href="#type-report" class="seealso"><code>report()</code></a>,
+	      the <code>report_cb</code> key can be associated with a fun
+	      (report callback) that converts the report to a format
+	      string and arguments. See
+	      section <a href="logger_chapter.html#log_message" class="seealso">Log
+	      Message</a> in the User's Guide for more
+	      information about report callbacks.</p>
+	  </item>
+	</taglist>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-msg_fun">msg_fun() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((term()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<a href="io.html#type-format" class="seealso">io:format()</a>, [term()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-report" class="seealso">report()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>)</h3>
+      <div class="description">
+	<p/>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-report">report() = map() | [{atom(), term()}]</h3>
+      <div class="description">
+	<p/>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-timestamp">timestamp() = integer()</h3>
+      <div class="description">
+	<p>A timestamp produced
+	  with <a href="../erts/erlang.html#system_time/1" class="seealso">
+	    <code>erlang:system_time(microsecond)</code></a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Macros</h4>
+    <p>The following macros are defined:</p>
+
+    <list>
+      <item><code>?LOG_EMERGENCY(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_EMERGENCY(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_ALERT(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_ALERT(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_CRITICAL(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_CRITICAL(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_ERROR(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_ERROR(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_WARNING(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_WARNING(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_NOTICE(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_NOTICE(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_INFO(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_INFO(FunOrFormat,Args[,Metadata])</code></item>
+      <item><code>?LOG_DEBUG(StringOrReport[,Metadata])</code></item>
+      <item><code>?LOG_DEBUG(FunOrFormat,Args[,Metadata])</code></item>
+    </list>
+
+    <p>All macros expand to a call to Logger, where <code>Level</code> is
+      taken from the macro name, and location data is added to the
+      metadata. See the description of
+      the <a href="#type-metadata" class="seealso"><code>metadata()</code></a>
+      type for more information about the location data.</p>
+
+    <p>The call is wrapped in a case statement and will be evaluated
+      only if <code>Level</code> is equal to or below the configured log
+      level.</p>
+  </div>
+
+  <div class="section">
+    <span id="logging_API"> </span>
+    <h4>Logging API functions</h4>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="emergency/2">emergency(StringOrReport[,Metadata])</h3>
+      <h3 id="emergency/3">emergency(Format,Args[,Metadata])</h3>
+      <h3 id="emergency/3-1">emergency(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(emergency,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="alert/2">alert(StringOrReport[,Metadata])</h3>
+      <h3 id="alert/3">alert(Format,Args[,Metadata])</h3>
+      <h3 id="alert/3-1">alert(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(alert,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="critical/2">critical(StringOrReport[,Metadata])</h3>
+      <h3 id="critical/3">critical(Format,Args[,Metadata])</h3>
+      <h3 id="critical/3-1">critical(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(critical,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="error/2">error(StringOrReport[,Metadata])</h3>
+      <h3 id="error/3">error(Format,Args[,Metadata])</h3>
+      <h3 id="error/3-1">error(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(error,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="warning/2">warning(StringOrReport[,Metadata])</h3>
+      <h3 id="warning/3">warning(Format,Args[,Metadata])</h3>
+      <h3 id="warning/3-1">warning(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(warning,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="notice/2">notice(StringOrReport[,Metadata])</h3>
+      <h3 id="notice/3">notice(Format,Args[,Metadata])</h3>
+     <h3 id="notice/3-1">notice(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(notice,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/2">info(StringOrReport[,Metadata])</h3>
+      <h3 id="info/3">info(Format,Args[,Metadata])</h3>
+      <h3 id="info/3-1">info(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(info,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="debug/2">debug(StringOrReport[,Metadata])</h3>
+      <h3 id="debug/3">debug(Format,Args[,Metadata])</h3>
+      <h3 id="debug/3-1">debug(Fun,FunArgs[,Metadata])</h3>
+      
+      <div class="description">
+        <p>Equivalent to
+	<a href="#log/2" class="seealso"><code>log(debug,...)</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="log/2">log(Level, StringOrReport) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Level = <a href="#type-level" class="seealso">level()</a></code></li><li><code>StringOrReport = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a> | <a href="#type-report" class="seealso">report()</a></code></li></ul>
+      <h3 id="log/3">log(Level, StringOrReport, Metadata) -&gt; ok</h3><h3>log(Level, Format, Args) -&gt; ok</h3><h3>log(Level, Fun, FunArgs) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Level = <a href="#type-level" class="seealso">level()</a></code></li><li><code>StringOrReport = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a> | <a href="#type-report" class="seealso">report()</a></code></li><li><code>Metadata = <a href="#type-metadata" class="seealso">metadata()</a></code></li><li><code>Format = <a href="io.html#type-format" class="seealso">io:format()</a></code></li><li><code>Args = [term()]</code></li><li><code>Fun = <a href="#type-msg_fun" class="seealso">msg_fun()</a></code></li><li><code>FunArgs = term()</code></li></ul>
+      
+      
+      <h3 id="log/4">log(Level, Format, Args, Metadata) -&gt; ok</h3><h3>log(Level, Fun, FunArgs, Metadata) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Level = <a href="#type-level" class="seealso">level()</a></code></li><li><code>Format = <a href="io.html#type-format" class="seealso">io:format()</a></code></li><li><code>Args = [term()]</code></li><li><code>Metadata = <a href="#type-metadata" class="seealso">metadata()</a></code></li><li><code>Fun = <a href="#type-msg_fun" class="seealso">msg_fun()</a></code></li><li><code>FunArgs = term()</code></li></ul>
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="description">
+        <p>Log the given message.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="configuration_API"> </span>
+    <h4>Configuration API functions</h4>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="add_handler/3">add_handler(HandlerId, Module, Config) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Module = module()</code></li><li><code>Config = <a href="#type-handler_config" class="seealso">handler_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Add a handler with the given configuration.</p>
+	<p><code><anno>HandlerId</anno></code> is a unique identifier which
+	  must be used in all subsequent calls referring to this
+	  handler.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="add_handler_filter/3">add_handler_filter(HandlerId, FilterId, Filter) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>FilterId = <a href="#type-filter_id" class="seealso">filter_id()</a></code></li><li><code>Filter = <a href="#type-filter" class="seealso">filter()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Add a filter to the specified handler.</p>
+	<p>The filter fun is called with the log event as the first
+	  parameter, and the specified <code>filter_args()</code> as the
+	  second parameter.</p>
+	<p>The return value of the fun specifies if a log event is to
+	  be discarded or forwarded to the handler callback:</p>
+	<taglist>
+	  <dt><code>log_event()</code></dt>
+	  <item>
+	    <p>The filter <em>passed</em>. The next handler filter, if
+	      any, is applied. If no more filters exist for this
+	      handler, the log event is forwarded to the handler
+	      callback.</p>
+	  </item>
+	  <dt><code>stop</code></dt>
+	  <item>
+	    <p>The filter <em>did not pass</em>, and the log event is
+	      immediately discarded.</p>
+	  </item>
+	  <dt><code>ignore</code></dt>
+	  <item>
+	    <p>The filter has no knowledge of the log event. The next
+	      handler filter, if any, is applied. If no more filters
+	      exist for this handler, the value of
+	      the <code>filter_default</code> configuration parameter for
+	      the handler specifies if the log event shall be
+	      discarded or forwarded to the handler callback.</p>
+	  </item>
+	</taglist>
+	<p>See
+	  section <a href="logger_chapter.html#filters" class="seealso">Filters</a>
+	  in the User's Guide for more information about filters.</p>
+	<p>Some built-in filters exist. These are defined in
+	  <a href="logger_filters.html" class="seealso"><code>logger_filters</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="add_handlers/1">add_handlers(Application) -&gt; ok | {error, term()}</h3><h3>add_handlers(HandlerConfig) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Application = atom()</code></li><li><code>HandlerConfig = [<a href="#type-config_handler" class="seealso">config_handler()</a>]</code></li></ul>
+      
+      <div class="description">
+        <p>Reads the application configuration parameter <code>logger</code> and
+          calls <code>add_handlers/1</code> with its contents.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      
+      
+      <ul class="type"><li><code>config_handler() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{handler, <a href="#type-handler_id" class="seealso">handler_id()</a>, module(), <a href="#type-handler_config" class="seealso">handler_config()</a>}</code></li></ul>
+      <div class="description">
+        <p>This function should be used by custom Logger handlers to make
+        configuration consistent no matter which handler the system uses.
+        Normal usage is to add a call to <code>logger:add_handlers/1</code>
+        just after the processes that the handler needs are started,
+        and pass the application's <code>logger</code> configuration as the argument.
+	For example:</p>
+        <code>
+-behaviour(application).
+start(_, []) -&gt;
+    case supervisor:start_link({local, my_sup}, my_sup, []) of
+        {ok, Pid} -&gt;
+            ok = logger:add_handlers(my_app),
+            {ok, Pid, []};
+        Error -&gt; Error
+     end.</code>
+       <p>This reads the <code>logger</code> configuration parameter from
+         the <code>my_all</code> application and starts the configured
+         handlers. The contents of the configuration use the same
+         rules as the
+         <a href="logger_chapter.html#handler-configuration" class="seealso">logger handler configuration</a>.
+       </p>
+       <p>If the handler is meant to replace the default handler, the Kernel's
+         default handler have to be disabled before the new handler is added.
+         A <code>sys.config</code> file that disables the Kernel handler and adds
+         a custom handler could look like this:</p>
+         <code>
+[{kernel,
+  [{logger,
+    %% Disable the default Kernel handler
+    [{handler, default, undefined}]}]},
+ {my_app,
+  [{logger,
+    %% Enable this handler as the default
+    [{handler, default, my_handler, #{}}]}]}].
+         </code>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="add_primary_filter/2">add_primary_filter(FilterId, Filter) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>FilterId = <a href="#type-filter_id" class="seealso">filter_id()</a></code></li><li><code>Filter = <a href="#type-filter" class="seealso">filter()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Add a primary filter to Logger.</p>
+	<p>The filter fun is called with the log event as the first
+	  parameter, and the specified <code>filter_args()</code> as the
+	  second parameter.</p>
+	<p>The return value of the fun specifies if a log event is to
+	  be discarded or forwarded to the handlers:</p>
+	<taglist>
+	  <dt><code>log_event()</code></dt>
+	  <item>
+	    <p>The filter <em>passed</em>. The next primary filter, if
+	      any, is applied. If no more primary filters exist, the
+	      log event is forwarded to the handler part of Logger,
+	      where handler filters are applied.</p>
+	  </item>
+	  <dt><code>stop</code></dt>
+	  <item>
+	    <p>The filter <em>did not pass</em>, and the log event is
+	      immediately discarded.</p>
+	  </item>
+	  <dt><code>ignore</code></dt>
+	  <item>
+	    <p>The filter has no knowledge of the log event. The next
+	      primary filter, if any, is applied. If no more primary
+	      filters exist, the value of the
+	      primary <code>filter_default</code> configuration parameter
+	      specifies if the log event shall be discarded or
+	      forwarded to the handler part.</p>
+	  </item>
+	</taglist>
+	<p>See section <a href="logger_chapter.html#filters" class="seealso">
+	    Filters</a> in the User's Guide for more information
+	    about filters.</p>
+	<p>Some built-in filters exist. These are defined
+	  in <a href="logger_filters.html" class="seealso"><code>logger_filters</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_config/0">get_config() -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{primary =&gt; <a href="#type-primary_config" class="seealso">primary_config()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;handlers =&gt; [<a href="#type-handler_config" class="seealso">handler_config()</a>],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;module_levels =&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{module(), <a href="#type-level" class="seealso">level()</a> | all | none}]}</h3>
+      
+      <div class="description">
+        <p>Look up all current Logger configuration, including primary
+          and handler configuration, and module level settings.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_handler_config/0">get_handler_config() -&gt; [Config]</h3>
+      <ul class="type_desc"><li><code>Config = <a href="#type-handler_config" class="seealso">handler_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Look up the current configuration for all handlers.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_handler_config/1">get_handler_config(HandlerId) -&gt; {ok, Config} | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Config = <a href="#type-handler_config" class="seealso">handler_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Look up the current configuration for the given handler.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_handler_ids/0">get_handler_ids() -&gt; [HandlerId]</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Look up the identities for all installed handlers.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_primary_config/0">get_primary_config() -&gt; Config</h3>
+      <ul class="type_desc"><li><code>Config = <a href="#type-primary_config" class="seealso">primary_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Look up the current primary configuration for Logger.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_module_level/0">get_module_level() -&gt; [{Module, Level}]</h3>
+      <ul class="type_desc"><li><code>Module = module()</code></li><li><code>Level = <a href="#type-level" class="seealso">level()</a> | all | none</code></li></ul>
+      
+      <div class="description">
+        <p>Look up all current module levels. Returns a list
+          containing one <code>{Module,Level}</code> element for each module
+          for which the module level was previously set
+          with <a href="#set_module_level/2" class="seealso">
+	    <code>set_module_level/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_module_level/1">get_module_level(Modules) -&gt; [{Module, Level}]</h3>
+      <ul class="type_desc"><li><code>Modules = [Module] | Module</code></li><li><code>Module = module()</code></li><li><code>Level = <a href="#type-level" class="seealso">level()</a> | all | none</code></li></ul>
+      
+      <div class="description">
+        <p>Look up the current level for the given modules. Returns a
+          list containing one <code>{Module,Level}</code> element for each
+          of the given modules for which the module level was
+          previously set with <a href="#set_module_level/2" class="seealso">
+	    <code>set_module_level/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_process_metadata/0">get_process_metadata() -&gt; Meta | undefined</h3>
+      <ul class="type_desc"><li><code>Meta = <a href="#type-metadata" class="seealso">metadata()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Retrieve data set
+          with <a href="#set_process_metadata/1" class="seealso">
+	    <code>set_process_metadata/1</code></a> or
+	  <a href="#update_process_metadata/1" class="seealso">
+	    <code>update_process_metadata/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="remove_handler/1">remove_handler(HandlerId) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Remove the handler identified by <code><anno>HandlerId</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="remove_handler_filter/2">remove_handler_filter(HandlerId, FilterId) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>FilterId = <a href="#type-filter_id" class="seealso">filter_id()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Remove the filter identified
+          by <code><anno>FilterId</anno></code> from the handler identified
+          by <code><anno>HandlerId</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="remove_primary_filter/1">remove_primary_filter(FilterId) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>FilterId = <a href="#type-filter_id" class="seealso">filter_id()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Remove the primary filter identified
+          by <code><anno>FilterId</anno></code> from Logger.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_handler_config/2">set_handler_config(HandlerId, Config) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Config = <a href="#type-handler_config" class="seealso">handler_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Set configuration data for the specified handler. This
+          overwrites the current handler configuration.</p>
+	<p>To modify the existing configuration,
+	  use <a href="#update_handler_config/2" class="seealso">
+	    <code>update_handler_config/2</code></a>, or, if a more
+	  complex merge is needed, read the current configuration
+	  with <a href="#get_handler_config/1" class="seealso"><code>get_handler_config/1</code>
+	  </a>, then do the merge before writing the new
+	  configuration back with this function.</p>
+	<p>If a key is removed compared to the current configuration,
+	  and the key is known by Logger, the default value is used. If
+	  it is a custom key, then it is up to the handler
+	  implementation if the value is removed or a default value is
+	  inserted.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_handler_config/3">set_handler_config(HandlerId, Key, Value) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Key = atom()</code></li><li><code>Value = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Add or update configuration data for the specified
+          handler. If the given <code><anno>Key</anno></code> already
+          exists, its associated value will be changed
+          to <code><anno>Value</anno></code>. If it does not exist, it will
+          be added.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_primary_config/1">set_primary_config(Config) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Config = <a href="#type-primary_config" class="seealso">primary_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Set primary configuration data for Logger. This
+          overwrites the current configuration.</p>
+	<p>To modify the existing configuration,
+	  use <a href="#update_primary_config/1" class="seealso">
+	    <code>update_primary_config/1</code></a>, or, if a more
+	  complex merge is needed, read the current configuration
+	  with <a href="#get_primary_config/0" class="seealso"><code>get_primary_config/0</code>
+	  </a>, then do the merge before writing the new
+	  configuration back with this function.</p>
+	<p>If a key is removed compared to the current configuration,
+	  the default value is used.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_primary_config/2">set_primary_config(Key, Value) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Key = atom()</code></li><li><code>Value = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Add or update primary configuration data for Logger. If the
+          given <code><anno>Key</anno></code> already exists, its associated
+          value will be changed to <code><anno>Value</anno></code>. If it
+          does not exist, it will be added.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_module_level/2">set_module_level(Modules, Level) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Modules = [module()] | module()</code></li><li><code>Level = <a href="#type-level" class="seealso">level()</a> | all | none</code></li></ul>
+      
+      <div class="description">
+        <p>Set the log level for the
+          specified modules.</p>
+	<p>The log level for a module overrides the primary log level
+	  of Logger for log events originating from the module in
+	  question. Notice, however, that it does not override the
+	  level configuration for any handler.</p>
+	<p>For example: Assume that the primary log level for Logger
+	  is <code>info</code>, and there is one handler, <code>h1</code>, with
+	  level <code>info</code> and one handler, <code>h2</code>, with
+	  level <code>debug</code>.</p>
+	<p>With this configuration, no debug messages will be logged,
+	  since they are all stopped by the primary log level.</p>
+	<p>If the level for <code>mymodule</code> is now set
+	  to <code>debug</code>, then debug events from this module will be
+	  logged by the handler <code>h2</code>, but not by
+	  handler <code>h1</code>.</p>
+	<p>Debug events from other modules are still not logged.</p>
+        <p>To change the primary log level for Logger, use
+          <a href="#set_primary_config/2" class="seealso">
+	    <code>set_primary_config(level, Level)</code></a>.</p>
+        <p>To change the log level for a handler, use
+          <a href="#set_handler_config/3" class="seealso">
+	    <code>set_handler_config(HandlerId, level, Level)</code>
+	  </a>.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>The originating module for a log event is only detected
+	    if the key <code>mfa</code> exists in the metadata, and is
+	    associated with <code>{Module, Function, Arity}</code>. When log
+	    macros are used, this association is automatically added
+	    to all log events. If an API function is called directly,
+	    without using a macro, the logging client must explicitly
+	    add this information if module levels shall have any
+	    effect.</p>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="set_process_metadata/1">set_process_metadata(Meta) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Meta = <a href="#type-metadata" class="seealso">metadata()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Set metadata which Logger shall automatically insert in
+          all log events produced on the current process.</p>
+	<p>Location data produced by the log macros, and/or metadata
+	  given as argument to the log call (API function or macro),
+	  are merged with the process metadata. If the same keys
+	  occur, values from the metadata argument to the log call
+	  overwrite values from the process metadata, which in turn
+	  overwrite values from the location data.</p>
+	<p>Subsequent calls to this function overwrites previous data
+          set. To update existing data instead of overwriting it,
+          see <a href="#update_process_metadata/1" class="seealso">
+	    <code>update_process_metadata/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="unset_module_level/0">unset_module_level() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Remove module specific log settings. After this, the
+          primary log level is used for all modules.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="unset_module_level/1">unset_module_level(Modules) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Modules = [module()] | module()</code></li></ul>
+      
+      <div class="description">
+        <p>Remove module specific log settings. After this, the
+          primary log level is used for the specified modules.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="unset_process_metadata/0">unset_process_metadata() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>Delete data set
+          with <a href="#set_process_metadata/1" class="seealso">
+	    <code>set_process_metadata/1</code></a> or
+	  <a href="#update_process_metadata/1" class="seealso">
+	    <code>update_process_metadata/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_formatter_config/2">update_formatter_config(HandlerId, FormatterConfig) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>FormatterConfig = <a href="#type-formatter_config" class="seealso">formatter_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>The new configuration is merged with the existing formatter
+	  configuration.</p>
+	<p>To overwrite the existing configuration without any merge,
+	  use</p>
+	<pre class="sh_erlang">
+<a href="#set_handler_config/3" class="seealso">set_handler_config(HandlerId, formatter,
+	      {FormatterModule, FormatterConfig})</a>.</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_formatter_config/3">update_formatter_config(HandlerId, Key, Value) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Key = atom()</code></li><li><code>Value = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Update the formatter configuration for the specified handler.</p>
+	<p>This is equivalent to</p>
+	<pre class="sh_erlang">
+<a href="#update_formatter_config/2" class="seealso">update_formatter_config(<anno>HandlerId</anno>, #{<anno>Key</anno> =&gt; <anno>Value</anno>})</a></pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_handler_config/2">update_handler_config(HandlerId, Config) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>HandlerId = <a href="#type-handler_id" class="seealso">handler_id()</a></code></li><li><code>Config = <a href="#type-handler_config" class="seealso">handler_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Update configuration data for the specified handler. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+{ok, {_, Old}} = logger:get_handler_config(HandlerId),
+logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <a href="#set_handler_config/2" class="seealso"><code>set_handler_config/2</code>
+	  </a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_primary_config/1">update_primary_config(Config) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Config = <a href="#type-primary_config" class="seealso">primary_config()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Update primary configuration data for Logger. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+Old = logger:get_primary_config(),
+logger:set_primary_config(maps:merge(Old, Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <a href="#set_primary_config/1" class="seealso"><code>set_primary_config/1</code>
+	  </a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="update_process_metadata/1">update_process_metadata(Meta) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Meta = <a href="#type-metadata" class="seealso">metadata()</a></code></li></ul>
+      
+      <div class="description">
+	<p>Set or update metadata to use when logging from current
+	  process</p>
+	<p>If process metadata exists for the current process, this
+	  function behaves as if it was implemented as follows:</p>
+	<code type="erl">
+logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
+	</code>
+	<p>If no process metadata exists, the function behaves as
+	  <a href="#set_process_metadata/1" class="seealso">
+	    <code>set_process_metadata/1</code>
+	  </a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="misc_API"> </span>
+    <h4>Miscellaneous API functions</h4>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="compare_levels/2">compare_levels(Level1, Level2) -&gt; eq | gt | lt</h3>
+      <ul class="type_desc"><li><code>Level1 = Level2 = <a href="#type-level" class="seealso">level()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Compare the severity of two log levels. Returns <code>gt</code>
+          if <code>Level1</code> is more severe than
+          <code>Level2</code>, <code>lt</code> if <code>Level1</code> is less severe,
+          and <code>eq</code> if the levels are equal.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="format_report/1">format_report(Report) -&gt; FormatArgs</h3>
+      <ul class="type_desc"><li><code>Report = <a href="#type-report" class="seealso">report()</a></code></li><li><code>FormatArgs = {<a href="io.html#type-format" class="seealso">io:format()</a>, [term()]}</code></li></ul>
+      
+      <div class="description">
+        <p>Convert a log message on report form to <code>{Format,
+	  Args}</code>. This is the default report callback used
+	  by <a href="logger_formatter.html" class="seealso">
+	    <code>logger_formatter</code></a> when no custom report
+	  callback is found. See
+	  section <a href="logger_chapter.html#log_message" class="seealso">Log
+	    Message</a> in the Kernel User's Guide for
+	  information about report callbacks and valid forms of log
+	  messages.</p>
+	<p>The function produces lines of <code>Key: Value</code> from
+	  key-value lists. Strings are printed with <code>~ts</code> and
+	  other terms with <code>~tp</code>.</p>
+	<p>If <code><anno>Report</anno></code> is a map, it is converted to
+	  a key-value list before formatting as such.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <span id="handler_callback_functions"> </span>
+    <h4>Handler Callback Functions</h4>
+    <p>The following functions are to be exported from a handler
+      callback module.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="adding_handler/1">HModule:adding_handler(Config1) -&gt; {ok, Config2} | {error,
+	Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Config1 = Config2 =
+	  <a href="#type-handler_config" class="seealso">handler_config()</a></code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is optional.</p>
+	<p>The function is called on a temporary process when an new
+	  handler is about to be added. The purpose is to verify the
+	  configuration and initiate all resources needed by the
+	  handler.</p>
+	<p>The handler identity is associated with the <code>id</code> key
+	  in <code>Config1</code>.</p>
+	<p>If everything succeeds, the callback function can add
+	  possible default values or internal state values to the
+	  configuration, and return the adjusted map
+	  in <code>{ok,Config2}</code>.</p>
+	<p>If the configuration is faulty, or if the initiation fails,
+	  the callback function must return <code>{error,Reason}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="changing_config/2">HModule:changing_config(Config1, Config2) -&gt; {ok, Config3} | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Config1 = Config2 = Config3 =
+	  <a href="#type-handler_config" class="seealso">handler_config()</a></code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is optional.</p>
+	<p>The function is called on a temporary process when the
+	  configuration for a handler is about to change. The purpose
+	  is to verify and act on the new configuration.</p>
+	<p><code>Config1</code> is the existing configuration
+	  and <code>Config2</code> is the new configuration.</p>
+	<p>The handler identity is associated with the <code>id</code> key
+	  in <code>Config1</code>.</p>
+	<p>If everything succeeds, the callback function must return a
+	  possibly adjusted configuration in <code>{ok,Config3}</code>.</p>
+	<p>If the configuration is faulty, the callback function must
+	  return <code>{error,Reason}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="log/2">HModule:log(LogEvent, Config) -&gt; void()</h3>
+      
+      <ul class="type">
+	<li><code>LogEvent =
+	  <a href="#type-log_event" class="seealso">log_event()</a></code></li>
+	<li><code>Config =
+	  <a href="#type-handler_config" class="seealso">handler_config()</a></code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is mandatory.</p>
+	<p>The function is called when all primary filters and all
+	  handler filters for the handler in question have passed for
+	  the given log event. It is called on the client process, that
+	  is, the process that issued the log event.</p>
+	<p>The handler identity is associated with the <code>id</code> key
+	  in <code>Config</code>.</p>
+	<p>The handler must log the event.</p>
+	<p>The return value from this function is ignored by
+	  Logger.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="removing_handler/1">HModule:removing_handler(Config) -&gt; ok</h3>
+      
+      <ul class="type">
+	<li><code>Config =
+	  <a href="#type-handler_config" class="seealso">handler_config()</a></code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is optional.</p>
+	<p>The function is called on a temporary process when a
+	  handler is about to be removed. The purpose is to release
+	  all resources used by the handler.</p>
+	<p>The handler identity is associated with the <code>id</code> key
+	  in <code>Config</code>.</p>
+	<p>The return value is ignored by Logger.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <span id="formatter_callback_functions"> </span>
+    <h4>Formatter Callback Functions</h4>
+    <p>The following functions are to be exported from a formatter
+      callback module.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="check_config/1">FModule:check_config(FConfig) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>FConfig =
+	  <a href="#type-formatter_config" class="seealso">formatter_config()</a></code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is optional.</p>
+	<p>The function is called by a Logger when formatter
+	  configuration is set or modified. The formatter must
+	  validate the given configuration and return <code>ok</code> if it
+	  is correct, and <code>{error,Reason}</code> if it is faulty.</p>
+	<p>The following Logger API functions can trigger this callback:</p>
+	<list>
+	  <item><a href="logger.html#add_handler/3" class="seealso">
+	      <code>logger:add_handler/3</code></a></item>
+	  <item><a href="logger.html#set_handler_config/2" class="seealso">
+	      <code>logger:set_handler_config/2,3</code></a></item>
+	  <item><a href="logger.html#update_handler_config/2" class="seealso">
+	      <code>logger:updata_handler_config/2</code></a></item>
+	  <item><a href="logger.html#update_formatter_config/2" class="seealso">
+	      <code>logger:update_formatter_config/2</code></a></item>
+	</list>
+	<p>See <a href="logger_formatter.html" class="seealso">
+	    <code>logger_formatter(3)</code></a>
+	  for an example implementation. <code>logger_formatter</code> is the
+	  default formatter used by Logger.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format/2">FModule:format(LogEvent, FConfig) -&gt; FormattedLogEntry</h3>
+      
+      <ul class="type">
+	<li><code>LogEvent =
+	  <a href="#type-log_event" class="seealso">log_event()</a></code></li>
+	<li><code>FConfig =
+	  <a href="#type-formatter_config" class="seealso">formatter_config()</a></code></li>
+	<li><code>FormattedLogEntry =
+	  <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li>
+      </ul>
+      <div class="description">
+	<p>This callback function is mandatory.</p>
+	<p>The function can be called by a log handler to convert a
+	  log event term to a printable string. The returned value
+	  can, for example, be printed as a log entry to the console
+	  or a file using <a href="../stdlib/io.html#put_chars/1" class="seealso">
+	    <code>io:put_chars/1,2</code></a>.</p>
+	<p>See <a href="logger_formatter.html" class="seealso">
+	    <code>logger_formatter(3)</code></a>
+	  for an example implementation. <code>logger_formatter</code> is the
+	  default formatter used by Logger.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p>
+      <a href="config.html" class="seealso"><code>config(4)</code></a>,
+      <a href="../erts/erlang.html" class="seealso"><code>erlang(3)</code></a>,
+      <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a>,
+      <a href="logger_disk_log_h.html" class="seealso"><code>logger_disk_log_h(3)</code></a>,
+      <a href="logger_filters.html" class="seealso"><code>logger_filters(3)</code></a>,
+      <a href="logger_formatter.html" class="seealso"><code>logger_formatter(3)</code></a>,
+      <a href="logger_std_h.html" class="seealso"><code>logger_std_h(3)</code></a>,
+      <a href="../stdlib/unicode.html" class="seealso"><code>unicode(3)</code></a>
+    </p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
