@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>diameter_sctp (diameter) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+
+<h1>diameter_sctp</h1>
+<h2 class="modsummary">Diameter transport over SCTP.</h2>
+
+<div class="description">
+
+<p>
+This module implements diameter transport over SCTP using <a href="../kernel/gen_sctp.html" class="seealso">gen_sctp(3)</a>.
+It can be specified as the value of a transport_module option to
+<a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>
+and implements the behaviour documented in
+<a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.</p>
+
+<span id="start"> </span>
+</div>
+
+<div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+<div class="function">
+<h3 id="start/4">start({Type, Ref}, Svc, [Opt])
+         -&gt; {ok, Pid, [LAddr]} | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>Type = connect | accept</code></li>
+<li><code>Ref = <a href="diameter.html#transport_ref" class="seealso">diameter:transport_ref()</a></code></li>
+<li><code>Svc = #diameter_service{}</code></li>
+<li><code>Opt = OwnOpt | SctpOpt</code></li>
+<li><code>Pid = pid()</code></li>
+<li><code>LAddr = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a></code></li>
+<li><code>Reason = term()</code></li>
+<li><code>OwnOpt = {raddr, <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a>}
+          | {rport, integer()}
+          | {accept, Match}
+          | {unordered, boolean() | pos_integer()}
+          | {packet, boolean() | raw}
+          | {message_cb, <a href="diameter.html#eval" class="seealso">diameter:eval()</a>}
+          | {sender, boolean()}</code></li>
+<li><code>SctpOpt = term()</code></li>
+<li><code>Match = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a> | string() | [Match]</code></li>
+</ul>
+<div class="description">
+
+<p>
+The start function required by <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.</p>
+
+<p>
+Options <code>raddr</code> and <code>rport</code> specify the remote address
+and port for a connecting transport and not valid for a listening
+transport: the former is required while latter defaults to 3868 if
+unspecified.
+Multiple <code>raddr</code> options can be specified, in which case the
+connecting transport in question attempts each in sequence until
+an association is established.</p>
+
+<p>
+Option <code>accept</code> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the association to be aborted.
+Multiple <code>accept</code> options can be specified.
+A string-valued <code>Match</code> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
+Option <code>unordered</code> specifies whether or not to use unordered
+delivery, integer <code>N</code> being equivalent to <code>N =&lt; OS</code>,
+where <code>OS</code> is the number of outbound streams negotiated on the
+association in question.
+Regardless of configuration, sending is ordered on stream 0
+until reception of a second incoming message, to ensure that a peer
+receives capabilities exchange messages before any other.
+Defaults to <code>false</code>.</p>
+
+<p>
+Option <code>packet</code> determines how/if an incoming message is
+packaged into a diameter_packet record.
+If <code>false</code> then messages are received as binary().
+If <code>true</code> then as a record with the binary() message in the
+<code>bin</code> field and a <code>{stream, Id}</code> tuple in the
+<code>transport_data</code> field, where <code>Id</code> is the identifier of the
+inbound stream the message was received on.
+If <code>raw</code> then as a record with the received ancillary
+sctp_sndrcvinfo record in the <code>transport_data</code> field.
+Defaults to <code>true</code>.</p>
+
+<p>
+Options <code>message_cb</code> and <code>sender</code> have semantics identical
+to those documented in <a href="diameter_tcp.html#sender" class="seealso">diameter_tcp(3)</a>, but with the message argument
+to a <code>recv</code> callback being as directed by the <code>packet</code>
+option.</p>
+
+<p>
+An <code>{outstream, Id}</code> tuple in the <code>transport_data</code> field of
+a outgoing diameter_packet record sets the outbound stream on which
+the message is sent, modulo the negotiated number of outbound streams.
+Any other value causes successive such sends to cycle though all
+outbound streams.</p>
+
+<p>
+Remaining options are any accepted by <a href="../kernel/gen_sctp.html#open/1" class="seealso">gen_sctp:open/1</a>, with the exception
+of options <code>mode</code>, <code>binary</code>, <code>list</code>, <code>active</code>
+and <code>sctp_events</code>.
+Note that options <code>ip</code> and <code>port</code> specify the local address
+and port respectively.</p>
+
+<p>
+Multiple <code>ip</code> options can be specified for a multihomed peer.
+If none are specified then the values of <code>Host-IP-Address</code>
+in the <code>diameter_service</code> record are used.
+Option <code>port</code> defaults to 3868 for a listening transport and 0 for a
+connecting transport.</p>
+
+<div class="warning"><h2>Warning!</h2>
+<p>
+An small receive buffer may result in a peer having to
+resend incoming messages: set the <a href="../kernel/inet.html" class="seealso">inet(3)</a> option <code>recbuf</code> to increase
+the buffer size.</p>
+
+<p>
+An small send buffer may result in outgoing messages
+being discarded: set the <a href="../kernel/inet.html" class="seealso">inet(3)</a> option <code>sndbuf</code> to increase
+the buffer size.</p>
+</div>
+
+</div>
+</div>
+
+</div>
+
+<div class="section">
+<h4>SEE ALSO</h4>
+
+<p>
+<a href="diameter.html" class="seealso">diameter(3)</a>, <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>, <a href="../kernel/gen_sctp.html" class="seealso">gen_sctp(3)</a>, <a href="../kernel/inet.html" class="seealso">inet(3)</a></p>
+
+</div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

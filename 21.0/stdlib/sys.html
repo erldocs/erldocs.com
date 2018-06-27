@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>sys (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>sys</h1>
+  <h2 class="modsummary">A functional interface to system messages.</h2>
+  <div class="description">
+    <p>This module contains functions for sending system messages used by
+      programs, and messages used for debugging purposes.</p>
+    <p>Functions used for implementation of processes are also expected to
+      understand system messages, such as debug messages and code change. These
+      functions must be used to implement the use of system messages for a
+      process; either directly, or through standard behaviors, such as
+      <a href="gen_server.html" class="seealso"><code>gen_server</code></a>.</p>
+    <p>The default time-out is 5000 ms, unless otherwise specified.
+      <code>timeout</code> defines the time to wait for the process to
+      respond to a request. If the process does not respond, the
+      function evaluates <code>exit({timeout, {M, F, A}})</code>.
+      </p>
+    <span id="dbg_opt"> </span>
+    <p>The functions make references to a debug structure.
+      The debug structure is a list of <code>dbg_opt()</code>, which is an internal
+      data type used by function <a href="#handle_system_msg/6" class="seealso">
+      <code>handle_system_msg/6</code></a>. No debugging is performed if it is 
+      an empty list.</p>
+  </div>
+
+  <div class="section">
+    <h4>System Messages</h4>
+    <p>Processes that are not implemented as one of the standard
+      behaviors must still understand system messages. The following 
+      three messages must be understood:</p>
+    <list type="bulleted">
+      <item>
+        <p>Plain system messages. These are received as
+          <code>{system, From, Msg}</code>. The content and meaning of
+          this message are not interpreted by the
+          receiving process module. When a system message is received, function 
+	  <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a>
+          is called to handle the request.</p>
+      </item>
+      <item>
+        <p>Shutdown messages. If the process traps exits, it must
+          be able to handle a shutdown request from its parent, the
+          supervisor. The message <code>{'EXIT', Parent, Reason}</code>
+          from the parent is an order to terminate. The process must 
+	  terminate when this message is received, normally with the
+          same <code>Reason</code> as <code>Parent</code>.
+          </p>
+      </item>
+      <item>
+        <p>If the modules used to implement the process change dynamically
+          during runtime, the process must understand one more message. An
+          example is the <a href="gen_event.html" class="seealso"><code>gen_event</code></a>
+          processes. The message is <code>{_Label, {From, Ref}, get_modules}</code>.
+          The reply to this message is <code>From ! {Ref, Modules}</code>, where
+          <code>Modules</code> is a list of the currently active modules in the
+          process.</p>
+        <p>This message is used by the release handler to find which
+          processes that execute a certain module. The process can later be
+          suspended and ordered to perform a code change for one of its
+          modules.</p>
+      </item>
+    </list>
+  </div>
+
+  <div class="section">
+    <h4>System Events</h4>
+    <p>When debugging a process with the functions of this
+      module, the process generates <em>system_events</em>, which are
+      then treated in the debug function. For example, <code>trace</code>
+      formats the system events to the terminal.
+      </p>
+    <p>Four predefined system events are used when a
+      process receives or sends a message. The process can also define its
+      own system events. It is always up to the process itself
+      to format these events.</p>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-name">name() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pid() | atom() | {global, term()} | {via, module(), term()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-system_event">system_event() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{in, Msg :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{in, Msg :: term(), From :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{out, Msg :: term(), To :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{out, Msg :: term(), To :: term(), State :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dbg_opt">dbg_opt()</h3>
+      <div class="description"><p>See the introduction of this manual page.</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-dbg_fun">dbg_fun() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((FuncState :: term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Event :: <a href="#type-system_event" class="seealso">system_event()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ProcState :: term()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;done | (NewFuncState :: term()))</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-format_fun">format_fun() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((Device :: <a href="io.html#type-device" class="seealso">io:device()</a> | <a href="file.html#type-io_device" class="seealso">file:io_device()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Event :: <a href="#type-system_event" class="seealso">system_event()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Extra :: term()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;any())</h3>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="change_code/4">change_code(Name, Module, OldVsn, Extra) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Module = module()</code></li><li><code>OldVsn = undefined | term()</code></li><li><code>Extra = Reason = term()</code></li></ul>
+      <h3 id="change_code/5">change_code(Name, Module, OldVsn, Extra, Timeout) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Module = module()</code></li><li><code>OldVsn = undefined | term()</code></li><li><code>Extra = term()</code></li><li><code>Timeout = timeout()</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Tells the process to change code. The process must be
+          suspended to handle this message. Argument <code><anno>Extra</anno></code>
+          is reserved for each process to use as its own. Function
+          <code><anno>Module</anno>:system_code_change/4</code> is called.
+	  <code><anno>OldVsn</anno></code> is the old version of the
+          <code><anno>Module</anno></code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_state/1">get_state(Name) -&gt; State</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>State = term()</code></li></ul>
+      <h3 id="get_state/2">get_state(Name, Timeout) -&gt; State</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>State = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Gets the state of the process.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>These functions are intended only to help with debugging. They are
+            provided for convenience, allowing developers to avoid having to
+            create their own state extraction functions and also avoid having
+            to interactively extract the state from the return values of
+            <a href="#get_status/1" class="seealso"><code>get_status/1</code></a> or
+            <a href="#get_status/2" class="seealso"><code>get_status/2</code></a>
+            while debugging.</p>
+        </div>
+        <p>The value of <code><anno>State</anno></code> varies for different types of
+          processes, as follows:</p>
+        <list type="bulleted">
+          <item>
+            <p>For a
+              <a href="gen_server.html" class="seealso"><code>gen_server</code></a>
+              process, the returned <code><anno>State</anno></code>
+              is the state of the callback module.</p>
+          </item>
+          <item>
+            <p>For a
+              <a href="gen_statem.html" class="seealso"><code>gen_statem</code></a>
+              process, <code><anno>State</anno></code> is the tuple
+              <code>{CurrentState,CurrentData}</code>.</p>
+          </item>
+          <item>
+            <p>For a
+              <a href="gen_event.html" class="seealso"><code>gen_event</code></a>
+              process, <code><anno>State</anno></code> is a list of tuples,
+              where each tuple corresponds to an event handler registered
+              in the process and contains <code>{Module, Id, HandlerState}</code>,
+              as follows:</p>
+            <taglist>
+              <dt><code>Module</code></dt>
+              <item>
+                <p>The module name of the event handler.</p>
+              </item>
+              <dt><code>Id</code></dt>
+              <item>
+                <p>The ID of the handler (which is <code>false</code> if it was 
+                  registered without an ID).</p>
+              </item>
+              <dt><code>HandlerState</code></dt>
+              <item>
+                <p>The state of the handler.</p>
+              </item>
+            </taglist>
+          </item>
+        </list>
+        <p>If the callback module exports a function <code>system_get_state/1</code>,
+          it is called in the target process to get its state. Its argument is
+          the same as the <code>Misc</code> value returned by
+          <a href="#get_status/1" class="seealso"><code>get_status/1,2</code></a>, and
+          function <a href="../#Module/system_get_state/1.html" class="seealso">
+          <code>Module:system_get_state/1</code></a> is expected to extract the
+          state of the callback module from it. Function
+          <code>system_get_state/1</code> must return <code>{ok, State}</code>, where
+          <code>State</code> is the state of the callback module.</p>
+        <p>If the callback module does not export a <code>system_get_state/1</code>
+          function, <code>get_state/1,2</code> assumes that the <code>Misc</code> value is
+          the state of the callback module and returns it directly instead.</p>
+        <p>If the callback module's <code>system_get_state/1</code> function crashes
+          or throws an exception, the caller exits with error 
+          <code>{callback_failed, {Module, system_get_state}, {Class, Reason}}</code>,
+          where <code>Module</code> is the name of the callback module and
+          <code>Class</code> and <code>Reason</code> indicate details of the exception.</p>
+        <p>Function <code>system_get_state/1</code> is primarily useful for
+          user-defined behaviors and modules that implement OTP
+          <a href="#special_process" class="seealso">special processes</a>. 
+          The <code>gen_server</code>,
+	  <code>gen_statem</code>, and <code>gen_event</code> OTP
+          behavior modules export this function, so callback modules for those
+          behaviors need not to supply their own.</p>
+        <p>For more information about a process, including its state, see
+          <a href="#get_status/1" class="seealso"><code>get_status/1</code></a> and
+          <a href="#get_status/2" class="seealso"><code>get_status/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_status/1">get_status(Name) -&gt; Status</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Status = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{status, Pid :: pid(), {module, Module :: module()}, [SItem]}</code></li><li><code>SItem = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;(PDict :: [{Key :: term(), Value :: term()}]) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(SysState :: running | suspended) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Parent :: pid()) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Dbg :: [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Misc :: term())</code></li></ul>
+      <h3 id="get_status/2">get_status(Name, Timeout) -&gt; Status</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Timeout = timeout()</code></li><li><code>Status = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{status, Pid :: pid(), {module, Module :: module()}, [SItem]}</code></li><li><code>SItem = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;(PDict :: [{Key :: term(), Value :: term()}]) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(SysState :: running | suspended) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Parent :: pid()) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Dbg :: [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(Misc :: term())</code></li></ul>
+      
+      <div class="description">
+        <p>Gets the status of the process.</p>
+        <p>The value of <code><anno>Misc</anno></code> varies for different types of
+          processes, for example:</p>
+        <list type="bulleted">
+          <item>
+            <p>A <a href="gen_server.html" class="seealso"><code>gen_server</code></a>
+              process returns the state of the callback module.</p>
+          </item>
+          <item>
+            <p>A <a href="gen_statem.html" class="seealso"><code>gen_statem</code></a>
+              process returns information, such as its current
+              state name and state data.</p>
+          </item>
+          <item>
+            <p>A <a href="gen_event.html" class="seealso"><code>gen_event</code></a>
+              process returns information about each of its
+              registered handlers.</p>
+          </item>
+        </list>
+        <p>Callback modules for <code>gen_server</code>,
+	  <code>gen_statem</code>, and <code>gen_event</code>
+	  can also change the value of <code><anno>Misc</anno></code>
+          by exporting a function <code>format_status/2</code>, which contributes
+          module-specific information. For details, see
+          <a href="../gen_server#Module/format_status/2.html" class="seealso">
+          <code>gen_server:format_status/2</code></a>,
+          <a href="../gen_statem#Module/format_status/2.html" class="seealso">
+          <code>gen_statem:format_status/2</code></a>, and
+          <a href="../gen_event#Module/format_status/2.html" class="seealso">
+          <code>gen_event:format_status/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="install/2">install(Name, FuncSpec) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>FuncSpec = {Func, FuncState} | {FuncId, Func, FuncState}</code></li><li><code>FuncId = term()</code></li><li><code>Func = <a href="#type-dbg_fun" class="seealso">dbg_fun()</a></code></li><li><code>FuncState = term()</code></li></ul>
+      <h3 id="install/3">install(Name, FuncSpec, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>FuncSpec = {Func, FuncState} | {FuncId, Func, FuncState}</code></li><li><code>FuncId = term()</code></li><li><code>Func = <a href="#type-dbg_fun" class="seealso">dbg_fun()</a></code></li><li><code>FuncState = term()</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Enables installation of alternative debug functions. An example of
+          such a function is a trigger, a function that waits for some
+          special event and performs some action when the event is
+          generated. For example, turning on low-level tracing.</p>
+        <p><code><anno>Func</anno></code> is called whenever a system event is
+          generated. This function is to return <code>done</code>, or a new
+          <code>Func</code> state. In the first case, the function is removed. It is 
+          also removed if the function fails. If one debug function should be 
+          installed more times, a unique <code><anno>FuncId</anno></code> must be 
+          specified for each installation.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="log/2">log(Name, Flag) -&gt; ok | {ok, [<a href="#type-system_event" class="seealso">system_event()</a>]}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = true | {true, N :: integer() &gt;= 1} | false | get | print</code></li></ul>
+      <h3 id="log/3">log(Name, Flag, Timeout) -&gt; ok | {ok, [<a href="#type-system_event" class="seealso">system_event()</a>]}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = true | {true, N :: integer() &gt;= 1} | false | get | print</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Turns the logging of system events on or off. If on, a
+          maximum of <code><anno>N</anno></code> events are kept in the
+          debug structure (default is 10).</p>
+        <p>If <code><anno>Flag</anno></code> is <code>get</code>, a list of all logged
+          events is returned.</p>
+        <p>If <code><anno>Flag</anno></code> is <code>print</code>, the logged events
+          are printed to <code>standard_io</code>.</p>
+        <p>The events are formatted with a function that is defined by the
+          process that generated the event (with a call to
+          <a href="#handle_debug/4" class="seealso">
+          <code>handle_debug/4</code>)</a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="log_to_file/2">log_to_file(Name, Flag) -&gt; ok | {error, open_file}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = (FileName :: string()) | false</code></li></ul>
+      <h3 id="log_to_file/3">log_to_file(Name, Flag, Timeout) -&gt; ok | {error, open_file}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = (FileName :: string()) | false</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Enables or disables the logging of all system events in text
+          format to the file. The events are formatted with a function that is 
+          defined by the process that generated the event (with a call to
+          <a href="#handle_debug/4" class="seealso"><code>handle_debug/4</code></a>).
+	  The file is opened with encoding UTF-8.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="no_debug/1">no_debug(Name) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li></ul>
+      <h3 id="no_debug/2">no_debug(Name, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Turns off all debugging for the process. This includes
+          functions that are installed explicitly with function
+          <a href="#install/2" class="seealso"><code>install/2,3</code></a>,
+          for example, triggers.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="remove/2">remove(Name, FuncOrFuncId :: Func | FuncId) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Func = <a href="#type-dbg_fun" class="seealso">dbg_fun()</a></code></li><li><code>FuncId = term()</code></li></ul>
+      <h3 id="remove/3">remove(Name, FuncOrFuncId :: Func | FuncId, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Func = <a href="#type-dbg_fun" class="seealso">dbg_fun()</a></code></li><li><code>FuncId = term()</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Removes an installed debug function from the
+          process. <code><anno>Func</anno></code> or <code><anno>FuncId</anno></code> must be 
+          the same as previously installed.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="replace_state/2">replace_state(Name, StateFun) -&gt; NewState</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>StateFun = fun((State :: term()) -&gt; NewState :: term())</code></li><li><code>NewState = term()</code></li></ul>
+      <h3 id="replace_state/3">replace_state(Name, StateFun, Timeout) -&gt; NewState</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>StateFun = fun((State :: term()) -&gt; NewState :: term())</code></li><li><code>Timeout = timeout()</code></li><li><code>NewState = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Replaces the state of the process, and returns the new state.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>These functions are intended only to help with debugging, and are
+            not to be called from normal code. They are provided for
+            convenience, allowing developers to avoid having to create their own
+            custom state replacement functions.</p>
+        </div>
+        <p>Function <code><anno>StateFun</anno></code> provides a new state for the
+          process. Argument <code><anno>State</anno></code> and the
+          <code><anno>NewState</anno></code> return value of
+          <code><anno>StateFun</anno></code> vary for different types of 
+          processes as follows:</p>
+        <list type="bulleted">
+          <item>
+            <p>For a <a href="gen_server.html" class="seealso"><code>gen_server</code></a>
+              process, <code><anno>State</anno></code> is the state of the callback
+              module and <code><anno>NewState</anno></code> 
+              is a new instance of that state.</p>
+          </item>
+          <item>
+            <p>For a <a href="gen_statem.html" class="seealso"><code>gen_statem</code></a>
+	      process, <code><anno>State</anno></code> is the
+	      tuple <code>{CurrentState,CurrentData}</code>,
+	      and <code><anno>NewState</anno></code> is a
+              similar tuple, which can contain
+              a new current state, new state data, or both.</p>
+          </item>
+          <item>
+            <p>For a <a href="gen_event.html" class="seealso"><code>gen_event</code></a>
+              process, <code><anno>State</anno></code> is the
+              tuple <code>{Module, Id, HandlerState}</code> as follows:</p>
+            <taglist>
+              <dt><code>Module</code></dt>
+              <item>
+                <p>The module name of the event handler.</p>
+              </item>
+              <dt><code>Id</code></dt>
+              <item>
+                <p>The ID of the handler (which is <code>false</code> if it was
+                  registered without an ID).</p>
+              </item>
+              <dt><code>HandlerState</code></dt>
+              <item>
+                <p>The state of the handler.</p>
+              </item>
+            </taglist>
+            <p><code><anno>NewState</anno></code> is a similar tuple where
+              <code>Module</code> and <code>Id</code> are to have the same values as in
+              <code><anno>State</anno></code>, but the value of <code>HandlerState</code>
+              can be different. Returning a <code><anno>NewState</anno></code>, whose
+              <code>Module</code> or <code>Id</code> values differ from those of
+              <code><anno>State</anno></code>, leaves the state of the event handler
+              unchanged. For a <code>gen_event</code> process,
+              <code><anno>StateFun</anno></code> is called once for each event handler
+              registered in the <code>gen_event</code> process.</p>
+          </item>
+        </list>
+        <p>If a <code><anno>StateFun</anno></code> function decides not to effect any
+          change in process state, then regardless of process type, it can
+          return its <code><anno>State</anno></code> argument.</p>
+        <p>If a <code><anno>StateFun</anno></code> function crashes or throws an
+          exception, the original state of the process is unchanged for
+          <code>gen_server</code>, and <code>gen_statem</code> processes.
+	  For <code>gen_event</code> processes, a crashing or
+	  failing <code><anno>StateFun</anno></code> function
+          means that only the state of the particular event handler it was
+          working on when it failed or crashed is unchanged; it can still
+          succeed in changing the states of other event
+          handlers registered in the same <code>gen_event</code> process.</p>
+        <p>If the callback module exports a 
+          <a href="../#Module/system_replace_state/2.html" class="seealso">
+          <code>system_replace_state/2</code></a> function, it is called in the
+          target process to replace its state using <code>StateFun</code>. Its two
+          arguments are <code>StateFun</code> and <code>Misc</code>, where 
+          <code>Misc</code> is the same as the <code>Misc</code> value returned by
+          <a href="#get_status/1" class="seealso"><code>get_status/1,2</code></a>.
+          A <code>system_replace_state/2</code> function is expected to return 
+          <code>{ok, NewState, NewMisc}</code>, where <code>NewState</code> is the new state
+          of the callback module, obtained by calling <code>StateFun</code>, and
+          <code>NewMisc</code> is
+          a possibly new value used to replace the original <code>Misc</code>
+          (required as <code>Misc</code> often contains the state of the callback
+          module within it).</p>
+        <p>If the callback module does not export a
+          <code>system_replace_state/2</code> function,
+          <a href="#replace_state/2" class="seealso"><code>replace_state/2,3</code></a>
+          assumes that <code>Misc</code> is the state of the callback module,
+	  passes it to <code>StateFun</code> and uses the return value as
+	  both the new state and as the new value of <code>Misc</code>.</p>
+        <p>If the callback module's function <code>system_replace_state/2</code>
+          crashes or throws an exception, the caller exits with error
+          <code>{callback_failed, {Module, system_replace_state}, {Class,
+          Reason}}</code>, where <code>Module</code> is the name of the callback module
+          and <code>Class</code> and <code>Reason</code> indicate details of the exception.
+          If the callback module does not provide a
+          <code>system_replace_state/2</code> function and <code>StateFun</code> crashes or
+          throws an exception, the caller exits with error
+          <code>{callback_failed, StateFun, {Class, Reason}}</code>.</p>
+        <p>Function <code>system_replace_state/2</code> is primarily useful for
+          user-defined behaviors and modules that implement OTP
+          <a href="#special_process" class="seealso">special processes</a>. The
+          OTP behavior modules <code>gen_server</code>,
+	  <code>gen_statem</code>, and <code>gen_event</code>
+	  export this function, so callback modules for those
+          behaviors need not to supply their own.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="resume/1">resume(Name) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li></ul>
+      <h3 id="resume/2">resume(Name, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Resumes a suspended process.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="statistics/2">statistics(Name, Flag) -&gt; ok | {ok, Statistics}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = true | false | get</code></li><li><code>Statistics = [StatisticsTuple] | no_statistics</code></li><li><code>StatisticsTuple = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{start_time, DateTime1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{current_time, DateTime2} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{reductions, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{messages_in, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{messages_out, integer() &gt;= 0}</code></li><li><code>DateTime1 = DateTime2 = <a href="file.html#type-date_time" class="seealso">file:date_time()</a></code></li></ul>
+      <h3 id="statistics/3">statistics(Name, Flag, Timeout) -&gt; ok | {ok, Statistics}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = true | false | get</code></li><li><code>Statistics = [StatisticsTuple] | no_statistics</code></li><li><code>StatisticsTuple = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{start_time, DateTime1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{current_time, DateTime2} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{reductions, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{messages_in, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{messages_out, integer() &gt;= 0}</code></li><li><code>DateTime1 = DateTime2 = <a href="file.html#type-date_time" class="seealso">file:date_time()</a></code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Enables or disables the collection of statistics. If 
+          <code><anno>Flag</anno></code> is <code>get</code>, 
+          the statistical collection is returned.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="suspend/1">suspend(Name) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li></ul>
+      <h3 id="suspend/2">suspend(Name, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Suspends the process. When the process is suspended, it
+          only responds to other system messages, but not other
+          messages.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="terminate/2">terminate(Name, Reason) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="terminate/3">terminate(Name, Reason, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Reason = term()</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Orders the process to terminate with the
+          specified <code><anno>Reason</anno></code>. The termination is done
+          asynchronously, so it is not guaranteed that the process is
+          terminated when the function returns.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trace/2">trace(Name, Flag) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = boolean()</code></li></ul>
+      <h3 id="trace/3">trace(Name, Flag, Timeout) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name" class="seealso">name()</a></code></li><li><code>Flag = boolean()</code></li><li><code>Timeout = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Prints all system events on <code>standard_io</code>. The events are
+          formatted with a function that is defined by the process that
+          generated the event (with a call to
+          <a href="#handle_debug/4" class="seealso"><code>handle_debug/4</code></a>).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Process Implementation Functions</h4>
+    <span id="special_process"> </span>
+    <p>The following functions are used when implementing a
+      special process. This is an ordinary process, which does not use a
+      standard behavior, but a process that understands the standard system
+     messages.</p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="debug_options/1">debug_options(Options) -&gt; [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</h3>
+      <ul class="type_desc"><li><code>Options = [Opt]</code></li><li><code>Opt = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;trace |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{log, integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;statistics |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{log_to_file, FileName} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{install, FuncSpec}</code></li><li><code>FileName = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>FuncSpec = {Func, FuncState} | {FuncId, Func, FuncState}</code></li><li><code>FuncId = term()</code></li><li><code>Func = <a href="#type-dbg_fun" class="seealso">dbg_fun()</a></code></li><li><code>FuncState = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Can be used by a process that initiates a debug
+          structure from a list of options. The values of argument
+          <code><anno>Opt</anno></code> are the same as for the corresponding
+          functions.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_debug/3">get_debug(Item, Debug, Default) -&gt; term()</h3>
+      <ul class="type_desc"><li><code>Item = log | statistics</code></li><li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li><li><code>Default = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Gets the data associated with a debug option.
+          <code><anno>Default</anno></code>
+          is returned if <code><anno>Item</anno></code> is not found. Can be
+          used by the process to retrieve debug data for printing before it
+          terminates.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_debug/4">handle_debug(Debug, FormFunc, Extra, Event) -&gt; [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</h3>
+      <ul class="type_desc"><li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li><li><code>FormFunc = <a href="#type-format_fun" class="seealso">format_fun()</a></code></li><li><code>Extra = term()</code></li><li><code>Event = <a href="#type-system_event" class="seealso">system_event()</a></code></li></ul>
+      
+      <div class="description">
+        <p>This function is called by a process when it generates a
+          system event. <code><anno>FormFunc</anno></code> is a formatting
+          function, called as <code><anno>FormFunc</anno>(Device,
+          <anno>Event</anno>, <anno>Extra</anno>)</code> to print the events, 
+          which is necessary if tracing is activated.
+          <code><anno>Extra</anno></code> is any extra information that the
+          process needs in the format function, for example, the process
+          name.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_system_msg/6">handle_system_msg(Msg, From, Parent, Module, Debug, Misc) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;no_return()</h3>
+      <ul class="type_desc"><li><code>Msg = term()</code></li><li><code>From = {pid(), Tag :: term()}</code></li><li><code>Parent = pid()</code></li><li><code>Module = module()</code></li><li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li><li><code>Misc = term()</code></li></ul>
+      
+      <div class="description">
+        <p>This function is used by a process module to take care of system
+          messages. The process receives a 
+          <code>{system, <anno>From</anno>, <anno>Msg</anno>}</code> message and
+          passes <code><anno>Msg</anno></code> and <code><anno>From</anno></code> to this
+          function.</p>
+        <p>This function <em>never</em> returns. It calls either of the
+          following functions:</p>
+        <list type="bulleted">
+          <item>
+            <p><code><anno>Module</anno>:system_continue(<anno>Parent</anno>,
+              NDebug, <anno>Misc</anno>)</code>,
+	      where the process continues the execution.</p>
+          </item>
+          <item>
+            <p><code><anno>Module</anno>:system_terminate(Reason,
+              <anno>Parent</anno>, <anno>Debug</anno>, <anno>Misc</anno>)</code>,
+              if the process is to terminate.</p>
+          </item>
+        </list>
+        <p><code><anno>Module</anno></code> must export the following:</p>
+        <list type="bulleted">
+          <item><code>system_continue/3</code></item>
+          <item><code>system_terminate/4</code></item>
+          <item><code>system_code_change/4</code></item>
+          <item><code>system_get_state/1</code></item>
+          <item><code>system_replace_state/2</code></item>
+        </list>
+        <p>Argument <code><anno>Misc</anno></code> can be used to save internal data
+          in a process, for example, its state. It is sent to
+          <code><anno>Module</anno>:system_continue/3</code> or
+          <code><anno>Module</anno>:system_terminate/4</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="print_log/1">print_log(Debug) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li></ul>
+      
+      <div class="description">
+        <p>Prints the logged system events in the debug structure,
+          using <code>FormFunc</code> as defined when the event was
+          generated by a call to
+          <a href="#handle_debug/4" class="seealso"><code>handle_debug/4</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="system_code_change/4">Module:system_code_change(Misc, Module, OldVsn, Extra) -&gt;
+        {ok, NMisc}</h3>
+      
+      <ul class="type">
+        <li><code>Misc = term()</code></li>
+        <li><code>OldVsn = undefined | term()</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Extra = term()</code></li>
+        <li><code>NMisc = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Called from <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a> when the process is to perform a
+          code change. The code change is used when the
+          internal data structure has changed. This function
+          converts argument <code>Misc</code> to the new data
+          structure. <code>OldVsn</code> is attribute <em>vsn</em> of the
+          old version of the <code>Module</code>. If no such attribute is
+          defined, the atom <code>undefined</code> is sent.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="system_continue/3">Module:system_continue(Parent, Debug, Misc) -&gt; none()</h3>
+      
+      <ul class="type">
+        <li><code>Parent = pid()</code></li>
+        <li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li>
+        <li><code>Misc = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Called from <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a> when the process is to continue
+          its execution (for example, after it has been
+          suspended). This function never returns.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="system_get_state/1">Module:system_get_state(Misc) -&gt; {ok, State}</h3>
+      
+      <ul class="type">
+        <li><code>Misc = term()</code></li>
+        <li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Called from <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a>
+          when the process is to return a term that reflects its current state. 
+          <code>State</code> is the value returned by 
+          <a href="#get_state/2" class="seealso"><code>get_state/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="system_replace_state/2">Module:system_replace_state(StateFun, Misc) -&gt;
+        {ok, NState, NMisc}</h3>
+      
+      <ul class="type">
+        <li><code>StateFun = fun((State :: term()) -&gt; NState)</code></li>
+        <li><code>Misc = term()</code></li>
+        <li><code>NState = term()</code></li>
+        <li><code>NMisc = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Called from <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a> when the process is to replace
+          its current state. <code>NState</code> is the value returned by
+          <a href="#replace_state/3" class="seealso"><code>replace_state/3</code></a>.
+          </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="system_terminate/4">Module:system_terminate(Reason, Parent, Debug, Misc) -&gt; none()</h3>
+      
+      <ul class="type">
+        <li><code>Reason = term()</code></li>
+        <li><code>Parent = pid()</code></li>
+        <li><code>Debug = [<a href="#type-dbg_opt" class="seealso">dbg_opt()</a>]</code></li>
+        <li><code>Misc = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Called from <a href="#handle_system_msg/6" class="seealso">
+          <code>handle_system_msg/6</code></a> when the process is to terminate.
+          For example, this function is called when
+          the process is suspended and its parent orders shutdown.
+          It gives the process a chance to do a cleanup. This function never
+          returns.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

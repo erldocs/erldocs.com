@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>httpd (inets) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>httpd</h1> 
+  <h2 class="modsummary">
+    HTTP server API
+  </h2>
+  <div class="description">
+    <p>An implementation of an HTTP 1.1 compliant web server, as defined in 
+    <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>. 
+    Provides web server start options, administrative functions, and 
+    an Erlang callback API.</p>
+  </div>
+  
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <p><code>boolean() = true | false</code></p>
+    <p><code>string()</code> = list of ASCII characters</p>
+    <p><code>path() = string()</code> representing a file or a directory path</p>
+    <p><code> ip_address() = {N1,N2,N3,N4} % IPv4
+       | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6</code></p>
+    <p><code>hostname() = string()</code> representing a host, for example, 
+    "foo.bar.com"</p>
+    <p><code>property() = atom()</code></p>
+    
+  </div>
+
+  <div class="section">
+    <h4>ERLANG HTTP SERVER SERVICE START/STOP</h4>
+    <p>A web server can be configured to start when starting the <code>Inets</code>
+    application, or dynamically in runtime by calling the
+    <code>Inets</code> application API <code>inets:start(httpd, ServiceConfig)</code> or
+    <code>inets:start(httpd, ServiceConfig, How)</code>,
+    see <a href="inets.html" class="seealso">inets(3)</a>.
+    The configuration options, also called
+    properties, are as follows:</p>
+
+    <span id="props_file"> </span>
+    <p><em>File Properties</em></p>
+
+    <p>When the web server is started
+    at application start time, the properties are to be fetched from a
+    configuration file that can consist of a regular Erlang property
+    list, that is, <code>[{Option, Value}]</code>, where <code> Option = property()
+    </code> and <code>Value = term()</code>, followed by a full stop, or for
+    backwards compatibility, an Apache-like configuration file. If the
+    web server is started dynamically at runtime,
+    a file can still be specified but also the complete property
+    list.</p>
+    
+    <taglist>
+      <dt><span id="prop_proplist_file"> </span>{proplist_file, path()}</dt>
+      <item>
+	<p>If this property is defined, <code>Inets</code> expects to find
+	all other properties defined in this file. The
+	file must include all properties listed under mandatory
+	properties.</p>
+      </item>
+
+      <dt><span id="prop_file"> </span>{file, path()}</dt>
+      <item> 
+	<p>If this property is defined, <code>Inets</code> expects to find all 
+	other properties defined in this file, which uses Apache-like 
+	syntax. The file must include all properties listed 
+	under mandatory properties. The Apache-like syntax is the property, 
+	written as one word where each new word begins with a capital, 
+	followed by a white-space, followed by the value, followed by a 
+	new line.</p>
+	<p>Example:</p>
+	<code>
+{server_root, "/urs/local/www"} -&gt; ServerRoot /usr/local/www</code>
+	  
+	<p>A few exceptions are documented
+	  for each property that behaves differently,
+	  and the special cases <code>{directory, {path(), PropertyList}}</code> 
+	  and <code>{security_directory, {Dir, PropertyList}}</code>, are represented
+	  as:</p>
+	<pre class="sh_erlang">
+	  
+&lt;Directory Dir&gt;
+ &lt;Properties handled as described above&gt; 
+&lt;/Directory&gt;
+         </pre>
+      </item>
+    </taglist>
+    <div class="note"><h2>Note!</h2>
+	<p>The properties <code>proplist_file</code> and <code>file</code> are mutually exclusive. Also newer properties may not be supported as Apache-like options, this is a legacy feature.</p>
+    </div>
+
+    <span id="props_mand"> </span>
+    <p><em>Mandatory Properties</em></p>
+    <taglist>
+      <dt><span id="prop_port"> </span>{port, integer()} </dt>
+      <item> 
+	<p>The port that the HTTP server listen to.
+	If zero is specified as port, an arbitrary available port
+	is picked and function <code>httpd:info/2</code> can be used to
+	determine which port was picked.</p>
+      </item>
+
+      <dt><span id="prop_server_name"> </span>{server_name, string()}</dt>
+      <item>
+	<p>The name of your server, normally a fully qualified domain name.</p>
+      </item>
+
+      <dt><span id="prop_server_root"> </span>{server_root, path()}</dt>
+      <item> 
+	<p>Defines the home directory of the server, where log files, and so on, 
+	can be stored. Relative paths specified in other properties refer
+	to this directory.</p>
+      </item>
+
+      <dt> <span id="prop_doc_root"> </span>{document_root, path()}</dt>
+      <item>
+	<p>Defines the top directory for the documents that
+	are available on the HTTP server.</p>
+      </item>
+    </taglist>
+
+    <span id="props_comm"> </span>
+    <p><em>Communication Properties</em></p>
+    <taglist>
+      <dt><span id="prop_bind_address"> </span>{bind_address, ip_address() | hostname() | any}</dt>
+      <item>
+	<p>Default is <code>any</code>. <code>any</code> is denoted <em>*</em> 
+	in the Apache-like configuration file.</p>
+      </item>
+
+      <dt><span id="profile"> </span>{profile, atom()}</dt>
+      <item>
+        <p>Used together with <a href="#prop_bind_address" class="seealso"><code>bind_address</code></a>
+	and <a href="#prop_port" class="seealso"><code>port</code></a> to uniquely identify
+	a HTTP server. This can be useful in a virtualized environment,
+	where there can
+	be more that one server that has the same bind_address and port.
+	If this property is not explicitly set, it is assumed that the
+	<a href="#prop_bind_address" class="seealso"><code>bind_address</code></a> and
+	<a href="#prop_port" class="seealso"><code>port</code></a>uniquely identifies the HTTP server.
+	</p>
+      </item>
+
+      <dt><span id="prop_socket_type"> </span>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</dt>
+      <item>
+	<p>For <code>ip_comm</code> configuration options, see 
+	<a href="../kernel/gen_tcp.html#listen/2" class="seealso">gen_tcp:listen/2</a>, some options
+	that are used internally by httpd can not be set.</p>
+	<p>For <code>SSL</code> configuration options, see 
+	<a href="../ssl/ssl.html#listen/2" class="seealso">ssl:listen/2</a>.</p>
+	<p>Default is <code>ip_comm</code>.</p> 
+      </item>
+
+      <dt><span id="prop_ipfamily"> </span>{ipfamily, inet | inet6}</dt>
+      <item>
+	<p>Default is <code>inet</code>, legacy option <code>inet6fb4</code> no longer makes sense and will be translated
+	to inet.</p>
+      </item>
+      
+      <dt><span id="prop_minimum_bytes_per_second"> </span>{minimum_bytes_per_second, integer()}</dt>
+      <item>
+	<p>If given, sets a minimum of bytes per second value for connections.</p>
+	<p>If the value is unreached, the socket closes for that connection.</p>
+	<p>The option is good for reducing the risk of "slow DoS" attacks.</p>
+      </item>
+    </taglist>
+
+    <span id="props_api_modules"> </span>
+    <p><em>Erlang Web Server API Modules</em> </p>
+    <taglist>
+      <dt><span id="prop_modules"> </span>{modules, [atom()]} </dt>
+      <item>
+	<p>Defines which modules the HTTP server uses when handling
+	requests. Default is <code>[mod_alias, mod_auth, mod_esi,
+	mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log,
+	mod_disk_log]</code>. 
+	Notice that some <code>mod</code>-modules are dependent on
+	others, so the order cannot be entirely arbitrary. See the
+	<a href="http_server.html" class="seealso">Inets Web Server Modules</a> in the
+	User's Guide for details.</p>
+      </item>
+    </taglist>
+    
+    <span id="props_limit"> </span>
+    <p><em>Limit properties</em> </p>
+    <taglist>
+
+      <dt><span id="prop_customize"> </span>{customize, atom()}</dt>
+      <item> 
+	<p>A callback module to customize the inets HTTP servers behaviour
+	see <a href="httpd_custom_api.html" class="seealso"> httpd_custom_api</a> </p>
+      </item>
+      
+      <dt><span id="prop_disable_chunked_encoding"> </span>{disable_chunked_transfer_encoding_send, boolean()}</dt>
+      <item> 
+	<p>Allows you to disable chunked
+	transfer-encoding when sending a response to an HTTP/1.1
+	client. Default is <code>false</code>.</p>
+      </item>
+      
+      <dt><span id="prop_keep_alive"> </span>{keep_alive, boolean()}</dt>
+      <item>
+	<p>Instructs the server whether to use persistent
+	connections when the client claims to be HTTP/1.1
+	compliant. Default is <code>true</code>.</p>
+      </item>
+      
+      <dt><span id="prop_keep_alive_timeout"> </span>{keep_alive_timeout, integer()}</dt>
+      <item>
+	<p>The number of seconds the server waits for a
+	subsequent request from the client before closing the
+	connection. Default is <code>150</code>.</p>
+      </item>
+      
+      <dt><span id="prop_max_body_size"> </span>{max_body_size, integer()}</dt>
+      <item>
+	<p>Limits the size of the message body of an HTTP request.
+	Default is no limit.</p>
+      </item>
+      
+      <dt><span id="prop_max_clients"> </span>{max_clients, integer()}</dt>
+      <item> 
+	<p>Limits the number of simultaneous requests that can be
+	supported. Default is <code>150</code>.</p>
+      </item>
+
+      <dt><span id="prop_max_header_size"> </span>{max_header_size, integer()}</dt>
+      <item>
+	<p>Limits the size of the message header of an HTTP request.
+	Default is <code>10240</code>.</p>
+      </item>
+
+      <dt><span id="prop_max_content_length"> </span>{max_content_length, integer()}</dt>
+      <item>
+	<p>Maximum content-length in an incoming request, in bytes. Requests
+	with content larger than this are answered with status 413.
+	Default is <code>100000000</code> (100 MB).
+	</p>
+      </item>
+
+      <dt><span id="prop_max_uri"> </span>{max_uri_size, integer()}</dt>
+      <item>
+	<p>Limits the size of the HTTP request URI.
+	Default is no limit.</p>
+      </item>
+      
+      <dt><span id="prop_max_keep_alive_req"> </span>{max_keep_alive_request, integer()}</dt>
+      <item>
+	<p>The number of requests that a client can do on one
+	connection. When the server has responded to the number of
+	requests defined by <code>max_keep_alive_requests</code>, the server 
+	closes the connection. The server closes it even if there are 
+	queued request. Default is no limit.</p>
+      </item>
+
+      
+      <dt><span id="max_client_body_chunk"> </span>{max_client_body_chunk, integer()}</dt>
+      <item>
+	<p>Enforces chunking of a HTTP PUT or POST body data to be deliverd
+	to the mod_esi callback. Note this is not supported for mod_cgi. 
+	Default is no limit e.i the whole body is deliverd as one entity, which could
+	be very memory consuming. <a href="mod_esi.html" class="seealso">mod_esi(3)</a>.
+	</p>
+      </item>
+      
+    </taglist>
+    
+    <span id="props_admin"> </span>
+    <p><em>Administrative Properties</em></p>
+    <taglist> 
+      <dt><span id="prop_mime_types"> </span>{mime_types, [{MimeType, Extension}] | path()}</dt>
+      <item>
+	<p><code>MimeType = string()</code> and <code>Extension = string()</code>.
+	  Files delivered to the client are MIME typed according to RFC
+          1590. File suffixes are mapped to MIME types before file delivery.
+          The mapping between file suffixes and MIME types can be specified
+	  as an Apache-like file or directly in the property list. Such
+          a file can look like the follwoing:</p>
+        <pre class="sh_erlang">
+# MIME type	Extension  
+text/html	html htm
+text/plain	asc txt</pre>
+	
+	<p>Default is [{"html","text/html"},{"htm","text/html"}].</p>
+      </item>
+
+      <dt><span id="prop_mime_type"> </span>{mime_type, string()}</dt>
+      <item>
+	<p>When the server is asked to provide a document type that
+	cannot be determined by the MIME Type Settings, the server
+	uses this default type.</p>
+      </item>
+  
+      <dt><span id="prop_server_admin"> </span>{server_admin, string()}</dt>
+      <item>
+	<p>Defines the email-address of the server
+	administrator to be included in any error messages returned by
+	the server.</p>
+      </item>
+
+      <dt><span id="prop_server_tokens"> </span>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</dt>
+      <item>
+	<p>Defines the look of the value of the server header.</p>
+	<p>Example: Assuming the version of <code>Inets</code> is 5.8.1, 
+	the server header string can look as follows for
+	the different values of server-tokens:</p>
+	<taglist>
+       <dt><code>none</code></dt>
+       <item><p>""  % A Server: header will not be generated</p></item>
+       <dt><code>prod</code></dt>
+       <item><p>"inets"</p></item>
+       <dt><code>major</code></dt>
+       <item><p>"inets/5"</p></item>
+       <dt><code>minor</code></dt>
+       <item><p>"inets/5.8"</p></item>
+       <dt><code>minimal</code></dt>
+       <item><p>"inets/5.8.1"</p></item>
+       <dt><code>os</code></dt>
+       <item><p>"inets/5.8.1 (unix)"</p></item>
+       <dt><code>full</code></dt>
+       <item><p>"inets/5.8.1 (unix/linux) OTP/R15B"</p></item>
+       <dt><code>{private, "foo/bar"}</code></dt>
+       <item><p>"foo/bar"</p></item>
+     </taglist>
+	<p>By default, the value is as before, that is, <code>minimal</code>.</p>
+      </item>
+
+      <dt><span id="prop_log_format"> </span>{log_format, common | combined}</dt>
+      <item>
+	<p>Defines if access logs are to be written according to the <code>common</code>
+	log format or the extended common log format.
+	The <code>common</code> format is one line looking like this:
+        <code>remotehost rfc931 authuser [date] "request" status bytes</code>.</p> 
+	<p>Here:</p>
+	<taglist>
+	  <dt><code>remotehost</code></dt>
+	  <item>Remote.</item>
+	  <dt><code>rfc931</code></dt>
+	  <item>The remote username of the client (<url href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</url>).</item>
+	  <dt><code>authuser</code></dt>
+	  <item>The username used for authentication.</item>
+	  <dt><code>[date]</code></dt>
+	  <item>Date and time of the request (<url href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</url>).</item>
+	  <dt><code>"request"</code></dt>
+	  <item>The request line as it came from the client  (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
+	  <dt><code>status</code></dt>
+	  <item>The HTTP status code returned to the client (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
+	  <dt><code>bytes</code></dt>
+	  <item>The content-length of the document transferred.</item>
+	</taglist>
+
+	<p>The <code>combined</code> format is one line looking like this:
+	<code>remotehost rfc931 authuser [date] "request" status bytes "referer" "user_agent" </code></p>
+	<p>In addition to the earlier:</p>
+	<taglist>
+	  <dt><code>"referer"</code></dt>
+	  <item>The URL the client was on before
+	requesting the URL (if it could not be determined, 
+	a minus sign is placed in this field).</item>
+	  <dt><code>"user_agent"</code></dt>
+	  <item>The software the client claims to be using (if it
+	could not be determined, a minus sign is placed in
+	this field).</item>
+	</taglist>
+	
+	<p>This affects the access logs written by <code>mod_log</code> and 
+	<code>mod_disk_log</code>.
+	</p>	
+      </item>      
+
+      <dt><span id="prop_elog_format"> </span>{error_log_format, pretty | compact}</dt>
+      <item>
+	<p>Default is <code>pretty</code>. If the error log is meant to be read
+	directly by a human, <code>pretty</code> is the best option.</p>
+	<p><code>pretty</code> has a format corresponding to:</p>
+	
+	<code>io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code>
+
+	<p><code>compact</code> has a format corresponding to:</p>
+	
+	<code>io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code>
+
+	<p>This affects the error logs written by <code>mod_log</code> and 
+	<code>mod_disk_log</code>.
+	</p>
+      </item>
+      
+    </taglist>
+   
+    <span id="props_alias"> </span>
+    <p><em>URL Aliasing Properties - Requires mod_alias</em></p>
+    <taglist>
+      <dt><span id="prop_alias"> </span>{alias, {Alias, RealName}}</dt>
+      <item>
+	<p><code>Alias = string()</code> and <code>RealName = string()</code>. 
+	<code>alias</code> allows documents to be stored in the local file
+	system instead of the <code>document_root</code> location. URLs with a path
+	beginning with url-path is mapped to local files beginning with
+	directory-filename, for example:</p>
+	
+	<code>{alias, {"/image", "/ftp/pub/image"}}</code>
+	
+	<p>Access to http://your.server.org/image/foo.gif would refer to
+	the file /ftp/pub/image/foo.gif.</p>
+      </item>
+
+      <dt><span id="prop_re_write"> </span>{re_write, {Re, Replacement}}</dt>      
+      <item>
+	<p><code>Re = string()</code> and <code>Replacement = string()</code>. 
+	<code>re_write</code> allows documents to be stored in the local file
+	system instead of the <code>document_root</code> location. URLs are rewritten
+        by <code>re:replace/3</code> to produce a path in the local file-system,
+        for example:</p>
+	
+	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
+	
+	<p>Access to http://your.server.org/~bob/foo.gif would refer to
+	the file /home/bob/public/foo.gif.
+
+        In an Apache-like configuration file, <code>Re</code> is separated
+        from <code>Replacement</code> with one single space, and as expected
+        backslashes do not need to be backslash escaped, the
+        same example would become:</p>
+
+        <code>ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code>
+
+        <p>Beware of trailing space in <code>Replacement</code> to be used.
+        If you must have a space in <code>Re</code>, use, for example, the character 
+	encoding <code>\040</code>, see 
+	<a href="../stdlib/re.html" class="seealso">re(3)</a>.</p>
+      </item>
+
+      <dt><span id="prop_dir_idx"> </span>{directory_index, [string()]}</dt>      
+      <item> 
+	<p><code>directory_index</code> specifies a list of resources to look for
+	if a client requests a directory using a <code>/</code> at the end of the
+	directory name. <code>file</code> depicts the name of a file in the
+	directory. Several files can be given, in which case the server
+	returns the first it finds, for example:</p>
+	
+	<code>{directory_index, ["index.html", "welcome.html"]}</code>
+	
+	<p>Access to http://your.server.org/docs/ would return
+	http://your.server.org/docs/index.html or
+	http://your.server.org/docs/welcome.html if index.html does not
+	exist.</p>
+      </item> 
+    </taglist>
+
+    <span id="props_cgi"> </span>
+    <p><em>CGI Properties - Requires mod_cgi</em></p>
+    <taglist> 
+      <dt><span id="prop_script_alias"> </span>{script_alias, {Alias, RealName}}</dt>
+      <item>
+	<p><code>Alias = string()</code> and <code>RealName = string()</code>.
+	Have the same behavior as property <code>alias</code>, except that
+	they also mark the target directory as containing CGI
+	scripts. URLs with a path beginning with url-path are mapped to
+	scripts beginning with directory-filename, for example:</p>
+	
+	<code>{script_alias, {"/cgi-bin/", "/web/cgi-bin/"}}</code>
+	
+	<p>Access to http://your.server.org/cgi-bin/foo would cause
+	the server to run the script /web/cgi-bin/foo.</p>
+      </item>
+      
+      <dt><span id="prop_script_re_write"> </span>{script_re_write, {Re, Replacement}}</dt>
+      <item>
+	<p><code>Re = string()</code> and <code>Replacement = string()</code>.
+	Have the same behavior as property <code>re_write</code>, except that
+	they also mark the target directory as containing CGI
+	scripts. URLs with a path beginning with url-path are mapped to
+	scripts beginning with directory-filename, for example:</p>
+	
+	<code>{script_re_write, {"^/cgi-bin/(\\d+)/", "/web/\\1/cgi-bin/"}}</code>
+	
+	<p>Access to http://your.server.org/cgi-bin/17/foo would cause
+	the server to run the script /web/17/cgi-bin/foo.</p>
+      </item>
+      
+      <dt><span id="prop_script_nocache"> </span>{script_nocache, boolean()}</dt>
+      <item> 
+	<p>If <code>script_nocache</code> is set to <code>true</code>, the HTTP server by
+	default adds the header fields necessary to prevent proxies from
+	caching the page. Generally this is preferred. 
+	Default to <code>false</code>.</p>
+      </item>
+      
+      <dt><span id="prop_script_timeout"> </span>{script_timeout, integer()}</dt>
+      <item>
+	<p>The time in seconds the web server waits between each
+	chunk of data from the script. If the CGI script does not deliver
+	any data before the timeout, the connection to the client is
+	closed. Default is <code>15</code>.</p>
+      </item>
+      
+      <dt><span id="prop_action"> </span>{action, {MimeType, CgiScript}} - requires mod_action</dt>
+      <item>
+	<p><code>MimeType = string()</code> and <code>CgiScript = string()</code>.
+	<code>action</code> adds an action activating a CGI script
+	whenever a file of a certain MIME type is requested. It
+	propagates the URL and file path of the requested document using
+	the standard CGI PATH_INFO and PATH_TRANSLATED environment
+	variables.</p>
+	<p>Example:</p>
+
+	<code>{action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}</code>
+      </item>
+
+      <dt><span id="prop_script"> </span>{script, {Method, CgiScript}} - requires mod_action</dt>
+      <item>
+	<p><code>Method = string()</code> and <code>CgiScript = string()</code>.
+	<code>script</code> adds an action activating a CGI script
+	whenever a file is requested using a certain HTTP method. The
+	method is either GET or POST, as defined in <url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>. It
+	propagates the URL and file path of the requested document using
+	the standard CGI PATH_INFO and PATH_TRANSLATED environment
+	variables.</p>
+	<p>Example:</p>
+	
+	<code>{script, {"PUT", "/cgi-bin/put"}}</code>
+	
+      </item>
+    </taglist>
+    
+    <span id="props_esi"> </span>
+    <p><em>ESI Properties - Requires mod_esi</em></p>
+    <taglist>
+      <dt><span id="prop_esi_alias"> </span>{erl_script_alias, {URLPath, [AllowedModule]}}</dt>      
+      <item>
+	<p><code>URLPath = string()</code> and <code>AllowedModule = atom()</code>.
+	<code>erl_script_alias</code> marks all URLs matching url-path as erl
+	scheme scripts. A matching URL is mapped into a specific module
+	and function, for example:</p>
+	
+	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}}</code>
+	
+	<p>A request to
+	http://your.server.org/cgi-bin/example/httpd_example:yahoo
+	would refer to httpd_example:yahoo/3 or, if that does not exist,
+	httpd_example:yahoo/2 and
+	http://your.server.org/cgi-bin/example/other:yahoo would
+	not be allowed to execute.</p>
+      </item>
+
+      <dt><span id="prop_esi_nocache"> </span>{erl_script_nocache, boolean()}</dt>
+      <item>
+	<p>If <code>erl_script_nocache</code> is set to <code>true</code>, the server adds
+	HTTP header fields preventing proxies from caching the
+	page. This is generally a good idea for dynamic content, as
+	the content often varies between each request. 
+	Default is <code>false</code>.</p>
+      </item>
+
+      <dt><span id="prop_esi_timeout"> </span>{erl_script_timeout, integer()}</dt>
+      <item>
+	<p>If <code>erl_script_timeout</code> sets the time in seconds the server
+	waits between each chunk of data to be delivered through
+	<code>mod_esi:deliver/2</code>. Default is <code>15</code>. This is only relevant
+	for scripts that use the erl scheme.</p>
+      </item>
+
+      <dt><span id="prop_esi_timeout"> </span>{eval_script_alias, {URLPath, [AllowedModule]}}</dt>
+      <item>
+	<p><code>URLPath = string()</code> and <code>AllowedModule = atom()</code>.
+	Same as <code>erl_script_alias</code> but for scripts
+	using the eval scheme. This is only supported
+	for backwards compatibility. The eval scheme is deprecated.</p>
+      </item>
+    </taglist>
+
+    <span id="props_log"> </span>
+    <p><em>Log Properties - Requires mod_log</em></p>
+    <taglist>
+      <dt><span id="prop_elog"> </span>{error_log, path()}</dt>
+      <item>
+	<p>Defines the filename of the error log file to be used to log
+	server errors. If the filename does not begin with a slash (/),
+	it is assumed to be relative to the <code>server_root</code>.</p>
+      </item>
+
+      <dt><span id="prop_slog"> </span>{security_log, path()}</dt>
+      <item>
+	<p>Defines the filename of the access log file to be used to
+	log security events. If the filename does not begin with a slash
+	(/), it is assumed to be relative to the <code>server_root</code>.</p>
+      </item>
+
+      <dt><span id="prop_tlog"> </span>{transfer_log, path()}</dt>
+      <item> 
+	<p>Defines the filename of the access log file to be used to
+	log incoming requests. If the filename does not begin with a
+	slash (/), it is assumed to be relative to the <code>server_root</code>.</p>
+      </item>
+    </taglist>
+
+    <span id="props_dlog"> </span>
+    <p><em>Disk Log Properties - Requires mod_disk_log</em></p>
+    <taglist>
+      <dt><span id="prop_dlog_format"> </span>{disk_log_format, internal | external}</dt>
+      <item>
+	<p>Defines the file format of the log files. See <code>disk_log</code> for
+	details. If the internal file format is used, the
+	log file is repaired after a crash. When a log file is
+	repaired, data can disappear. When the external file format is
+	used, <code>httpd</code> does not start if the log file is broken. Default is
+	<code>external</code>.</p>
+      </item>
+
+      <dt><span id="prop_edlog"> </span>{error_disk_log, path()}</dt>
+      <item>
+	<p>Defines the filename of the (<code>disk_log(3)</code>) error log file
+	to be used to log server errors. If the filename does not begin
+	with a slash (/), it is assumed to be relative to the <code>server_root</code>.</p>
+      </item>
+
+      <dt><span id="prop_edlog_size"> </span>{error_disk_log_size, {MaxBytes, MaxFiles}}</dt>
+      <item>
+	<p><code>MaxBytes = integer()</code> and <code>MaxFiles = integer()</code>.
+	Defines the properties of the (<code>disk_log(3)</code>) error log
+	file. This file is of type wrap log and
+	max bytes is written to each file and max files is
+	used before the first file is truncated and reused.</p>
+      </item>
+
+      <dt><span id="prop_sdlog"> </span>{security_disk_log, path()}</dt>
+      <item>
+	<p>Defines the filename of the (<code>disk_log(3)</code>) access log file
+	logging incoming security events, that is, authenticated
+	requests. If the filename does not begin with a slash (/), it
+	is assumed to be relative to the <code>server_root</code>.</p>
+      </item>
+
+      <dt><span id="prop_sdlog_size"> </span>{security_disk_log_size, {MaxBytes, MaxFiles}}</dt>
+      <item>
+	<p><code>MaxBytes = integer()</code> and <code>MaxFiles = integer()</code>. 
+	Defines the properties of the <code>disk_log(3)</code> access log
+	file. This file is of type wrap log and
+	max bytes is written to each file and max files is
+	used before the first file is truncated and reused.</p>
+      </item>
+
+      <dt><span id="prop_tdlog"> </span>{transfer_disk_log, path()}</dt> 
+      <item>
+	<p>Defines the filename of the (<code>disk_log(3)</code>) access log file
+	logging incoming requests. If the filename does not begin
+	with a slash (/), it is assumed to be relative to the
+	<code>server_root</code>.</p>
+      </item>
+      
+      <dt><span id="prop_tdlog_size"> </span>{transfer_disk_log_size, {MaxBytes, MaxFiles}}</dt>
+      <item>
+	<p><code>MaxBytes = integer()</code> and <code>MaxFiles = integer()</code>.  
+	Defines the properties of the <code>disk_log(3)</code> access log
+	file. This file is of type wrap log and
+	max bytes is written to each file and max files is
+	used before the first file is truncated and reused.</p>
+      </item>
+    </taglist>
+
+    <span id="props_auth"> </span>
+    <p><em>Authentication Properties - Requires mod_auth</em></p>
+
+    <span id="prop_dri"> </span>
+    <p><em>{directory, {path(), [{property(), term()}]}}</em></p>
+
+    <span id="props_dir"> </span>
+    <p>The properties for directories are as follows:</p>
+    
+    <taglist>
+      <dt><span id="prop_allow_from"> </span>{allow_from, all | [RegxpHostString]}</dt>
+      <item>
+	<p>Defines a set of hosts to be granted access to a
+	given directory, for example:</p>
+	
+	<code>{allow_from, ["123.34.56.11", "150.100.23"]}</code>
+          
+	<p>The host <code>123.34.56.11</code> and all machines on the <code>150.100.23</code>
+	subnet are allowed access.</p>
+      </item>
+      
+      <dt><span id="prop_deny_from"> </span>{deny_from, all | [RegxpHostString]}</dt>
+      <item>
+	<p>Defines a set of hosts
+	to be denied access to a given directory, for example:</p>
+	
+	<code>{deny_from, ["123.34.56.11", "150.100.23"]}</code>
+          
+	<p>The host <code>123.34.56.11</code> and all machines on the <code>150.100.23</code>
+	subnet are not allowed access.</p>
+      </item>
+
+      <dt><span id="prop_auth_type"> </span>{auth_type, plain | dets | mnesia}</dt>
+      <item>
+	<p>Sets the type of authentication database that is used for the
+	directory. The key difference between the different methods is
+	that dynamic data can be saved when Mnesia and Dets
+	are used.
+	This property is called <code>AuthDbType</code> in the Apache-like
+	configuration files.</p>
+      </item>
+
+      <dt><span id="prop_auth_user_file"> </span>{auth_user_file, path()}</dt>
+      <item>
+	<p>Sets the name of a file containing the list of users and
+	passwords for user authentication. The filename can be either
+	absolute or relative to the <code>server_root</code>. If using the
+	plain storage method, this file is a plain text file where
+	each line contains a username followed by a colon, followed
+	by the non-encrypted password. If usernames are duplicated,
+	the behavior is undefined.</p>
+	<p>Example:</p>
+	
+	<code> ragnar:s7Xxv7
+ edward:wwjau8 </code> 
+
+	<p>If the Dets storage method is used, the user database is
+	maintained by Dets and must not be edited by hand. Use the
+	API functions in module <code>mod_auth</code> to create/edit the user
+	database. This directive is ignored if the Mnesia
+	storage method is used. For security reasons, ensure that
+	<code>auth_user_file</code> is stored outside the document tree of the web
+	server. If it is placed in the directory that it protects,
+	clients can download it.</p>
+      </item>
+      
+      <dt><span id="prop_auth_group_file"> </span>{auth_group_file, path()}</dt>
+      <item>
+	<p>Sets the name of a file containing the list of user
+	groups for user authentication. The filename can be either
+	absolute or relative to the <code>server_root</code>. If the plain
+	storage method is used, the group file is a plain text file, where
+	each line contains a group name followed by a colon, followed
+	by the members usernames separated by spaces.</p>
+	<p>Example:</p>
+	
+	<code>group1: bob joe ante</code>
+          
+	<p>If the Dets storage method is used, the group database is
+	maintained by Dets and must not be edited by hand. Use the
+	API for module <code>mod_auth</code> to create/edit the group database.
+	This directive is ignored if the Mnesia storage method is used.
+	For security reasons, ensure that the <code>auth_group_file</code> is
+	stored outside the document tree of the web server. If it is
+	placed in the directory that it protects, clients
+	can download it.</p>
+      </item>
+
+      <dt><span id="prop_auth_name"> </span>{auth_name, string()}</dt>
+      <item> 
+	<p>Sets the name of the authorization realm (auth-domain) for
+	a directory. This string informs the client about which 
+	username and password to use.</p>
+      </item>
+
+      <dt><span id="prop_auth_access_passwd"> </span>{auth_access_password, string()}</dt>
+      <item>
+	<p>If set to other than "NoPassword", the password is required
+	for all API calls. If the password is set to "DummyPassword", the
+	password must be changed before any other API calls. To secure
+	the authenticating data, the password must be changed after the
+	web server is started. Otherwise it is written in clear
+	text in the configuration file.</p>
+      </item>
+      
+      <dt><span id="prop_req_user"> </span>{require_user, [string()]}</dt>
+      <item> 
+	<p>Defines users to grant access to a given
+	directory using a secret password.</p>
+      </item>
+
+      <dt><span id="prop_req_grp"> </span>{require_group, [string()]}</dt>
+      <item>
+	<p>Defines users to grant access to a given
+	directory using a secret password.</p>
+      </item>
+      
+    </taglist>
+
+    <span id="props_htaccess"> </span> 
+    <p><em>Htaccess Authentication Properties - Requires mod_htaccess</em></p>
+    <taglist>
+      <dt><span id="prop_access_files"> </span>{access_files, [path()]}</dt>
+      <item>
+	<p>Specifies the filenames that are used for
+	access files. When a request comes, every directory in the path
+	to the requested asset are searched after files with the
+	names specified by this parameter. If such a file is found, the
+	file is parsed and the restrictions specified in it are
+	applied to the request.</p>
+      </item>
+    </taglist>
+
+    <span id="props_sec"> </span>
+    <p><em>Security Properties - Requires mod_security</em></p>
+ 
+    <span id="prop_sec_dir"> </span>
+    <p><em>{security_directory, {path(), [{property(), term()}]}}</em></p>
+       
+    <span id="props_sdir"> </span>
+    <p>The properties for the security directories are as follows:</p>
+    <taglist>
+      <dt><span id="prop_data_file"> </span>{data_file, path()}</dt>      
+      <item>
+	<p>Name of the security data file. The filename can either be
+	absolute or relative to the <code>server_root</code>. This file is used to
+	store persistent data for module <code>mod_security</code>.</p>
+      </item>
+	  
+      <dt><span id="prop_max_retries"> </span>{max_retries, integer()}</dt>	  
+      <item>
+	<p>Specifies the maximum number of attempts to authenticate a
+	user before the user is blocked out. If a user
+	successfully authenticates while blocked, the
+	user receives a 403 (Forbidden) response from the
+	server. If the user makes a failed attempt while blocked, the
+	server returns 401 (Unauthorized), for security
+	reasons. 
+	Default is <code>3</code>. Can be set to infinity.</p>
+      </item>
+	
+      <dt><span id="prop_block_time"> </span>{block_time, integer()}</dt>
+      <item>
+	<p>Specifies the number of minutes a user is blocked. After
+	this timehas passed, the user automatically regains access.
+	Default is <code>60</code>.</p>
+      </item>
+      
+      <dt><span id="prop_fail_exp_time"> </span>{fail_expire_time, integer()}</dt>
+      <item>
+	<p>Specifies the number of minutes a failed user authentication
+	is remembered. If a user authenticates after this
+	time has passed, the previous failed authentications are
+	forgotten. 
+	Default is <code>30</code>.</p>
+      </item>
+      
+      <dt><span id="prop_auth_timeout"> </span>{auth_timeout, integer()}</dt>
+      <item>
+	Specifies the number of seconds a successful user
+	authentication is remembered. After this time has passed, the
+	authentication is no longer reported. Default is <code>30</code>.
+      </item>
+    </taglist>    
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="info/1">info(Pid) -&gt;</h3>
+      <h3 id="info/2">info(Pid, Properties) -&gt; [{Option, Value}]</h3>
+      
+      <ul class="type">
+        <li><code>Properties = [property()]</code></li>
+	<li><code>Option = property()</code></li>
+	<li><code>Value = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Fetches information about the HTTP server. When called
+	with only the pid, all properties are fetched. When called
+	with a list of specific properties, they are fetched.
+	The available properties are the same as the start options
+	of the server. 
+	</p>
+	
+	<div class="note"><h2>Note!</h2><p>Pid is the pid returned from <code>inets:start/[2,3]</code>. 
+	    Can also be retrieved form <code>inets:services/0</code> and
+	    <code>inets:services_info/0</code>,
+	    see <a href="inets.html" class="seealso">inets(3)</a>.
+	  </p></div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/2-1">info(Address, Port) -&gt;  </h3>
+      <h3 id="info/3">info(Address, Port, Profile) -&gt;  </h3>
+      <h3 id="info/4">info(Address, Port, Profile, Properties) -&gt; [{Option, Value}] </h3>
+      <h3 id="info/3-1">info(Address, Port, Properties) -&gt; [{Option, Value}] </h3>
+      
+      <ul class="type">
+	<li><code>Address = ip_address()</code></li>
+	<li><code>Port = integer()</code></li>
+	<li><code>Profile = atom()</code></li>
+	<li><code>Properties = [property()]</code></li>
+        <li><code>Option = property()</code></li>
+	<li><code>Value = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Fetches information about the HTTP server. When called with
+        only <code>Address</code> and <code>Port</code>, all properties are
+        fetched.  When called with a list of specific properties, they
+        are fetched.  The available properties are the same as the
+        start options of the server.
+	</p>
+
+	<div class="note"><h2>Note!</h2><p>The address must be the IP address and cannot be
+	    the hostname.
+	  </p></div>	
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="reload_config/2">reload_config(Config, Mode) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Config = path() | [{Option, Value}]</code></li>
+	<li><code>Option = property()</code></li>
+	<li><code>Value = term()</code></li>
+	<li><code>Mode = non_disturbing | disturbing</code></li>
+      </ul>
+      <div class="description">
+	<p>Reloads the HTTP server configuration without restarting the
+	  server. Incoming requests are answered with a temporary
+	  down message during the reload time.</p>
+	
+	<div class="note"><h2>Note!</h2><p>Available properties are the same as the
+	    start options of the server, but the properties 
+	    <code>bind_address</code> and <code>port</code> 
+	    cannot be changed.</p></div>
+	
+	<p>If mode is disturbing, the server is blocked forcefully,
+	  all ongoing requests terminates, and the reload
+	  starts immediately. If mode is non-disturbing, no new
+	  connections are accepted, but ongoing requests are
+	  allowed to complete before the reload is done.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>ERLANG WEB SERVER API DATA TYPES</h4>
+    <p>The Erlang web server API data types are as follows:</p>
+    <pre class="sh_erlang">
+      ModData = #mod{}
+
+      -record(mod, {
+		data = [],
+		socket_type = ip_comm,
+		socket, 
+		config_db,
+		method,
+		absolute_uri,
+		request_uri,
+		http_version,
+		request_line,
+		parsed_header = [],
+		entity_body,
+		connection
+	}).</pre>
+
+    <p>To acess the record in your callback-module use:</p>
+    <code> -include_lib("inets/include/httpd.hrl").</code>
+
+    <p>The fields of record <code>mod</code> have the following meaning:
+      </p>
+    <taglist>
+      <dt><code>data</code></dt>
+      <item><p>Type <code>[{InteractionKey,InteractionValue}]</code> is used to
+       propagate data between modules. Depicted
+      <code>interaction_data()</code> in function type declarations.</p>
+      </item>
+      <dt><code>socket_type</code></dt>
+      <item><p><code>socket_type()</code>
+       indicates whether it is an IP socket or an <code>ssl</code> socket.</p>
+      </item>
+      <dt><code>socket</code></dt>
+      <item><p>The socket, in format <code>ip_comm</code> or <code>ssl</code>,
+       depending on <code>socket_type</code>.</p>
+      </item>
+      <dt><code>config_db</code></dt>
+      <item><p>The config file directives stored as key-value tuples in
+       an ETS table. Depicted <code>config_db()</code> in function type
+       declarations.</p>
+      </item>
+      <dt><code>method</code></dt>
+      <item><p>Type <code>"GET" | "POST" | "HEAD" | "TRACE"</code>, that is, the
+       HTTP method.</p>
+      </item>
+      <dt><code>absolute_uri</code></dt>
+      <item><p>If the request is an HTTP/1.1
+       request, the URI can be in the absolute URI format. In that
+       case, <code>httpd</code> saves the absolute URI in this field. An Example
+       of an absolute URI is 
+      <code>"http://ServerName:Part/cgi-bin/find.pl?person=jocke"</code></p></item>
+      <dt><code>request_uri</code></dt>
+      <item><p>The <code>Request-URI</code> as defined
+       in <url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>, for example, <code>"/cgi-bin/find.pl?person=jocke"</code>.</p>
+      </item>
+      <dt><code>http_version</code></dt>
+      <item><p>The <code>HTTP</code> version of the
+       request, that is, "HTTP/0.9", "HTTP/1.0", or "HTTP/1.1".</p>
+      </item>
+      <dt><code>request_line</code></dt>
+      <item><p>The <code>Request-Line</code> as
+       defined in<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>, for example, 
+       <code>"GET /cgi-bin/find.pl?person=jocke HTTP/1.0"</code>.</p>
+      </item>
+      <dt><code>parsed_header</code></dt>
+      <item>Type <code>[{HeaderKey,HeaderValue}]</code>.
+      <code>parsed_header</code> contains all HTTP header fields from the
+      HTTP request stored in a list as key-value tuples. See
+      <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>
+      for a listing of all header fields. For example, the date field
+      is stored as <code>{"date","Wed, 15 Oct 1997 14:35:17 GMT"}</code>.
+      RFC 2616 defines that HTTP is a case-insensitive protocol and
+      the header fields can be in lower case or upper case. <code>httpd</code>
+      ensures that all header field names are in lower case.
+      </item>
+      <dt><code>entity_body</code></dt>
+      <item><p>The <code>entity-Body</code> as defined
+       in <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, for example, data sent from a CGI script using the
+       POST method.</p>
+      </item>
+      <dt><code>connection</code></dt>
+      <item><p><code>true | false</code>. If set to <code>true</code>, the connection to the
+       client is a persistent connection and is not closed when
+       the request is served.</p></item>
+    </taglist>
+  </div>
+
+  <div class="section">
+    <h4>ERLANG WEB SERVER API CALLBACK FUNCTIONS</h4>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="do/1">Module:do(ModData)-&gt; {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</h3>
+      
+      <ul class="type">
+        <li><code>OldData = list()</code></li>
+        <li><code>NewData = [{response,{StatusCode,Body}}]</code></li>
+	<li><code>| [{response,{response,Head,Body}}]</code></li>
+	<li><code>| [{response,{already_sent,Statuscode,Size}}]</code></li>
+        <li><code>StatusCode = integer()</code></li>
+        <li><code>Body = io_list() | nobody | {Fun, Arg}</code></li>
+        <li><code>Head = [HeaderOption]</code></li>
+        <li><code>HeaderOption = {Option, Value} | {code, StatusCode}</code></li>
+        <li><code>Option = accept_ranges | allow</code></li>
+	<li><code>| cache_control | content_MD5</code></li>
+	<li><code>| content_encoding | content_language</code></li>
+	<li><code>| content_length | content_location</code></li>
+	<li><code>| content_range | content_type | date</code></li>
+	<li><code>| etag | expires | last_modified</code></li>
+	<li><code>| location | pragma | retry_after</code></li>
+	<li><code>| server | trailer | transfer_encoding</code></li>
+        <li><code>Value = string()</code></li>
+        <li><code>Fun = fun( Arg ) -&gt; sent| close | Body </code></li>
+        <li><code>Arg = [term()]</code></li>
+      </ul>
+      <div class="description">
+        <p>When a valid request reaches <code>httpd</code>, it calls <code>do/1</code> in
+          each module, defined by the configuration
+          option of <code>Module</code>. The function can generate data for other
+	  modules or a response that can be sent back to the client.</p>
+        <p>The field <code>data</code> in <code>ModData</code> is a list. This list is
+          the list returned from the last call to
+          <code>do/1</code>.</p>
+        <p><code>Body</code> is the body of the HTTP response that is
+          sent back to the client. An appropriate header is
+          appended to the message. <code>StatusCode</code> is the
+          status code of the response, see 
+	  <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url> 
+	  for the appropriate values.</p>
+        <p><code>Head</code> is a key value list of HTTP header fields. The
+        server constructs an HTTP header from this data. See <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>  for the appropriate value for each header field. If the
+        client is an HTTP/1.0 client, the server filters the
+        list so that only HTTP/1.0 header fields are sent back
+        to the client.</p>
+        <p>If <code>Body</code> is returned and equal to <code>{Fun,Arg}</code>,
+          the web server tries <code>apply/2</code> on <code>Fun</code> with
+          <code>Arg</code> as argument. The web server expects that the fun either
+          returns a list <code>(Body)</code> that is an HTTP repsonse, or the
+          atom <code>sent</code> if the HTTP response is sent back to the
+          client. If <code>close</code> is returned from the fun, something has gone
+          wrong and the server signals this to the client by
+          closing the connection.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="load/2">Module:load(Line, AccIn)-&gt; eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Line = string()</code></li>
+        <li><code>AccIn = [{Option, Value}]</code></li>
+	<li><code>AccOut = [{Option, Value}]</code></li>
+        <li><code>Option = property()</code></li>
+        <li><code>Value = term() </code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Converts a line in an Apache-like
+	  configuration file to an <code>{Option, Value}</code> tuple. Some
+	  more complex configuration options, such as <code>directory</code>
+	  and <code>security_directory</code>, create an
+	  accumulator. This function only needs clauses for the
+	  options implemented by this particular callback module.
+	</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="remove/1">Module:remove(ConfigDB) -&gt; ok | {error, Reason} </h3>
+      
+      <ul class="type">
+        <li><code>ConfigDB = ets_table()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>When <code>httpd</code> is shut down, it tries to execute
+          <code>remove/1</code> in each Erlang web server callback module. The
+          programmer can use this function to clean up resources
+          created in the store function.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="store/3">Module:store({Option, Value}, Config)-&gt; {ok, {Option, NewValue}} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Line = string()</code></li>
+        <li><code>Option = property()</code></li>
+	<li><code>Config = [{Option, Value}]</code></li>
+        <li><code>Value = term()</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Checks the validity of the
+	  configuration options before saving them in the internal
+	  database. This function can also have a side effect,
+	  that is, setup of necessary extra resources implied by the
+	  configuration option. It can also
+	  resolve possible dependencies among
+	  configuration options by changing the value of the option.
+	  This function only needs clauses for the options
+	  implemented by this particular callback module.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>ERLANG WEB SERVER API HELP FUNCTIONS</h4>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="parse_query/1">parse_query(QueryString) -&gt; [{Key,Value}]</h3>
+      
+      <ul class="type">
+        <li><code>QueryString = string()</code></li>
+	<li><code>Key = string()</code></li>
+	<li><code>Value = string()</code></li>
+      </ul>
+      <div class="description">
+        <p><code>parse_query/1</code> parses incoming data to <code>erl</code> and
+          <code>eval</code> scripts (see <a href="mod_esi.html" class="seealso">mod_esi(3)</a>) 
+	  as defined in the standard
+          URL format, that is, '+' becomes 'space' and decoding of
+          hexadecimal characters (<code>%xx</code>).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
+    <a href="inets.html" class="seealso">inets(3)</a>,
+    <a href="../ssl/ssl.html" class="seealso">ssl(3)</a>
+    </p>
+  </div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

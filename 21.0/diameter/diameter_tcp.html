@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>diameter_tcp (diameter) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+
+
+<h1>diameter_tcp</h1>
+<h2 class="modsummary">Diameter transport over TCP.</h2>
+
+<div class="description">
+
+<p>
+This module implements diameter transport over TCP using <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3)</a>.
+It can be specified as the value of a <code>transport_module</code> option to
+<a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>
+and implements the behaviour documented in
+<a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.
+TLS security is supported, either as an upgrade following
+capabilities exchange or at connection establishment.</p>
+
+<p>
+Note that the ssl application is required for TLS and must be started
+before configuring TLS capability on diameter transports.</p>
+
+<span id="start"> </span>
+</div>
+
+<div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+<div class="function">
+<h3 id="start/4">start({Type, Ref}, Svc, [Opt])
+         -&gt; {ok, Pid}
+          | {ok, Pid, [LAddr]}
+          | {error, Reason}</h3>
+
+<ul class="type">
+<li><code>Type = connect | accept</code></li>
+<li><code>Ref = <a href="diameter.html#transport_ref" class="seealso">diameter:transport_ref()</a></code></li>
+<li><code>Svc = #diameter_service{}</code></li>
+<li><code>Opt = OwnOpt | SslOpt | TcpOpt</code></li>
+<li><code>Pid = pid()</code></li>
+<li><code>LAddr = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a></code></li>
+<li><code>Reason = term()</code></li>
+<li><code>OwnOpt = {raddr, <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a>}
+          | {rport, integer()}
+          | {accept, Match}
+          | {port, integer()}
+          | {fragment_timer, infinity | 0..16#FFFFFFFF}
+          | {message_cb, <a href="diameter.html#eval" class="seealso">diameter:eval()</a>}
+          | {sender, boolean()}</code></li>
+<li><code>SslOpt = {ssl_options, true | list()}</code></li>
+<li><code>TcpOpt = term()</code></li>
+<li><code>Match = <a href="../kernel/inet.html#type-ip_address" class="seealso">inet:ip_address()</a> | string() | [Match]</code></li>
+</ul>
+<div class="description">
+
+<p>
+The start function required by <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>.</p>
+
+<p>
+Options <code>raddr</code> and <code>rport</code> specify the remote address
+and port for a connecting transport and are not valid for a listening
+transport.</p>
+
+<p>
+Option <code>accept</code> specifies remote addresses for a listening
+transport and is not valid for a connecting transport.
+If specified, a remote address that does not match one of the
+specified addresses causes the connection to be aborted.
+Multiple <code>accept</code> options can be specified.
+A string-valued <code>Match</code> that does not parse as an address is
+interpreted as a regular expression.</p>
+
+<p>
+Option <code>ssl_options</code> must be specified for a transport
+that should support TLS: a value of <code>true</code> results in a
+TLS handshake immediately upon connection establishment while
+<code>list()</code> specifies options to be passed to <a href="../ssl/ssl.html#connect/2" class="seealso">ssl:connect/2</a> or
+<a href="../ssl/ssl.html#ssl_accept/2" class="seealso">ssl:ssl_accept/2</a>
+after capabilities exchange if TLS is negotiated.</p>
+
+<p>
+Option <code>fragment_timer</code> specifies the timeout, in milliseconds,
+of a timer used to flush messages from the incoming byte
+stream even if the number of bytes indicated in the Message Length
+field of its Diameter Header have not yet been accumulated:
+such a message is received over the transport interface after
+two successive timeouts without the reception of additional bytes.
+Defaults to 1000.</p>
+
+<span id="sender"> </span>
+<p>
+Option <code>sender</code> specifies whether or not to use a dedicated
+process for sending outgoing messages, which avoids the possibility of
+send blocking reception.
+Defaults to <code>false</code>.
+If set to <code>true</code> then a <code>message_cb</code> that avoids the
+possibility of messages being queued in the sender process without
+bound should be configured.</p>
+
+<p>
+Option <code>message_cb</code> specifies a callback that is invoked on
+incoming and outgoing messages, that can be used to implement
+flow control.
+It is applied to two arguments: an atom indicating the
+reason for the callback (<code>send</code>, <code>recv</code>, or <code>ack</code> after
+a completed send), and the message in question (binary() on
+<code>recv</code>, binary() or diameter_packet record on <code>send</code> or
+<code>ack</code>, or <code>false</code> on <code>ack</code> when an incoming request has
+been discarded).
+It should return a list of actions and a new callback as
+tail; eg. <code>[fun cb/3, State]</code>.
+Valid actions are the atoms <code>send</code> or <code>recv</code>, to
+cause a following message-valued action to be sent/received,
+a message to send/receive (binary() or
+diameter_packet record), or a boolean() to enable/disable reading on
+the socket.
+More than one <code>send</code>/<code>recv</code>/message sequence can be
+returned from the same callback, and an initial
+<code>send</code>/<code>recv</code> can be omitted if the same as the value passed
+as the callback's first argument.
+Reading is initially enabled, and returning <code>false</code> does not
+imply there cannot be subsequent <code>recv</code> callbacks since
+messages may already have been read.
+An empty tail is equivalent to the prevailing callback.
+Defaults to a callback equivalent to <code>fun(ack, _) -&gt; []; (_, Msg) -&gt;
+[Msg] end</code>.</p>
+
+<p>
+Remaining options are any accepted by <a href="../ssl/ssl.html#connect/3" class="seealso">ssl:connect/3</a> or
+<a href="../kernel/gen_tcp.html#connect/3" class="seealso">gen_tcp:connect/3</a> for
+a connecting transport, or <a href="../ssl/ssl.html#listen/2" class="seealso">ssl:listen/2</a> or <a href="../kernel/gen_tcp.html#listen/2" class="seealso">gen_tcp:listen/2</a> for
+a listening transport, depending on whether or not <code>{ssl_options, true}</code>
+has been specified.
+Options <code>binary</code>,
+<code>packet</code> and <code>active</code> cannot be specified.
+Also, option <code>port</code> can be specified for a listening transport
+to specify the local listening port, the default being the standardized
+3868.
+Note that the option <code>ip</code> specifies the local address.</p>
+
+<p>
+An <code>ssl_options</code> list must be specified if and only if
+the transport in question has set <code>Inband-Security-Id</code> to
+1 (<code>TLS</code>), as
+specified to either <a href="diameter.html#start_service/2" class="seealso">diameter:start_service/2</a> or
+<a href="diameter.html#add_transport/2" class="seealso">diameter:add_transport/2</a>,
+so that the transport process will receive notification of
+whether or not to commence with a TLS handshake following capabilities
+exchange.
+Failing to specify an options list on a TLS-capable transport
+for which TLS is negotiated will cause TLS handshake to fail.
+Failing to specify TLS capability when <code>ssl_options</code> has been
+specified will cause the transport process to wait for a notification
+that will not be forthcoming, which will eventually cause the RFC 3539
+watchdog to take down the connection.</p>
+
+<p>
+The first element of a non-empty <code>Host-IP-Address</code> list in
+<code>Svc</code> provides the local IP address if an <code>ip</code> option is not
+specified.
+The local address is either returned from<a href="#start/3" class="seealso">start/3</a> or passed in a
+<code>connected</code> message over the transport interface.</p>
+</div>
+</div>
+
+</div>
+
+<div class="section">
+<h4>SEE ALSO</h4>
+
+<p>
+<a href="diameter.html" class="seealso">diameter(3)</a>, <a href="diameter_transport.html" class="seealso">diameter_transport(3)</a>, <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3)</a>, <a href="../kernel/inet.html" class="seealso">inet(3)</a>, <a href="../ssl/ssl.html" class="seealso">ssl(3)</a></p>
+
+</div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

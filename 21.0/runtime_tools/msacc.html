@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>msacc (runtime_tools) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>msacc</h1>
+  <h2 class="modsummary">Convenience functions for microstate accounting</h2>
+  <div class="description">
+    <p>This module implements some convenience functions for analyzing
+    microstate accounting data. For details about how to use the basic api and
+    what the different states represent see
+    <a href="../erts/erlang.html#statistics_microstate_accounting" class="seealso"><code>
+    erlang:statistics(microstate_accounting)</code></a>.</p>
+    <span id="msacc_print_example"> </span>
+    <p><em>Basic Scenario</em></p>
+    <pre class="sh_erlang">1&gt; <code>msacc:start(1000).</code>
+ok
+2&gt; <code>msacc:print().</code>
+Average thread real-time    : 1000513 us
+Accumulated system run-time :    2213 us
+Average scheduler run-time  :    1076 us
+
+        Thread      aux check_io emulator       gc    other     port    sleep
+
+Stats per thread:
+     async( 0)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+     async( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+       aux( 1)    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+ scheduler( 1)    0.00%    0.03%    0.13%    0.00%    0.01%    0.00%   99.82%
+ scheduler( 2)    0.00%    0.00%    0.00%    0.00%    0.03%    0.00%   99.97%
+
+Stats per type:
+         async    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%  100.00%
+           aux    0.00%    0.00%    0.00%    0.00%    0.00%    0.00%   99.99%
+     scheduler    0.00%    0.02%    0.06%    0.00%    0.02%    0.00%   99.89%
+ok
+</pre>
+    <p>This first command enables microstate accounting for 1000 milliseconds.
+    See <a href="#start/0" class="seealso"><code>start/0</code></a>,
+    <a href="#stop/0" class="seealso"><code>stop/0</code></a>,
+    <a href="#reset/0" class="seealso"><code>reset/0</code></a> and
+    <a href="#start/1" class="seealso"><code>start/1</code></a> for more details.
+    The second command prints the statistics gathered during that time.
+    First three general statistics are printed.</p>
+    <taglist>
+      <dt>Average real-time</dt>
+      <item>The average time spent collecting data in the threads.
+      This should be close to the time which data was collected.
+      </item>
+      <dt>System run-time</dt>
+      <item>The total run-time of all threads in the system.
+      This is what you get if you call <code>msacc:stats(total_runtime,Stats).</code>
+      </item>
+      <dt>Average scheduler run-time</dt>
+      <item>The average run-time for the schedulers.
+      This is the average amount of time the schedulers did not sleep.</item>
+    </taglist>
+    <p>Then one column per state is printed with a the percentage of time this
+    thread spent in the state out of it's own real-time. After the thread
+    specific time, the accumulated time for each type of thread is printed in
+    a similar format.</p>
+    <p>Since we have the average real-time and the percentage spent in each
+    state we can easily calculate the time spent in each state by multiplying
+    <code>Average thread real-time</code> with <code>Thread state %</code>, i.e. to
+    get the time Scheduler 1 spent in the emulator state we do
+    <code>1000513us * 0.13% = 1300us</code>.</p>
+  </div>
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-msacc_data">msacc_data() = [<a href="#type-msacc_data_thread" class="seealso">msacc_data_thread()</a>]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_data_thread">msacc_data_thread() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{'$type' := msacc_data,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := <a href="#type-msacc_type" class="seealso">msacc_type()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;id := <a href="#type-msacc_id" class="seealso">msacc_id()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;counters := <a href="#type-msacc_data_counters" class="seealso">msacc_data_counters()</a>}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_data_counters">msacc_data_counters() = #{<a href="#type-msacc_state" class="seealso">msacc_state()</a> =&gt; integer() &gt;= 0}</h3>
+      <div class="description"><p>A map containing the different microstate accounting states and
+      the number of microseconds spent in it.</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_stats">msacc_stats() = [<a href="#type-msacc_stats_thread" class="seealso">msacc_stats_thread()</a>]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_stats_thread">msacc_stats_thread() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{'$type' := msacc_stats,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := <a href="#type-msacc_type" class="seealso">msacc_type()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;id := <a href="#type-msacc_id" class="seealso">msacc_id()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;system := float(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;counters := <a href="#type-msacc_stats_counters" class="seealso">msacc_stats_counters()</a>}</h3>
+      <div class="description"><p>A map containing information about a specific thread. The
+      percentages in the map can be either run-time or real-time depending
+      on if <code>runtime</code> or <code>realtime</code> was requested from
+      <a href="#stats/2" class="seealso">stats/2</a>. <code>system</code> is the
+      percentage of total system time for this specific thread.</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_stats_counters">msacc_stats_counters() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{<a href="#type-msacc_state" class="seealso">msacc_state()</a> =&gt; #{thread := float(), system := float()}}</h3>
+      <div class="description"><p>A map containing the different microstate accounting states. Each
+      value in the map contains another map with the percentage of time that
+      this thread has spent in the specific state. Both the percentage of
+      <code>system</code> time and the time for that specific <code>thread</code> is part of
+      the map.</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_type">msacc_type() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;aux |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;async |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dirty_cpu_scheduler |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dirty_io_scheduler |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;poll |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scheduler</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_id">msacc_id() = integer() &gt;= 0</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_state">msacc_state() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alloc |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;aux |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bif |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;busy_wait |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;check_io |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emulator |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ets |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gc |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gc_fullsweep |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nif |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;other |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;send |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sleep |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timers</h3>
+      <div class="description"><p>The different states that a thread can be in. See
+      <a href="../erts/erlang.html#statistics_microstate_accounting" class="seealso">
+        erlang:statistics(microstate_accounting)</a> for details.
+      </p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-msacc_print_options">msacc_print_options() = #{system =&gt; boolean()}</h3>
+      <div class="description"><p>The different options that can be given to
+      <a href="#print/2" class="seealso"><code>print/2</code></a>.
+      </p></div>
+    </div>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="available/0">available() -&gt; boolean()</h3>
+      
+      <div class="description">
+	<p>This function checks whether microstate accounting
+        is available or not.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start/0">start() -&gt; boolean()</h3>
+      
+      <div class="description">
+        <p>Start microstate accounting. Returns whether it was
+        previously enabled or disabled.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="start/1">start(Time) -&gt; true</h3>
+      <ul class="type_desc"><li><code>Time = timeout()</code></li></ul>
+      
+      <div class="description">
+        <p>Resets all counters and then starts microstate accounting
+        for the given milliseconds.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; boolean()</h3>
+      
+      <div class="description">
+        <p>Stop microstate accounting.
+        Returns whether is was previously enabled or disabled.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="reset/0">reset() -&gt; boolean()</h3>
+      
+      <div class="description">
+        <p>Reset microstate accounting counters.
+        Returns whether is was enabled or disabled.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="print/0">print() -&gt; ok</h3>
+      
+      <div class="description">
+        <p>
+          Prints the current microstate accounting to standard out.
+          Same as
+          <a href="#print/1" class="seealso">
+            <code>msacc:print(msacc:stats(),#{}).</code>
+          </a>
+        </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="print/1">print(DataOrStats) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>DataOrStats = <a href="#type-msacc_data" class="seealso">msacc_data()</a> | <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Print the given microstate statistics values to stdout.
+        Same as
+        <a href="#print/1" class="seealso">
+          <code>msacc:print(DataOrStats,#{}).</code>
+        </a>
+        </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="print/2">print(DataOrStats, Options) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>DataOrStats = <a href="#type-msacc_data" class="seealso">msacc_data()</a> | <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></code></li><li><code>Options = <a href="#type-msacc_print_options" class="seealso">msacc_print_options()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Print the given microstate statistics values to standard out.
+        With many states this can be quite verbose. See the top of this
+        reference manual for a brief description of what the fields mean.</p>
+        <p>It is possible to print more specific types of statistics by
+        first manipulating the <code>DataOrStats</code> using
+        <a href="#stats/2" class="seealso"><code>stats/2</code></a>.
+        For instance if you want to print the percentage of run-time for each
+        thread you can do:</p>
+        <pre class="sh_erlang"><code>msacc:print(msacc:stats(runtime,msacc:stats())).</code></pre>
+        <p>If you want to only print run-time per thread type you can do:</p>
+        <pre class="sh_erlang"><code>msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).</code></pre>
+        <p><em>Options</em></p>
+        <taglist>
+          <dt><code>system</code></dt><item>Print percentage of time spent in each
+          state out of system time as well as thread time.
+          Default: false.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="print/3">print(FileOrDevice, DataOrStats, Options) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>FileOrDevice = <a href="file.html#type-filename" class="seealso">file:filename()</a> | <a href="io.html#type-device" class="seealso">io:device()</a></code></li><li><code>DataOrStats = <a href="#type-msacc_data" class="seealso">msacc_data()</a> | <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></code></li><li><code>Options = <a href="#type-msacc_print_options" class="seealso">msacc_print_options()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Print the given microstate statistics values to the given file
+        or device. The other arguments behave the same way as for
+        <a href="#print/2" class="seealso"><code>print/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stats/0">stats() -&gt; <a href="#type-msacc_data" class="seealso">msacc_data()</a></h3>
+      
+      <div class="description">
+        <p>Returns a runtime system independent version of the microstate
+        statistics data presented by
+        <a href="../erts/erlang.html#statistics_microstate_accounting" class="seealso">
+        <code>erlang:statistics(microstate_accounting)</code></a>.
+        All counters have been normalized to be in microsecond resolution.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="stats/2">stats(Analysis, Stats) -&gt; integer() &gt;= 0</h3><h3>stats(Analysis, Stats) -&gt; <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></h3><h3>stats(Analysis, StatsOrData) -&gt; <a href="#type-msacc_data" class="seealso">msacc_data()</a> | <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></h3>
+      <ul class="type_desc"><li><code>Analysis = system_realtime | system_runtime</code></li><li><code>Stats = <a href="#type-msacc_data" class="seealso">msacc_data()</a></code></li><li><code>Analysis = realtime | runtime</code></li><li><code>Analysis = type</code></li><li><code>StatsOrData = <a href="#type-msacc_data" class="seealso">msacc_data()</a> | <a href="#type-msacc_stats" class="seealso">msacc_stats()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns the system time for the given microstate statistics values.
+        System time is the accumulated time of all threads.</p>
+        <taglist>
+          <dt><code>realtime</code></dt>
+          <item>Returns all time recorded for all threads.</item>
+          <dt><code>runtime</code></dt>
+          <item>Returns all time spent doing work for all threads, i.e.
+          all time not spent in the <code>sleep</code> state.</item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Returns fractions of real-time or run-time spent in the various
+        threads from the given microstate statistics values.</p>
+      </div>
+    </div>
+    <div class="function">
+      
+      
+      <div class="description">
+        <p>Returns a list of microstate statistics values where the values
+        for all threads of the same type has been merged.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="to_file/1">to_file(Filename) -&gt; ok | {error, <a href="file.html#type-posix" class="seealso">file:posix()</a>}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name_all" class="seealso">file:name_all()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Dumps the current microstate statistics counters to a file that can
+        be parsed with <a href="../kernel/file.html#consult/1" class="seealso">
+        file:consult/1</a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="from_file/1">from_file(Filename) -&gt; <a href="#type-msacc_data" class="seealso">msacc_data()</a></h3>
+      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name_all" class="seealso">file:name_all()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Read a file dump produced by <a href="#to_file/1" class="seealso">
+        to_file(Filename)</a>.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

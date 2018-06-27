@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>rand (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>rand</h1>
+  <h2 class="modsummary">Pseudo random number generation.</h2>
+  <div class="description">
+    <p>
+      This module provides a pseudo random number generator.
+      The module contains a number of algorithms.
+      The uniform distribution algorithms use the
+      <url href="http://xorshift.di.unimi.it">
+	xoroshiro116+ and xorshift1024* algorithms by Sebastiano Vigna.
+      </url>
+      The normal distribution algorithm uses the
+      <url href="http://www.jstatsoft.org/v05/i08">
+	Ziggurat Method by Marsaglia and Tsang
+      </url>
+      on top of the uniform distribution algorithm.
+    </p>
+    <p>For some algorithms, jump functions are provided for generating
+        non-overlapping sequences for parallel computations.
+        The jump functions perform calculations
+        equivalent to perform a large number of repeated calls
+        for calculating new states. </p>
+
+    <p>The following algorithms are provided:</p>
+
+    <taglist>
+      <dt><code>exrop</code></dt>
+      <item>
+        <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+      </item>
+      <dt><code>exs1024s</code></dt>
+      <item>
+        <p>Xorshift1024*, 64 bits precision and a period of 2^1024-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+      </item>
+      <dt><code>exsp</code></dt>
+      <item>
+        <p>Xorshift116+, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is a corrected version of the previous default algorithm,
+	  that now has been superseded by Xoroshiro116+ (<code>exrop</code>).
+	  Since there is no native 58 bit rotate instruction this
+	  algorithm executes a little (say &lt; 15%) faster than <code>exrop</code>.
+	  See the 
+	  <url href="http://xorshift.di.unimi.it">algorithms' homepage</url>.
+	</p>
+      </item>
+    </taglist>
+
+    <p>
+      The default algorithm is <code>exrop</code> (Xoroshiro116+).
+      If a specific algorithm is
+      required, ensure to always use <a href="#seed/1" class="seealso">
+      <code>seed/1</code></a> to initialize the state.
+    </p>
+
+    <p>
+      Undocumented (old) algorithms are deprecated but still implemented
+      so old code relying on them will produce
+      the same pseudo random sequences as before.
+    </p>
+
+    <div class="note"><h2>Note!</h2>
+      <p>
+	There were a number of problems in the implementation
+	of the now undocumented algorithms, which is why
+	they are deprecated.  The new algorithms are a bit slower
+	but do not have these problems:
+      </p>
+      <p>
+	Uniform integer ranges had a skew in the probability distribution
+	that was not noticable for small ranges but for large ranges
+	less than the generator's precision the probability to produce
+	a low number could be twice the probability for a high.
+      </p>
+      <p>
+	Uniform integer ranges larger than or equal to the generator's
+	precision used a floating point fallback that only calculated
+	with 52 bits which is smaller than the requested range
+	and therefore were not all numbers in the requested range
+	even possible to produce.
+      </p>
+      <p>
+	Uniform floats had a non-uniform density so small values
+	i.e less than 0.5 had got smaller intervals decreasing
+	as the generated value approached 0.0 although still uniformly
+	distributed for sufficiently large subranges.  The new algorithms
+	produces uniformly distributed floats on the form N * 2.0^(-53)
+	hence equally spaced.
+      </p>
+    </div>
+
+    <p>Every time a random number is requested, a state is used to
+      calculate it and a new state is produced. The state can either be
+      implicit or be an explicit argument and return value.</p>
+
+    <p>The functions with implicit state use the process dictionary
+      variable <code>rand_seed</code> to remember the current state.</p>
+
+    <p>If a process calls
+      <a href="#uniform/0" class="seealso"><code>uniform/0</code></a>,
+      <a href="#uniform/1" class="seealso"><code>uniform/1</code></a> or
+      <a href="#uniform_real/0" class="seealso"><code>uniform_real/0</code></a> without
+      setting a seed first, <a href="#seed/1" class="seealso"><code>seed/1</code></a>
+      is called automatically with the default algorithm and creates a
+      non-constant seed.</p>
+
+    <p>The functions with explicit state never use the process dictionary.</p>
+
+    <p><em>Examples:</em></p>
+
+    <p>Simple use; creates and seeds the default algorithm
+      with a non-constant seed if not already done:</p>
+
+    <pre class="sh_erlang">
+R0 = rand:uniform(),
+R1 = rand:uniform(),</pre>
+
+    <p>Use a specified algorithm:</p>
+
+    <pre class="sh_erlang">
+_ = rand:seed(exs1024s),
+R2 = rand:uniform(),</pre>
+
+    <p>Use a specified algorithm with a constant seed:</p>
+
+    <pre class="sh_erlang">
+_ = rand:seed(exs1024s, {123, 123534, 345345}),
+R3 = rand:uniform(),</pre>
+
+   <p>Use the functional API with a non-constant seed:</p>
+
+   <pre class="sh_erlang">
+S0 = rand:seed_s(exrop),
+{R4, S1} = rand:uniform_s(S0),</pre>
+
+   <p>Textbook basic form Box-Muller standard normal deviate</p>
+
+   <pre class="sh_erlang">
+R5 = rand:uniform_real(),
+R6 = rand:uniform(),
+SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
+
+   <p>Create a standard normal deviate:</p>
+
+   <pre class="sh_erlang">
+{SND1, S2} = rand:normal_s(S1),</pre>
+
+   <p>Create a normal deviate with mean -3 and variance 0.5:</p>
+
+   <pre class="sh_erlang">
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),</pre>
+
+    <div class="note"><h2>Note!</h2>
+      <p>The builtin random number generator algorithms are not
+        cryptographically strong. If a cryptographically strong
+        random number generator is needed, use something like
+        <a href="../crypto/crypto.html#rand_seed/0" class="seealso"><code>crypto:rand_seed/0</code></a>.
+      </p>
+    </div>
+
+    <p>
+      For all these generators the lowest bit(s) has got
+      a slightly less random behaviour than all other bits.
+      1 bit for <code>exrop</code> (and <code>exsp</code>),
+      and 3 bits for <code>exs1024s</code>.
+      See for example the explanation in the
+      <url href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c">
+	Xoroshiro128+
+      </url>
+      generator source code:
+    </p>
+    <pre class="sh_erlang">
+Beside passing BigCrush, this generator passes the PractRand test suite
+up to (and included) 16TB, with the exception of binary rank tests,
+which fail due to the lowest bit being an LFSR; all other bits pass all
+tests. We suggest to use a sign test to extract a random Boolean value.</pre>
+    <p>
+      If this is a problem; to generate a boolean
+      use something like this:
+    </p>
+    <pre class="sh_erlang">(rand:uniform(16) &gt; 8)</pre>
+    <p>
+      And for a general range, with <code>N = 1</code> for <code>exrop</code>,
+      and <code>N = 3</code> for <code>exs1024s</code>:
+    </p>
+    <pre class="sh_erlang">(((rand:uniform(Range bsl N) - 1) bsr N) + 1)</pre>
+    <p>
+      The floating point generating functions in this module
+      waste the lowest bits when converting from an integer
+      so they avoid this snag.
+    </p>
+
+
+  </div>
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-builtin_alg">builtin_alg() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exs64 | exsplus | exsp | exs1024 | exs1024s | exrop</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-alg">alg() = <a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | atom()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-alg_handler">alg_handler() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{type := <a href="#type-alg" class="seealso">alg()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bits =&gt; integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;weak_low_bits =&gt; integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max =&gt; integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;next :=<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((<a href="#type-alg_state" class="seealso">alg_state()</a>) -&gt; {integer() &gt;= 0, <a href="#type-alg_state" class="seealso">alg_state()</a>}),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uniform =&gt; fun((<a href="#type-state" class="seealso">state()</a>) -&gt; {float(), <a href="#type-state" class="seealso">state()</a>}),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uniform_n =&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((integer() &gt;= 1, <a href="#type-state" class="seealso">state()</a>) -&gt; {integer() &gt;= 1, <a href="#type-state" class="seealso">state()</a>}),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;jump =&gt; fun((<a href="#type-state" class="seealso">state()</a>) -&gt; <a href="#type-state" class="seealso">state()</a>)}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-alg_state">alg_state() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs64_state" class="seealso">exs64_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exsplus_state" class="seealso">exsplus_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs1024_state" class="seealso">exs1024_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exrop_state" class="seealso">exrop_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-state">state() = {<a href="#type-alg_handler" class="seealso">alg_handler()</a>, <a href="#type-alg_state" class="seealso">alg_state()</a>}</h3>
+      <div class="description"><p>Algorithm-dependent state.</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-export_state">export_state() = {<a href="#type-alg" class="seealso">alg()</a>, <a href="#type-alg_state" class="seealso">alg_state()</a>}</h3>
+      <div class="description">
+	<p>
+	  Algorithm-dependent state that can be printed or saved to file.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-exs64_state">exs64_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-exsplus_state">exsplus_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-exs1024_state">exs1024_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-exrop_state">exrop_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="export_seed/0">export_seed() -&gt; undefined | <a href="#type-export_state" class="seealso">export_state()</a></h3>
+      
+      <div class="description">
+        <p>Returns the random number state in an external format.
+          To be used with <a href="#seed/1" class="seealso"><code>seed/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="export_seed_s/1">export_seed_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; <a href="#type-export_state" class="seealso">export_state()</a></h3>
+      
+      <div class="description">
+        <p>Returns the random number generator state in an external format.
+          To be used with <a href="#seed/1" class="seealso"><code>seed/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="jump/0">jump() -&gt; NewState :: <a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+          <p>Returns the state
+              after performing jump calculation
+              to the state in the process dictionary.</p>
+      <p>This function generates a <code>not_implemented</code> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state
+           in the process dictionary.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="jump/1">jump(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; NewState :: <a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+          <p>Returns the state after performing jump calculation
+              to the given state. </p>
+      <p>This function generates a <code>not_implemented</code> error exception
+           when the jump function is not implemented for
+           the algorithm specified in the state.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="normal/0">normal() -&gt; float()</h3>
+      
+      <div class="description">
+        <p>Returns a standard normal deviate float (that is, the mean
+          is 0 and the standard deviation is 1) and updates the state in
+          the process dictionary.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="normal/2">normal(Mean :: number(), Variance :: number()) -&gt; float()</h3>
+      
+      <div class="description">
+        <p>Returns a normal N(Mean, Variance) deviate float
+          and updates the state in the process dictionary.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="normal_s/1">normal_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; {float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>Returns, for a specified state, a standard normal
+          deviate float (that is, the mean is 0 and the standard
+          deviation is 1) and a new state.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="normal_s/3">normal_s(Mean :: number(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Variance :: number(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;State0 :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{float(), NewS :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>Returns, for a specified state, a normal N(Mean, Variance)
+          deviate float and a new state.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="seed/1">seed(AlgOrStateOrExpState ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | <a href="#type-state" class="seealso">state()</a> | <a href="#type-export_state" class="seealso">export_state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+        
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <code><anno>AlgOrStateOrExpState</anno></code>
+	  is an algorithm.
+	</p>
+        <p>Otherwise recreates the exported seed in the process dictionary,
+          and returns the state. See also
+          <a href="#export_seed/0" class="seealso"><code>export_seed/0</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="seed/2">seed(Alg :: <a href="#type-builtin_alg" class="seealso">builtin_alg()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Seed :: {integer(), integer(), integer()}) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+        <p>Seeds random number generation with the specified algorithm and
+          integers in the process dictionary and returns the state.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="seed_s/1">seed_s(AlgOrStateOrExpState ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | <a href="#type-state" class="seealso">state()</a> | <a href="#type-export_state" class="seealso">export_state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Seeds random number generation with the specifed algorithm and
+          time-dependent data if <code><anno>AlgOrStateOrExpState</anno></code>
+	  is an algorithm.
+	</p>
+        <p>Otherwise recreates the exported seed and returns the state.
+          See also <a href="#export_seed/0" class="seealso">
+          <code>export_seed/0</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="seed_s/2">seed_s(Alg :: <a href="#type-builtin_alg" class="seealso">builtin_alg()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Seed :: {integer(), integer(), integer()}) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      
+      <div class="description">
+        <p>Seeds random number generation with the specified algorithm and
+          integers and returns the state.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform/0">uniform() -&gt; X :: float()</h3>
+      
+      <div class="description">
+        <p>
+	  Returns a random float uniformly distributed in the value
+          range <code>0.0 =&lt; <anno>X</anno> &lt; 1.0</code> and
+          updates the state in the process dictionary.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<div class="warning"><h2>Warning!</h2>
+	  <p>
+	    This function may return exactly <code>0.0</code> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <code>(1.0 - rand:uniform())</code> to get the
+	    interval <code>0.0 &lt; <anno>X</anno> =&lt; 1.0</code>, or instead use
+	    <a href="#uniform_real/0" class="seealso"><code>uniform_real/0</code></a>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre class="sh_erlang">
+my_uniform() -&gt;
+    case rand:uniform() of
+        0.0 -&gt; my_uniform();
+	X -&gt; X
+    end
+end.</pre>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_real/0">uniform_real() -&gt; X :: float()</h3>
+      
+      <div class="description">
+        <p>
+	  Returns a random float
+	  uniformly distributed in the value range
+	  <code>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</code>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <code>R</code> is generated
+	  from the interval <code>0 =&lt; R &lt; 1</code> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <a href="#uniform/0" class="seealso"><code>uniform/0</code></a>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <code>1.0 / <anno>X</anno></code> or <code>math:log(<anno>X</anno>)</code>.
+	  </p>
+	</div>
+	<p>
+	  See
+	  <a href="#uniform_real_s/1" class="seealso"><code>uniform_real_s/1</code></a>
+	  for more explanation.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform/1">uniform(N :: integer() &gt;= 1) -&gt; X :: integer() &gt;= 1</h3>
+      
+      <div class="description">
+        <p>Returns, for a specified integer <code><anno>N</anno> &gt;= 1</code>,
+          a random integer uniformly distributed in the value range
+          <code>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></code> and
+          updates the state in the process dictionary.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_s/1">uniform_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; {X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>
+	  Returns, for a specified state, random float
+          uniformly distributed in the value range <code>0.0 =&lt;
+          <anno>X</anno> &lt; 1.0</code> and a new state.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<div class="warning"><h2>Warning!</h2>
+	  <p>
+	    This function may return exactly <code>0.0</code> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <code>(1.0 - rand:uniform(State))</code> to get the
+	    interval <code>0.0 &lt; <anno>X</anno> =&lt; 1.0</code>, or instead use
+	    <a href="#uniform_real_s/1" class="seealso"><code>uniform_real_s/1</code></a>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre class="sh_erlang">
+my_uniform(State) -&gt;
+    case rand:uniform(State) of
+        {0.0, NewState} -&gt; my_uniform(NewState);
+	Result -&gt; Result
+    end
+end.</pre>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_real_s/1">uniform_real_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>
+	  Returns, for a specified state, a random float
+	  uniformly distributed in the value range
+	  <code>DBL_MIN =&lt; <anno>X</anno> &lt; 1.0</code>
+	  and updates the state in the process dictionary.
+	</p>
+	<p>
+	  Conceptually, a random real number <code>R</code> is generated
+	  from the interval <code>0 =&lt; R &lt; 1</code> and then the
+	  closest rounded down normalized number
+	  in the IEEE 754 Double precision format
+	  is returned.
+	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    The generated numbers from this function has got better
+	    granularity for small numbers than the regular
+	    <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>
+	    because all bits in the mantissa are random.
+	    This property, in combination with the fact that exactly zero
+	    is never returned is useful for algoritms doing for example
+	    <code>1.0 / <anno>X</anno></code> or <code>math:log(<anno>X</anno>)</code>.
+	  </p>
+	</div>
+	<p>
+	  The concept implicates that the probability to get
+	  exactly zero is extremely low; so low that this function
+	  is in fact guaranteed to never return zero.  The smallest
+	  number that it might return is <code>DBL_MIN</code>, which is
+	  2.0^(-1022).
+	</p>
+	<p>
+	  The value range stated at the top of this function
+	  description is technically correct, but
+	  <code>0.0 =&lt; <anno>X</anno> &lt; 1.0</code>
+	  is a better description of the generated numbers'
+	  statistical distribution.  Except that exactly 0.0
+	  is never returned, which is not possible to observe
+	  statistically.
+	</p>
+	<p>
+	  For example; for all sub ranges
+	  <code>N*2.0^(-53) =&lt; X &lt; (N+1)*2.0^(-53)</code>
+	  where
+	  <code>0 =&lt; integer(N) &lt; 2.0^53</code>
+	  the probability is the same.
+	  Compare that with the form of the numbers generated by
+	  <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>.
+	</p>
+	<p>
+	  Having to generate extra random bits for
+	  small numbers costs a little performance.
+	  This function is about 20% slower than the regular
+	  <a href="#uniform_s/1" class="seealso"><code>uniform_s/1</code></a>
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uniform_s/2">uniform_s(N :: integer() &gt;= 1, State :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{X :: integer() &gt;= 1, NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      
+      <div class="description">
+        <p>Returns, for a specified integer <code><anno>N</anno> &gt;= 1</code>
+          and a state, a random integer uniformly distributed in the value
+          range <code>1 =&lt; <anno>X</anno> =&lt; <anno>N</anno></code> and a
+          new state.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

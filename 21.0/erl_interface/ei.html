@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ei (erl_interface) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ei</h1>
+  <libsummary>Routines for handling the Erlang binary term format.</libsummary>
+  <div class="description">
+    <p>The library <code>ei</code> contains macros and functions to encode
+      and decode the Erlang binary term format.</p>
+
+    <p><code>ei</code> allows you to convert atoms, lists, numbers, and
+      binaries to and from the binary format. This is useful when
+      writing port programs and drivers. <code>ei</code> uses a given
+      buffer, no dynamic memory (except
+      <code>ei_decode_fun()</code>) and is often quite fast.</p>
+
+    <p><code>ei</code> also handles C-nodes, C-programs that talks Erlang
+      distribution with Erlang nodes (or other C-nodes) using the
+      Erlang distribution format. The difference between <code>ei</code>
+      and <code>erl_interface</code> is that <code>ei</code> uses
+      the binary format directly when sending and receiving terms. It is also
+      thread safe, and using threads, one process can handle multiple
+      C-nodes. The <code>erl_interface</code> library is built on top of
+      <code>ei</code>, but of legacy reasons, it does not allow for
+      multiple C-nodes. In general, <code>ei</code> is the preferred way
+      of doing C-nodes.</p>
+
+    <p>The decode and encode functions use a buffer and an index into the
+      buffer, which points at the point where to encode and
+      decode. The index is updated to point right after the term
+      encoded/decoded. No checking is done whether the term fits in
+      the buffer or not. If encoding goes outside the buffer, the
+      program can crash.</p>
+
+    <p>All functions take two parameters:</p>
+
+    <list type="bulleted">
+      <item><p><code>buf</code> is a pointer to
+        the buffer where the binary data is or will be.</p>
+      </item>
+      <item><p><code>index</code> is a pointer to an index into the
+        buffer. This parameter is incremented with the size of the term
+        decoded/encoded.</p>
+      </item>
+    </list>
+
+    <p>The data is thus at <code>buf[*index]</code> when an
+      <code>ei</code> function is called.</p>
+
+    <p>All encode functions assume that the <code>buf</code> and
+      <code>index</code> parameters point to a buffer large enough for
+      the data. To get the size of an encoded term, without encoding it,
+      pass <code>NULL</code> instead of a buffer pointer. Parameter
+      <code>index</code> is incremented, but nothing will be encoded. This
+      is the way in <code>ei</code> to "preflight" term encoding.</p>
+
+    <p>There are also encode functions that use a dynamic buffer. It
+      is often more convenient to use these to encode data. All encode
+      functions comes in two versions; those starting with
+      <code>ei_x</code> use a dynamic buffer.</p>
+
+    <p>All functions return <code>0</code> if successful, otherwise
+      <code>-1</code> (for example, if a term is not of the expected
+      type, or the data to decode is an invalid Erlang term).</p>
+
+    <p>Some of the decode functions need a pre-allocated buffer. This
+      buffer must be allocated large enough, and for non-compound types
+      the <code>ei_get_type()</code>
+      function returns the size required (notice that for strings an
+      extra byte is needed for the <code>NULL</code>-terminator).</p>
+  </div>
+
+  <div class="section">
+    <h4>Data Types</h4>
+    <taglist>
+      <dt><span id="erlang_char_encoding"> </span>erlang_char_encoding</dt>
+       <item>
+	 <pre class="sh_erlang">
+typedef enum {
+    ERLANG_ASCII = 1,
+    ERLANG_LATIN1 = 2,
+    ERLANG_UTF8 = 4
+} erlang_char_encoding;</pre>
+         <p>The character encodings used for atoms. <code>ERLANG_ASCII</code>
+           represents 7-bit ASCII. Latin-1 and UTF-8 are different extensions
+           of 7-bit ASCII. All 7-bit ASCII characters are valid Latin-1 and
+           UTF-8 characters. ASCII and Latin-1 both represent each character
+           by one byte. An UTF-8 character can consist of 1-4 bytes.
+           Notice that these constants are bit-flags and can be combined with
+           bitwise OR.</p>
+      </item>
+    </taglist>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+      <div class="function">
+          <pre>int ei_decode_atom(const char *buf, int *index, char *p)</pre>
+          
+          <div class="description">
+              <p>Decodes an atom from the binary format. The <code>NULL</code>-terminated
+                  name of the atom is placed at <code>p</code>. At most
+                  <code>MAXATOMLEN</code> bytes can be placed in the buffer.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</pre>
+          
+          <div class="description">
+              <p>Decodes an atom from the binary format. The <code>NULL</code>-terminated
+                  name of the atom is placed in buffer at <code>p</code> of length <code>plen</code>
+                  bytes.</p>
+              <p>The wanted string encoding is specified by
+                  <a href="#erlang_char_encoding" class="seealso"><code>want</code></a>.
+                  The original encoding used in the binary format (Latin-1 or UTF-8) can
+                  be obtained from <code>*was</code>. The encoding of the resulting string
+                  (7-bit ASCII, Latin-1, or UTF-8) can be obtained from <code>*result</code>.
+                  Both <code>was</code> and <code>result</code> can be <code>NULL</code>. <code>*result</code>
+                  can differ from <code>want</code> if <code>want</code> is a bitwise OR'd
+                  combination like <code>ERLANG_LATIN1|ERLANG_UTF8</code> or if
+                  <code>*result</code> turns out to be pure 7-bit ASCII
+                  (compatible with both Latin-1 and UTF-8).</p>
+              <p>This function fails if the atom is too long for the buffer
+                  or if it cannot be represented with encoding <code>want</code>.</p>
+              <p>This function was introduced in Erlang/OTP R16 as part of a first
+                  step to support UTF-8 atoms.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_bignum(const char *buf, int *index, mpz_t obj)</pre>
+          
+          <div class="description">
+              <p>Decodes an integer in the binary format to a GMP
+                  <code>mpz_t</code> integer. To use this function, the <code>ei</code>
+                  library must be configured and compiled to use the GMP library.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_binary(const char *buf, int *index, void *p, long *len)</pre>
+          
+          <div class="description">
+              <p>Decodes a binary from the binary format. Parameter
+                  <code>len</code> is set to the actual size of the
+                  binary. Notice that <code>ei_decode_binary()</code> assumes that
+                  there is enough room for the binary. The size required can be
+                  fetched by <code>ei_get_type()</code>.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_boolean(const char *buf, int *index, int *p)</pre>
+          
+          <div class="description">
+              <p>Decodes a boolean value from the binary format.
+                  A boolean is actually an atom, <code>true</code> decodes 1
+                  and <code>false</code> decodes 0.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_char(const char *buf, int *index, char *p)</pre>
+          
+          <div class="description">
+              <p>Decodes a char (8-bit) integer between 0-255 from the binary format.
+                  For historical reasons the returned integer is of
+                  type <code>char</code>. Your C code is to  consider the
+                  returned value to be of type <code>unsigned char</code> even if
+                  the C compilers and system can define <code>char</code> to be
+                  signed.</p>
+          </div>
+      </div>
+
+      <div class="function">
+          <pre>int ei_decode_double(const char *buf, int *index, double *p)</pre>
+          
+          <div class="description">
+              <p>Decodes a double-precision (64-bit) floating
+                  point number from the binary format.</p>
+          </div>
+      </div>
+
+    <div class="function">
+      <pre>int ei_decode_ei_term(const char* buf, int* index, ei_term* term)</pre>
+      
+      <div class="description">
+        <p>Decodes any term, or at least tries to. If the term
+          pointed at by <code>*index</code> in <code>buf</code> fits
+          in the <code>term</code> union, it is decoded, and the
+          appropriate field in <code>term-&gt;value</code> is set, and
+          <code>*index</code> is incremented by the term size.</p>
+        <p>The function returns <code>1</code> on successful decoding, <code>-1</code> on
+          error, and <code>0</code> if the term seems alright, but does not fit in the
+          <code>term</code> structure. If <code>1</code> is returned, the
+          <code>index</code> is incremented, and <code>term</code>
+          contains the decoded term.</p>
+        <p>The <code>term</code> structure contains the arity for a tuple
+          or list, size for a binary, string, or atom. It contains
+          a term if it is any of the following: integer, float, atom,
+          pid, port, or ref.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_fun(const char *buf, int *index, erlang_fun *p)</pre>
+      <pre>void free_fun(erlang_fun* f)</pre>
+      
+      <div class="description">
+        <p>Decodes a fun from the binary format. Parameter
+          <code>p</code> is to be <code>NULL</code> or point to an
+          <code>erlang_fun</code> structure. This is the only decode
+          function that allocates memory. When the <code>erlang_fun</code>
+          is no longer needed, it is to be freed with
+          <code>free_fun</code>. (This has to do with the arbitrary size
+          of the environment for a fun.)</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_list_header(const char *buf, int *index, int *arity)</pre>
+      
+      <div class="description">
+        <p>Decodes a list header from the binary
+          format. The number of elements is returned in
+          <code>arity</code>. The <code>arity+1</code> elements
+          follow (the last one is the tail of the list, normally an empty list).
+          If <code>arity</code> is <code>0</code>, it is an empty
+          list.</p>
+        <p>Notice that lists are encoded as strings if they consist
+          entirely of integers in the range 0..255. This function do
+          not decode such strings, use <code>ei_decode_string()</code>
+          instead.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_long(const char *buf, int *index, long *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a long integer from the binary format.
+          If the code is 64 bits, the function <code>ei_decode_long()</code> is
+          the same as <code>ei_decode_longlong()</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_longlong(const char *buf, int *index, long long *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a GCC <code>long long</code> or Visual C++
+          <code>__int64</code>
+          (64-bit) integer from the binary format. This
+          function is missing in the VxWorks port.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_map_header(const char *buf, int *index, int *arity)</pre>
+      
+      <div class="description">
+        <p>Decodes a map header from the binary
+          format. The number of key-value pairs is returned in
+          <code>*arity</code>. Keys and values follow in this order:
+	  <code>K1, V1, K2, V2, ..., Kn, Vn</code>. This makes a total of
+	  <code>arity*2</code> terms. If <code>arity</code> is zero, it is an empty map.
+	  A correctly encoded map does not have duplicate keys.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_pid(const char *buf, int *index, erlang_pid *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a process identifier (pid) from the binary format.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_port(const char *buf, int *index, erlang_port *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a port identifier from the binary format.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_ref(const char *buf, int *index, erlang_ref *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a reference from the binary format.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_string(const char *buf, int *index, char *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a string from the binary format. A
+          string in Erlang is a list of integers between 0 and
+          255. Notice that as the string is just a list, sometimes
+          lists are encoded as strings by <code>term_to_binary/1</code>,
+          even if it was not intended.</p>
+        <p>The string is copied to <code>p</code>, and enough space must
+          be allocated. The returned string is <code>NULL</code>-terminated, so you
+          must add an extra byte to the memory requirement.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_term(const char *buf, int *index, void *t)</pre>
+      
+      <div class="description">
+        <p>Decodes a term from the binary format. The term
+          is return in <code>t</code> as a <code>ETERM*</code>, so
+          <code>t</code> is actually an <code>ETERM**</code> (see
+          <a href="erl_eterm.html" class="seealso"><code>erl_eterm</code></a>).
+          The term is later to be deallocated.</p>
+        <p>Notice that this function is located in the <code>Erl_Interface</code>
+          library.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_trace(const char *buf, int *index, erlang_trace *p)</pre>
+      
+      <div class="description">
+        <p>Decodes an Erlang trace token from the binary format.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_tuple_header(const char *buf, int *index, int *arity)</pre>
+      
+      <div class="description">
+        <p>Decodes a tuple header, the number of elements
+          is returned in <code>arity</code>. The tuple elements follow
+          in order in the buffer.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_ulong(const char *buf, int *index, unsigned long *p)</pre>
+      
+      <div class="description">
+        <p>Decodes an unsigned long integer from the binary format.
+          If the code is 64 bits, the function <code>ei_decode_ulong()</code> is
+          the same as <code>ei_decode_ulonglong()</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_ulonglong(const char *buf, int *index, unsigned long long *p)</pre>
+      
+      <div class="description">
+        <p>Decodes a GCC <code>unsigned long long</code> or Visual C++
+          <code>unsigned __int64</code> (64-bit) integer from the binary
+          format. This function is missing in the VxWorks port.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_decode_version(const char *buf, int *index, int *version)</pre>
+      
+      <div class="description">
+        <p>Decodes the version magic number for the
+          Erlang binary term format. It must be the first token in a
+          binary term.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_atom(char *buf, int *index, const char *p)</pre>
+      <pre>int ei_encode_atom_len(char *buf, int *index, const char *p, int len)</pre>
+      <pre>int ei_x_encode_atom(ei_x_buff* x, const char *p)</pre>
+      <pre>int ei_x_encode_atom_len(ei_x_buff* x, const char *p, int len)</pre>
+      
+      <div class="description">
+        <p>Encodes an atom in the binary format. Parameter <code>p</code>
+          is the name of the atom in Latin-1 encoding. Only up to
+          <code>MAXATOMLEN-1</code> bytes
+          are encoded. The name is to be <code>NULL</code>-terminated, except for
+          the <code>ei_x_encode_atom_len()</code> function.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</pre>
+      <pre>int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</pre>
+      <pre>int ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</pre>
+      <pre>int ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</pre>
+      
+      <div class="description">
+        <p>Encodes an atom in the binary format. Parameter <code>p</code> is the name of the atom with
+          character encoding
+          <a href="#erlang_char_encoding" class="seealso"><code>from_enc</code></a>
+          (ASCII, Latin-1, or UTF-8). The name must either be <code>NULL</code>-terminated or
+          a function variant with a <code>len</code> parameter must be used.</p>
+	<p>The encoding fails if <code>p</code> is not a valid string in encoding
+          <code>from_enc</code>.</p>
+
+	<p>Argument <code>to_enc</code> is ignored. As from Erlang/OTP 20 the encoding is always
+	  done in UTF-8 which is readable by nodes as old as Erlang/OTP R16.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_bignum(char *buf, int *index, mpz_t obj)</pre>
+      <pre>int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj)</pre>
+      
+      <div class="description">
+        <p>Encodes a GMP <code>mpz_t</code> integer to binary format.
+          To use this function, the <code>ei</code> library must be configured and
+          compiled to use the GMP library.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_binary(char *buf, int *index, const void *p, long len)</pre>
+      <pre>int ei_x_encode_binary(ei_x_buff* x, const void *p, long len)</pre>
+      
+      <div class="description">
+        <p>Encodes a binary in the binary format. The data is at
+          <code>p</code>, of <code>len</code> bytes length.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_boolean(char *buf, int *index, int p)</pre>
+      <pre>int ei_x_encode_boolean(ei_x_buff* x, int p)</pre>
+      
+      <div class="description">
+        <p>Encodes a boolean value as the atom <code>true</code> if
+          <code>p</code> is not zero, or <code>false</code> if <code>p</code> is
+          zero.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_char(char *buf, int *index, char p)</pre>
+      <pre>int ei_x_encode_char(ei_x_buff* x, char p)</pre>
+      
+      <div class="description">
+        <p>Encodes a char (8-bit) as an integer between 0-255 in the binary
+          format. For historical reasons the integer argument is of
+          type <code>char</code>. Your C code is to consider the specified
+          argument to be of type <code>unsigned char</code> even if
+          the C compilers and system may define <code>char</code> to be
+          signed.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_double(char *buf, int *index, double p)</pre>
+      <pre>int ei_x_encode_double(ei_x_buff* x, double p)</pre>
+      
+      <div class="description">
+        <p>Encodes a double-precision (64-bit) floating point number in
+          the binary format.</p>
+        <p>Returns <code>-1</code> if the floating point
+          number is not finite.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_empty_list(char* buf, int* index)</pre>
+      <pre>int ei_x_encode_empty_list(ei_x_buff* x)</pre>
+      
+      <div class="description">
+        <p>Encodes an empty list. It is often used at the tail of a list.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_fun(char *buf, int *index, const erlang_fun *p)</pre>
+      <pre>int ei_x_encode_fun(ei_x_buff* x, const erlang_fun* fun)</pre>
+      
+      <div class="description">
+        <p>Encodes a fun in the binary format. Parameter <code>p</code>
+          points to an <code>erlang_fun</code> structure. The
+          <code>erlang_fun</code> is not freed automatically, the
+          <code>free_fun</code> is to be called if the fun is not needed
+          after encoding.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_list_header(char *buf, int *index, int arity)</pre>
+      <pre>int ei_x_encode_list_header(ei_x_buff* x, int arity)</pre>
+      
+      <div class="description">
+        <p>Encodes a list header, with a specified
+          arity. The next <code>arity+1</code> terms are the elements
+          (actually its <code>arity</code> cons cells) and the tail of the
+          list. Lists and tuples are encoded recursively, so that a
+          list can contain another list or tuple.</p>
+        <p>For example, to encode the list
+          <code>[c, d, [e | f]]</code>:</p>
+        <pre class="sh_erlang">
+ei_encode_list_header(buf, &i, 3);
+ei_encode_atom(buf, &i, "c");
+ei_encode_atom(buf, &i, "d");
+ei_encode_list_header(buf, &i, 1);
+ei_encode_atom(buf, &i, "e");
+ei_encode_atom(buf, &i, "f");
+ei_encode_empty_list(buf, &i);</pre>
+        <div class="note"><h2>Note!</h2>
+          <p>It may seem that there is no way to create a list without
+            knowing the number of elements in advance. But indeed
+            there is a way. Notice that the list <code>[a, b, c]</code>
+            can be written as <code>[a | [b | [c]]]</code>.
+            Using this, a list can be written as conses.</p>
+        </div>
+        <p>To encode a list, without knowing the arity in advance:</p>
+        <pre class="sh_erlang">
+while (something()) {
+    ei_x_encode_list_header(&x, 1);
+    ei_x_encode_ulong(&x, i); /* just an example */
+}
+ei_x_encode_empty_list(&x);</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_long(char *buf, int *index, long p)</pre>
+      <pre>int ei_x_encode_long(ei_x_buff* x, long p)</pre>
+      
+      <div class="description">
+        <p>Encodes a long integer in the binary format.
+          If the code is 64 bits, the function <code>ei_encode_long()</code> is
+          the same as <code>ei_encode_longlong()</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_longlong(char *buf, int *index, long long p)</pre>
+      <pre>int ei_x_encode_longlong(ei_x_buff* x, long long p)</pre>
+      
+      <div class="description">
+        <p>Encodes a GCC <code>long long</code> or Visual C++
+          <code>__int64</code> (64-bit) integer in the binary format.
+          This function is missing in the VxWorks port.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_map_header(char *buf, int *index, int arity)</pre>
+      <pre>int ei_x_encode_map_header(ei_x_buff* x, int arity)</pre>
+      
+      <div class="description">
+        <p>Encodes a map header, with a specified arity. The next
+	   <code>arity*2</code> terms encoded will be the keys and values of the map
+	   encoded in the following order: <code>K1, V1, K2, V2, ..., Kn, Vn</code>.
+	</p>
+        <p>For example, to encode the map <code>#{a =&gt; "Apple", b =&gt;
+          "Banana"}</code>:</p>
+        <pre class="sh_erlang">
+ei_x_encode_map_header(&x, 2);
+ei_x_encode_atom(&x, "a");
+ei_x_encode_string(&x, "Apple");
+ei_x_encode_atom(&x, "b");
+ei_x_encode_string(&x, "Banana");</pre>
+	<p>A correctly encoded map cannot have duplicate keys.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_pid(char *buf, int *index, const erlang_pid *p)</pre>
+      <pre>int ei_x_encode_pid(ei_x_buff* x, const erlang_pid *p)</pre>
+      
+      <div class="description">
+        <p>Encodes an Erlang process identifier (pid) in the binary
+          format. Parameter <code>p</code> points to an
+          <code>erlang_pid</code> structure (which should have been
+          obtained earlier with <code>ei_decode_pid()</code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_port(char *buf, int *index, const erlang_port *p)</pre>
+      <pre>int ei_x_encode_port(ei_x_buff* x, const erlang_port *p)</pre>
+      
+      <div class="description">
+        <p>Encodes an Erlang port in the binary format. Parameter
+          <code>p</code> points to a <code>erlang_port</code>
+          structure (which should have been obtained earlier with
+          <code>ei_decode_port()</code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_ref(char *buf, int *index, const erlang_ref *p)</pre>
+      <pre>int ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p)</pre>
+      
+      <div class="description">
+        <p>Encodes an Erlang reference in the binary format. Parameter
+          <code>p</code> points to a <code>erlang_ref</code>
+          structure (which should have been obtained earlier with
+          <code>ei_decode_ref()</code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_string(char *buf, int *index, const char *p)</pre>
+      <pre>int ei_encode_string_len(char *buf, int *index, const char *p, int len)</pre>
+      <pre>int ei_x_encode_string(ei_x_buff* x, const char *p)</pre>
+      <pre>int ei_x_encode_string_len(ei_x_buff* x, const char* s, int len)</pre>
+      
+      <div class="description">
+        <p>Encodes a string in the binary format. (A string in Erlang
+          is a list, but is encoded as a character array in the binary
+          format.) The string is to be <code>NULL</code>-terminated, except for
+          the <code>ei_x_encode_string_len()</code> function.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_term(char *buf, int *index, void *t)</pre>
+      <pre>int ei_x_encode_term(ei_x_buff* x, void *t)</pre>
+      
+      <div class="description">
+        <p>Encodes an <code>ETERM</code>, as obtained from
+          <code>erl_interface</code>. Parameter <code>t</code> is
+          actually an <code>ETERM</code> pointer. This function
+          does not free the <code>ETERM</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <pre>int ei_encode_trace(char *buf, int *index, const erlang_trace *p)</pre>
+      <pre>int ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p)</pre>
+      
+      <div class="description">
+        <p>Encodes an Erlang trace token in the binary format.
+          Parameter <code>p</code> points to a
+          <code>erlang_trace</code> structure (which should have been
+          obtained earlier with <code>ei_decode_trace()</code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_tuple_header(char *buf, int *index, int arity)</pre>
+      <pre>int ei_x_encode_tuple_header(ei_x_buff* x, int arity)</pre>
+      
+      <div class="description">
+        <p>Encodes a tuple header, with a specified
+          arity. The next <code>arity</code> terms encoded will be the
+          elements of the tuple. Tuples and lists are encoded
+          recursively, so that a tuple can contain another tuple or list.</p>
+        <p>For example, to encode the tuple <code>{a, {b, {}}}</code>:</p>
+        <pre class="sh_erlang">
+ei_encode_tuple_header(buf, &i, 2);
+ei_encode_atom(buf, &i, "a");
+ei_encode_tuple_header(buf, &i, 2);
+ei_encode_atom(buf, &i, "b");
+ei_encode_tuple_header(buf, &i, 0);</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_ulong(char *buf, int *index, unsigned long p)</pre>
+      <pre>int ei_x_encode_ulong(ei_x_buff* x, unsigned long p)</pre>
+      
+      <div class="description">
+        <p>Encodes an unsigned long integer in the binary format.
+          If the code is 64 bits, the function <code>ei_encode_ulong()</code> is
+          the same as <code>ei_encode_ulonglong()</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_ulonglong(char *buf, int *index, unsigned long long p)</pre>
+      <pre>int ei_x_encode_ulonglong(ei_x_buff* x, unsigned long long p)</pre>
+      
+      <div class="description">
+        <p>Encodes a GCC <code>unsigned long long</code> or Visual C++
+          <code>unsigned __int64</code> (64-bit) integer in the binary
+          format. This function is missing in the VxWorks port.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_encode_version(char *buf, int *index)</pre>
+      <pre>int ei_x_encode_version(ei_x_buff* x)</pre>
+      
+      <div class="description">
+        <p>Encodes a version magic number for the binary format. Must
+          be the first token in a binary term.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_get_type(const char *buf, const int *index, int *type, int *size)</pre>
+      
+      <div class="description">
+        <p>Returns the type in <code>type</code> and size in
+          <code>size</code> of the encoded term. For strings and atoms,
+          size is the number of characters <em>not</em> including the
+          terminating <code>NULL</code>. For binaries, <code>size</code> is the number of
+          bytes. For lists and tuples, <code>size</code> is the arity of
+          the object. For other types, <code>size</code> is 0. In all
+          cases, <code>index</code> is left unchanged.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_print_term(FILE* fp, const char* buf, int* index)</pre>
+      <pre>int ei_s_print_term(char** s, const char* buf, int* index)</pre>
+      
+      <div class="description">
+        <p>Prints a term, in clear text, to the file
+          specified by <code>fp</code>, or the buffer pointed to by
+          <code>s</code>. It
+          tries to resemble the term printing in the Erlang shell.</p>
+        <p>In <code>ei_s_print_term()</code>, parameter
+          <code>s</code> is to
+          point to a dynamically (malloc) allocated string of
+          <code>BUFSIZ</code> bytes or a <code>NULL</code> pointer. The string
+          can be reallocated (and <code>*s</code> can be updated) by this
+          function if the result is more than <code>BUFSIZ</code>
+          characters. The string returned is <code>NULL</code>-terminated.</p>
+        <p>The return value is the number of characters written to the file
+          or string, or <code>-1</code> if <code>buf[index]</code> does not
+          contain a valid term.
+          Unfortunately, I/O errors on <code>fp</code> is not checked.</p>
+        <p>Argument <code>index</code> is updated, that is, this function
+          can be viewed as a decode function that decodes a term into a
+          human-readable format.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>void ei_set_compat_rel(release_number)</pre>
+      
+      <ul class="type">
+        <li><code>unsigned release_number;</code></li>
+      </ul>
+      <div class="description">
+        <span id="ei_set_compat_rel"> </span>
+        <p>By default, the <code>ei</code> library is only guaranteed
+          to be compatible with other Erlang/OTP components from the same
+          release as the <code>ei</code> library itself. For example,
+          <code>ei</code> from
+          Erlang/OTP R10 is not compatible with an Erlang emulator
+          from Erlang/OTP R9 by default.</p>
+        <p>A call to <code>ei_set_compat_rel(release_number)</code> sets
+          the <code>ei</code> library in compatibility mode of release
+          <code>release_number</code>. Valid range of
+          <code>release_number</code>
+          is <code>[7, current release]</code>. This makes it possible to
+          communicate with Erlang/OTP components from earlier releases.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>If this function is called, it can only be called once
+            and must be called before any other functions in the
+            <code>ei</code> library are called.</p>
+        </div>
+        <div class="warning"><h2>Warning!</h2>
+          <p>You can run into trouble if this feature is used
+            carelessly. Always ensure that all communicating
+            components are either from the same Erlang/OTP release, or
+            from release X and release Y where all components
+            from release Y are in compatibility mode of release X.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_skip_term(const char* buf, int* index)</pre>
+      
+      <div class="description">
+        <p>Skips a term in the specified buffer;
+          recursively skips elements of lists and tuples, so that a
+          full term is skipped. This is a way to get the size of an
+          Erlang term.</p>
+        <p><code>buf</code> is the buffer.</p>
+        <p><code>index</code> is updated to point right after the term
+          in the buffer.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>This can be useful when you want to hold arbitrary
+            terms: skip them and copy the binary term data to some
+            buffer.</p>
+        </div>
+        <p>Returns <code>0</code> on success, otherwise
+          <code>-1</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_x_append(ei_x_buff* x, const ei_x_buff* x2)</pre>
+      <pre>int ei_x_append_buf(ei_x_buff* x, const char* buf, int len)</pre>
+      
+      <div class="description">
+        <p>Appends data at the end of buffer <code>x</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_x_format(ei_x_buff* x, const char* fmt, ...)</pre>
+      <pre>int ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... )</pre>
+      
+      <div class="description">
+        <p>Formats a term, given as a string, to a buffer.
+          Works like a sprintf for Erlang terms.
+          <code>fmt</code> contains a format string, with arguments like
+          <code>~d</code>, to insert terms from variables. The following
+          formats are supported (with the C types given):</p>
+        <pre class="sh_erlang">
+~a  An atom, char*
+~c  A character, char
+~s  A string, char*
+~i  An integer, int
+~l  A long integer, long int
+~u  A unsigned long integer, unsigned long int
+~f  A float, float
+~d  A double float, double float
+~p  An Erlang pid, erlang_pid*</pre>
+        <p>For example, to encode a tuple with some stuff:</p>
+        <pre class="sh_erlang">
+ei_x_format("{~a,~i,~d}", "numbers", 12, 3.14159)
+encodes the tuple {numbers,12,3.14159}</pre>
+        <p><code>ei_x_format_wo_ver()</code> formats into a buffer,
+          without the initial version byte.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_x_free(ei_x_buff* x)</pre>
+      
+      <div class="description">
+        <p>Frees an <code>ei_x_buff</code> buffer.
+          The memory used by the buffer is returned to the OS.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <pre>int ei_x_new(ei_x_buff* x)</pre>
+      <pre>int ei_x_new_with_version(ei_x_buff* x)</pre>
+      
+      <div class="description">
+        <p>Allocates a new <code>ei_x_buff</code> buffer. The
+          fields of the structure pointed to by parameter <code>x</code>
+          is filled in, and a default buffer is allocated.
+          <code>ei_x_new_with_version()</code> also puts an initial
+          version byte, which is used in the binary format (so that
+          <code>ei_x_encode_version()</code> will not be needed.)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Debug Information</h4>
+    <p>Some tips on what to check when the emulator does not seem to
+      receive the terms that you send:</p>
+
+    <list type="bulleted">
+      <item>Be careful with the version header, use
+        <code>ei_x_new_with_version()</code> when appropriate.</item>
+      <item>Turn on distribution tracing on the Erlang node.</item>
+      <item>Check the result codes from <code>ei_decode_-calls</code>.</item>
+    </list>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="erl_eterm.html" class="seealso"><code>erl_eterm</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

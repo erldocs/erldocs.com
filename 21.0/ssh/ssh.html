@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ssh (ssh) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ssh</h1>
+  <h2 class="modsummary">Main API of the ssh application</h2>
+  <div class="description">
+    <p>This is the interface module for the <code>SSH</code> application.
+    The Secure Shell (SSH) Protocol is a protocol for secure remote login
+    and other secure network services over an insecure network.
+    See <a href="../ssh/SSH_app.html#supported" class="seealso">ssh(6)</a> for details of supported RFCs, versions,
+    algorithms and unicode handling.
+    </p>
+    <p>With the SSH application it is possible to start <i>clients</i> and to start <i>daemons</i> (servers).
+    </p>
+    <p>Clients are started with
+    <a href="#connect/2" class="seealso">connect/2</a>, 
+    <a href="#connect/3" class="seealso">connect/3</a> or 
+    <a href="#connect/4" class="seealso">connect/4</a>. They open an encrypted connection on top of TCP/IP.
+    In that encrypted connection one or more channels could be opened with
+    <a href="ssh_connection.html#session_channel/2" class="seealso">ssh_connection:session_channel/2,4</a>.
+    </p>
+    <p>Each channel is an isolated "pipe" between a client-side process and a server-side process. Thoose process
+    pairs could handle for example file transfers (sftp) or remote command execution (shell, exec and/or cli).
+    If a custom shell is implemented, the user of the client could execute the special commands remotely. Note that
+    the user is not necessarily a human but probably a system interfacing the SSH app.
+    </p>
+    <p>A server-side subssystem (channel) server is requested by the client with
+    <a href="ssh_connection.html#subsystem/4" class="seealso">ssh_connection:subsystem/4</a>. 
+    </p>
+    <p>A server (daemon) is started with 
+    <a href="#daemon/2" class="seealso">daemon/1</a>,
+    <a href="#daemon/2" class="seealso">daemon/2</a> or
+    <a href="#daemon/2" class="seealso">daemon/3</a>.
+    Possible channel handlers (subsystems) are declared with the
+    <a href="#type-subsystem_daemon_option" class="seealso">subsystem</a> option when the daemon is started.
+    </p>
+    <p>To just run a shell on a remote machine, there are functions that bundles the needed 
+    three steps needed into one:
+    <a href="#shell/1" class="seealso">shell/1,2,3</a>.
+    Similarily, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
+    <a href="ssh_sftp.html#start_channel/1" class="seealso">ssh_sftp:start_channel/1,2,3</a>.
+    </p>
+    <p>To write your own client channel handler, use the behaviour 
+    <a href="ssh_client_channel.html" class="seealso">ssh_client_channel</a>. For server channel handlers use 
+    <a href="ssh_server_channel.html" class="seealso">ssh_server_channel</a> behaviour (replaces ssh_daemon_channel).
+    </p>
+    <p>Both clients and daemons accepts options that controls the exact behaviour. Some options are common to both.
+    The three sets are called 
+    <a href="#type-client_options" class="seealso">Client Options</a>, 
+    <a href="#type-daemon_options" class="seealso">Daemon Options</a> and
+    <a href="#type-common_options" class="seealso">Common Options</a>.
+    </p>
+    <p>The descriptions of the options uses the 
+    <a href="../doc/reference_manual/typespec.html" class="seealso">Erlang Type Language</a> with explaining text.
+    </p>
+    <div class="note"><h2>Note!</h2>
+    <p>The <a href="users_guide.html" class="seealso">User's Guide</a> has examples and a
+    <a href="using_ssh.html" class="seealso">Getting Started</a>
+    section.
+    </p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Keys and files</h4>
+    <p>A number of objects must be present for the SSH application to work. 
+    Thoose objects are per default stored in files.
+    The default names, paths and file formats are the same as for
+    <url href="http://www.openssh.com">OpenSSH</url>. Keys could be generated with the <code>ssh-keygen</code>
+    program from OpenSSH. See the
+    <a href="using_ssh.html#running-an-erlang-ssh-daemon" class="seealso">User's Guide</a>.
+    </p>
+
+    <p>The paths could easily be changed by options:
+    <a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a> and
+    <a href="#type-system_dir_daemon_option" class="seealso"><code>system_dir</code></a>.
+    </p>
+    <p>A completly different storage could be interfaced by writing call-back modules
+    using the behaviours
+    <a href="ssh_client_key_api.html" class="seealso">ssh_client_key_api</a> and/or
+    <a href="ssh_server_key_api.html" class="seealso">ssh_server_key_api</a>.
+    A callback module is installed with the option
+    <a href="#type-key_cb_common_option" class="seealso"><code>key_cb</code></a>
+    to the client and/or the daemon.
+    </p>
+
+    <div class="section">
+      <h4>Daemons</h4>
+      <p>The keys are by default stored in files:</p>
+      <list>
+	<item>Mandatory: one or more <i>Host key(s)</i>, both private and public. Default is to
+	store them in the directory <code>/etc/ssh</code> in the files
+	<list>
+	  <item><code>ssh_host_dsa_key</code> and <code>ssh_host_dsa_key.pub</code></item>
+	  <item><code>ssh_host_rsa_key</code> and <code>ssh_host_rsa_key.pub</code></item>
+	  <item><code>ssh_host_ecdsa_key</code> and <code>ssh_host_ecdsa_key.pub</code></item>
+	</list>
+	<p>The host keys directory could be changed with the option 
+	<a href="#type-system_dir_daemon_option" class="seealso"><code>system_dir</code></a>.</p>
+	</item>
+	<item>Optional: one or more <i>User's public key</i> in case of <code>publickey</code> authorization.
+	Default is to store them concatenated in the file <code>.ssh/authorized_keys</code> in the user's home directory.
+	<p>The user keys directory could be changed with the option 
+	<a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a>.</p>
+	</item>
+      </list>
+    </div>
+
+    <div class="section">
+      <h4>Clients</h4>
+      <p>The keys and some other data are by default stored in files in the directory <code>.ssh</code>
+      in the user's home directory.</p>
+      <p>The directory could be changed with the option 
+      <a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a>.
+      </p>
+      <list>
+	<item>Optional: a list of <i>Host public key(s)</i> for previously connected hosts. This list
+	is handled by the SSH application without any need of user assistance. The default
+	is to store them in the file <code>known_hosts</code>.
+	<p>The 
+	<a href="#type-host_accepting_client_options" class="seealso">host_accepting_client_options()</a>
+	are associated with this list of keys.
+	</p>
+	</item>
+	<item>Optional: one or more <i>User's private key(s)</i> in case of <code>publickey</code> authorization.
+	The default files are
+	<list>
+	  <item><code>id_dsa</code> and <code>id_dsa.pub</code></item>
+	  <item><code>id_rsa</code> and <code>id_rsa.pub</code></item>
+	  <item><code>id_ecdsa</code> and <code>id_ecdsa.pub</code></item>
+	</list>
+	</item>
+      </list>
+    </div>
+
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+
+    <datatype_title>Client Options</datatype_title>
+
+    <div class="type">
+      <h3 id="type-client_options">client_options() = [<a href="#type-client_option" class="seealso">client_option()</a>]</h3>
+      <h3 id="type-client_option">client_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-pref_public_key_algs_client_option" class="seealso">pref_public_key_algs_client_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-pubkey_passphrase_client_options" class="seealso">pubkey_passphrase_client_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-host_accepting_client_options" class="seealso">host_accepting_client_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-authentication_client_options" class="seealso">authentication_client_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-diffie_hellman_group_exchange_client_option" class="seealso">diffie_hellman_group_exchange_client_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-connect_timeout_client_option" class="seealso">connect_timeout_client_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-recv_ext_info_client_option" class="seealso">recv_ext_info_client_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-opaque_client_options" class="seealso">opaque_client_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="gen_tcp.html#type-connect_option" class="seealso">gen_tcp:connect_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-common_option" class="seealso">common_option()</a></h3>
+      <div class="description">
+      <p>Options for <a href="#connect/3" class="seealso">clients</a>.
+      The individual options are further explained below or by following the hyperlinks.
+      </p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-pref_public_key_algs_client_option">pref_public_key_algs_client_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{pref_public_key_algs, [<a href="#type-pubkey_alg" class="seealso">pubkey_alg()</a>]}</h3>
+      <div class="description">
+        <p>List of user (client) public key algorithms to try to use.</p>
+	<p>The default value is the <code>public_key</code> entry in the list returned by
+	<a href="#default_algorithms/0" class="seealso">ssh:default_algorithms/0</a>.
+	</p>
+	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	</p>
+        <p>See also the option <a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a>
+        for specifying the path to the user's keys.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-pubkey_passphrase_client_options">pubkey_passphrase_client_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{dsa_pass_phrase, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{rsa_pass_phrase, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ecdsa_pass_phrase, string()}</h3>
+      <div class="description">
+	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
+	supplied with thoose options.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-host_accepting_client_options">host_accepting_client_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{silently_accept_hosts, <a href="#type-accept_hosts" class="seealso">accept_hosts()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user_interaction, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{save_accepted_host, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{quiet_mode, boolean()}</h3>
+      <h3 id="type-accept_hosts">accept_hosts() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-accept_callback" class="seealso">accept_callback()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{HashAlgoSpec :: <a href="#type-fp_digest_alg" class="seealso">fp_digest_alg()</a>, <a href="#type-accept_callback" class="seealso">accept_callback()</a>}</h3>
+      <h3 id="type-fp_digest_alg">fp_digest_alg() = md5 | sha | sha224 | sha256 | sha384 | sha512</h3>
+      <h3 id="type-accept_callback">accept_callback() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((PeerName :: string(), <a href="#type-fingerprint" class="seealso">fingerprint()</a>) -&gt; boolean())</h3>
+      <h3 id="type-fingerprint">fingerprint() = string() | [string()]</h3>
+      <div class="description">
+	<taglist>
+          <dt><code>silently_accept_hosts</code></dt>
+	  <item>
+            <p>This option guides the <code>connect</code> function on how to act when the connected server presents a Host 
+            Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
+            accept or reject the new Host Key.
+            See the option <a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a>
+            for specifying the path to the file <code>known_hosts</code> where previously accepted Host Keys are recorded.
+	    See also the option 
+	    <a href="#type-key_cb_common_option" class="seealso">key_cb</a>
+	    for the general way to handle keys.
+	    </p>
+            <p>The option can be given in three different forms as seen above:</p>
+	    <list>
+	      <item>The value is a <code>boolean()</code>.
+	      The value <code>true</code> will make the client accept any unknown Host Key without any user interaction.
+	      The value <code>false</code> preserves the default behaviour of asking the user on stdio.
+              </item>
+              <item>An <code>accept_callback()</code> will be called and the boolean return value <code>true</code>
+	      will make the client
+              accept the Host Key. A return value of <code>false</code> will make the client to reject the Host Key and as a
+              result the connection will be closed. The arguments to the fun are:
+              <list type="bulleted">
+	        <item><code>PeerName</code> - a string with the name or address of the remote host.</item>
+                <item><code>FingerPrint</code> - the fingerprint of the Host Key as 
+                <a href="../public_key/public_key.html#ssh_hostkey_fingerprint/1" class="seealso">public_key:ssh_hostkey_fingerprint/1</a>
+                calculates it.
+                </item>
+              </list>
+              </item>
+              <item>A tuple <code>{HashAlgoSpec, accept_callback}</code>. The <code>HashAlgoSpec</code>
+	      specifies which hash algorithm
+              shall be used to calculate the fingerprint used in the call of the <code>accept_callback()</code>.
+	      The <code>HashALgoSpec</code>
+              is either an atom or a list of atoms as the first argument in
+              <a href="../public_key/public_key.html#ssh_hostkey_fingerprint/2" class="seealso">public_key:ssh_hostkey_fingerprint/2</a>.
+              If it is a list of hash algorithm names, the <code>FingerPrint</code> argument in the
+	      <code>accept_callback()</code> will be 
+              a list of fingerprints in the same order as the corresponding name in the <code>HashAlgoSpec</code> list.
+              </item>
+            </list>
+	  </item>
+	  
+	  <dt><code>user_interaction</code></dt>
+	  <item>
+	    <p>If <code>false</code>, disables the client to connect to the server
+	    if any user interaction is needed, such as accepting
+	    the server to be added to the <code>known_hosts</code> file, or
+	    supplying a password.</p>
+	    <p>Even if user interaction is allowed it can be
+	    suppressed by other options, such as <code>silently_accept_hosts</code>
+	    and <code>password</code>. However, those options are not always desirable
+	    to use from a security point of view.</p>
+	    <p>Defaults to <code>true</code>.</p>
+	  </item>
+
+	  <dt><code>save_accepted_host</code></dt>
+	  <item>
+	    <p>If <code>true</code>, the client saves an accepted host key to avoid the
+	    accept question the next time the same host is connected. If the option
+	    <a href="#type-key_cb_common_option" class="seealso"><code>key_cb</code></a>
+	    is not present, the key is saved in the file "known_hosts". See option
+	    <a href="#type-user_dir_common_option" class="seealso"><code>user_dir</code></a> for
+	    the location of that file.
+	    </p>
+	    <p>If <code>false</code>, the key is not saved and the key will still be unknown
+	    at the next access of the same host.
+	    </p>
+	    <p>Defaults to <code>true</code></p>
+	  </item>
+
+	  <dt><code>quiet_mode</code></dt>
+	  <item>
+	    <p>If <code>true</code>, the client does not print anything on authorization.</p>
+	    <p>Defaults to <code>false</code></p>
+	  </item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-authentication_client_options">authentication_client_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user, string()} | {password, string()}</h3>
+      <div class="description">
+	<taglist>
+	  <dt><code>user</code></dt>
+          <item>
+	    <p>Provides the username. If this option is not given, <code>ssh</code>
+	    reads from the environment (<code>LOGNAME</code> or
+	    <code>USER</code> on UNIX,
+	    <code>USERNAME</code> on Windows).</p>
+          </item>
+
+	  <dt><code>password</code></dt>
+          <item>
+	    <p>Provides a password for password authentication.
+	    If this option is not given, the user is asked for a
+	    password, if the password authentication method is
+	    attempted.</p>
+          </item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-diffie_hellman_group_exchange_client_option">diffie_hellman_group_exchange_client_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{dh_gex_limits,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Min :: integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;I :: integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Max :: integer() &gt;= 1}}</h3>
+      <div class="description">
+	<p>Sets the three diffie-hellman-group-exchange parameters that guides the connected server in choosing a group.
+	See
+	<url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	for the details.  The default value is <code>{1024, 6144, 8192}</code>.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-connect_timeout_client_option">connect_timeout_client_option() = {connect_timeout, timeout()}</h3>
+      <div class="description">
+	<p>Sets a timeout on the transport layer connect time.
+	For <a href="../kernel/gen_tcp.html" class="seealso"><code>gen_tcp</code></a> the time is in milli-seconds and the default 
+	value is <code>infinity</code>.
+	</p>
+	<p>See the parameter <code>Timeout</code> in <a href="#connect/4" class="seealso">connect/4</a> for
+	a timeout of the negotiation phase.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-recv_ext_info_client_option">recv_ext_info_client_option() = {recv_ext_info, boolean()}</h3>
+      <div class="description">
+	<p>Make the client tell the server that the client accepts extension negotiation, that is,
+	include <code>ext-info-c</code> in the kexinit message sent.  See 
+	<url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>
+	for details and	<a href="SSH_app.html#supported-ext-info" class="seealso">ssh(6)</a>
+	for a list of currently implemented extensions.
+	</p>
+	<p>
+	  Default value is <code>true</code> which is compatible with other implementations not supporting ext-info.
+	</p>
+      </div>
+    </div>
+
+    <datatype_title>Daemon Options (Server Options)</datatype_title>
+
+    <div class="type">
+      <h3 id="type-daemon_options">daemon_options() = [<a href="#type-daemon_option" class="seealso">daemon_option()</a>]</h3>
+      <h3 id="type-daemon_option">daemon_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-subsystem_daemon_option" class="seealso">subsystem_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-shell_daemon_option" class="seealso">shell_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exec_daemon_option" class="seealso">exec_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-ssh_cli_daemon_option" class="seealso">ssh_cli_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-authentication_daemon_options" class="seealso">authentication_daemon_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-diffie_hellman_group_exchange_daemon_option" class="seealso">diffie_hellman_group_exchange_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-negotiation_timeout_daemon_option" class="seealso">negotiation_timeout_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-hardening_daemon_options" class="seealso">hardening_daemon_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-callbacks_daemon_options" class="seealso">callbacks_daemon_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-send_ext_info_daemon_option" class="seealso">send_ext_info_daemon_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-opaque_daemon_options" class="seealso">opaque_daemon_options()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="gen_tcp.html#type-listen_option" class="seealso">gen_tcp:listen_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-common_option" class="seealso">common_option()</a></h3>
+      <div class="description">
+      <p>Options for <a href="#daemon/1" class="seealso">daemons</a>.
+      The individual options are further explained below or by following the hyperlinks.
+      </p>
+      </div>
+    </div>
+
+    
+    <div class="type">
+      <h3 id="type-subsystem_daemon_option">subsystem_daemon_option() = {subsystems, <a href="#type-subsystem_spec" class="seealso">subsystem_spec()</a>}</h3>
+      <h3 id="type-subsystem_spec">subsystem_spec() = {Name :: string(), <a href="#type-mod_args" class="seealso">mod_args()</a>}</h3>
+      <div class="description">
+	<p>Defines a subsystem in the daemon.</p>
+	<p>The <code>subsystem_name</code> is the name that a client requests to start with for example
+	<a href="ssh_connection.html#subsystem/4" class="seealso">ssh_connection:subsystem/4</a>.
+	</p>
+	<p>The <code>channel_callback</code> is the module that implements the
+	<a href="ssh_server_channel.html" class="seealso">ssh_server_channel</a> (replaces ssh_daemon_channel)
+	behaviour in the daemon. See the section 
+	<a href="using_ssh.html#usersguide_creating_a_subsystem" class="seealso">Creating a Subsystem</a>
+	in the User's Guide for more information and an example.
+	</p>
+	<p>If the subsystems option is not present, the value of <code>ssh_sftpd:subsystem_spec([])</code> is used.
+	This enables the sftp subsystem by default.
+	The option can be set to the empty list if you do not want the daemon to run any subsystems.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-shell_daemon_option">shell_daemon_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{shell, <a href="#type-mod_fun_args" class="seealso">mod_fun_args()</a> | <a href="#type-shell_fun%2f1" class="seealso">'shell_fun/1'()</a> | <a href="#type-shell_fun%2f2" class="seealso">'shell_fun/2'()</a>}</h3>
+      <h3 id="type-shell_fun%2f1">'shell_fun/1'() = fun((User :: string()) -&gt; pid())</h3>
+      <h3 id="type-shell_fun%2f2">'shell_fun/2'() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((User :: string(), PeerAddr :: <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>) -&gt; pid())</h3>
+      <div class="description">
+	<p>Defines the read-eval-print loop used in a daemon when a shell is requested by the client.
+	The default is to use the Erlang shell: <code>{shell, start, []}</code>
+	</p>
+	<p>See the option <a href="#type-exec_daemon_option" class="seealso"><code>exec</code></a>
+	for a description of how the daemon execute exec-requests depending on
+	the shell- and exec-options.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-exec_daemon_option">exec_daemon_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{exec, <a href="#type-exec_fun%2f1" class="seealso">'exec_fun/1'()</a> | <a href="#type-exec_fun%2f2" class="seealso">'exec_fun/2'()</a> | <a href="#type-exec_fun%2f3" class="seealso">'exec_fun/3'()</a>}</h3>
+      <h3 id="type-exec_fun%2f1">'exec_fun/1'() = fun((Cmd :: string()) -&gt; <a href="#type-exec_result" class="seealso">exec_result()</a>)</h3>
+      <h3 id="type-exec_fun%2f2">'exec_fun/2'() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((Cmd :: string(), User :: string()) -&gt; <a href="#type-exec_result" class="seealso">exec_result()</a>)</h3>
+      <h3 id="type-exec_fun%2f3">'exec_fun/3'() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((Cmd :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;User :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ClientAddr :: <a href="#type-ip_port" class="seealso">ip_port()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exec_result" class="seealso">exec_result()</a>)</h3>
+      <h3 id="type-exec_result">exec_result() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Result :: term()} | {error, Reason :: term()}</h3>
+      <div class="description">
+	<p>This option changes how the daemon execute exec-requests from clients. The term in the return value
+	is formatted to a string if it is a non-string type. No trailing newline is added in the ok-case but in the
+	error case.</p>
+	<p>Error texts are returned on channel-type 1 which usually is piped to <code>stderr</code> on e.g Linux systems.
+	Texts from a successful execution will in similar manner be piped to <code>stdout</code>. The exit-status code
+	is set to 0 for success and -1 for errors. The exact results presented on the client side depends on the
+	client and the client's operating system.
+	</p>
+	<p>The option cooperates with the daemon-option <a href="#type-shell_daemon_option" class="seealso"><code>shell</code></a>
+	in the following way:</p>
+	<taglist>
+	  <dt>1. If the exec-option is present (the shell-option may or may not be present):</dt>
+	  <item>
+	    <p>The exec-option fun is called with the same number of parameters as the arity of the fun,
+	    and the result is returned to the client.
+	    </p>
+	  </item>
+	  
+	  <dt>2. If the exec-option is absent, but a shell-option is present with the default Erlang shell:</dt>
+	  <item>
+	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	  </item>
+	  
+	  <dt>3. If the exec-option is absent, but a shell-option is present that is not the default Erlang shell:</dt>
+	  <item>
+	    <p>The exec-request is not evaluated and an error message is returned to the client.</p>
+	  </item>
+	  
+	  <dt>4. If neither the exec-option nor the shell-option is present:</dt>
+	  <item>
+	    <p>The default Erlang evaluator is used and the result is returned to the client.</p>
+	  </item>
+	</taglist>
+	<p>If a custom CLI is installed (see the option <a href="#type-ssh_cli_daemon_option" class="seealso"><code>ssh_cli</code></a>)
+	the rules above are replaced by thoose implied by the custom CLI.
+	</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>The exec-option has existed for a long time but has not previously been documented. The old
+	  definition and behaviour are retained but obey the rules 1-4 above if conflicting.
+	  The old and undocumented style should not be used in new programs.</p>
+	</div>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-ssh_cli_daemon_option">ssh_cli_daemon_option() = {ssh_cli, <a href="#type-mod_args" class="seealso">mod_args()</a> | no_cli}</h3>
+      <div class="description">
+	<p>Provides your own CLI implementation in a daemon.</p>
+	<p>It is a channel callback module that implements a shell
+	and command execution. The shell's read-eval-print loop can be customized, using the
+	option <a href="#type-shell_daemon_option" class="seealso"><code>shell</code></a>. This means less work than implementing
+	an own CLI channel. If <code>ssh_cli</code> is set to <code>no_cli</code>, the CLI channels
+	like <a href="#type-shell_daemon_option" class="seealso"><code>shell</code></a>
+	and <a href="#type-exec_daemon_option" class="seealso"><code>exec</code></a>
+	are disabled and only subsystem channels are allowed.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-authentication_daemon_options">authentication_daemon_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{system_dir, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{auth_method_kb_interactive_data, <a href="#type-prompt_texts" class="seealso">prompt_texts()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user_passwords, [{UserName :: string(), Pwd :: string()}]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{password, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{pwdfun, <a href="#type-pwdfun_2" class="seealso">pwdfun_2()</a> | <a href="#type-pwdfun_4" class="seealso">pwdfun_4()</a>}</h3>
+      <h3 id="type-prompt_texts">prompt_texts() = <a href="#type-kb_int_tuple" class="seealso">kb_int_tuple()</a> | <a href="#type-kb_int_fun_3" class="seealso">kb_int_fun_3()</a></h3>
+      <h3 id="type-kb_int_tuple">kb_int_tuple() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Name :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Instruction :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Prompt :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Echo :: boolean()}</h3>
+      <h3 id="type-kb_int_fun_3">kb_int_fun_3() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((Peer :: <a href="#type-ip_port" class="seealso">ip_port()</a>, User :: string(), Service :: string()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-kb_int_tuple" class="seealso">kb_int_tuple()</a>)</h3>
+      <h3 id="type-pwdfun_2">pwdfun_2() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((User :: string(), Password :: string()) -&gt; boolean())</h3>
+      <h3 id="type-pwdfun_4">pwdfun_4() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((User :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Password :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PeerAddress :: <a href="#type-ip_port" class="seealso">ip_port()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;State :: any()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;disconnect |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{boolean(), NewState :: any()})</h3>
+      <div class="description">
+	<taglist>
+          <dt><span id="type-system_dir_daemon_option"> </span><code>system_dir</code></dt>
+          <item>
+            <p>Sets the system directory, containing the host key files
+            that identify the host keys for <code>ssh</code>. Defaults to
+            <code>/etc/ssh</code>.</p>
+	    <p>For security reasons, this directory is normally accessible only to the root user.</p>
+	    <p>See also the option 
+	    <a href="#type-key_cb_common_option" class="seealso">key_cb</a>
+	    for the general way to handle keys.
+	    </p>
+	  </item>
+
+	  <dt><code>auth_method_kb_interactive_data</code></dt>
+	  <item>
+	    <p>Sets the text strings that the daemon sends to the client for presentation to the user when
+	    using <code>keyboard-interactive</code> authentication.</p>
+	    <p>If the fun/3 is used, it is called when the actual authentication occurs and may therefore
+	    return dynamic data like time, remote ip etc.</p>
+	    <p>The parameter <code>Echo</code> guides the client about need to hide the password.</p>
+	    <p>The default value is:
+	    <code>{auth_method_kb_interactive_data, {"SSH server", "Enter password for \""++User++"\"", "password: ", false}&gt;</code>
+	    </p>
+          </item>
+
+	  <dt><code>user_passwords</code></dt>
+	  <item>
+            <p>Provides passwords for password authentication. The passwords are used when someone tries
+	    to connect to the server and public key user-authentication fails. The option provides
+	    a list of valid usernames and the corresponding passwords.
+	    </p>
+          </item>
+
+          <dt><code>password</code></dt>
+          <item>
+            <p>Provides a global password that authenticates any user.</p>
+	    <div class="warning"><h2>Warning!</h2>
+	      <p>Intended to facilitate testing.</p>
+	      <p>From a security perspective this option makes the server very vulnerable.</p>
+	    </div>
+	  </item>
+
+	  <dt><code>pwdfun</code> with <code>pwdfun_4()</code></dt>
+	  <item>
+	    <p>Provides a function for password validation. This could used for calling an external system or handeling
+	    passwords stored as hash values.
+	    </p>
+	    <p>This fun can also be used to make delays in authentication tries for example by calling
+	    <a href="../stdlib/timer.html#sleep/1" class="seealso">timer:sleep/1</a>.</p>
+	    <p>To facilitate for instance counting of failed tries,
+	    the <code>State</code> variable could be used. This state is per connection only. The first time the pwdfun
+	    is called for a connection, the <code>State</code> variable has the value <code>undefined</code>.
+	    </p>
+	    
+	    <p>The fun should return:
+	    </p>
+	    <list type="bulleted">
+	      <item><code>true</code> if the user and password is valid</item>
+	      <item><code>false</code> if the user or password is invalid</item> 
+	      <item><code>disconnect</code> if a SSH_MSG_DISCONNECT message should be sent immediately. It will
+	      be followed by a close of the underlying tcp connection.</item>
+	      <item><code>{true,  NewState:any()}</code> if the user and password is valid</item>
+	      <item><code>{false, NewState:any()}</code> if the user or password is invalid</item> 
+	    </list>
+
+	    <p>A third usage is to block login attempts from a missbehaving peer. The <code>State</code> described above 
+	    can be used for this. The return value <code>disconnect</code> is useful for this.</p>
+	  </item>
+
+	  <dt><code>pwdfun</code> with <code>pwdfun_2()</code></dt>
+	  <item>
+	    <p>Provides a function for password validation. This function is called with user and password
+	    as strings, and returns:</p>
+	    <list type="bulleted">
+	      <item><code>true</code> if the user and password is valid</item>
+	      <item><code>false</code> if the user or password is invalid</item> 
+	    </list>
+	    <p>This variant is kept for compatibility.</p>
+	  </item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-diffie_hellman_group_exchange_daemon_option">diffie_hellman_group_exchange_daemon_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{dh_gex_groups,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<a href="#type-explicit_group" class="seealso">explicit_group()</a>] |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-explicit_group_file" class="seealso">explicit_group_file()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-ssh_moduli_file" class="seealso">ssh_moduli_file()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{dh_gex_limits, {Min :: integer() &gt;= 1, Max :: integer() &gt;= 1}}</h3>
+      <h3 id="type-explicit_group">explicit_group() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Size :: integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;G :: integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;P :: integer() &gt;= 1}</h3>
+      <h3 id="type-explicit_group_file">explicit_group_file() = {file, string()}</h3>
+      <h3 id="type-ssh_moduli_file">ssh_moduli_file() = {ssh_moduli_file, string()}</h3>
+      <div class="description">
+	<taglist>
+	  <dt><code>dh_gex_groups</code></dt>
+	  <item>
+	    <p>Defines the groups the server may choose among when diffie-hellman-group-exchange is negotiated.
+	    See 
+	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	    for details. The three variants of this option are:
+	    </p>
+	    <taglist>
+	      <dt><code>{Size=integer(),G=integer(),P=integer()}</code></dt>
+	      <item>The groups are given explicitly in this list. There may be several elements with the same <code>Size</code>.
+	      In such a case, the server will choose one randomly in the negotiated Size.
+	      </item>
+	      <dt><code>{file,filename()}</code></dt>
+	      <item>The file must have one or more three-tuples <code>{Size=integer(),G=integer(),P=integer()}</code> 
+	      terminated by a dot. The file is read when the daemon starts.
+	      </item>
+	      <dt><code>{ssh_moduli_file,filename()}</code></dt>
+	      <item>The file must be in
+	      <a href="../public_key/public_key.html#dh_gex_group/4" class="seealso">ssh-keygen moduli file format</a>.
+	      The file is read when the daemon starts.
+	      </item>
+	    </taglist>
+	    <p>The default list is fetched from the 
+	      <a href="../public_key/public_key.html#dh_gex_group/4" class="seealso">public_key</a> application.
+	    </p>
+	  </item>
+
+	  <dt><code>dh_gex_limits</code></dt>
+	  <item>
+	    <p>Limits what a client can ask for in diffie-hellman-group-exchange.
+	    The limits will be
+	    <code>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</code> where <code>MaxClient</code> and 
+	    <code>MinClient</code> are the values proposed by a connecting client.
+	    </p>
+	    <p>The default value is <code>{0,infinity}</code>.
+	    </p>
+	    <p>If <code>MaxUsed &lt; MinUsed</code> in a key exchange, it will fail with a disconnect.
+	    </p>
+	    <p>See 
+	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
+	    for the function of the Max and Min values.</p>
+	  </item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-negotiation_timeout_daemon_option">negotiation_timeout_daemon_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{negotiation_timeout, timeout()}</h3>
+      <div class="description">
+	<p>Maximum time in milliseconds for the authentication negotiation.
+	Defaults to 120000 ms (2 minutes). If the client fails to log in within this time,
+	the connection is closed.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-hardening_daemon_options">hardening_daemon_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{max_sessions, integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{max_channels, integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{parallel_login, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{minimal_remote_max_packet_size, integer() &gt;= 1}</h3>
+      <div class="description">
+	<taglist>
+	  <dt><code>max_sessions</code></dt>
+	  <item>
+	    <p>The maximum number of simultaneous sessions that are accepted at any time
+	    for this daemon. This includes sessions that are being authorized.
+	    Thus, if set to <code>N</code>, and <code>N</code> clients have connected but not started
+	    the login process, connection attempt <code>N+1</code> is aborted.
+	    If <code>N</code> connections are authenticated and still logged in, no more logins
+	    are accepted until one of the existing ones log out.
+	    </p>
+	    <p>The counter is per listening port. Thus, if two daemons are started, one with
+	    <code>{max_sessions,N}</code> and the other with <code>{max_sessions,M}</code>, in total
+	    <code>N+M</code> connections are accepted for the whole <code>ssh</code> application.
+	    </p>
+	    <p>Notice that if <code>parallel_login</code> is <code>false</code>, only one client
+	    at a time can be in the authentication phase.
+	    </p>
+	    <p>By default, this option is not set. This means that the number is not limited.
+	    </p>
+	  </item>
+
+	  <dt><code>max_channels</code></dt>
+	  <item>
+	    <p>The maximum number of channels with active remote subsystem that are accepted for
+	    each connection to this daemon</p>
+	    <p>By default, this option is not set. This means that the number is not limited.
+	    </p>
+	  </item>
+
+	  <dt><code>parallel_login</code></dt>
+	  <item>
+	    <p>If set to false (the default value), only one login is handled at a time.
+	    If set to true, an unlimited number of login attempts are allowed simultaneously.
+	    </p>
+	    <p>If the <code>max_sessions</code> option is set to <code>N</code> and <code>parallel_login</code>
+	    is set to <code>true</code>, the maximum number of simultaneous login attempts at any time is
+	    limited to <code>N-K</code>, where <code>K</code> is the number of authenticated connections present
+	    at this daemon.
+	    </p>
+	    <div class="warning"><h2>Warning!</h2>
+	      <p>Do not enable <code>parallel_logins</code> without protecting the server by other means,
+	      for example, by the <code>max_sessions</code> option or a firewall configuration. If set to
+	      <code>true</code>, there is no protection against DOS attacks.</p>
+	    </div>
+	  </item>
+
+	  <dt><code>minimal_remote_max_packet_size</code></dt>
+	  <item>
+	    <p>The least maximum packet size that the daemon will accept in channel open requests from the client.
+	    The default value is 0.
+	    </p>
+	  </item>
+	  
+	</taglist>
+      </div>
+    </div>
+ 
+    <div class="type">
+      <h3 id="type-callbacks_daemon_options">callbacks_daemon_options() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{failfun,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((User :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PeerAddress :: <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reason :: term()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;term())} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{connectfun,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((User :: string(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PeerAddress :: <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Method :: string()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;term())}</h3>
+      <div class="description">
+	<taglist>
+	  <dt><code>connectfun</code></dt>
+	  <item>
+	    <p>Provides a fun to implement your own logging when a user authenticates to the server.</p>
+	  </item>
+
+	  <dt><code>failfun</code></dt>
+	  <item>
+	    <p>Provides a fun to implement your own logging when a user fails to authenticate.</p>
+	  </item>
+	</taglist>
+      </div>
+    </div>
+
+     <div class="type">
+      <h3 id="type-send_ext_info_daemon_option">send_ext_info_daemon_option() = {send_ext_info, boolean()}</h3>
+      <div class="description">
+	<p>Make the server (daemon) tell the client that the server accepts extension negotiation, that is,
+	include <code>ext-info-s</code> in the kexinit message sent. See
+	<url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>
+	for details and	<a href="SSH_app.html#supported-ext-info" class="seealso">ssh(6)</a>
+	for a list of currently implemented extensions.
+	</p>
+	<p>Default value is <code>true</code> which is compatible with other implementations not supporting ext-info.
+	</p>
+      </div>
+    </div>
+
+
+    <datatype_title>Options common to clients and daemons</datatype_title>
+    <div class="type">
+      <h3 id="type-common_options">common_options() = [<a href="#type-common_option" class="seealso">common_option()</a>]</h3>
+      <h3 id="type-common_option">common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-user_dir_common_option" class="seealso">user_dir_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-profile_common_option" class="seealso">profile_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-max_idle_time_common_option" class="seealso">max_idle_time_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-key_cb_common_option" class="seealso">key_cb_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-disconnectfun_common_option" class="seealso">disconnectfun_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-unexpectedfun_common_option" class="seealso">unexpectedfun_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-ssh_msg_debug_fun_common_option" class="seealso">ssh_msg_debug_fun_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-rekey_limit_common_option" class="seealso">rekey_limit_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-id_string_common_option" class="seealso">id_string_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-preferred_algorithms_common_option" class="seealso">preferred_algorithms_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-modify_algorithms_common_option" class="seealso">modify_algorithms_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-auth_methods_common_option" class="seealso">auth_methods_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-inet_common_option" class="seealso">inet_common_option()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-fd_common_option" class="seealso">fd_common_option()</a></h3>
+      <div class="description"><p>The options above can be used both in clients and in daemons (servers). They are further explained below.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-user_dir_common_option">user_dir_common_option() = {user_dir, false | string()}</h3>
+      <div class="description">
+	<p>Sets the user directory. That is, the directory containing <code>ssh</code> configuration
+	files for the user, such as 
+	<code>known_hosts</code>, <code>id_rsa</code>, <code>id_dsa</code>&gt;, <code>id_ecdsa</code> and <code>authorized_key</code>.
+	Defaults to the directory normally referred to as <code>~/.ssh</code>.
+	</p>
+	<p>See also the option 
+	<a href="#type-key_cb_common_option" class="seealso">key_cb</a>
+	for the general way to handle keys.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-profile_common_option">profile_common_option() = {profile, atom()}</h3>
+      <div class="description">
+	<p>Used together with <code>ip-address</code> and <code>port</code> to
+	uniquely identify a ssh daemon. This can be useful in a
+	virtualized environment, where there can be more that one
+	server that has the same <code>ip-address</code> and
+	<code>port</code>. If this property is not explicitly set, it is
+	assumed that the the <code>ip-address</code> and <code>port</code>
+	uniquely identifies the SSH daemon.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-max_idle_time_common_option">max_idle_time_common_option() = {idle_time, timeout()}</h3>
+      <div class="description">
+	<p>Sets a time-out on a connection when no channels are active. Defaults to <code>infinity</code>.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-rekey_limit_common_option">rekey_limit_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{rekey_limit,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Bytes ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-limit_bytes" class="seealso">limit_bytes()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Minutes :: <a href="#type-limit_time" class="seealso">limit_time()</a>, Bytes :: <a href="#type-limit_bytes" class="seealso">limit_bytes()</a>}}</h3>
+      <h3 id="type-limit_bytes">limit_bytes() = integer() &gt;= 0 | infinity</h3>
+      <h3 id="type-limit_time">limit_time() = integer() &gt;= 1 | infinity</h3>
+      <div class="description">
+	<p>Sets the limit when rekeying is to be initiated. Both the max time and max amount of data
+	could be configured:
+	</p>
+	<list>
+	  <item><code>{Minutes, Bytes}</code> initiate rekeying when any of the limits are reached.</item>
+	  <item><code>Bytes</code> initiate rekeying when <code>Bytes</code> number of bytes are transferred,
+	  or at latest after one hour.</item>
+	</list>
+	<p>When a rekeying is done, both the timer and the byte counter are restarted.
+	Defaults to one hour and one GByte.</p>
+	<p>If <code>Minutes</code> is set to <code>infinity</code>, no rekeying will ever occur due to that max time has passed.
+	Setting <code>Bytes</code> to <code>infinity</code> will inhibit rekeying after a certain amount of data has been transferred.
+	If the option value is set to <code>{infinity, infinity}</code>, no rekeying will be initiated. Note that rekeying initiated
+	by the peer will still be performed.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-key_cb_common_option">key_cb_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{key_cb,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Module :: atom() | {Module :: atom(), Opts :: [term()]}}</h3>
+      <div class="description">
+	<p>Module implementing the behaviour
+	<a href="ssh_client_key_api.html" class="seealso">ssh_client_key_api</a> and/or
+	<a href="ssh_server_key_api.html" class="seealso">ssh_server_key_api</a>.
+	Can be used to
+	customize the handling of public keys. If callback options are provided
+	along with the module name, they are made available to the callback
+	module via the options passed to it under the key 'key_cb_private'.
+	</p>
+	<p>The <code>Opts</code> defaults to <code>[]</code> when only the <code>Module</code> is specified.
+	</p>
+	<p>The default value of this option is <code>{ssh_file, []}</code>.
+	</p>
+	<p>A call to the call-back function <code>F</code> will be</p>
+	<code>
+	  Module:F(..., [{key_cb_private,Opts}|UserOptions])
+	</code>
+	<p>where <code>...</code> are arguments to <code>F</code> as in 
+	<a href="ssh_client_key_api.html" class="seealso">ssh_client_key_api</a> and/or
+	<a href="ssh_server_key_api.html" class="seealso">ssh_server_key_api</a>.
+	The <code>UserOptions</code> are the options given to <code>ssh:connect</code>, <code>ssh:shell</code> or <code>ssh:daemon</code>.
+	</p>
+
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-disconnectfun_common_option">disconnectfun_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{disconnectfun, fun((Reason :: term()) -&gt; void | any())}</h3>
+      <div class="description">
+	<p>Provides a fun to implement your own logging when the peer disconnects.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-unexpectedfun_common_option">unexpectedfun_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{unexpectedfun,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((Message :: term(), {Host :: term(), Port :: term()}) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;report | skip)}</h3>
+      <div class="description">
+	<p>Provides a fun to implement your own logging or other action when an unexpected message arrives.
+	If the fun returns <code>report</code> the usual info report is issued but if <code>skip</code> is returned no
+	report is generated.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-ssh_msg_debug_fun_common_option">ssh_msg_debug_fun_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ssh_msg_debug_fun,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((<a href="ssh.html#type-connection_ref" class="seealso">ssh:connection_ref()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AlwaysDisplay :: boolean(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Msg :: binary(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LanguageTag :: binary()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;any())}</h3>
+      <div class="description">
+	<p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG.
+	The last three parameters are from the message, see 
+	<url href="https://tools.ietf.org/html/rfc4253#section-11.3">RFC 4253, section 11.3</url>.
+	The <a href="#type-connection_ref" class="seealso"><code>connection_ref()</code></a> is the reference
+	to the connection on which the message arrived.
+	The return value from the fun is not checked.
+	</p>
+	<p>The default behaviour is ignore the message.
+	To get a printout for each message with <code>AlwaysDisplay = true</code>,
+	use for example <code>{ssh_msg_debug_fun, fun(_,true,M,_)-&gt; io:format("DEBUG: ~p~n", [M]) end}</code></p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-id_string_common_option">id_string_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{id_string,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;string() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;random |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{random, Nmin :: integer() &gt;= 1, Nmax :: integer() &gt;= 1}}</h3>
+      <div class="description">
+	<p>The string the daemon will present to a connecting peer initially.
+	The default value is "Erlang/VSN" where VSN is the ssh application version number.
+	</p>
+	<p>The value <code>random</code> will cause a random string to be created at each connection attempt.
+	This is to make it a bit more difficult for a malicious peer to find the ssh software brand and version.
+	</p>
+	<p>The value <code>{random, Nmin, Nmax}</code> will make a random string with at least <code>Nmin</code> characters and
+	at most <code>Nmax</code> characters.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-preferred_algorithms_common_option">preferred_algorithms_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{preferred_algorithms, <a href="#type-algs_list" class="seealso">algs_list()</a>}</h3>
+      <h3 id="type-algs_list">algs_list() = [<a href="#type-alg_entry" class="seealso">alg_entry()</a>]</h3>
+      <h3 id="type-alg_entry">alg_entry() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{kex, [<a href="#type-kex_alg" class="seealso">kex_alg()</a>]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{public_key, [<a href="#type-pubkey_alg" class="seealso">pubkey_alg()</a>]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{cipher, <a href="#type-double_algs" class="seealso">double_algs</a>(<a href="#type-cipher_alg" class="seealso">cipher_alg()</a>)} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{mac, <a href="#type-double_algs" class="seealso">double_algs</a>(<a href="#type-mac_alg" class="seealso">mac_alg()</a>)} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{compression, <a href="#type-double_algs" class="seealso">double_algs</a>(<a href="#type-compression_alg" class="seealso">compression_alg()</a>)}</h3>
+      <h3 id="type-kex_alg">kex_alg() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group-exchange-sha1' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group-exchange-sha256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group1-sha1' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group14-sha1' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group14-sha256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group16-sha512' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'diffie-hellman-group18-sha512' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdh-sha2-nistp256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdh-sha2-nistp384' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdh-sha2-nistp521'</h3>
+      <h3 id="type-pubkey_alg">pubkey_alg() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdsa-sha2-nistp256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdsa-sha2-nistp384' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ecdsa-sha2-nistp521' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'rsa-sha2-256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'rsa-sha2-512' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ssh-dss' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'ssh-rsa'</h3>
+      <h3 id="type-cipher_alg">cipher_alg() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'3des-cbc' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'AEAD_AES_128_GCM' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'AEAD_AES_256_GCM' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes128-cbc' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes128-ctr' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes128-gcm@openssh.com' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes192-ctr' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes256-ctr' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'aes256-gcm@openssh.com'</h3>
+      <h3 id="type-mac_alg">mac_alg() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'AEAD_AES_128_GCM' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'AEAD_AES_256_GCM' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'hmac-sha1' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'hmac-sha2-256' |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'hmac-sha2-512'</h3>
+      <h3 id="type-compression_alg">compression_alg() = none | zlib | 'zlib@openssh.com'</h3>
+      <h3 id="type-double_algs">double_algs/0</h3>
+
+      <div class="description">
+	<p>List of algorithms to use in the algorithm negotiation. The default <code>algs_list()</code> can
+	be obtained from <a href="#default_algorithms/0" class="seealso">default_algorithms/0</a>.
+	</p>
+	<p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
+	<p>Here is an example of this option:</p>
+	<code>
+	  {preferred_algorithms, 
+	  [{public_key,['ssh-rsa','ssh-dss']},
+	  {cipher,[{client2server,['aes128-ctr']},
+          {server2client,['aes128-cbc','3des-cbc']}]},
+	  {mac,['hmac-sha2-256','hmac-sha1']},
+	  {compression,[none,zlib]}
+	  ]
+	  }
+	</code>
+	<p>The example specifies different algorithms in the two directions (client2server and server2client),
+	for cipher but specifies the same algorithms for mac and compression in both directions.
+	The kex (key exchange) is implicit but public_key is set explicitly.</p>
+
+	<p>For background and more examples see the <a href="configure_algos.html#introduction" class="seealso">User's Guide</a>.</p>
+
+	<p>If an algorithm name occurs more than once in a list, the behaviour is undefined. The tags in the property lists
+	are also assumed to occur at most one time.
+	</p>
+
+	<div class="warning"><h2>Warning!</h2>
+	  <p>Changing the values can make a connection less secure. Do not change unless you
+	  know exactly what you are doing. If you do not understand the values then you
+	  are not supposed to change them.</p>
+	</div>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-modify_algorithms_common_option">modify_algorithms_common_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{modify_algorithms, <a href="#type-modify_algs_list" class="seealso">modify_algs_list()</a>}</h3>
+      <h3 id="type-modify_algs_list">modify_algs_list() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{append, <a href="#type-algs_list" class="seealso">algs_list()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{prepend, <a href="#type-algs_list" class="seealso">algs_list()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{rm, <a href="#type-algs_list" class="seealso">algs_list()</a>}]</h3>
+      <div class="description">
+	<p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
+	applied after the option <code>preferred_algorithms</code> (if existing) is applied.</p>
+	<p>The algoritm for modifications works like this:</p>
+	<list>
+	  <item>
+	    <p>Input is the <code>modify_algs_list()</code> and a set of algorithms <code>A</code>
+	    obtained from the <code>preferred_algorithms</code> option if existing, or else from the
+	    <a href="ssh.html#default_algorithms/0" class="seealso">ssh:default_algorithms/0</a>.
+	    </p>
+	  </item>
+	  <item>
+	    <p>The head of the <code>modify_algs_list()</code> modifies <code>A</code> giving the result <code>A'</code>.</p>
+	    <p>The possible modifications are:</p>
+	    <list>
+	      <item>
+		<p>Append or prepend supported but not enabled algorithm(s) to the list of
+		algorithms. If the wanted algorithms already are in <code>A</code> they will first
+		be removed and then appended or prepended,
+		</p>
+	      </item>
+	      <item>
+		<p>Remove (rm) one or more algorithms from <code>A</code>.
+		</p>
+	      </item>
+	    </list>
+	  </item>
+	  <item>
+	    <p>Repeat the modification step with the tail of <code>modify_algs_list()</code> and the resulting
+	    <code>A'</code>.
+	    </p>
+	  </item>
+	</list>
+	<p>If an unsupported algorithm is in the <code>modify_algs_list()</code>, it will be silently ignored</p>
+	<p>If there are more than one modify_algorithms options, the result is undefined.</p>
+	<p>Here is an example of this option:</p>
+	<code>
+	  {modify_algorithms, 
+	  [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
+	  {rm,      [{compression, [none]}]}
+	  ]
+	  }
+	</code>
+	<p>The example specifies that:</p>
+	<list>
+	  <item><p>the old key exchange algorithm 'diffie-hellman-group1-sha1' should be
+	  the main alternative. It will be the main alternative since it is prepened to the list</p>
+	  </item>
+	  <item><p>The compression algorithm none (= no compression) is removed so compression is enforced</p>
+	  </item>
+	</list>
+	<p>For background and more examples see the <a href="configure_algos.html#introduction" class="seealso">User's Guide</a>.</p>
+      </div>
+    </div>
+
+
+    <div class="type">
+      <h3 id="type-inet_common_option">inet_common_option() = {inet, inet | inet6}</h3>
+      <div class="description">
+	<p>IP version to use when the host address is specified as <code>any</code>.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-auth_methods_common_option">auth_methods_common_option() = {auth_methods, string()}</h3>
+      <div class="description">
+	<p>Comma-separated string that determines which authentication methods that the client shall
+	support and in which order they are tried. Defaults to <code>"publickey,keyboard-interactive,password"</code>
+	</p>
+	<p>Note that the client is free to use any order and to exclude methods.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-fd_common_option">fd_common_option() = {fd, <a href="gen_tcp.html#type-socket" class="seealso">gen_tcp:socket()</a>}</h3>
+      <div class="description">
+	<p>Allows an existing file-descriptor to be used (passed on to the transport protocol).</p>
+      </div>
+    </div>
+
+    <datatype_title>Other data types</datatype_title>
+    
+    <div class="type">
+      <h3 id="type-host">host() = string() | <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a> | loopback</h3>
+      <div class="description">
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-ip_port">ip_port() = {<a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>, <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>}</h3>
+      <div class="description">
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-mod_args">mod_args() = {Module :: atom(), Args :: list()}</h3>
+      <div class="description">
+      </div>
+    </div>
+      
+    <div class="type">
+      <h3 id="type-mod_fun_args">mod_fun_args() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Module :: atom(), Function :: atom(), Args :: list()}</h3>
+      <div class="description">
+      </div>
+    </div>
+      
+    <div class="type">
+      <h3 id="type-open_socket">open_socket() = <a href="gen_tcp.html#type-socket" class="seealso">gen_tcp:socket()</a></h3>
+      <div class="description">
+	<p>The socket is supposed to be result of a <a href="../kernel/gen_tcp.html#connect/3" class="seealso">gen_tcp:connect</a>
+	or a <a href="../kernel/gen_tcp.html#accept/1" class="seealso">gen_tcp:accept</a>. The socket must be in passive
+	mode (that is, opened with the option <code>{active,false})</code>.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-daemon_ref">daemon_ref()</h3>
+      <div class="description">
+	<p>Opaque data type representing a daemon.</p>
+	<p>Returned by the functions <a href="ssh.html#daemon/1" class="seealso"><code>daemon/1,2,3</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="connection_ref/0">connection_ref()</h3>
+      <div class="description">
+	<p>Opaque data type representing a connection between a client and a server (daemon).</p>
+	<p>Returned by the functions
+	<a href="ssh.html#connect/3" class="seealso"><code>connect/2,3,4</code></a> and
+	<a href="ssh_sftp.html#start_channel/2" class="seealso"><code>ssh_sftp:start_channel/2,3</code></a>.
+	</p>
+      </div>
+    </div>
+
+    <div class="type">
+      <h3 id="type-channel_id">channel_id()</h3>
+      <div class="description">
+	<p>Opaque data type representing a channel inside a connection.</p>
+	<p>Returned by the functions
+	<a href="ssh_connection.html#session_channel/2" class="seealso">ssh_connection:session_channel/2,4</a>.
+	</p>
+      </div>
+    </div>
+
+
+    <div class="type">
+      
+      
+      
+      <div class="description">
+	<span id="type-opaque_client_options"> </span>
+	<span id="type-opaque_daemon_options"> </span>
+	<span id="type-opaque_common_options"> </span>
+	<p>Opaque types that define experimental options that are not to be used in products.</p>
+      </div>
+    </div>
+  </div>
+
+<div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+<div class="function">
+     <h3 id="close/1">close(ConnectionRef) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>ConnectionRef = <a href="#type-connection_ref" class="seealso">connection_ref()</a></code></li></ul>
+      
+      <div class="description"><p>Closes an SSH connection.</p></div>
+    </div>
+    
+<div class="function">
+     <h3 id="connect/3">connect(Host, Port, Options) -&gt; Result </h3>
+     <h3 id="connect/4">connect(Host, Port, Options, NegotiationTimeout) -&gt; Result </h3>
+     <h3 id="connect/2">connect(TcpSocket, Options) -&gt; Result</h3>
+     <h3 id="connect/3-1">connect(TcpSocket, Options, NegotiationTimeout) -&gt; Result</h3>
+     
+     <ul class="type">
+       <li><code>Host = <a href="#type-host" class="seealso">host()</a></code></li>
+       <li><code>Port = <a href="../kernel/inet.html#type-port_number" class="seealso">inet:port_number()</a></code></li>
+       <li><code>Options = <a href="#type-client_options" class="seealso">client_options()</a></code></li>
+       <li><code>TcpSocket = <a href="#type-open_socket" class="seealso">open_socket()</a></code></li>
+       <li><code>NegotiationTimeout = timeout()</code></li>
+       <li><code>Result = {ok, <a href="#type-connection_ref" class="seealso">connection_ref()</a>} | {error, term()}</code></li>
+     </ul>
+     <div class="description">
+       <p>Connects to an SSH server at the <code>Host</code> on <code>Port</code>.
+       </p>
+       <p>As an alternative, an already open TCP socket could be passed to the function in <code>TcpSocket</code>.
+       The SSH initiation and negotiation will be initiated on that one with the SSH that should be at the
+       other end.
+       </p>
+       <p>No channel is started. This is done by calling <a href="ssh_connection.html#session_channel/2" class="seealso">
+       ssh_connection:session_channel/[2, 4]</a>.
+       </p>
+       <p>The <code>NegotiationTimeout</code> is in milli-seconds. The default value is <code>infinity</code>.
+       For connection timeout, use the option
+       <a href="#type-connect_timeout_client_option" class="seealso"><code>connect_timeout</code></a>.
+       </p>
+     </div>
+   </div>
+
+<div class="function">
+     <h3 id="connection_info/2">connection_info(ConnectionRef, Keys) -&gt; ConnectionInfo</h3>
+      <ul class="type_desc"><li><code>ConnectionRef = <a href="#type-connection_ref" class="seealso">connection_ref()</a></code></li><li><code>Keys = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[client_version | server_version | user | peer | sockname]</code></li><li><code>ConnectionInfo = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[{client_version, Version} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{server_version, Version} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{user, string()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{peer, {<a href="inet.html#type-hostname" class="seealso">inet:hostname()</a>, <a href="#type-ip_port" class="seealso">ip_port()</a>}} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{sockname, <a href="#type-ip_port" class="seealso">ip_port()</a>}]</code></li><li><code>Version = {ProtocolVersion, VersionString :: string()}</code></li><li><code>ProtocolVersion = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Major :: integer() &gt;= 1, Minor :: integer() &gt;= 0}</code></li></ul>
+     
+     <div class="description">
+       <p>Retrieves information about a connection. The list <code>Keys</code> defines which information that
+       is returned.</p>
+     </div>
+   </div>
+
+<div class="function">
+     <h3 id="daemon/1">daemon(Port | TcpSocket) -&gt; Result</h3>
+     <h3 id="daemon/2">daemon(Port | TcpSocket, Options) -&gt; Result</h3>
+     <h3 id="daemon/3">daemon(HostAddress, Port, Options) -&gt; Result</h3>
+     
+     <ul class="type">
+       <li><code>Port = integer()</code></li>
+       <li><code>TcpSocket = <a href="#type-open_socket" class="seealso">open_socket()</a></code></li>
+       <li><code>Options = <a href="#type-daemon_options" class="seealso">daemon_options()</a></code></li>
+       <li><code>HostAddress = <a href="#type-host" class="seealso">host()</a> | any</code></li>
+       <li><code>Result = {ok, <a href="#type-daemon_ref" class="seealso">daemon_ref()</a>} | {error, atom()}</code></li>
+      </ul>
+       <div class="description">
+        <p>Starts a server listening for SSH connections on the given port. If the <code>Port</code> is 0,
+	a random free port is selected. See <a href="#daemon_info/1" class="seealso">daemon_info/1</a>
+	about how to find the selected port number.
+	</p>
+	<p>As an alternative, an already open TCP socket could be passed to the function in <code>TcpSocket</code>.
+	The SSH initiation and negotiation will be initiated on that one when an SSH starts at the other end
+	of the TCP socket.
+	</p>
+	<p>For a description of the options, see <a href="#type-daemon_options" class="seealso">Daemon Options</a>.
+	</p>
+	<p>Please note that by historical reasons both the <code>HostAddress</code> argument and the
+	<a href="../kernel/gen_tcp.html#type-connect_option" class="seealso">gen_tcp connect_option() <code>{ip,Address}</code></a>
+	set the listening address. This is a source of possible inconsistent settings.
+	</p>
+	<p>The rules for handling the two address passing options are:</p>
+	<list>
+	  <item>if <code>HostAddress</code> is an IP-address, that IP-address is the listening address.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <code>HostAddress</code> is the atom <code>loopback</code>, the listening address
+	  is <code>loopback</code> and an loopback address will be choosen by the underlying layers.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <code>HostAddress</code> is the atom <code>any</code> and no 'ip'-option is present, the listening address is
+	  <code>any</code> and the socket will listen to all addresses</item>
+
+	  <item>if <code>HostAddress</code> is <code>any</code> and an 'ip'-option is present, the listening address is
+	  set to the value of the 'ip'-option</item>
+	</list>
+       </div>
+   </div>
+
+<div class="function">
+     <h3 id="daemon_info/1">daemon_info(Daemon) -&gt; {ok, DaemonInfo} | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Daemon = <a href="#type-daemon_ref" class="seealso">daemon_ref()</a></code></li><li><code>DaemonInfo = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[{ip, <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{port, <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{profile, term()}]</code></li></ul>
+     
+     <div class="description">
+       <p>Returns a key-value list with information about the daemon.</p>
+     </div>
+   </div>
+
+
+<div class="function">
+      <h3 id="default_algorithms/0">default_algorithms() -&gt; <a href="#type-algs_list" class="seealso">algs_list()</a></h3>
+      
+      <div class="description">
+	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
+	algorithms themselves.</p>
+	<p>See the <a href="configure_algos.html#example_default_algorithms" class="seealso">User's Guide</a> for
+	an example.</p>
+      </div>
+    </div>
+
+<div class="function">
+      <h3 id="shell/1">shell(Host | TcpSocket) -&gt; Result </h3>
+      <h3 id="shell/2">shell(Host | TcpSocket, Options) -&gt; Result </h3>
+      <h3 id="shell/3">shell(Host, Port, Options) -&gt; Result </h3>
+      
+      <ul class="type">
+	<li><code>Host = <a href="#type-host" class="seealso">host()</a></code></li>
+	<li><code>TcpSocket = <a href="#type-open_socket" class="seealso">open_socket()</a></code></li>
+	<li><code>Port = <a href="../kernel/inet.html#type-port_number" class="seealso">inet:port_number()</a></code></li>
+	<li><code>Options = <a href="#type-client_options" class="seealso">client_options()</a></code></li>
+	<li><code>Result = ok | {error, Reason::term()}</code></li>
+      </ul>
+      <div class="description">
+        <p>Connects to an SSH server at <code>Host</code> and <code>Port</code> (defaults to 22) and starts an
+	interactive shell on that remote host.
+	</p>
+	<p>As an alternative, an already open TCP socket could be passed to the function in <code>TcpSocket</code>.
+	The SSH initiation and negotiation will be initiated on that one and finaly a shell will be started
+	on the host at the other end of the TCP socket.
+	</p>
+	<p>For a description of the options, see <a href="#type-client_options" class="seealso">Client Options</a>.</p>
+	<p>The function waits for user input, and does not return until the remote shell is ended (that is,
+	exit from the shell).
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="start/0">start() -&gt; ok | {error, term()}</h3>
+      <h3 id="start/1">start(Type) -&gt; ok | {error, term()}</h3>
+      <ul class="type_desc"><li><code>Type = permanent | transient | temporary</code></li></ul>
+      
+      <div class="description">
+        <p>Utility function that starts the applications <code>crypto</code>, <code>public_key</code>,
+	and <code>ssh</code>. Default type is <code>temporary</code>.
+	For more information, see the <a href="../kernel/application.html" class="seealso">application(3)</a>
+	manual page in Kernel.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="stop/0">stop() -&gt; ok | {error, term()}</h3>
+      
+      <div class="description">
+        <p>Stops the <code>ssh</code> application.
+	For more information, see the <a href="../kernel/application.html" class="seealso">application(3)</a>
+	manual page in Kernel.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="stop_daemon/1">stop_daemon(DaemonRef :: <a href="#type-daemon_ref" class="seealso">daemon_ref()</a>) -&gt; ok</h3>
+      <h3 id="stop_daemon/2">stop_daemon(Address :: <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Port :: <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok</h3>
+      <h3 id="stop_daemon/3">stop_daemon(Address :: any | <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Port :: <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Profile :: atom()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok</h3>
+      
+      <div class="description">
+	<p>Stops the listener and all connections started by the listener.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="stop_listener/1">stop_listener(SysSup :: <a href="#type-daemon_ref" class="seealso">daemon_ref()</a>) -&gt; ok</h3>
+      <h3 id="stop_listener/2">stop_listener(Address :: <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Port :: <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok</h3>
+      <h3 id="stop_listener/3">stop_listener(Address :: any | <a href="inet.html#type-ip_address" class="seealso">inet:ip_address()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Port :: <a href="inet.html#type-port_number" class="seealso">inet:port_number()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Profile :: term()) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok</h3>
+      
+      <div class="description">
+	<p>Stops the listener, but leaves existing connections started by the listener operational.</p>
+      </div>
+    </div>
+
+  </div>
+  
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

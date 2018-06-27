@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>file (kernel) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>file</h1>
+  <h2 class="modsummary">File interface module.</h2>
+  <div class="description">
+    <p>This module provides an interface to the file system.</p>
+
+    <div class="warning"><h2>Warning!</h2>
+       <p>File operations are only guaranteed to appear atomic when going
+          through the same file server. A NIF or other OS process may observe
+          intermediate steps on certain operations on some operating systems,
+          eg. renaming an existing file on Windows, or
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code>
+          </a> on any OS at the time of writing.</p>
+    </div>
+
+    <p>Regarding filename encoding, the Erlang VM can operate in
+    two modes. The current mode can be queried using function
+    <a href="#native_name_encoding/0" class="seealso"><code>native_name_encoding/0</code></a>.
+    It returns <code>latin1</code> or <code>utf8</code>.</p>
+
+    <p>In <code>latin1</code> mode, the Erlang VM does not change the
+    encoding of filenames. In <code>utf8</code> mode, filenames can
+    contain Unicode characters greater than 255 and the VM
+    converts filenames back and forth to the native filename encoding
+    (usually UTF-8, but UTF-16 on Windows).</p>
+
+    <p>The default mode depends on the operating system. Windows and
+    MacOS X enforce consistent filename encoding and therefore the
+    VM uses <code>utf8</code> mode.</p>
+
+    <p>On operating systems with transparent naming (for example, all Unix
+    systems except MacOS X), default is <code>utf8</code> if the
+    terminal supports UTF-8, otherwise <code>latin1</code>. The default can
+    be overridden using <code>+fnl</code> (to force <code>latin1</code> mode)
+    or <code>+fnu</code> (to force <code>utf8</code> mode) when starting
+    <a href="../erts/erl.html" class="seealso"><code>erl</code></a>.</p>
+
+    <p>On operating systems with transparent naming, files can be
+    inconsistently named, for example, some files are encoded in UTF-8 while
+    others are encoded in ISO Latin-1. The concept of <em>raw filenames</em> is
+    introduced to handle file systems with inconsistent naming when running in
+    <code>utf8</code> mode.</p>
+
+    <p>A <em>raw filename</em> is a filename specified as a binary. The Erlang VM
+    does not translate a filename specified as a binary on
+    systems with transparent naming.</p>
+
+    <p>When running in <code>utf8</code> mode, functions
+    <a href="#list_dir/1" class="seealso"><code>list_dir/1</code></a> and
+    <a href="#read_link/1" class="seealso"><code>read_link/1</code></a>
+    never return raw filenames. To return all filenames including raw filenames,
+    use functions
+    <a href="#list_dir_all" class="seealso"><code>list_dir_all/1</code></a> and
+    <a href="#read_link_all" class="seealso"><code>read_link_all/1</code></a>.</p>
+
+    <p>See also section <a href="../stdlib/unicode_usage.html#notes-about-raw-filenames" class="seealso">Notes About Raw Filenames</a> in the STDLIB User's Guide.</p>
+
+    <div class="note"><h2>Note!</h2><p>
+      File operations used to accept filenames containing
+      null characters (integer value zero). This caused
+      the name to be truncated and in some cases arguments
+      to primitive operations to be mixed up. Filenames
+      containing null characters inside the filename
+      are now <em>rejected</em> and will cause primitive
+      file operations fail.
+    </p></div>
+
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-deep_list">deep_list() = [char() | atom() | <a href="#type-deep_list" class="seealso">deep_list()</a>]</h3>
+    </div>
+    <div class="type">
+      <h3 id="fd/0">fd()</h3>
+      <div class="description">
+        <p>A file descriptor representing a file opened in
+	  <a href="#raw" class="seealso"><code>raw</code></a> mode.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filename">filename() = string()</h3>
+      <div class="description">
+        <p>
+	  See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-filename_all">filename_all() = string() | binary()</h3>
+      <div class="description">
+        <p>
+	  See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
+	</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-io_device">io_device() = pid() | <a href="#type-fd" class="seealso">fd()</a></h3>
+      <div class="description">
+        <p>As returned by
+          <a href="#open/2" class="seealso"><code>open/2</code></a>;
+          <code>pid()</code> is a process handling I/O-protocols.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-name">name() = string() | atom() | <a href="#type-deep_list" class="seealso">deep_list()</a></h3>
+      <div class="description">
+        <p>If VM is in Unicode filename mode, <code>string()</code> and <code>char()</code>
+          are allowed to be &gt; 255. See also the documentation of the
+	  <a href="#type-name_all" class="seealso"><code>name_all()</code></a> type.
+        </p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-name_all">name_all() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;string() | atom() | <a href="#type-deep_list" class="seealso">deep_list()</a> | (RawFilename :: binary())</h3>
+      <div class="description">
+        <p>If VM is in Unicode filename mode, characters
+          are allowed to be &gt; 255.
+          <code><anno>RawFilename</anno></code> is a filename not subject to
+          Unicode translation,
+          meaning that it can contain characters not conforming to
+          the Unicode encoding expected from the file system
+          (that is, non-UTF-8 characters although the VM is started
+          in Unicode filename mode). Null characters (integer value zero)
+	  are <em>not</em> allowed in filenames (not even at the end).
+        </p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-posix">posix() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eacces |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eagain |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebadf |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebadmsg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ebusy |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edeadlk |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edeadlock |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;edquot |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eexist |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efault |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efbig |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eftype |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eintr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;einval |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eio |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eisdir |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eloop |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emfile |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emlink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;emultihop |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enametoolong |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enfile |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enobufs |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enodev |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enolck |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enolink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enoent |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enomem |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enospc |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enosr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enostr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enosys |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotblk |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotdir |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enotsup |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enxio |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eopnotsupp |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eoverflow |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eperm |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;epipe |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;erange |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;erofs |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;espipe |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esrch |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;estale |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;etxtbsy |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exdev</h3>
+      <div class="description">
+        <p>An atom that is named from the POSIX error codes used in
+          Unix, and in the runtime libraries of most C compilers.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-date_time">date_time() = <a href="calendar.html#type-datetime" class="seealso">calendar:datetime()</a></h3>
+      <div class="description">
+        <p>Must denote a valid date and time.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-file_info">file_info() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#file_info{size = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type =<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;device |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;directory |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;other |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;regular |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;symlink |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;access =<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read | write | read_write | none | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atime =<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="file.html#type-date_time" class="seealso">file:date_time()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 0 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mtime =<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="file.html#type-date_time" class="seealso">file:date_time()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 0 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ctime =<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="file.html#type-date_time" class="seealso">file:date_time()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 0 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mode = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;links = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;major_device = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;minor_device = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;inode = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;uid = integer() &gt;= 0 | undefined,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gid = integer() &gt;= 0 | undefined}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-location">location() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{bof, Offset :: integer()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{cur, Offset :: integer()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{eof, Offset :: integer()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bof |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cur |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;eof</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-mode">mode() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;append |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exclusive |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;raw |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;binary |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{delayed_write,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Size :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Delay :: integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delayed_write |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{read_ahead, Size :: integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_ahead |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;compressed |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{encoding, <a href="unicode.html#type-encoding" class="seealso">unicode:encoding()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-file_info_option">file_info_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{time, local} | {time, universal} | {time, posix} | raw</h3>
+    </div>
+   </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="advise/4">advise(IoDevice, Offset, Length, Advise) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Offset = Length = integer()</code></li><li><code>Advise = <a href="#type-posix_file_advise" class="seealso">posix_file_advise()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <ul class="type"><li><code>posix_file_advise() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;normal |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;sequential |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;random |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_reuse |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;will_need |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;dont_need</code></li></ul>
+      <div class="description">
+        <p><code>advise/4</code> can be used to announce an intention to access file
+          data in a specific pattern in the future, thus allowing the
+          operating system to perform appropriate optimizations.</p>
+        <p>On some platforms, this function might have no effect.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="allocate/3">allocate(File, Offset, Length) -&gt; ok | {error, <a href="#type-posix" class="seealso">posix()</a>}</h3>
+      <ul class="type_desc"><li><code>File = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Offset = Length = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p><code>allocate/3</code> can be used to preallocate space for a file.</p>
+        <p>This function only succeeds in platforms that provide this
+          feature. When it succeeds, space is preallocated for the file but
+          the file size might not be updated. This behaviour depends on the
+          preallocation implementation. To guarantee that the file size is updated,
+          truncate the file to the new size.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_group/2">change_group(Filename, Gid) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Gid = integer()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes group of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_mode/2">change_mode(Filename, Mode) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Mode = integer()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes permissions of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_owner/2">change_owner(Filename, Uid) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Uid = integer()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes owner of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_owner/3">change_owner(Filename, Uid, Gid) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Uid = Gid = integer()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes owner and group of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_time/2">change_time(Filename, Mtime) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Mtime = <a href="#type-date_time" class="seealso">date_time()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the modification and access times of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_time/3">change_time(Filename, Atime, Mtime) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Atime = Mtime = <a href="#type-date_time" class="seealso">date_time()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the modification and last access times of a file. See
+          <a href="#write_file_info/2" class="seealso"><code>write_file_info/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="close/1">close(IoDevice) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Closes the file referenced by <code><anno>IoDevice</anno></code>. It mostly
+          returns <code>ok</code>, except for some severe errors such as out
+          of memory.</p>
+        <p>Notice that if option <code>delayed_write</code> was
+          used when opening the file, <code>close/1</code> can return an
+          old write error and not even try to close the file. See
+          <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="consult/1">consult(Filename) -&gt; {ok, Terms} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Terms = [term()]</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Reads Erlang terms, separated by '.', from
+           <code><anno>Filename</anno></code>. Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Terms</anno>}</code></dt>
+          <item>
+            <p>The file was successfully read.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              For a list of typical error codes, see
+	      <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang terms in
+              the file. To convert the three-element tuple to an English
+	      description of the error, use
+	    <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+<pre class="sh_erlang">
+f.txt:  {person, "kalle", 25}.
+        {person, "pelle", 30}.</pre>
+<pre class="sh_erlang">
+1&gt; <code>file:consult("f.txt").</code>
+{ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment, as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="copy/2">copy(Source, Destination) -&gt; {ok, BytesCopied} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Source = Destination = <a href="#type-io_device" class="seealso">io_device()</a> | Filename | {Filename, Modes}</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Modes = [<a href="#type-mode" class="seealso">mode()</a>]</code></li><li><code>BytesCopied = integer() &gt;= 0</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      <h3 id="copy/3">copy(Source, Destination, ByteCount) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, BytesCopied} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Source = Destination = <a href="#type-io_device" class="seealso">io_device()</a> | Filename | {Filename, Modes}</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Modes = [<a href="#type-mode" class="seealso">mode()</a>]</code></li><li><code>ByteCount = integer() &gt;= 0 | infinity</code></li><li><code>BytesCopied = integer() &gt;= 0</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Copies <code><anno>ByteCount</anno></code> bytes from
+          <code><anno>Source</anno></code> to <code><anno>Destination</anno></code>.
+          <code><anno>Source</anno></code> and <code><anno>Destination</anno></code> refer
+          to either filenames or IO devices from, for example, <code>open/2</code>.
+          <code><anno>ByteCount</anno></code> defaults to <code>infinity</code>, denoting an
+          infinite number of bytes.</p>
+        <p>Argument <code><anno>Modes</anno></code> is a list of possible modes,
+          see <a href="#open/2" class="seealso"><code>open/2</code></a>, and defaults to
+          <code>[]</code>.</p>
+        <p>If both <code><anno>Source</anno></code> and
+          <code><anno>Destination</anno></code> refer to
+          filenames, the files are opened with <code>[read, binary]</code>
+          and <code>[write, binary]</code> prepended to their mode lists,
+          respectively, to optimize the copy.</p>
+        <p>If <code><anno>Source</anno></code> refers to a filename, it is opened with
+          <code>read</code> mode prepended to the mode list before the copy,
+          and closed when done.</p>
+        <p>If <code><anno>Destination</anno></code> refers to a filename, it is opened
+          with <code>write</code> mode prepended to the mode list before
+          the copy, and closed when done.</p>
+        <p>Returns <code>{ok, <anno>BytesCopied</anno>}</code>, where
+          <code><anno>BytesCopied</anno></code> is
+          the number of bytes that was copied, which can be
+          less than <code><anno>ByteCount</anno></code> if end of file was
+          encountered on the source. If the operation fails,
+          <code>{error, <anno>Reason</anno>}</code> is returned.</p>
+        <p>Typical error reasons: as for
+	<a href="#open/2" class="seealso"><code>open/2</code></a> if a file
+	had to be opened, and as for
+	<a href="#read/2" class="seealso"><code>read/2</code></a> and
+	<a href="#write/2" class="seealso"><code>write/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="datasync/1">datasync(IoDevice) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Ensures that any buffers kept by the operating system
+          (not by the Erlang runtime system) are written to disk. In
+          many ways it resembles <code>fsync</code> but it does not update
+          some of the metadata of the file, such as the access time. On
+          some platforms this function has no effect.</p>
+        <p>Applications that access databases or log files often write
+          a tiny data fragment (for example, one line in a log file) and then
+          call <code>fsync()</code> immediately to ensure that the written
+          data is physically stored on the hard disk. Unfortunately, <code>fsync()</code>
+          always initiates two write operations: one for the newly
+          written data and another one to update the modification
+          time stored in the <code>inode</code>. If the modification time is not a part
+          of the transaction concept, <code>fdatasync()</code> can be used to avoid
+          unnecessary <code>inode</code> disk write operations.</p>
+        <p>Available only in some POSIX systems, this call results in a
+          call to <code>fsync()</code>, or has no effect in systems not providing
+          the <code>fdatasync()</code> syscall.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="del_dir/1">del_dir(Dir) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Tries to delete directory <code><anno>Dir</anno></code>.
+          The directory must
+          be empty before it can be deleted. Returns <code>ok</code> if
+          successful.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search or write permissions for the parent
+              directories of <code><anno>Dir</anno></code>.</p>
+          </item>
+          <dt><code>eexist</code></dt>
+          <item>
+            <p>The directory is not empty.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of <code><anno>Dir</anno></code> is not a directory.
+              On some platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+          <dt><code>einval</code></dt>
+          <item>
+            <p>Attempt to delete the current directory. On some
+              platforms, <code>eacces</code> is returned instead.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="delete/1">delete(Filename) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Tries to delete file <code><anno>Filename</anno></code>.
+          Returns <code>ok</code> if successful.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing permission for the file or one of its parents.</p>
+          </item>
+          <dt><code>eperm</code></dt>
+          <item>
+            <p>The file is a directory and the user is not superuser.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+          <dt><code>einval</code></dt>
+          <item>
+            <p><code><anno>Filename</anno></code> has an improper type, such as tuple.</p>
+          </item>
+        </taglist>
+        <div class="warning"><h2>Warning!</h2>
+          <p>In a future release, a bad type for argument
+            <code><anno>Filename</anno></code> will probably generate
+            an exception.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="eval/1">eval(Filename) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Reads and evaluates Erlang expressions, separated by '.' (or
+          ',', a sequence of expressions is also an expression) from
+          <code><anno>Filename</anno></code>. The result of the evaluation
+          is not returned; any expression sequence in the file must be there
+          for its side effect. Returns one of the following:</p>
+        <taglist>
+          <dt><code>ok</code></dt>
+          <item>
+            <p>The file was read and evaluated.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+            For a list of typical error codes, see
+	    <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. To convert the three-element tuple
+	      to an English description of the error, use
+	      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>.</p>
+          </item>
+        </taglist>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment, as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="eval/2">eval(Filename, Bindings) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Bindings = <a href="erl_eval.html#type-binding_struct" class="seealso">erl_eval:binding_struct()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>The same as <code>eval/1</code>, but the variable bindings
+          <code><anno>Bindings</anno></code> are used in the evaluation. For information
+	  about the variable bindings, see
+          <a href="../stdlib/erl_eval.html" class="seealso"><code>erl_eval(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format_error/1">format_error(Reason) -&gt; Chars</h3>
+      <ul class="type_desc"><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li><li><code>Chars = string()</code></li></ul>
+      
+      <div class="description">
+        <p>Given the error reason returned by any function in this
+          module, returns a descriptive string of the error in English.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_cwd/0">get_cwd() -&gt; {ok, Dir} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-filename" class="seealso">filename()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code>{ok, <anno>Dir</anno>}</code>, where <code><anno>Dir</anno></code>
+          is the current
+          working directory of the file server.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>In rare circumstances, this function can fail on Unix.
+            It can occur if read permission does not exist for
+            the parent directories of the current directory.</p>
+        </div>
+        <p>A typical error reason:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing read permission for one of the parents of
+              the current directory.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="get_cwd/1">get_cwd(Drive) -&gt; {ok, Dir} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Drive = string()</code></li><li><code>Dir = <a href="#type-filename" class="seealso">filename()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+	<p>Returns <code>{ok, <anno>Dir</anno>}</code> or
+          <code>{error, <anno>Reason</anno>}</code>, where <code><anno>Dir</anno></code>
+          is the current working directory of the specified drive.</p>
+
+	<p><code><anno>Drive</anno></code> is to be of the form
+          "<code>Letter</code><code>:</code>", for example, "c:".</p>
+
+	<p>Returns <code>{error, enotsup}</code> on platforms
+          that have no concept of current drive (Unix, for example).</p>
+
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>enotsup</code></dt>
+          <item>
+            <p>The operating system has no concept of drives.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>The drive does not exist.</p>
+          </item>
+          <dt><code>einval</code></dt>
+          <item>
+            <p>The format of <code><anno>Drive</anno></code> is invalid.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="list_dir/1">list_dir(Dir) -&gt; {ok, Filenames} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Filenames = [<a href="#type-filename" class="seealso">filename()</a>]</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_translation, Filename :: <a href="unicode.html#type-latin1_binary" class="seealso">unicode:latin1_binary()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Lists all files in a directory, <em>except</em> files
+	with raw filenames. Returns
+          <code>{ok, <anno>Filenames</anno>}</code> if successful,
+          otherwise <code>{error, <anno>Reason</anno>}</code>.
+          <code><anno>Filenames</anno></code> is a list of
+          the names of all the files in the directory. The names are
+          not sorted.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search or write permissions for <code><anno>Dir</anno></code>
+              or one of its parent directories.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+          <dt><code>{no_translation, <anno>Filename</anno>}</code></dt>
+          <item>
+            <p><code><anno>Filename</anno></code> is a <code>binary()</code> with
+              characters coded in ISO Latin-1 and the VM was started
+              with parameter <code>+fnue</code>.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="list_dir_all/1">list_dir_all(Dir) -&gt; {ok, Filenames} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Filenames = [<a href="#type-filename_all" class="seealso">filename_all()</a>]</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p><span id="list_dir_all"> </span>Lists all the files in a directory,
+	including files with raw filenames.
+	Returns <code>{ok, <anno>Filenames</anno>}</code> if successful,
+          otherwise <code>{error, <anno>Reason</anno>}</code>.
+          <code><anno>Filenames</anno></code> is a list of
+          the names of all the files in the directory. The names are
+          not sorted.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search or write permissions for <code><anno>Dir</anno></code>
+              or one of its parent directories.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="make_dir/1">make_dir(Dir) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Tries to create directory <code><anno>Dir</anno></code>. Missing parent
+          directories are <em>not</em> created. Returns <code>ok</code> if
+          successful.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search or write permissions for the parent
+              directories of <code><anno>Dir</anno></code>.</p>
+          </item>
+          <dt><code>eexist</code></dt>
+          <item>
+            <p>A file or directory named <code><anno>Dir</anno></code> exists already.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>A component of <code><anno>Dir</anno></code> does not exist.</p>
+          </item>
+          <dt><code>enospc</code></dt>
+          <item>
+            <p>No space is left on the device.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of <code><anno>Dir</anno></code> is not a directory.
+              On some platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="make_link/2">make_link(Existing, New) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Existing = New = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Makes a hard link from <code><anno>Existing</anno></code> to
+          <code><anno>New</anno></code> on
+          platforms supporting links (Unix and Windows). This function returns
+          <code>ok</code> if the link was successfully created, otherwise
+          <code>{error, <anno>Reason</anno>}</code>. On platforms not supporting
+          links, <code>{error,enotsup}</code> is returned.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing read or write permissions for the parent
+              directories of <code><anno>Existing</anno></code> or
+              <code><anno>New</anno></code>.</p>
+          </item>
+          <dt><code>eexist</code></dt>
+          <item>
+            <p><code><anno>New</anno></code> already exists.</p>
+          </item>
+          <dt><code>enotsup</code></dt>
+          <item>
+            <p>Hard links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="make_symlink/2">make_symlink(Existing, New) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Existing = New = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Creates a symbolic link <code><anno>New</anno></code> to
+          the file or directory <code><anno>Existing</anno></code> on platforms
+          supporting symbolic links (most Unix systems and Windows, beginning with
+	  Vista).
+	  <code><anno>Existing</anno></code> does not need to exist.
+          Returns <code>ok</code> if the link is
+          successfully created, otherwise <code>{error, <anno>Reason</anno>}</code>.
+          On platforms not supporting symbolic links, <code>{error, enotsup}</code>
+          is returned.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing read or write permissions for the parent directories
+            of <code><anno>Existing</anno></code> or <code><anno>New</anno></code>.</p>
+          </item>
+          <dt><code>eexist</code></dt>
+          <item>
+            <p><code><anno>New</anno></code> already exists.</p>
+          </item>
+          <dt><code>enotsup</code></dt>
+          <item>
+            <p>Symbolic links are not supported on this platform.</p>
+          </item>
+          <dt><code>eperm</code></dt>
+          <item>
+            <p>User does not have privileges to create symbolic links
+	    (<code>SeCreateSymbolicLinkPrivilege</code> on Windows).</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="native_name_encoding/0">native_name_encoding() -&gt; latin1 | utf8</h3>
+      
+      <div class="description">
+	<p><span id="native_name_encoding"> </span>Returns
+	the filename encoding mode. If it is <code>latin1</code>, the
+	system translates no filenames. If it is
+	<code>utf8</code>, filenames are converted back and forth to
+	the native filename encoding (usually UTF-8, but UTF-16 on
+	Windows).</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="open/2">open(File, Modes) -&gt; {ok, IoDevice} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>File = Filename | iodata()</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Modes = [<a href="#type-mode" class="seealso">mode()</a> | ram]</code></li><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | system_limit</code></li></ul>
+      
+      <div class="description">
+        <p>Opens file <code><anno>File</anno></code> in the mode determined
+          by <code><anno>Modes</anno></code>, which can contain one or more of the
+          following options:</p>
+        <taglist>
+          <dt><code>read</code></dt>
+          <item>
+            <p>The file, which must exist, is opened for reading.</p>
+          </item>
+          <dt><code>write</code></dt>
+          <item>
+            <p>The file is opened for writing. It is created if it does
+              not exist. If the file exists and <code>write</code> is not
+              combined with <code>read</code>, the file is truncated.</p>
+          </item>
+          <dt><code>append</code></dt>
+          <item>
+            <p>The file is opened for writing. It is created if it does
+	      not exist. Every write operation to a file opened with
+	      <code>append</code> takes place at the end of the file.</p>
+          </item>
+          <dt><code>exclusive</code></dt>
+          <item>
+            <p>The file is opened for writing. It is created if it does
+	      not exist. If the file exists, <code>{error, eexist}</code>
+	      is returned.</p>
+	    <div class="warning"><h2>Warning!</h2><p>This option does not guarantee exclusiveness on
+	    file systems not supporting <code>O_EXCL</code> properly,
+	    such as NFS. Do not depend on this option unless you
+	    know that the file system supports it (in general, local
+	    file systems are safe).</p></div>
+          </item>
+          <dt><code>raw</code></dt>
+          <item>
+            <p><span id="raw"> </span>
+              Allows faster access to a file,
+              as no Erlang process is needed to handle the file.
+              However, a file opened in this way has the following
+              limitations:</p>
+            <list type="bulleted">
+              <item><p>The functions in the <code>io</code> module cannot be used,
+               as they can only talk to an Erlang process.
+               Instead, use functions
+	       <a href="#read/2" class="seealso"><code>read/2</code></a>,
+	       <a href="#read_line/1" class="seealso"><code>read_line/1</code></a>, and
+	       <a href="#write/2" class="seealso"><code>write/2</code></a>.</p></item>
+	      <item><p>Especially if <code>read_line/1</code> is to be used on a <code>raw</code>
+	      file, it is recommended to combine this option with option
+	      <code>{read_ahead, Size}</code> as line-oriented I/O is inefficient
+	      without buffering.</p></item>
+              <item><p>Only the Erlang process that opened the file can use
+               it.</p></item>
+              <item><p>A remote Erlang file server cannot be used.
+               The computer on which the Erlang node is running must
+               have access to the file system (directly or through
+               NFS).</p></item>
+            </list>
+          </item>
+          <dt><code>binary</code></dt>
+          <item>
+            <p>Read operations on the file return binaries rather than lists.</p>
+          </item>
+          <dt><code>{delayed_write, Size, Delay}</code></dt>
+          <item>
+            <p>Data in subsequent
+              <code>write/2</code> calls is buffered until at least
+              <code>Size</code> bytes are buffered, or until the oldest buffered
+              data is <code>Delay</code> milliseconds old. Then all buffered
+              data is written in one operating system call.
+              The buffered data is also flushed before some other file
+              operation than <code>write/2</code> is executed.</p>
+            <p>The purpose of this option is to increase performance
+              by reducing the number of operating system calls. Thus, the
+              <code>write/2</code> calls must be for sizes significantly
+              less than <code>Size</code>, and not interspersed by too many
+              other file operations.</p>
+            <p>When this option is used, the result of <code>write/2</code>
+              calls can prematurely be reported as successful, and if
+	      a write error occurs, the error is reported as the result
+	      of the next file operation, which is not executed.</p>
+            <p>For example, when <code>delayed_write</code> is used, after a
+              number of <code>write/2</code> calls, <code>close/1</code> can
+              return <code>{error, enospc}</code>, as there is not enough
+              space on the disc for previously written data.
+              <code>close/1</code> must probably be called again, as the
+              file is still open.</p>
+          </item>
+          <dt><code>delayed_write</code></dt>
+          <item>
+            <p>The same as <code>{delayed_write, Size, Delay}</code> with
+              reasonable default values for <code>Size</code> and
+              <code>Delay</code> (roughly some 64 KB, 2 seconds).</p>
+          </item>
+          <dt><code>{read_ahead, Size}</code></dt>
+          <item>
+            <p>Activates read data buffering. If
+              <code>read/2</code> calls are for significantly less than
+              <code>Size</code> bytes, read operations to the operating
+              system are still performed for blocks of <code>Size</code>
+              bytes. The extra data is buffered and returned in
+              subsequent <code>read/2</code> calls, giving a performance gain
+              as the number of operating system calls is reduced.</p>
+	    <p>The <code>read_ahead</code> buffer is also highly used
+	      by function <code>read_line/1</code> in <code>raw</code> mode,
+	      therefore this option is recommended
+	      (for performance reasons)
+	      when accessing raw files using that function.</p>
+            <p>If <code>read/2</code> calls are for sizes not significantly
+              less than, or even greater than <code>Size</code> bytes, no
+              performance gain can be expected.</p>
+          </item>
+          <dt><code>read_ahead</code></dt>
+          <item>
+            <p>The same as <code>{read_ahead, Size}</code> with a reasonable
+              default value for <code>Size</code> (roughly some 64 KB).</p>
+          </item>
+          <dt><code>compressed</code></dt>
+          <item>
+            <p>Makes it possible to read or write gzip compressed
+              files. Option <code>compressed</code> must be combined
+	      with <code>read</code> or <code>write</code>, but not both.
+	      Notice that the file size obtained with
+              <a href="#read_file_info/1" class="seealso"><code>read_file_info/1</code></a>
+	      does probably not match the number of bytes that can be
+	      read from a compressed file.</p>
+          </item>
+          <dt><code>{encoding, Encoding}</code></dt>
+          <item>
+            <p>Makes the file perform automatic translation of characters to
+	    and from a specific (Unicode) encoding. Notice that the data supplied
+	    to
+	    <a href="#write/2" class="seealso"><code>write/2</code></a>
+	    or returned by
+	    <a href="#read/2" class="seealso"><code>read/2</code></a>
+	    still is byte-oriented; this option
+	    denotes only how data is stored in the disk file.</p>
+	    <p>Depending on the encoding, different methods of reading and writing
+	    data is preferred. The default encoding of <code>latin1</code> implies using
+	    this module (<code>file</code>) for reading and writing data as the interfaces
+	    provided here work with byte-oriented data. Using other (Unicode)
+	    encodings makes the
+	    <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a> functions
+	    <code>get_chars</code>, <code>get_line</code>, and <code>put_chars</code> more suitable,
+	    as they can work with the full Unicode range.</p>
+	    <p>If data is sent to an <code>io_device()</code> in a format that cannot be
+	    converted to the specified encoding, or if data is read by a function
+	    that returns data in a format that cannot cope with the character range
+	    of the data, an error occurs and the file is closed.</p>
+	    <p>Allowed values for <code>Encoding</code>:</p>
+	    <taglist>
+	    <dt><code>latin1</code></dt>
+	    <item>
+	    <p>The default encoding. Bytes supplied to the file, that is,
+	    <a href="#write/2" class="seealso"><code>write/2</code></a>
+	    are written "as is" on the file. Likewise, bytes read from the file,
+	    that is,
+	    <a href="#read/2" class="seealso"><code>read/2</code></a> are
+	    returned "as is". If module
+	    <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a> is used for
+	    writing, the file can only cope with Unicode characters up to code point
+	    255 (the ISO Latin-1 range).</p>
+	    </item>
+	    <dt><code>unicode or utf8</code></dt>
+	    <item>
+	    <p>Characters are translated to and from UTF-8 encoding before they are
+	    written to or read from the file. A file opened in this way can be
+	    readable using function
+	    <a href="#read/2" class="seealso"><code>read/2</code></a>,
+	    as long as no data stored on
+	    the file lies beyond the ISO Latin-1 range (0..255), but failure occurs
+	    if the data contains Unicode code points beyond that range. The file is
+	    best read with the functions in the Unicode aware module
+	    <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a>.</p>
+	    <p>Bytes written to the file by any means are translated to UTF-8 encoding
+	    before being stored on the disk file.</p>
+	    </item>
+	    <dt><code>utf16 or {utf16,big}</code></dt>
+	    <item>
+	    <p>Works like <code>unicode</code>, but translation is done to and from big
+	    endian UTF-16 instead of UTF-8.</p>
+	    </item>
+	    <dt><code>{utf16,little}</code></dt>
+	    <item>
+	    <p>Works like <code>unicode</code>, but translation is done to and from little
+	    endian UTF-16 instead of UTF-8.</p>
+	    </item>
+	    <dt><code>utf32 or {utf32,big}</code></dt>
+	    <item>
+	    <p>Works like <code>unicode</code>, but translation is done to and from big
+	    endian UTF-32 instead of UTF-8.</p>
+	    </item>
+	    <dt><code>{utf32,little}</code></dt>
+	    <item>
+	    <p>Works like <code>unicode</code>, but translation is done to and from little
+	    endian UTF-32 instead of UTF-8.</p>
+	    </item>
+	    </taglist>
+	    <p>The Encoding can be changed for a file "on the fly" by using function
+	    <a href="../stdlib/io.html#setopts/2" class="seealso"><code>io:setopts/2</code></a>.
+	    So a file can be analyzed in latin1 encoding for, for example, a BOM,
+	    positioned beyond the BOM and then be set for the right encoding before
+	    further reading. For functions identifying BOMs, see module
+	    <a href="../stdlib/unicode.html" class="seealso"><code>unicode(3)</code></a>. </p>
+	    <p>This option is not allowed on <code>raw</code> files.</p>
+          </item>
+          <dt><code>ram</code></dt>
+          <item>
+            <p><code>File</code> must be <code>iodata()</code>. Returns an <code>fd()</code>, which lets
+	    module <code>file</code> operate on the data in-memory as if it is a file.</p>
+          </item>
+          <dt><code>sync</code></dt>
+          <item>
+            <p>On platforms supporting it, enables the POSIX <code>O_SYNC</code> synchronous
+	    I/O flag or its platform-dependent equivalent (for example,
+	    <code>FILE_FLAG_WRITE_THROUGH</code> on Windows) so that writes to the file
+	    block until the data is physically written to disk. However, be aware
+	    that the exact semantics of this flag differ from platform to
+            platform. For example, none of Linux or Windows guarantees that all file
+	    metadata are also written before the call returns. For precise semantics,
+	    check the details of your platform documentation. On platforms with no
+            support for POSIX <code>O_SYNC</code> or equivalent, use of the <code>sync</code>
+	    flag causes <code>open</code> to return <code>{error, enotsup}</code>.</p>
+          </item>
+        </taglist>
+        <p>Returns:</p>
+        <taglist>
+          <dt><code>{ok, <anno>IoDevice</anno>}</code></dt>
+          <item>
+            <p>The file is opened in the requested mode.
+              <code><anno>IoDevice</anno></code> is a reference to the file.</p>
+          </item>
+          <dt><code>{error, <anno>Reason</anno>}</code></dt>
+          <item>
+            <p>The file cannot be opened.</p>
+          </item>
+        </taglist>
+        <p><code><anno>IoDevice</anno></code> is really the pid of the process that
+          handles the file. This process is linked to the process
+          that originally opened the file. If any process to which
+          the <code><anno>IoDevice</anno></code> is linked terminates, the file is
+          closed and the process itself is terminated.
+          An <code><anno>IoDevice</anno></code> returned from this call can be used
+          as an argument to the I/O functions (see
+          <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a>).</p>
+        <div class="note"><h2>Note!</h2>
+          <p>In previous versions of <code>file</code>, modes were specified
+            as one of the atoms <code>read</code>, <code>write</code>, or
+            <code>read_write</code> instead of a list. This is still allowed
+            for reasons of backwards compatibility, but is not to be
+            used for new code. Also note that <code>read_write</code> is not
+            allowed in a mode list.</p>
+        </div>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing permission for reading the file or searching one
+              of the parent directories.</p>
+          </item>
+          <dt><code>eisdir</code></dt>
+          <item>
+            <p>The named file is a directory.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+          <dt><code>enospc</code></dt>
+          <item>
+            <p>There is no space left on the device (if <code>write</code>
+              access was specified).</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="path_consult/2">path_consult(Path, Filename) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Terms, FullName} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Path = [Dir]</code></li><li><code>Dir = Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Terms = [term()]</code></li><li><code>FullName = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Searches the path <code><anno>Path</anno></code> (a list of directory
+          names) until the file <code><anno>Filename</anno></code> is found.
+          If <code><anno>Filename</anno></code>
+          is an absolute filename, <code><anno>Path</anno></code> is ignored.
+          Then reads Erlang terms, separated by '.', from the file.</p>
+          <p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Terms</anno>, <anno>FullName</anno>}</code></dt>
+          <item>
+            <p>The file is successfully read. <code><anno>FullName</anno></code> is
+              the full name of the file.</p>
+          </item>
+          <dt><code>{error, enoent}</code></dt>
+          <item>
+            <p>The file cannot be found in any of the directories in
+              <code><anno>Path</anno></code>.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              For a list of typical error codes, see
+	    <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang terms in
+              the file. Use
+	      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>
+	      to convert the three-element tuple to an English description of
+              the error.</p>
+          </item>
+        </taglist>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="path_eval/2">path_eval(Path, Filename) -&gt; {ok, FullName} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Path = [Dir :: <a href="#type-name_all" class="seealso">name_all()</a>]</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>FullName = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Searches the path <code><anno>Path</anno></code> (a list of directory
+          names) until the file <code><anno>Filename</anno></code> is found.
+          If <code><anno>Filename</anno></code> is an absolute filename,
+          <code><anno>Path</anno></code> is ignored. Then reads
+          and evaluates Erlang expressions, separated by '.' (or ',', a
+          sequence of expressions is also an expression), from the file.
+          The result of evaluation is not returned; any
+          expression sequence in the file must be there for its side
+          effect.</p>
+	  <p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>FullName</anno>}</code></dt>
+          <item>
+            <p>The file is read and evaluated. <code><anno>FullName</anno></code> is
+              the full name of the file.</p>
+          </item>
+          <dt><code>{error, enoent}</code></dt>
+          <item>
+            <p>The file cannot be found in any of the directories in
+              <code><anno>Path</anno></code>.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              For a list of typical error codes, see
+	    <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use
+	      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>
+	      to convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="path_open/3">path_open(Path, Filename, Modes) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, IoDevice, FullName} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Path = [Dir :: <a href="#type-name_all" class="seealso">name_all()</a>]</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Modes = [<a href="#type-mode" class="seealso">mode()</a>]</code></li><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>FullName = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | system_limit</code></li></ul>
+      
+      <div class="description">
+        <p>Searches the path <code><anno>Path</anno></code> (a list of directory
+          names) until the file <code><anno>Filename</anno></code> is found.
+          If <code><anno>Filename</anno></code>
+          is an absolute filename, <code><anno>Path</anno></code> is ignored.
+          Then opens the file in the mode determined by <code><anno>Modes</anno></code>.</p>
+        <p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>IoDevice</anno>, <anno>FullName</anno>}</code></dt>
+          <item>
+            <p>The file is opened in the requested mode.
+              <code><anno>IoDevice</anno></code> is a reference to the file and
+              <code><anno>FullName</anno></code> is the full name of the file.</p>
+          </item>
+          <dt><code>{error, enoent}</code></dt>
+          <item>
+            <p>The file cannot be found in any of the directories in
+              <code><anno>Path</anno></code>.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>The file cannot be opened.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="path_script/2">path_script(Path, Filename) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Value, FullName} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Path = [Dir :: <a href="#type-name_all" class="seealso">name_all()</a>]</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Value = term()</code></li><li><code>FullName = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Searches the path <code><anno>Path</anno></code> (a list of directory
+          names) until the file <code><anno>Filename</anno></code> is found.
+          If <code><anno>Filename</anno></code> is an absolute filename,
+          <code><anno>Path</anno></code> is ignored. Then reads
+          and evaluates Erlang expressions, separated by '.' (or ',', a
+          sequence of expressions is also an expression), from the file.</p>
+          <p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Value</anno>, <anno>FullName</anno>}</code></dt>
+          <item>
+            <p>The file is read and evaluated. <code><anno>FullName</anno></code> is
+              the full name of the file and <code><anno>Value</anno></code> the value of
+              the last expression.</p>
+          </item>
+          <dt><code>{error, enoent}</code></dt>
+          <item>
+            <p>The file cannot be found in any of the directories in
+              <code><anno>Path</anno></code>.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              For a list of typical error codes, see
+	      <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use
+	      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>
+	      to convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+   </div>
+    </div>
+    <div class="function">
+      <h3 id="path_script/3">path_script(Path, Filename, Bindings) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Value, FullName} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Path = [Dir :: <a href="#type-name_all" class="seealso">name_all()</a>]</code></li><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Bindings = <a href="erl_eval.html#type-binding_struct" class="seealso">erl_eval:binding_struct()</a></code></li><li><code>Value = term()</code></li><li><code>FullName = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>The same as <code>path_script/2</code> but the variable bindings
+          <code><anno>Bindings</anno></code> are used in the evaluation. See
+          <a href="../stdlib/erl_eval.html" class="seealso"><code>erl_eval(3)</code></a> about
+          variable bindings.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pid2name/1">pid2name(Pid) -&gt; {ok, Filename} | undefined</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Pid = pid()</code></li></ul>
+      
+      <div class="description">
+        <p>If <code><anno>Pid</anno></code> is an I/O device, that is, a pid returned from
+          <code>open/2</code>, this function returns the filename, or rather:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Filename</anno>}</code></dt>
+          <item>
+            <p>If the file server of this node is not a slave, the file was
+              opened by the file server of this node (this implies that
+              <code><anno>Pid</anno></code> must be a local pid) and the file is not
+              closed. <code><anno>Filename</anno></code> is the filename in flat string
+              format.</p>
+          </item>
+          <dt><code>undefined</code></dt>
+          <item>
+            <p>In all other cases.</p>
+          </item>
+        </taglist>
+        <div class="warning"><h2>Warning!</h2>
+          <p>This function is intended for debugging only.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="position/2">position(IoDevice, Location) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, NewPosition} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Location = <a href="#type-location" class="seealso">location()</a></code></li><li><code>NewPosition = integer()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Sets the position of the file referenced by <code><anno>IoDevice</anno></code>
+          to <code><anno>Location</anno></code>. Returns <code>{ok, <anno>NewPosition</anno>}</code>
+	  (as absolute offset) if successful, otherwise
+	  <code>{error, <anno>Reason</anno>}</code>. <code><anno>Location</anno></code> is
+          one of the following:</p>
+        <taglist>
+          <dt><code>Offset</code></dt>
+          <item>
+            <p>The same as <code>{bof, Offset}</code>.</p>
+          </item>
+          <dt><code>{bof, Offset}</code></dt>
+          <item>
+            <p>Absolute offset.</p>
+          </item>
+          <dt><code>{cur, Offset}</code></dt>
+          <item>
+            <p>Offset from the current position.</p>
+          </item>
+          <dt><code>{eof, Offset}</code></dt>
+          <item>
+            <p>Offset from the end of file.</p>
+          </item>
+          <dt><code>bof | cur | eof</code></dt>
+          <item>
+            <p>The same as above with <code>Offset</code> 0.</p>
+          </item>
+        </taglist>
+	<p>Notice that offsets are counted in bytes, not in characters. If the file
+	is opened using some other <code>encoding</code> than <code>latin1</code>, one byte
+	does not correspond to one character. Positioning in such a file can only
+	be done to known character boundaries. That is, to a position earlier retrieved
+	by getting a current position, to the beginning/end of the file or to some
+	other position <em>known</em> to be on a correct character boundary by some
+	other means (typically beyond a byte order mark in the file, which has a
+	known byte-size).</p>
+        <p>A typical error reason is:</p>
+        <taglist>
+          <dt><code>einval</code></dt>
+          <item>
+            <p>Either <code><anno>Location</anno></code> is illegal, or it is
+              evaluated to a
+              negative offset in the file. Notice that if the resulting
+              position is a negative value, the result is an error, and
+              after the call the file position is undefined.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pread/2">pread(IoDevice, LocNums) -&gt; {ok, DataL} | eof | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>LocNums = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[{Location :: <a href="#type-location" class="seealso">location()</a>, Number :: integer() &gt;= 0}]</code></li><li><code>DataL = [Data]</code></li><li><code>Data = string() | binary() | eof</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Performs a sequence of <code>pread/3</code> in one operation, 
+          which is more efficient than calling them one at a time.
+          Returns <code>{ok, [<anno>Data</anno>, ...]}</code> or
+          <code>{error, <anno>Reason</anno>}</code>,
+          where each <code><anno>Data</anno></code>, the result of the corresponding
+          <code>pread</code>, is either a list or a binary depending on
+          the mode of the file, or <code>eof</code> if the requested position
+          is beyond end of file.</p>
+	  <p>As the position is specified as a byte-offset, take special caution
+	  when working with files where <code>encoding</code> is set to something else
+	  than <code>latin1</code>, as not every byte position is a valid character
+	  boundary on such a file.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pread/3">pread(IoDevice, Location, Number) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Data} | eof | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Location = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Data = string() | binary()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Combines <code>position/2</code> and <code>read/2</code> in one
+          operation, which is more efficient than calling them one at a
+          time. If <code><anno>IoDevice</anno></code> is opened in <code>raw</code> mode,
+          some restrictions apply:</p>
+	  <list type="bulleted">
+	    <item><code><anno>Location</anno></code> is only allowed to be an
+            integer.</item>
+	    <item>The current position of the file is undefined after the
+	    operation.</item>
+	  </list>
+	  <p>As the position is specified as a byte-offset, take special caution
+	  when working with files where <code>encoding</code> is set to something else
+	  than <code>latin1</code>, as not every byte position is a valid character
+	  boundary on such a file.</p>
+        </div>
+    </div>
+    <div class="function">
+      <h3 id="pwrite/2">pwrite(IoDevice, LocBytes) -&gt; ok | {error, {N, Reason}}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>LocBytes = [{Location :: <a href="#type-location" class="seealso">location()</a>, Bytes :: iodata()}]</code></li><li><code>N = integer() &gt;= 0</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Performs a sequence of <code>pwrite/3</code> in one operation, 
+          which is more efficient than calling them one at a time.
+          Returns <code>ok</code> or <code>{error, {<anno>N</anno>,
+          <anno>Reason</anno>}}</code>, where
+          <code><anno>N</anno></code> is the number of successful writes done
+          before the failure.</p>
+	<p>When positioning in a file with other <code>encoding</code> than <code>latin1</code>,
+	caution must be taken to set the position on a correct character boundary.
+	For details, see <a href="#position/2" class="seealso"><code>position/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pwrite/3">pwrite(IoDevice, Location, Bytes) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Location = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Bytes = iodata()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Combines <code>position/2</code> and <code>write/2</code> in one
+          operation, which is more efficient than calling them one at a
+          time. If <code><anno>IoDevice</anno></code> has been opened in <code>raw</code> mode,
+          some restrictions apply:</p>
+	  <list type="bulleted">
+	    <item><code><anno>Location</anno></code> is only allowed to be an
+            integer.</item>
+	    <item>The current position of the file is undefined after the
+	    operation.</item>
+	  </list>
+	<p>When positioning in a file with other <code>encoding</code> than <code>latin1</code>,
+	caution must be taken to set the position on a correct character boundary.
+	For details, see <a href="#position/2" class="seealso"><code>position/2</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read/2">read(IoDevice, Number) -&gt; {ok, Data} | eof | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a> | atom()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Data = string() | binary()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_translation, unicode, latin1}</code></li></ul>
+      
+      <div class="description">
+        <p>Reads <code><anno>Number</anno></code> bytes/characters from the file
+          referenced by <code><anno>IoDevice</anno></code>. The functions
+          <a href="#read/2" class="seealso"><code>read/2</code></a>,
+	  <a href="#pread/3" class="seealso"><code>pread/3</code></a>, and
+	  <a href="#read_line/1" class="seealso"><code>read_line/1</code></a>
+	  are the only ways to read from a file opened in <code>raw</code> mode
+	  (although they work for normally opened files, too).</p>
+	  <p>For files where <code>encoding</code> is set to something else than <code>latin1</code>,
+	  one character can be represented by more than one byte on the file.
+	  The parameter <code>Number</code> always denotes the number of <em>characters</em>
+	  read from the file, while the position in the file can be moved much more than
+	  this number when reading a Unicode file.</p>
+	  <p>Also, if <code>encoding</code> is set to something else than <code>latin1</code>,
+	  the <code>read/3</code> call fails if the data contains characters larger than 255,
+	  which is why module <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a>
+	  is to be preferred when reading such a file.</p>
+	  <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Data</anno>}</code></dt>
+          <item>
+            <p>If the file was opened in binary mode, the read bytes are
+              returned in a binary, otherwise in a list. The list or
+              binary is shorter than the number of bytes requested
+              if end of file was reached.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>Returned if <code><anno>Number</anno>&gt;0</code> and end of file was
+              reached before anything at all could be read.</p>
+          </item>
+          <dt><code>{error, <anno>Reason</anno>}</code></dt>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>ebadf</code></dt>
+          <item>
+            <p>The file is not opened for reading.</p>
+          </item>
+          <dt><code>{no_translation, unicode, latin1}</code></dt>
+          <item>
+            <p>The file is opened with another <code>encoding</code> than <code>latin1</code> and
+	    the data in the file cannot be translated to the byte-oriented data that
+	    this function returns.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_file/1">read_file(Filename) -&gt; {ok, Binary} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Binary = binary()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated | system_limit</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code>{ok, <anno>Binary</anno>}</code>, where
+          <code><anno>Binary</anno></code> is a binary
+          data object that contains the contents of
+          <code><anno>Filename</anno></code>, or
+          <code>{error, <anno>Reason</anno>}</code> if an error occurs.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing permission for reading the file, or for
+              searching one of the parent directories.</p>
+          </item>
+          <dt><code>eisdir</code></dt>
+          <item>
+            <p>The named file is a directory.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+          <dt><code>enomem</code></dt>
+          <item>
+            <p>There is not enough memory for the contents of the file.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_file_info/1">read_file_info(Filename) -&gt; {ok, FileInfo} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      <h3 id="read_file_info/2">read_file_info(Filename, Opts) -&gt; {ok, FileInfo} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Opts = [<a href="#type-file_info_option" class="seealso">file_info_option()</a>]</code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Retrieves information about a file. Returns
+          <code>{ok, <anno>FileInfo</anno>}</code> if successful, otherwise
+          <code>{error, <anno>Reason</anno>}</code>. <code><anno>FileInfo</anno></code>
+          is a record
+          <code>file_info</code>, defined in the Kernel include file
+          <code>file.hrl</code>. Include the following directive in the module
+          from which the function is called:</p>
+        <pre class="sh_erlang">
+ -include_lib("kernel/include/file.hrl").</pre>
+	<p>The time type returned in <code>atime</code>, <code>mtime</code>, and <code>ctime</code>
+	  is dependent on the time type set in <code>Opts :: {time, Type}</code> as
+	  follows:</p>
+	  <taglist>
+	    <dt><code>local</code></dt>
+	    <item><p>Returns local time.</p></item>
+	    <dt><code>universal</code></dt>
+	    <item><p>Returns universal time.</p></item>
+	    <dt><code>posix</code></dt>
+	    <item><p>Returns seconds since or before Unix time epoch,
+	    which is 1970-01-01 00:00 UTC.</p></item>
+	  </taglist>
+	<p>Default is <code>{time, local}</code>.</p>
+        <p>If the option <code>raw</code> is set, the file server is not called and
+           only information about local files is returned. Note that this will
+           break this module's atomicity guarantees as it can race with a
+           concurrent call to
+           <a href="#write_file_info/2" class="seealso"><code>write_file_info/1,2</code>
+           </a></p>
+	  <div class="note"><h2>Note!</h2>
+          <p>As file times are stored in POSIX time on most OS, it is faster to
+	  query file information with option <code>posix</code>.</p>
+          </div>
+        
+        <p>The record <code>file_info</code> contains the following fields:</p>
+        <taglist>
+          <dt><code>size = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Size of file in bytes.</p>
+          </item>
+          <dt><code>type = device | directory | other | regular | symlink</code></dt>
+          <item>
+            <p>The type of the file.</p>
+          </item>
+          <dt><code>access = read | write | read_write | none</code></dt>
+          <item>
+            <p>The current system access to the file.</p>
+          </item>
+          <dt><code>atime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;= 0</code></dt>
+          <item>
+            <p>The last time the file was read.</p>
+          </item>
+          <dt><code>mtime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;= 0</code></dt>
+          <item>
+            <p>The last time the file was written.</p>
+          </item>
+          <dt><code>ctime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;=0</code></dt>
+          <item>
+            <p>The interpretation of this time field depends on
+              the operating system. On Unix, it is the last time
+              the file or the <code>inode</code> was changed. In Windows, it is
+              the create time.</p>
+          </item>
+          <dt><code>mode = integer() &gt;= 0</code></dt>
+          <item>
+            <p>The file permissions as the sum of the following bit
+              values:</p>
+            <taglist>
+              <dt><code>8#00400</code></dt>
+              <item><p>read permission: owner</p></item>
+              <dt><code>8#00200</code></dt>
+              <item><p>write permission: owner</p></item>
+              <dt><code>8#00100</code></dt>
+              <item><p>execute permission: owner</p></item>
+              <dt><code>8#00040</code></dt>
+              <item><p>read permission: group</p></item>
+              <dt><code>8#00020</code></dt>
+              <item><p>write permission: group</p></item>
+              <dt><code>8#00010</code></dt>
+              <item><p>execute permission: group</p></item>
+              <dt><code>8#00004</code></dt>
+              <item><p>read permission: other</p></item>
+              <dt><code>8#00002</code></dt>
+              <item><p>write permission: other</p></item>
+              <dt><code>8#00001</code></dt>
+              <item><p>execute permission: other</p></item>
+              <dt><code>16#800</code></dt>
+              <item><p>set user id on execution</p></item>
+              <dt><code>16#400</code></dt>
+              <item><p>set group id on execution</p></item>
+            </taglist>
+            <p>On Unix platforms, other bits than those listed above
+		may be set.</p>
+          </item>
+          <dt><code>links = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Number of links to the file (this is always 1 for
+              file systems that have no concept of links).</p>
+          </item>
+          <dt><code>major_device = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Identifies the file system where the file is located.
+              In Windows, the number indicates a drive as follows:
+              0 means A:, 1 means B:, and so on.</p>
+          </item>
+          <dt><code>minor_device = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Only valid for character devices on Unix. In all other
+              cases, this field is zero.</p>
+          </item>
+          <dt><code>inode = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Gives the <code>inode</code> number. On non-Unix file systems,
+              this field is zero.</p>
+          </item>
+          <dt><code>uid = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Indicates the owner of the file. On non-Unix file systems,
+              this field is zero.</p>
+          </item>
+          <dt><code>gid = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Gives the group that the owner of the file belongs to.
+              On non-Unix file systems, this field is zero.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search permission for one of the parent
+              directories of the file.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_line/1">read_line(IoDevice) -&gt; {ok, Data} | eof | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a> | atom()</code></li><li><code>Data = string() | binary()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_translation, unicode, latin1}</code></li></ul>
+      
+      <div class="description">
+        <p>Reads a line of bytes/characters from the file referenced by
+          <code><anno>IoDevice</anno></code>. Lines are defined to be delimited by the
+	  linefeed (LF, <code>\n</code>) character, but any carriage return (CR, <code>\r</code>)
+	  followed by a newline is also treated as a single LF character (the carriage
+	  return is silently ignored). The line is returned <em>including</em> the LF,
+	  but excluding any CR immediately followed by an LF. This behaviour is
+	  consistent with the behaviour of
+	  <a href="../stdlib/io.html#get_line/2" class="seealso"><code>io:get_line/2</code></a>.
+	  If end of file is reached without any LF ending the last line, a line with no
+	  trailing LF is returned.</p>
+	  <p>The function can be used on files opened in <code>raw</code> mode. However, it is
+	  inefficient to use it on <code>raw</code> files if the file is not opened with
+	  option <code>{read_ahead, Size}</code> specified. Thus, combining <code>raw</code> and
+	  <code>{read_ahead, Size}</code> is highly recommended when opening a text file for
+	  raw line-oriented reading.</p>
+	  <p>If <code>encoding</code> is set to something else than <code>latin1</code>, the
+	  <code>read_line/1</code> call fails if the data contains characters larger than 255,
+	  why module <a href="../stdlib/io.html" class="seealso"><code>io(3)</code></a> is to be
+	  preferred when reading such a file.</p>
+	  <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Data</anno>}</code></dt>
+          <item>
+	    <p>One line from the file is returned, including the trailing LF,
+	    but with CRLF sequences replaced by a single LF (see above).</p>
+            <p>If the file is opened in binary mode, the read bytes are
+              returned in a binary, otherwise in a list.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>Returned if end of file was reached
+              before anything at all could be read.</p>
+          </item>
+          <dt><code>{error, <anno>Reason</anno>}</code></dt>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>ebadf</code></dt>
+          <item>
+            <p>The file is not opened for reading.</p>
+          </item>
+          <dt><code>{no_translation, unicode, latin1}</code></dt>
+          <item>
+            <p>The file is opened with another <code>encoding</code> than <code>latin1</code> and
+	    the data on the file cannot be translated to the byte-oriented data that
+	    this function returns.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_link/1">read_link(Name) -&gt; {ok, Filename} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Filename = <a href="#type-filename" class="seealso">filename()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p><span id="read_link_all"> </span>Returns
+	<code>{ok, <anno>Filename</anno>}</code> if
+          <code><anno>Name</anno></code> refers to a symbolic link that is
+	  not a raw filename, or <code>{error, <anno>Reason</anno>}</code>
+	  otherwise.
+          On platforms that do not support symbolic links, the return
+          value is <code>{error,enotsup}</code>.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>einval</code></dt>
+          <item>
+            <p><code><anno>Name</anno></code> does not refer to a symbolic link
+	    or the name of the file that it refers to does not conform
+	    to the expected encoding.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>enotsup</code></dt>
+          <item>
+            <p>Symbolic links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_link_all/1">read_link_all(Name) -&gt; {ok, Filename} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Filename = <a href="#type-filename_all" class="seealso">filename_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code>{ok, <anno>Filename</anno>}</code> if
+          <code><anno>Name</anno></code> refers to a symbolic link or
+          <code>{error, <anno>Reason</anno>}</code> otherwise.
+          On platforms that do not support symbolic links, the return
+          value is <code>{error,enotsup}</code>.</p>
+	  <p>Notice that <code><anno>Filename</anno></code> can be either a list
+	  or a binary.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>einval</code></dt>
+          <item>
+            <p><code><anno>Name</anno></code> does not refer to a symbolic link.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>enotsup</code></dt>
+          <item>
+            <p>Symbolic links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="read_link_info/1">read_link_info(Name) -&gt; {ok, FileInfo} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      <h3 id="read_link_info/2">read_link_info(Name, Opts) -&gt; {ok, FileInfo} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Name = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Opts = [<a href="#type-file_info_option" class="seealso">file_info_option()</a>]</code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+	<p>Works like
+	<a href="#read_file_info/2" class="seealso"><code>read_file_info/1,2</code></a>
+	except that if <code><anno>Name</anno></code> is a symbolic link, information
+	about the link is returned in the <code>file_info</code> record and
+          the <code>type</code> field of the record is set to <code>symlink</code>.</p>
+        <p>If the option <code>raw</code> is set, the file server is not called and
+           only information about local files is returned. Note that this will
+           break this module's atomicity guarantees as it can race with a
+           concurrent call to
+           <a href="#write_file_info/2" class="seealso"><code>write_file_info/1,2</code>
+           </a></p>
+        <p>If <code><anno>Name</anno></code> is not a symbolic link, this function returns
+          the same result as <code>read_file_info/1</code>.
+          On platforms that do not support symbolic links, this function
+          is always equivalent to <code>read_file_info/1</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="rename/2">rename(Source, Destination) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Source = Destination = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Tries to rename the file <code><anno>Source</anno></code> to
+          <code><anno>Destination</anno></code>.
+          It can be used to move files (and directories) between
+          directories, but it is not sufficient to specify
+          the destination only. The destination filename must also be
+          specified. For example, if <code>bar</code> is a normal file and
+          <code>foo</code> and <code>baz</code> are directories,
+          <code>rename("foo/bar", "baz")</code> returns an error, but
+          <code>rename("foo/bar", "baz/bar")</code> succeeds. Returns
+          <code>ok</code> if it is successful.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>Renaming of open files is not allowed on most platforms
+            (see <code>eacces</code> below).</p>
+        </div>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing read or write permissions for the parent
+              directories of <code><anno>Source</anno></code> or
+              <code><anno>Destination</anno></code>. On
+              some platforms, this error is given if either
+              <code><anno>Source</anno></code> or <code><anno>Destination</anno></code>
+              is open.</p>
+          </item>
+          <dt><code>eexist</code></dt>
+          <item>
+            <p><code><anno>Destination</anno></code> is not an empty directory.
+              On some platforms, also given when <code><anno>Source</anno></code> and
+              <code><anno>Destination</anno></code> are not of the same type.</p>
+          </item>
+          <dt><code>einval</code></dt>
+          <item>
+            <p><code><anno>Source</anno></code> is a root directory, or
+              <code><anno>Destination</anno></code>
+              is a subdirectory of <code><anno>Source</anno></code>.</p>
+          </item>
+          <dt><code>eisdir</code></dt>
+          <item>
+            <p><code><anno>Destination</anno></code> is a directory, but
+              <code><anno>Source</anno></code> is not.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p><code>Source</code> does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p><code><anno>Source</anno></code> is a directory, but
+              <code><anno>Destination</anno></code> is not.</p>
+          </item>
+          <dt><code>exdev</code></dt>
+          <item>
+            <p><code><anno>Source</anno></code> and <code><anno>Destination</anno></code>
+              are on different file systems.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="script/1">script(Filename) -&gt; {ok, Value} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Value = term()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>Reads and evaluates Erlang expressions, separated by '.' (or
+          ',', a sequence of expressions is also an expression), from
+          the file.</p>
+	<p>Returns one of the following:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Value</anno>}</code></dt>
+          <item>
+            <p>The file is read and evaluated. <code><anno>Value</anno></code> is
+              the value of the last expression.</p>
+          </item>
+          <dt><code>{error, atom()}</code></dt>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              For a list of typical error codes, see
+	    <a href="#open/2" class="seealso"><code>open/2</code></a>.</p>
+          </item>
+          <dt><code>{error, {<anno>Line</anno>, <anno>Mod</anno>,
+                           <anno>Term</anno>}}</code></dt>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use
+	      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>
+	      to convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+        <p>The encoding of <code><anno>Filename</anno></code> can be set
+          by a comment as described in
+	  <a href="../stdlib/epp.html#encoding" class="seealso"><code>epp(3)</code></a>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="script/2">script(Filename, Bindings) -&gt; {ok, Value} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Bindings = <a href="erl_eval.html#type-binding_struct" class="seealso">erl_eval:binding_struct()</a></code></li><li><code>Value = term()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-posix" class="seealso">posix()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;badarg |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;terminated |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;system_limit |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Line :: integer(), Mod :: module(), Term :: term()}</code></li></ul>
+      
+      <div class="description">
+        <p>The same as <code>script/1</code> but the variable bindings
+          <code><anno>Bindings</anno></code> are used in the evaluation. See
+          <a href="../stdlib/erl_eval.html" class="seealso"><code>erl_eval(3)</code></a> about
+          variable bindings.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sendfile/2">sendfile(Filename, Socket) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, <a href="inet.html#type-posix" class="seealso">inet:posix()</a> | closed | badarg | not_owner}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Socket = <a href="inet.html#type-socket" class="seealso">inet:socket()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Sends the file <code>Filename</code> to <code>Socket</code>.
+        Returns <code>{ok, BytesSent}</code> if successful,
+        otherwise <code>{error, Reason}</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sendfile/5">sendfile(RawFile, Socket, Offset, Bytes, Opts) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, <a href="inet.html#type-posix" class="seealso">inet:posix()</a> | closed | badarg | not_owner}</h3>
+      <ul class="type_desc"><li><code>RawFile = <a href="#type-fd" class="seealso">fd()</a></code></li><li><code>Socket = <a href="inet.html#type-socket" class="seealso">inet:socket()</a></code></li><li><code>Offset = Bytes = integer() &gt;= 0</code></li><li><code>Opts = [<a href="#type-sendfile_option" class="seealso">sendfile_option()</a>]</code></li></ul>
+      
+      <ul class="type"><li><code>sendfile_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{chunk_size, integer() &gt;= 0} | {use_threads, boolean()}</code></li></ul>
+      <div class="description">
+        <p>Sends <code>Bytes</code> from the file
+        referenced by <code>RawFile</code> beginning at <code>Offset</code> to
+        <code>Socket</code>.
+        Returns <code>{ok, BytesSent}</code> if successful,
+        otherwise <code>{error, Reason}</code>. If <code>Bytes</code> is set to
+	<code>0</code> all data after the specified <code>Offset</code> is sent.</p>
+	<p>The file used must be opened using the <code>raw</code> flag, and the process
+	calling <code>sendfile</code> must be the controlling process of the socket.
+	See <a href="gen_tcp.html#controlling_process/2" class="seealso"><code>gen_tcp:controlling_process/2</code></a>.</p>
+	<p>If the OS used does not support non-blocking <code>sendfile</code>, an
+	Erlang fallback using <a href="#read/2" class="seealso"><code>read/2</code></a>
+	and <a href="gen_tcp.html#send/2" class="seealso"><code>gen_tcp:send/2</code></a> is
+        used.</p>
+	<p>The option list can contain the following options:</p>
+	<taglist>
+          <dt><code>chunk_size</code></dt>
+          <item><p>The chunk size used by the Erlang fallback to send
+	  data. If using the fallback, set this to a value
+	  that comfortably fits in the systems memory. Default is 20 MB.</p></item>
+	</taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="set_cwd/1">set_cwd(Dir) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Dir = <a href="#type-name" class="seealso">name()</a> | EncodedBinary</code></li><li><code>EncodedBinary = binary()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | no_translation</code></li></ul>
+      
+      <div class="description">
+        <p>Sets the current working directory of the file server to
+          <code><anno>Dir</anno></code>. Returns <code>ok</code> if successful.</p>
+        <p>The functions in the module <code>file</code> usually treat binaries
+          as raw filenames, that is, they are passed "as is" even when the
+	  encoding of the binary does not agree with
+	  <a href="#native_name_encoding/0" class="seealso"><code>native_name_encoding()</code></a>.
+          However, this function expects binaries to be encoded according to the
+          value returned by <code>native_name_encoding()</code>.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of <code><anno>Dir</anno></code> is not a directory.
+              On some platforms, <code>enoent</code> is returned.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing permission for the directory or one of its
+              parents.</p>
+          </item>
+          <dt><code>badarg</code></dt>
+          <item>
+            <p><code><anno>Dir</anno></code> has an improper type,
+              such as tuple.</p>
+          </item>
+          <dt><code>no_translation</code></dt>
+          <item>
+            <p><code><anno>Dir</anno></code> is a <code>binary()</code> with
+              characters coded in ISO-latin-1 and the VM is operating
+              with unicode filename encoding.</p>
+          </item>
+        </taglist>
+        <div class="warning"><h2>Warning!</h2>
+          <p>In a future release, a bad type for argument
+            <code><anno>Dir</anno></code>
+            will probably generate an exception.</p>
+        </div>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sync/1">sync(IoDevice) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Ensures that any buffers kept by the operating system
+          (not by the Erlang runtime system) are written to disk. On
+          some platforms, this function might have no effect.</p>
+        <p>A typical error reason is:</p>
+        <taglist>
+          <dt><code>enospc</code></dt>
+          <item>
+            <p>Not enough space left to write the file.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="truncate/1">truncate(IoDevice) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Truncates the file referenced by <code><anno>IoDevice</anno></code> at
+          the current position. Returns <code>ok</code> if successful,
+          otherwise <code>{error, <anno>Reason</anno>}</code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write/2">write(IoDevice, Bytes) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-io_device" class="seealso">io_device()</a> | atom()</code></li><li><code>Bytes = iodata()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated</code></li></ul>
+      
+      <div class="description">
+        <p>Writes <code><anno>Bytes</anno></code> to the file referenced by
+          <code><anno>IoDevice</anno></code>. This function is the only way to write to a
+          file opened in <code>raw</code> mode (although it works for normally opened
+	  files too). Returns <code>ok</code> if successful, and
+          <code>{error, <anno>Reason</anno>}</code> otherwise.</p>
+	  <p>If the file is opened with <code>encoding</code> set to something else than
+	  <code>latin1</code>, each byte written can result in many bytes being written to
+	  the file, as the byte range 0..255 can represent anything between one and
+	  four bytes depending on value and UTF encoding type.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>ebadf</code></dt>
+          <item>
+            <p>The file is not opened for writing.</p>
+          </item>
+          <dt><code>enospc</code></dt>
+          <item>
+            <p>No space is left on the device.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write_file/2">write_file(Filename, Bytes) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Bytes = iodata()</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated | system_limit</code></li></ul>
+      
+      <div class="description">
+        <p>Writes the contents of the <code>iodata</code> term <code><anno>Bytes</anno></code>
+          to file <code><anno>Filename</anno></code>.
+          The file is created if it does not exist.
+	  If it exists, the previous contents are overwritten.
+	  Returns <code>ok</code> if successful, otherwise
+	<code>{error, <anno>Reason</anno>}</code>.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>A component of the filename does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+          <dt><code>enospc</code></dt>
+          <item>
+            <p>No space is left on the device.</p>
+          </item>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing permission for writing the file or searching one
+              of the parent directories.</p>
+          </item>
+          <dt><code>eisdir</code></dt>
+          <item>
+            <p>The named file is a directory.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write_file/3">write_file(Filename, Bytes, Modes) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Bytes = iodata()</code></li><li><code>Modes = [<a href="#type-mode" class="seealso">mode()</a>]</code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg | terminated | system_limit</code></li></ul>
+      
+      <div class="description">
+        <p>Same as <code>write_file/2</code>, but takes a third argument
+          <code><anno>Modes</anno></code>, a list of possible modes, see
+          <a href="#open/2" class="seealso"><code>open/2</code></a>. The mode flags
+          <code>binary</code> and <code>write</code> are implicit, so they are
+          not to be used.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="write_file_info/2">write_file_info(Filename, FileInfo) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      <h3 id="write_file_info/3">write_file_info(Filename, FileInfo, Opts) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Filename = <a href="#type-name_all" class="seealso">name_all()</a></code></li><li><code>Opts = [<a href="#type-file_info_option" class="seealso">file_info_option()</a>]</code></li><li><code>FileInfo = <a href="#type-file_info" class="seealso">file_info()</a></code></li><li><code>Reason = <a href="#type-posix" class="seealso">posix()</a> | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Changes file information. Returns <code>ok</code> if successful,
+          otherwise <code>{error, <anno>Reason</anno>}</code>.
+          <code><anno>FileInfo</anno></code> is a record
+          <code>file_info</code>, defined in the Kernel include file
+          <code>file.hrl</code>. Include the following directive in the module
+          from which the function is called:</p>
+        <pre class="sh_erlang">
+ -include_lib("kernel/include/file.hrl").</pre>
+        <p>The time type set in <code>atime</code>, <code>mtime</code>, and <code>ctime</code>
+	  depends on the time type set in <code>Opts :: {time, Type}</code> as
+	  follows:</p>
+	  <taglist>
+	    <dt><code>local</code></dt>
+	    <item><p>Interprets the time set as local.</p></item>
+	    <dt><code>universal</code></dt>
+	    <item><p>Interprets it as universal time.</p></item>
+	    <dt><code>posix</code></dt>
+	    <item><p>Must be seconds since or before Unix time epoch,
+	    which is 1970-01-01 00:00 UTC.</p></item>
+	  </taglist>
+	<p>Default is <code>{time, local}</code>.</p>
+        <p>If the option <code>raw</code> is set, the file server is not called
+          and only information about local files is returned.</p>
+        <p>The following fields are used from the record, if they are
+          specified:</p>
+        <taglist>
+          <dt><code>atime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;= 0</code></dt>
+          <item>
+            <p>The last time the file was read.</p>
+          </item>
+          <dt><code>mtime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;= 0</code></dt>
+          <item>
+            <p>The last time the file was written.</p>
+          </item>
+          <dt><code>ctime = </code>
+	  <a href="#type-date_time" class="seealso"><code>date_time()</code></a><code> |
+	  integer() &gt;= 0</code></dt>
+          <item>
+            <p>On Unix, any value specified for this field is ignored
+              (the "ctime" for the file is set to the current
+              time). On Windows, this field is the new creation time to
+              set for the file.</p>
+          </item>
+          <dt><code>mode = integer() &gt;= 0</code></dt>
+          <item>
+            <p>The file permissions as the sum of the following bit
+              values:</p>
+            <taglist>
+              <dt><code>8#00400</code></dt>
+              <item><p>Read permission: owner</p></item>
+              <dt><code>8#00200</code></dt>
+              <item><p>Write permission: owner</p></item>
+              <dt><code>8#00100</code></dt>
+              <item><p>Execute permission: owner</p></item>
+              <dt><code>8#00040</code></dt>
+              <item><p>Read permission: group</p></item>
+              <dt><code>8#00020</code></dt>
+              <item><p>Write permission: group</p></item>
+              <dt><code>8#00010</code></dt>
+              <item><p>Execute permission: group</p></item>
+              <dt><code>8#00004</code></dt>
+              <item><p>Read permission: other</p></item>
+              <dt><code>8#00002</code></dt>
+              <item><p>Write permission: other</p></item>
+              <dt><code>8#00001</code></dt>
+              <item><p>Execute permission: other</p></item>
+              <dt><code>16#800</code></dt>
+              <item><p>Set user id on execution</p></item>
+              <dt><code>16#400</code></dt>
+              <item><p>Set group id on execution</p></item>
+            </taglist>
+            <p>On Unix platforms, other bits than those listed above
+		may be set.</p>
+          </item>
+          <dt><code>uid = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Indicates the file owner. Ignored for non-Unix
+              file systems.</p>
+          </item>
+          <dt><code>gid = integer() &gt;= 0</code></dt>
+          <item>
+            <p>Gives the group that the file owner belongs to.
+              Ignored for non-Unix file systems.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <dt><code>eacces</code></dt>
+          <item>
+            <p>Missing search permission for one of the parent
+              directories of the file.</p>
+          </item>
+          <dt><code>enoent</code></dt>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <dt><code>enotdir</code></dt>
+          <item>
+            <p>A component of the filename is not a directory. On some
+              platforms, <code>enoent</code> is returned instead.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>POSIX Error Codes</h4>
+    <list type="bulleted">
+      <item><code>eacces</code> - Permission denied</item>
+      <item><code>eagain</code> - Resource temporarily unavailable</item>
+      <item><code>ebadf</code> - Bad file number</item>
+      <item><code>ebusy</code> - File busy</item>
+      <item><code>edquot</code> - Disk quota exceeded</item>
+      <item><code>eexist</code> - File already exists</item>
+      <item><code>efault</code> - Bad address in system call argument</item>
+      <item><code>efbig</code> - File too large</item>
+      <item><code>eintr</code> - Interrupted system call</item>
+      <item><code>einval</code> - Invalid argument</item>
+      <item><code>eio</code> - I/O error</item>
+      <item><code>eisdir</code> - Illegal operation on a directory</item>
+      <item><code>eloop</code> - Too many levels of symbolic links</item>
+      <item><code>emfile</code> - Too many open files</item>
+      <item><code>emlink</code> - Too many links</item>
+      <item><code>enametoolong</code> - Filename too long</item>
+      <item><code>enfile</code> - File table overflow</item>
+      <item><code>enodev</code> - No such device</item>
+      <item><code>enoent</code> - No such file or directory</item>
+      <item><code>enomem</code> - Not enough memory</item>
+      <item><code>enospc</code> - No space left on device</item>
+      <item><code>enotblk</code> - Block device required</item>
+      <item><code>enotdir</code> - Not a directory</item>
+      <item><code>enotsup</code> - Operation not supported</item>
+      <item><code>enxio</code> - No such device or address</item>
+      <item><code>eperm</code> - Not owner</item>
+      <item><code>epipe</code> - Broken pipe</item>
+      <item><code>erofs</code> - Read-only file system</item>
+      <item><code>espipe</code> - Invalid seek</item>
+      <item><code>esrch</code> - No such process</item>
+      <item><code>estale</code> - Stale remote file handle</item>
+      <item><code>exdev</code> - Cross-domain link</item>
+    </list>
+  </div>
+
+  <div class="section">
+    <h4>Performance</h4>
+    <p>For increased performance, raw files are recommended.</p>
+    <p>A normal file is really a process so it can be used as an I/O
+       device (see <a href="../stdlib/io.html" class="seealso"><code>io</code></a>).
+       Therefore, when data is written to a normal file, the sending of the
+       data to the file process, copies all data that are not binaries. Opening
+       the file in binary mode and writing binaries is therefore recommended.
+       If the file is opened on another node, or if the file server runs as
+       slave to the file server of another node, also binaries are copied.</p>
+    <div class="note"><h2>Note!</h2>
+      <p>Raw files use the file system of the host machine of the node.
+         For normal files (non-raw), the file server is used to find the files,
+         and if the node is running its file server as slave to the file server
+         of another node, and the other node runs on some other host machine,
+         they can have different file systems.
+         However, this is seldom a problem.</p>
+    </div>
+    <p><a href="#open/2" class="seealso"><code>open/2</code></a> can be given the
+       options <code>delayed_write</code> and <code>read_ahead</code> to turn on caching,
+       which will reduce the number of operating system calls and greatly
+       improve performance for small reads and writes. However, the overhead
+       won't disappear completely and it's best to keep the number of file
+       operations to a minimum. As a contrived example, the following function
+       writes 4MB in 2.5 seconds when tested:</p>
+
+    <pre class="sh_erlang">
+create_file_slow(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_slow_1(Fd, 4 bsl 20),
+    file:close(Fd).
+
+create_file_slow_1(_Fd, 0) -&gt;
+    ok;
+create_file_slow_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0&gt;&gt;),
+    create_file_slow_1(Fd, M - 1).</pre>
+
+    <p>The following functionally equivalent code writes 128 bytes per call
+       to <a href="#write/2" class="seealso"><code>write/2</code></a> and so does the
+       same work in 0.08 seconds, which is roughly 30 times faster:</p>
+
+    <pre class="sh_erlang">
+create_file(Name) -&gt;
+    {ok, Fd} = file:open(Name, [raw, write, delayed_write, binary]),
+    create_file_1(Fd, 4 bsl 20),
+    file:close(Fd),
+    ok.
+
+create_file_1(_Fd, 0) -&gt;
+    ok;
+create_file_1(Fd, M) when M &gt;= 128 -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(128)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 128);
+create_file_1(Fd, M) -&gt;
+    ok = file:write(Fd, &lt;&lt;0:(M)/unit:8&gt;&gt;),
+    create_file_1(Fd, M - 1).</pre>
+
+    <p>When writing data it's generally more efficient to write a list of
+       binaries rather than a list of integers. It is not needed to
+       flatten a deep list before writing. On Unix hosts, scatter output,
+       which writes a set of buffers in one operation, is used when
+       possible. In this way <code>write(FD, [Bin1, Bin2 | Bin3])</code>
+       writes the contents of the binaries without copying the data
+       at all, except for perhaps deep down in the operating system
+       kernel.</p>
+    <div class="warning"><h2>Warning!</h2>
+        <p>If an error occurs when accessing an open file with module
+           <a href="../stdlib/io.html" class="seealso"><code>io</code></a>, the process
+           handling the file exits. The dead file process can hang if a process
+           tries to access it later. This will be fixed in a future release.
+           </p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="../stdlib/filename.html" class="seealso"><code>filename(3)</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

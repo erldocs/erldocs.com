@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>io (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>io</h1>
+  <h2 class="modsummary">Standard I/O server interface functions.</h2>
+  <div class="description">
+    <p>This module provides an interface to standard Erlang I/O servers.
+      The output functions all return <code>ok</code> if they are successful,
+      or exit if they are not.</p>
+ 
+   <p>All functions in this module have an optional
+      parameter <code>IoDevice</code>. If included, it must be the pid of a
+      process that handles the I/O protocols. Normally, it is the
+      <code>IoDevice</code> returned by
+      <a href="../kernel/file.html#open/2" class="seealso"><code>file:open/2</code></a>.</p>
+
+    <p>For a description of the I/O protocols, see section
+      <a href="io_protocol.html" class="seealso">The Erlang I/O Protocol</a>
+      in the User's Guide.</p>
+
+    <div class="warning"><h2>Warning!</h2>
+    <p>As from Erlang/OTP R13A, data supplied to function
+      <a href="#put_chars/2" class="seealso"><code>put_chars/2</code></a>
+      is to be in the <a href="unicode.html#type-chardata" class="seealso">
+      <code>unicode:chardata()</code></a> format. This means that programs
+      supplying binaries to this function must convert them to UTF-8
+      before trying to output the data on an I/O device.</p>
+    <p>If an I/O device is set in binary mode, functions
+      <a href="#get_chars/2" class="seealso"><code>get_chars/2,3</code></a> and
+      <a href="#get_line/1" class="seealso"><code>get_line/1,2</code></a>
+      can return binaries instead of lists.
+      The binaries are, as from Erlang/OTP R13A,
+      encoded in UTF-8.</p>
+    <p>To work with binaries in ISO Latin-1 encoding, use the
+      <a href="../kernel/file.html" class="seealso"><code>file</code></a> module instead.</p>
+    <p>For conversion functions between character encodings, see the
+      <a href="../stdlib/unicode.html" class="seealso"><code>unicode</code></a> module.</p>
+    </div>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-device">device() = atom() | pid()</h3>
+      <div class="description">
+        <p>An I/O device, either <code>standard_io</code>, <code>standard_error</code>, a
+          registered name, or a pid handling I/O protocols (returned from
+          <a href="../kernel/file.html#open/2" class="seealso"><code>file:open/2</code></a>).
+        </p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-opt_pair">opt_pair() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{binary, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{echo, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{expand_fun, <a href="#type-expand_fun" class="seealso">expand_fun()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{encoding, <a href="#type-encoding" class="seealso">encoding()</a>}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-expand_fun">expand_fun() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((term()) -&gt; {yes | no, string(), [string(), ...]})</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-encoding">encoding() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;latin1 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unicode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;utf8 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;utf16 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;utf32 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{utf16, big | little} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{utf32, big | little}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-setopt">setopt() = binary | list | <a href="#type-opt_pair" class="seealso">opt_pair()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-format">format() = atom() | string() | binary()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-location">location() = <a href="erl_anno.html#type-location" class="seealso">erl_anno:location()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-prompt">prompt() = atom() | <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-server_no_data">server_no_data() = {error, ErrorDescription :: term()} | eof</h3>
+      <div class="description"><p>What the I/O server sends when there is no data.</p></div>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="columns/0">columns() -&gt; {ok, integer() &gt;= 1} | {error, enotsup}</h3>
+      <h3 id="columns/1">columns(IoDevice) -&gt; {ok, integer() &gt;= 1} | {error, enotsup}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li></ul>
+      
+      <div class="description">
+          <p>Retrieves the number of columns of the
+          <code><anno>IoDevice</anno></code> (that is, the width of a terminal).
+          The function succeeds for terminal devices and returns
+          <code>{error, enotsup}</code> for all other I/O devices.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="format/1">format(Format) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li></ul>
+      <h3 id="format/2">format(Format, Data) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Data = [term()]</code></li></ul>
+      <h3 id="format/3">format(IoDevice, Format, Data) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Data = [term()]</code></li></ul>
+      <h3 id="fwrite/1">fwrite(Format) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li></ul>
+      <h3 id="fwrite/2">fwrite(Format, Data) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Data = [term()]</code></li></ul>
+      <h3 id="fwrite/3">fwrite(IoDevice, Format, Data) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Data = [term()]</code></li></ul>
+      
+      <div class="description">
+        <p>Writes the items in <code><anno>Data</anno></code> (<code>[]</code>) on the
+          standard output (<code><anno>IoDevice</anno></code>) in accordance with
+          <code><anno>Format</anno></code>. <code><anno>Format</anno></code> contains
+          plain characters that are copied to
+          the output device, and control sequences for formatting, see
+          below. If <code><anno>Format</anno></code> is an atom or a binary, it is
+          first converted to a list with the aid of <code>atom_to_list/1</code> or
+          <code>binary_to_list/1</code>. Example:</p>
+        <pre class="sh_erlang">
+1&gt; <code>io:fwrite("Hello world!~n", []).</code>
+Hello world!
+ok</pre>
+        <p>The general format of a control sequence is <code>~F.P.PadModC</code>.</p>
+        <p>The character <code>C</code> determines the type of control sequence
+          to be used. It is the only required field. All of <code>F</code>,
+          <code>P</code>, <code>Pad</code>, and <code>Mod</code> are optional. For example,
+          to use a <code>#</code> for <code>Pad</code> but use the default values for
+          <code>F</code> and <code>P</code>, you can write <code>~..#C</code>.</p>
+        <list type="bulleted">
+        <item>
+          <p><code>F</code> is the <code>field width</code> of the printed argument. A
+            negative value means that the argument is left-justified
+            within the field, otherwise right-justified. If no
+            field width is specified, the required print width is
+            used. If the field width specified is too small, the
+            whole field is filled with <code>*</code> characters.</p>
+        </item>
+        <item>
+          <p><code>P</code> is the <code>precision</code> of the printed argument. A
+            default value is used if no precision is specified. The
+            interpretation of precision depends on the control sequences.
+            Unless otherwise specified, argument <code>within</code> is used
+            to determine print width.</p>
+        </item>
+        <item>
+          <p><code>Pad</code> is the padding character. This is the character
+            used to pad the printed representation of the argument so that
+            it conforms to the specified field width and precision. Only
+            one padding character can be specified and, whenever
+            applicable, it is used for both the field width and precision.
+            The default padding character is <code>' '</code> (space).</p>
+        </item>
+        <item>
+          <p><code>Mod</code> is the control sequence modifier. This is
+            one or more characters that change the interpretation of
+            <code>Data</code>. The current modifiers are <code>t</code>, for Unicode
+            translation, and <code>l</code>, for stopping <code>p</code> and <code>P</code>
+            from detecting printable characters.</p>
+        </item>
+      </list>
+        <p>If <code>F</code>, <code>P</code>, or <code>Pad</code> is a <code>*</code> character,
+        the next argument in <code>Data</code> is used as the value.
+        For example:</p>
+        <pre class="sh_erlang">
+1&gt; <code>io:fwrite("~*.*.0f~n",[9, 5, 3.14159265]).</code>
+003.14159
+ok</pre>
+        <p>To use a literal <code>*</code> character as <code>Pad</code>, it must be
+          passed as an argument:</p>
+        <pre class="sh_erlang">
+2&gt; <code>io:fwrite("~*.*.*f~n",[9, 5, $*, 3.14159265]).</code>
+**3.14159
+ok</pre>
+        <p><em>Available control sequences:</em></p>
+        <taglist>
+          <dt><code>~</code></dt>
+          <item>
+            <p>Character <code>~</code> is written.</p>
+          </item>
+          <dt><code>c</code></dt>
+          <item>
+            <p>The argument is a number that is interpreted as an
+              ASCII code. The precision is the number of times the
+              character is printed and defaults to the field width,
+              which in turn defaults to 1. Example:</p>
+            <pre class="sh_erlang">
+1&gt; <code>io:fwrite("|~10.5c|~-10.5c|~5c|~n", [$a, $b, $c]).</code>
+|     aaaaa|bbbbb     |ccccc|
+ok</pre>
+            <p>If the Unicode translation modifier (<code>t</code>) is in effect,
+	    the integer argument can be any number representing a
+	    valid Unicode codepoint, otherwise it is to be an integer
+	    less than or equal to 255, otherwise it is masked with 16#FF:</p>
+<pre class="sh_erlang">
+2&gt; <code>io:fwrite("~tc~n",[1024]).</code>
+\x{400}
+ok
+3&gt; <code>io:fwrite("~c~n",[1024]).</code>
+^@
+ok</pre>
+          </item>
+          <dt><code>f</code></dt>
+          <item>
+            <p>The argument is a float that is written as
+              <code>[-]ddd.ddd</code>, where the precision is the number of
+              digits after the decimal point. The default precision is 6
+              and it cannot be &lt; 1.</p>
+          </item>
+          <dt><code>e</code></dt>
+          <item>
+            <p>The argument is a float that is written as
+              <code>[-]d.ddde+-ddd</code>, where the precision is the number
+              of digits written. The default precision is 6 and it
+              cannot be &lt; 2.</p>
+          </item>
+          <dt><code>g</code></dt>
+          <item>
+            <p>The argument is a float that is written as <code>f</code>, if
+              it is &gt;= 0.1 and &lt; 10000.0. Otherwise, it is written
+              in the <code>e</code> format. The precision is the number of
+              significant digits. It defaults to 6 and is not to be
+              &lt; 2. If the absolute value of the float does not
+              allow it to be written in the <code>f</code> format with the
+              desired number of significant digits, it is also written
+              in the <code>e</code> format.</p>
+          </item>
+          <dt><code>s</code></dt>
+          <item>
+            <p>Prints the argument with the string syntax. The
+              argument is, if no Unicode translation modifier is present, an 
+              <code>iolist()</code>, a <code>binary()</code>, or an <code>atom()</code>.
+              If the Unicode translation modifier (<code>t</code>) is in effect,
+              the argument is <code>unicode:chardata()</code>, meaning that
+              binaries are in UTF-8. The characters
+              are printed without quotes. The string is first truncated
+              by the specified precision and then padded and justified to the
+              specified field width. The default precision is the field width.
+            </p>
+            <p>This format can be used for printing any object and
+              truncating the output so it fits a specified field:</p>
+            <pre class="sh_erlang">
+1&gt; <code>io:fwrite("|~10w|~n", [{hey, hey, hey}]).</code>
+|**********|
+ok
+2&gt; <code>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</code>
+|{hey,hey,h|
+3&gt; <code>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</code>
+|{hey,hey  |
+ok</pre>
+          <p>A list with integers &gt; 255 is considered an error if the
+            Unicode translation modifier is not specified:</p>
+<pre class="sh_erlang">
+4&gt; <code>io:fwrite("~ts~n",[[1024]]).</code>
+\x{400}
+ok
+5&gt; <code>io:fwrite("~s~n",[[1024]]).</code>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0&gt;,"~s~n",[[1024]])</pre>
+          </item>
+          <dt><code>w</code></dt>
+          <item>
+            <p>Writes data with the standard syntax. This is used to
+              output Erlang terms. Atoms are printed within quotes if
+              they contain embedded non-printable characters.
+	      Atom characters &gt; 255 are escaped unless the
+	      Unicode translation modifier (<code>t</code>) is used.
+              Floats are printed accurately as the shortest, correctly
+              rounded string.</p>
+          </item>
+          <dt><code>p</code></dt>
+          <item>
+            <p>Writes the data with standard syntax in the same way as
+              <code>~w</code>, but breaks terms whose printed representation
+              is longer than one line into many lines and indents each
+              line sensibly. Left-justification is not supported.
+              It also tries to detect flat lists of
+              printable characters and output these as strings.
+              For example:</p>
+            <pre class="sh_erlang">
+1&gt; <code>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</code>
+<code>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</code>
+<code>{typename,'Person'},{tag,{'PRIVATE',3}},{mode,implicit}].</code>
+...
+2&gt; <code>io:fwrite("~w~n", [T]).</code>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,
+[73,78,84,69,71,69,82]}],[{id,cho},{mode,explicit},{typena
+me,'Cho'}]]},{typename,'Person'},{tag,{'PRIVATE',3}},{mode
+,implicit}]
+ok
+3&gt; <code>io:fwrite("~62p~n", [T]).</code>
+[{attributes,[[{id,age,1.5},
+               {mode,explicit},
+               {typename,"INTEGER"}],
+              [{id,cho},{mode,explicit},{typename,'Cho'}]]},
+ {typename,'Person'},
+ {tag,{'PRIVATE',3}},
+ {mode,implicit}]
+ok</pre>
+            <p>The field width specifies the maximum line length.
+              It defaults to 80. The precision specifies the initial
+              indentation of the term. It defaults to the number of
+              characters printed on this line in the <em>same</em> call to
+              <a href="#write/1" class="seealso"><code>write/1</code></a> or
+              <a href="#format/1" class="seealso"><code>format/1,2,3</code></a>.
+              For example, using <code>T</code> above:</p>
+            <pre class="sh_erlang">
+4&gt; <code>io:fwrite("Here T = ~62p~n", [T]).</code>
+Here T = [{attributes,[[{id,age,1.5},
+                        {mode,explicit},
+                        {typename,"INTEGER"}],
+                       [{id,cho},
+                        {mode,explicit},
+                        {typename,'Cho'}]]},
+          {typename,'Person'},
+          {tag,{'PRIVATE',3}},
+          {mode,implicit}]
+ok</pre>
+
+            <p>As from Erlang/OTP 21.0, a field width of value
+	      <code>0</code> can be used for specifying that a line is
+	      infinitely long, which means that no line breaks
+	      are inserted. For example:</p>
+
+	    <pre class="sh_erlang">
+5&gt; <code>io:fwrite("~0p~n", [lists:seq(1, 30)]).</code>
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+ok</pre>
+
+            <p>When the modifier <code>l</code> is specified, no detection of
+              printable character lists takes place, for example:</p>
+            <pre class="sh_erlang">
+6&gt; <code>S = [{a,"a"}, {b, "b"}],
+   io:fwrite("~15p~n", [S]).</code>
+[{a,"a"},
+ {b,"b"}]
+ok
+7&gt; <code>io:fwrite("~15lp~n", [S]).</code>
+[{a,[97]},
+ {b,[98]}]
+ok</pre>
+            <p>The Unicode translation modifier <code>t</code> specifies how to treat
+              characters outside the Latin-1 range of codepoints, in
+              atoms, strings, and binaries. For example, printing an atom
+              containing a character &gt; 255:</p>
+            <pre class="sh_erlang">
+8&gt; <code>io:fwrite("~p~n",[list_to_atom([1024])]).</code>
+'\x{400}'
+ok
+9&gt; <code>io:fwrite("~tp~n",[list_to_atom([1024])]).</code>
+'Ѐ'
+ok</pre>
+            <p>By default, Erlang only detects lists of characters
+              in the Latin-1 range as strings, but the <code>+pc unicode</code>
+              flag can be used to change this (see <a href="#printable_range/0" class="seealso">
+              <code>printable_range/0</code></a> for details). For example:</p>
+            <pre class="sh_erlang">
+10&gt; <code>io:fwrite("~p~n",[[214]]).</code>
+"Ö"
+ok
+11&gt; <code>io:fwrite("~p~n",[[1024]]).</code>
+[1024]
+ok
+12&gt; <code>io:fwrite("~tp~n",[[1024]]).</code>
+[1024]
+ok
+</pre>
+            <p>but if Erlang was started with <code>+pc unicode</code>:</p>
+            <pre class="sh_erlang">
+13&gt; <code>io:fwrite("~p~n",[[1024]]).</code>
+[1024]
+ok
+14&gt; <code>io:fwrite("~tp~n",[[1024]]).</code>
+"Ѐ"
+ok</pre>
+            <p>Similarly, binaries that look like UTF-8 encoded strings
+              are output with the binary string syntax if the <code>t</code>
+              modifier is specified:</p>
+            <pre class="sh_erlang">
+15&gt; <code>io:fwrite("~p~n", [&lt;&lt;208,128&gt;&gt;]).</code>
+&lt;&lt;208,128&gt;&gt;
+ok
+16&gt; <code>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</code>
+&lt;&lt;"Ѐ"/utf8&gt;&gt;
+ok
+17&gt; <code>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</code>
+&lt;&lt;128,128&gt;&gt;
+ok</pre>
+          </item>
+          <dt><code>W</code></dt>
+          <item>
+            <p>Writes data in the same way as <code>~w</code>, but takes an
+              extra argument that is the maximum depth to which terms
+              are printed. Anything below this depth is replaced with
+              <code>...</code>. For example, using <code>T</code> above:</p>
+            <pre class="sh_erlang">
+8&gt; <code>io:fwrite("~W~n", [T,9]).</code>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
+[{id,cho},{mode,...},{...}]]},{typename,'Person'},
+{tag,{'PRIVATE',3}},{mode,implicit}]
+ok</pre>
+            <p>If the maximum depth is reached, it cannot
+              be read in the resultant output. Also, the
+              <code>,...</code> form in a tuple denotes that there are more
+              elements in the tuple but these are below the print depth.</p>
+          </item>
+          <dt><code>P</code></dt>
+          <item>
+            <p>Writes data in the same way as <code>~p</code>, but takes an
+              extra argument that is the maximum depth to which terms
+              are printed. Anything below this depth is replaced with
+              <code>...</code>, for example:</p>
+            <pre class="sh_erlang">
+9&gt; <code>io:fwrite("~62P~n", [T,9]).</code>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
+              [{id,cho},{mode,...},{...}]]},
+ {typename,'Person'},
+ {tag,{'PRIVATE',3}},
+ {mode,implicit}]
+ok</pre>
+          </item>
+          <dt><code>B</code></dt>
+          <item>
+            <p>Writes an integer in base 2-36, the default base is
+              10. A leading dash is printed for negative integers.</p>
+            <p>The precision field selects base, for example:</p>
+            <pre class="sh_erlang">
+1&gt; <code>io:fwrite("~.16B~n", [31]).</code>
+1F
+ok
+2&gt; <code>io:fwrite("~.2B~n", [-19]).</code>
+-10011
+ok
+3&gt; <code>io:fwrite("~.36B~n", [5*36+35]).</code>
+5Z
+ok</pre>
+          </item>
+          <dt><code>X</code></dt>
+          <item>
+            <p>Like <code>B</code>, but takes an extra argument that is a
+              prefix to insert before the number, but after the leading
+              dash, if any.</p>
+            <p>The prefix can be a possibly deep list of characters or
+              an atom. Example:</p>
+            <pre class="sh_erlang">
+1&gt; <code>io:fwrite("~X~n", [31,"10#"]).</code>
+10#31
+ok
+2&gt; <code>io:fwrite("~.16X~n", [-31,"0x"]).</code>
+-0x1F
+ok</pre>
+          </item>
+          <dt><code>#</code></dt>
+          <item>
+            <p>Like <code>B</code>, but prints the number with an Erlang style
+              <code>#</code>-separated base prefix. Example:</p>
+            <pre class="sh_erlang">
+1&gt; <code>io:fwrite("~.10#~n", [31]).</code>
+10#31
+ok
+2&gt; <code>io:fwrite("~.16#~n", [-31]).</code>
+-16#1F
+ok</pre>
+          </item>
+          <dt><code>b</code></dt>
+          <item>
+            <p>Like <code>B</code>, but prints lowercase letters.</p>
+          </item>
+          <dt><code>x</code></dt>
+          <item>
+            <p>Like <code>X</code>, but prints lowercase letters.</p>
+          </item>
+          <dt><code>+</code></dt>
+          <item>
+            <p>Like <code>#</code>, but prints lowercase letters.</p>
+          </item>
+          <dt><code>n</code></dt>
+          <item>
+            <p>Writes a new line.</p>
+          </item>
+          <dt><code>i</code></dt>
+          <item>
+            <p>Ignores the next term.</p>
+          </item>
+        </taglist>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>ok</code></dt>
+          <item>
+            <p>The formatting succeeded.</p>
+          </item>
+        </taglist>
+        <p>If an error occurs, there is no output. Example:</p>
+        <pre class="sh_erlang">
+1&gt; <code>io:fwrite("~s ~w ~i ~w ~c ~n",['abc def', 'abc def', {foo, 1},{foo, 1}, 65]).</code>
+abc def 'abc def'  {foo,1} A
+ok
+2&gt; <code>io:fwrite("~s", [65]).</code>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0&gt;,"~s","A")</pre>
+        <p>In this example, an attempt was made to output the single
+          character 65 with the aid of the string formatting directive
+          <code>"~s"</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="fread/2">fread(Prompt, Format) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Terms :: [term()]} | eof | {error, What :: term()}</code></li></ul>
+      <h3 id="fread/3">fread(IoDevice, Prompt, Format) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Format = <a href="#type-format" class="seealso">format()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Terms :: [term()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error, {fread, FreadError :: <a href="io_lib.html#type-fread_error" class="seealso">io_lib:fread_error()</a>}} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads characters from the standard input
+          (<code><anno>IoDevice</anno></code>), prompting it with
+          <code><anno>Prompt</anno></code>. Interprets the characters in accordance
+          with <code><anno>Format</anno></code>. <code><anno>Format</anno></code> contains
+          control sequences that directs the interpretation of the input.</p>
+        <p><code><anno>Format</anno></code> can contain the following:</p>
+        <list type="bulleted">
+          <item>
+            <p>Whitespace characters (<em>Space</em>, <em>Tab</em>, and
+              <em>Newline</em>) that cause input to be read to the next
+              non-whitespace character.</p>
+          </item>
+          <item>
+            <p>Ordinary characters that must match the next input
+              character.</p>
+          </item>
+          <item>
+            <p>Control sequences, which have the general format
+              <code>~*FMC</code>, where:</p>
+              <list type="bulleted">
+                <item>
+                  <p>Character <code>*</code> is an optional return suppression
+                    character. It provides a method to specify a field that
+                    is to be omitted.</p>
+                </item>
+                <item>
+                  <p><code>F</code> is the <code>field width</code> of the input field.</p>
+                </item>
+                <item>
+                  <p><code>M</code> is an optional translation modifier (of which
+                    <code>t</code> is the only supported, meaning Unicode
+                    translation).</p>
+                </item>
+                <item>
+                  <p><code>C</code> determines the type of control sequence.</p>
+                </item>
+              </list>
+            <p>Unless otherwise specified, leading whitespace is
+              ignored for all control sequences. An input field cannot
+              be more than one line wide.</p>
+            <p><em>Available control sequences:</em></p>
+            <taglist>
+              <dt><code>~</code></dt>
+              <item>
+                <p>A single <code>~</code> is expected in the input.</p>
+              </item>
+              <dt><code>d</code></dt>
+              <item>
+                <p>A decimal integer is expected.</p>
+              </item>
+              <dt><code>u</code></dt>
+              <item>
+                <p>An unsigned integer in base 2-36 is expected. The
+                  field width parameter is used to specify base. Leading
+                  whitespace characters are not skipped.</p>
+              </item>
+              <dt><code>-</code></dt>
+              <item>
+                <p>An optional sign character is expected. A sign
+                  character <code>-</code> gives return value <code>-1</code>. Sign
+                  character <code>+</code> or none gives <code>1</code>. The field width
+                  parameter is ignored. Leading whitespace characters
+                  are not skipped.</p>
+              </item>
+              <dt><code>#</code></dt>
+              <item>
+                <p>An integer in base 2-36 with Erlang-style base
+                  prefix (for example, <code>"16#ffff"</code>) is expected.</p>
+              </item>
+              <dt><code>f</code></dt>
+              <item>
+                <p>A floating point number is expected. It must follow
+                  the Erlang floating point number syntax.</p>
+              </item>
+              <dt><code>s</code></dt>
+              <item>
+                <p>A string of non-whitespace characters is read. If a
+                  field width has been specified, this number of
+                  characters are read and all trailing whitespace
+                  characters are stripped. An Erlang string (list of
+                  characters) is returned.</p>
+                <p>If Unicode translation is in effect (<code>~ts</code>),
+                  characters &gt; 255 are accepted, otherwise
+                  not. With the translation modifier, the returned
+                  list can as a consequence also contain integers &gt; 255:</p>
+<pre class="sh_erlang">
+1&gt; <code>io:fread("Prompt&gt; ","~s").</code>
+Prompt&gt; <code>&lt;Characters beyond latin1 range not printable in this medium&gt;</code>
+{error,{fread,string}}
+2&gt; <code>io:fread("Prompt&gt; ","~ts").</code>
+Prompt&gt; <code>&lt;Characters beyond latin1 range not printable in this medium&gt;</code>
+{ok,[[1091,1085,1080,1094,1086,1076,1077]]}</pre>
+              </item>
+              <dt><code>a</code></dt>
+              <item>
+                <p>Similar to <code>s</code>, but the resulting string is
+                  converted into an atom.</p>
+              </item>
+              <dt><code>c</code></dt>
+              <item>
+                <p>The number of characters equal to the field width are
+                  read (default is 1) and returned as an Erlang string.
+                  However, leading and trailing whitespace characters
+                  are not omitted as they are with <code>s</code>. All
+                  characters are returned.</p>
+                <p>The Unicode translation modifier works as with <code>s</code>:
+                </p>
+<pre class="sh_erlang">
+1&gt; <code>io:fread("Prompt&gt; ","~c").</code>
+Prompt&gt; <code>&lt;Character beyond latin1 range not printable in this medium&gt;</code>
+{error,{fread,string}}
+2&gt; <code>io:fread("Prompt&gt; ","~tc").</code>
+Prompt&gt; <code>&lt;Character beyond latin1 range not printable in this medium&gt;</code>
+{ok,[[1091]]}</pre>
+              </item>
+              <dt><code>l</code></dt>
+              <item>
+                <p>Returns the number of characters that have been
+                  scanned up to that point, including whitespace
+                  characters.</p>
+              </item>
+            </taglist>
+            <p>The function returns:</p>
+            <taglist>
+              <dt><code>{ok, <anno>Terms</anno>}</code></dt>
+              <item>
+                <p>The read was successful and <code><anno>Terms</anno></code> is
+                  the list of successfully matched and read items.</p>
+              </item>
+              <dt><code>eof</code></dt>
+              <item>
+                <p>End of file was encountered.</p>
+              </item>
+              <dt><code>{error, <anno>FreadError</anno>}</code></dt>
+              <item>
+                <p>The reading failed and <code>FreadError</code> gives a
+                  hint about the error.</p>
+              </item>
+              <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+              <item>
+                <p>The read operation failed and parameter
+                  <code><anno>ErrorDescription</anno></code> gives a hint about
+                  the error.</p>
+              </item>
+            </taglist>
+          </item>
+        </list>
+        <p><em>Examples:</em></p>
+        <pre class="sh_erlang">
+20&gt; <code>io:fread('enter&gt;', "~f~f~f").</code>
+enter&gt;<code>1.9 35.5e3 15.0</code>
+{ok,[1.9,3.55e4,15.0]}
+21&gt; <code>io:fread('enter&gt;', "~10f~d").</code>
+enter&gt;     <code>5.67899</code>
+{ok,[5.678,99]}
+22&gt; <code>io:fread('enter&gt;', ":~10s:~10c:").</code>
+enter&gt;<code>:</code>   <code>alan</code>   <code>:</code>   <code>joe</code>    <code>:</code>
+{ok, ["alan", "   joe    "]}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_chars/2">get_chars(Prompt, Count) -&gt; Data | <a href="#type-server_no_data" class="seealso">server_no_data()</a></h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Count = integer() &gt;= 0</code></li><li><code>Data = string() | <a href="unicode.html#type-unicode_binary" class="seealso">unicode:unicode_binary()</a></code></li></ul>
+      <h3 id="get_chars/3">get_chars(IoDevice, Prompt, Count) -&gt; Data | <a href="#type-server_no_data" class="seealso">server_no_data()</a></h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Count = integer() &gt;= 0</code></li><li><code>Data = string() | <a href="unicode.html#type-unicode_binary" class="seealso">unicode:unicode_binary()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads <code><anno>Count</anno></code> characters from standard input
+          (<code><anno>IoDevice</anno></code>), prompting it with
+          <code><anno>Prompt</anno></code>.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code><anno>Data</anno></code></dt>
+          <item>
+            <p>The input characters. If the I/O device supports Unicode,
+              the data can represent codepoints &gt; 255 (the
+              <code>latin1</code> range). If the I/O server is set to deliver
+              binaries, they are encoded in UTF-8 (regardless of whether
+              the I/O device supports Unicode).</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+             if reading from an NFS file system.</p>
+	  </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_line/1">get_line(Prompt) -&gt; Data | <a href="#type-server_no_data" class="seealso">server_no_data()</a></h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Data = string() | <a href="unicode.html#type-unicode_binary" class="seealso">unicode:unicode_binary()</a></code></li></ul>
+      <h3 id="get_line/2">get_line(IoDevice, Prompt) -&gt; Data | <a href="#type-server_no_data" class="seealso">server_no_data()</a></h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Data = string() | <a href="unicode.html#type-unicode_binary" class="seealso">unicode:unicode_binary()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads a line from the standard input (<code><anno>IoDevice</anno></code>),
+          prompting it with <code><anno>Prompt</anno></code>.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code><anno>Data</anno></code></dt>
+          <item>
+            <p>The characters in the line terminated by a line feed (or end of
+              file). If the I/O device supports Unicode,
+              the data can represent codepoints &gt; 255 (the
+              <code>latin1</code> range). If the I/O server is set to deliver
+              binaries, they are encoded in UTF-8 (regardless of if
+              the I/O device supports Unicode).</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+	  </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="getopts/0">getopts() -&gt; [<a href="#type-opt_pair" class="seealso">opt_pair()</a>] | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Reason = term()</code></li></ul>
+      <h3 id="getopts/1">getopts(IoDevice) -&gt; [<a href="#type-opt_pair" class="seealso">opt_pair()</a>] | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+      <p>Requests all available options and their current
+        values for a specific I/O device, for example:</p>
+<pre class="sh_erlang">
+1&gt; <code>{ok,F} = file:open("/dev/null",[read]).</code>
+{ok,&lt;0.42.0&gt;}
+2&gt; <code>io:getopts(F).</code>
+[{binary,false},{encoding,latin1}]</pre>
+      <p>Here the file I/O server returns all available options for a file,
+        which are the expected ones, <code>encoding</code> and <code>binary</code>.
+        However, the standard shell has some more options:</p>
+<pre class="sh_erlang">
+3&gt; io:getopts().
+[{expand_fun,#Fun&lt;group.0.120017273&gt;},
+ {echo,true},
+ {binary,false},
+ {encoding,unicode}]</pre>
+      <p>This example is, as can be seen, run in an environment where the
+        terminal supports Unicode input and output.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="nl/0">nl() -&gt; ok</h3>
+      <h3 id="nl/1">nl(IoDevice) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Writes new line to the standard output
+          (<code><anno>IoDevice</anno></code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="parse_erl_exprs/1">parse_erl_exprs(Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="#type-parse_ret" class="seealso">parse_ret()</a></code></li></ul>
+      <h3 id="parse_erl_exprs/2">parse_erl_exprs(IoDevice, Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="#type-parse_ret" class="seealso">parse_ret()</a></code></li></ul>
+      <h3 id="parse_erl_exprs/3">parse_erl_exprs(IoDevice, Prompt, StartLocation) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Result = <a href="#type-parse_ret" class="seealso">parse_ret()</a></code></li></ul>
+      <h3 id="parse_erl_exprs/4">parse_erl_exprs(IoDevice, Prompt, StartLocation, Options) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Options = <a href="erl_scan.html#type-options" class="seealso">erl_scan:options()</a></code></li><li><code>Result = <a href="#type-parse_ret" class="seealso">parse_ret()</a></code></li></ul>
+      
+      <ul class="type"><li><code>parse_ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExprList :: [<a href="erl_parse.html#type-abstract_expr" class="seealso">erl_parse:abstract_expr()</a>],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{eof, EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ErrorInfo :: <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ErrorLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads data from the standard input
+          (<code><anno>IoDevice</anno></code>), prompting it with
+          <code><anno>Prompt</anno></code>. Starts reading at location
+          <code><anno>StartLocation</anno></code> (<code>1</code>). Argument
+          <code><anno>Options</anno></code> is passed on as argument
+          <code>Options</code> of function <a href="erl_scan.html#tokens/4" class="seealso">
+          <code>erl_scan:tokens/4</code></a>. The data is tokenized and parsed
+          as if it was a sequence of Erlang expressions until a final dot
+          (<code>.</code>) is reached.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, ExprList, EndLocation}</code></dt>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <dt><code>{eof, EndLocation}</code></dt>
+          <item>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered by the I/O server.</p>
+          </item>
+          <dt><code>{error, ErrorInfo, ErrorLocation}</code></dt>
+          <item>
+            <p>An error occurred while tokenizing or parsing.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <pre class="sh_erlang">
+25&gt; <code>io:parse_erl_exprs('enter&gt;').</code>
+enter&gt;<code>abc(), "hey".</code>
+{ok, [{call,1,{atom,1,abc},[]},{string,1,"hey"}],2}
+26&gt; <code>io:parse_erl_exprs ('enter&gt;').</code>
+enter&gt;<code>abc("hey".</code>
+{error,{1,erl_parse,["syntax error before: ",["'.'"]]},2}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="parse_erl_form/1">parse_erl_form(Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="#type-parse_form_ret" class="seealso">parse_form_ret()</a></code></li></ul>
+      <h3 id="parse_erl_form/2">parse_erl_form(IoDevice, Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="#type-parse_form_ret" class="seealso">parse_form_ret()</a></code></li></ul>
+      <h3 id="parse_erl_form/3">parse_erl_form(IoDevice, Prompt, StartLocation) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Result = <a href="#type-parse_form_ret" class="seealso">parse_form_ret()</a></code></li></ul>
+      <h3 id="parse_erl_form/4">parse_erl_form(IoDevice, Prompt, StartLocation, Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Options = <a href="erl_scan.html#type-options" class="seealso">erl_scan:options()</a></code></li><li><code>Result = <a href="#type-parse_form_ret" class="seealso">parse_form_ret()</a></code></li></ul>
+      
+      <ul class="type"><li><code>parse_form_ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AbsForm :: <a href="erl_parse.html#type-abstract_form" class="seealso">erl_parse:abstract_form()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{eof, EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ErrorInfo :: <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ErrorLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads data from the standard input (<code><anno>IoDevice</anno></code>),
+          prompting it with <code><anno>Prompt</anno></code>. Starts reading at
+          location <code><anno>StartLocation</anno></code> (<code>1</code>). Argument
+          <code><anno>Options</anno></code> is passed on as argument
+          <code>Options</code> of function <a href="erl_scan.html#tokens/4" class="seealso">
+          <code>erl_scan:tokens/4</code></a>. The data is tokenized and parsed
+          as if it was an Erlang form (one of the valid Erlang expressions
+          in an Erlang source file) until a final dot (<code>.</code>) is reached.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, AbsForm, EndLocation}</code></dt>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <dt><code>{eof, EndLocation}</code></dt>
+          <item>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered by the I/O server.</p>
+          </item>
+          <dt><code>{error, ErrorInfo, ErrorLocation}</code></dt>
+          <item>
+            <p>An error occurred while tokenizing or parsing.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="printable_range/0">printable_range() -&gt; unicode | latin1</h3>
+      
+      <div class="description">
+        <p>Returns the user-requested range of printable Unicode characters.</p>
+        <p>The user can request a range of characters that are to be considered
+          printable in heuristic detection of strings by the shell and by the
+          formatting functions. This is done by supplying
+          <code>+pc &lt;range&gt;</code> when starting Erlang.</p>
+        <p>The only valid values for <code>&lt;range&gt;</code> are
+          <code>latin1</code> and <code>unicode</code>. <code>latin1</code> means that only code
+          points &lt; 256 (except control characters, and so on)
+          are considered printable. <code>unicode</code> means that all printable
+          characters in all Unicode character ranges are considered printable
+          by the I/O functions.</p>
+        <p>By default, Erlang is started so that only the <code>latin1</code> range
+          of characters indicate that a list of integers is a string.</p>
+        <p>The simplest way to use the setting is to call
+          <a href="io_lib.html#printable_list/1" class="seealso">
+          <code>io_lib:printable_list/1</code></a>, which uses the return
+          value of this function to decide if a list is a string of printable
+          characters.</p>
+        <div class="note"><h2>Note!</h2>
+          <p>In a future release, this function may return more values and
+            ranges. To avoid compatibility problems, it is recommended to use
+            function <a href="io_lib.html#printable_list/1" class="seealso">
+            <code>io_lib:printable_list/1</code></a>.</p></div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="put_chars/1">put_chars(CharData) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>CharData = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="put_chars/2">put_chars(IoDevice, CharData) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>CharData = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Writes the characters of <code><anno>CharData</anno></code> to the I/O
+          server (<code><anno>IoDevice</anno></code>).</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="read/1">read(Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Term :: term()} | <a href="#type-server_no_data" class="seealso">server_no_data()</a> | {error, ErrorInfo}</code></li><li><code>ErrorInfo = <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a></code></li></ul>
+      <h3 id="read/2">read(IoDevice, Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Term :: term()} | <a href="#type-server_no_data" class="seealso">server_no_data()</a> | {error, ErrorInfo}</code></li><li><code>ErrorInfo = <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads a term <code><anno>Term</anno></code> from the standard input
+          (<code><anno>IoDevice</anno></code>), prompting it with
+          <code><anno>Prompt</anno></code>.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, <anno>Term</anno>}</code></dt>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorInfo</anno>}</code></dt>
+          <item>
+            <p>The parsing failed.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="read/3">read(IoDevice, Prompt, StartLocation) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Term :: term(), EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{eof, EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-server_no_data" class="seealso">server_no_data()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error, ErrorInfo, ErrorLocation :: <a href="#type-location" class="seealso">location()</a>}</code></li><li><code>ErrorInfo = <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a></code></li></ul>
+      <h3 id="read/4">read(IoDevice, Prompt, StartLocation, Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Options = <a href="erl_scan.html#type-options" class="seealso">erl_scan:options()</a></code></li><li><code>Result = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Term :: term(), EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{eof, EndLocation :: <a href="#type-location" class="seealso">location()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-server_no_data" class="seealso">server_no_data()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error, ErrorInfo, ErrorLocation :: <a href="#type-location" class="seealso">location()</a>}</code></li><li><code>ErrorInfo = <a href="erl_scan.html#type-error_info" class="seealso">erl_scan:error_info()</a> | <a href="erl_parse.html#type-error_info" class="seealso">erl_parse:error_info()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads a term <code><anno>Term</anno></code> from
+          <code><anno>IoDevice</anno></code>, prompting it
+          with <code><anno>Prompt</anno></code>. Reading starts at location
+          <code><anno>StartLocation</anno></code>. Argument
+          <code><anno>Options</anno></code> is passed on as argument <code>Options</code>
+          of function <a href="erl_scan.html#tokens/4" class="seealso">
+          <code>erl_scan:tokens/4</code></a>.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, Term, <anno>EndLocation</anno>}</code></dt>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <dt><code>{eof, <anno>EndLocation</anno>}</code></dt>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorInfo</anno>,
+            <anno>ErrorLocation</anno>}</code></dt>
+          <item>
+            <p>The parsing failed.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="rows/0">rows() -&gt; {ok, integer() &gt;= 1} | {error, enotsup}</h3>
+      <h3 id="rows/1">rows(IoDevice) -&gt; {ok, integer() &gt;= 1} | {error, enotsup}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li></ul>
+      
+      <div class="description">
+          <p>Retrieves the number of rows of <code><anno>IoDevice</anno></code>
+          (that is, the height of a terminal). The function
+          only succeeds for terminal devices, for all other I/O devices
+          the function returns <code>{error, enotsup}</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="scan_erl_exprs/1">scan_erl_exprs(Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_exprs/2">scan_erl_exprs(Device, Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Device = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_exprs/3">scan_erl_exprs(Device, Prompt, StartLocation) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Device = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_exprs/4">scan_erl_exprs(Device, Prompt, StartLocation, Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Device = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Options = <a href="erl_scan.html#type-options" class="seealso">erl_scan:options()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads data from the standard input (<code>IoDevice</code>),
+          prompting it with <code>Prompt</code>. Reading starts at location
+          <code>StartLocation</code> (<code>1</code>). Argument <code><anno>Options</anno></code>
+          is passed on as argument <code>Options</code> of function
+          <a href="erl_scan.html#tokens/4" class="seealso">
+          <code>erl_scan:tokens/4</code></a>. The data is tokenized as if it
+          were a sequence of Erlang expressions until a final dot (<code>.</code>) is
+          reached. This token is also returned.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <dt><code>{ok, Tokens, EndLocation}</code></dt>
+          <item>
+            <p>The tokenization succeeded.</p>
+          </item>
+          <dt><code>{eof, EndLocation}</code></dt>
+          <item>
+            <p>End of file was encountered by the tokenizer.</p>
+          </item>
+          <dt><code>eof</code></dt>
+          <item>
+            <p>End of file was encountered by the I/O server.</p>
+          </item>
+          <dt><code>{error, ErrorInfo, ErrorLocation}</code></dt>
+          <item>
+            <p>An error occurred while tokenizing.</p>
+          </item>
+          <dt><code>{error, <anno>ErrorDescription</anno>}</code></dt>
+          <item>
+            <p>Other (rare) error condition, such as <code>{error, estale}</code>
+              if reading from an NFS file system.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+23&gt; <code>io:scan_erl_exprs('enter&gt;').</code>
+enter&gt;<code>abc(), "hey".</code>
+{ok,[{atom,1,abc},{'(',1},{')',1},{',',1},{string,1,"hey"},{dot,1}],2}
+24&gt; <code>io:scan_erl_exprs('enter&gt;').</code>
+enter&gt;<code>1.0er.</code>
+{error,{1,erl_scan,{illegal,float}},2}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="scan_erl_form/1">scan_erl_form(Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_form/2">scan_erl_form(IoDevice, Prompt) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_form/3">scan_erl_form(IoDevice, Prompt, StartLocation) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      <h3 id="scan_erl_form/4">scan_erl_form(IoDevice, Prompt, StartLocation, Options) -&gt; Result</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Prompt = <a href="#type-prompt" class="seealso">prompt()</a></code></li><li><code>StartLocation = <a href="#type-location" class="seealso">location()</a></code></li><li><code>Options = <a href="erl_scan.html#type-options" class="seealso">erl_scan:options()</a></code></li><li><code>Result = <a href="erl_scan.html#type-tokens_result" class="seealso">erl_scan:tokens_result()</a> | <a href="#type-server_no_data" class="seealso">server_no_data()</a></code></li></ul>
+      
+      <ul class="type"><li><code>server_no_data() = {error, ErrorDescription :: term()} | eof</code></li></ul>
+      <div class="description">
+        <p>Reads data from the standard input (<code><anno>IoDevice</anno></code>),
+          prompting it with <code><anno>Prompt</anno></code>. Starts reading
+          at location <code><anno>StartLocation</anno></code> (<code>1</code>).
+          Argument <code><anno>Options</anno></code> is passed on as argument
+          <code>Options</code> of function <a href="erl_scan.html#tokens/4" class="seealso">
+          <code>erl_scan:tokens/4</code></a>. The data is tokenized as if it
+          was an Erlang form (one of the valid Erlang expressions in an
+          Erlang source file) until a final dot (<code>.</code>) is reached.
+          This last token is also returned.</p>
+        <p>The return values are the same as for
+          <a href="#scan_erl_exprs/1" class="seealso">
+          <code>scan_erl_exprs/1,2,3,4</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="setopts/1">setopts(Opts) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Opts = [<a href="#type-setopt" class="seealso">setopt()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="setopts/2">setopts(IoDevice, Opts) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Opts = [<a href="#type-setopt" class="seealso">setopt()</a>]</code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Set options for the standard I/O device
+          (<code><anno>IoDevice</anno></code>).</p>
+        <p>Possible options and values vary depending on the
+          I/O device. For a list of supported options and their current values
+          on a specific I/O device, use function
+          <a href="#getopts/1" class="seealso"><code>getopts/1</code></a>.</p>
+        <p>The options and values supported by the OTP I/O devices
+          are as follows:</p>
+        <taglist>
+          <dt><code>binary</code>, <code>list</code>, or <code>{binary, boolean()}</code></dt>
+          <item>
+            <p>If set in binary mode (<code>binary</code> or <code>{binary, true}</code>),
+              the I/O server sends binary data (encoded in UTF-8) as answers
+              to the <code>get_line</code>, <code>get_chars</code>, and, if possible,
+              <code>get_until</code> requests (for details, see section
+              <a href="io_protocol.html" class="seealso">The Erlang I/O Protocol</a>)
+              in the User's Guide). The immediate effect is that
+              <a href="#get_chars/2" class="seealso"><code>get_chars/2,3</code></a> and
+              <a href="#get_line/1" class="seealso"><code>get_line/1,2</code></a>
+              return UTF-8 binaries instead of lists of characters
+              for the affected I/O device.</p>
+            <p>By default, all I/O devices in OTP are set in <code>list</code> mode.
+              However, the I/O functions can handle any of these modes and so
+              should other, user-written, modules behaving as clients to I/O
+              servers.</p>
+            <p>This option is supported by the standard shell
+              (<code>group.erl</code>), the 'oldshell' (<code>user.erl</code>), and the
+              file I/O servers.</p>
+          </item>
+          <dt><code>{echo, boolean()}</code></dt>
+          <item>
+            <p>Denotes if the terminal is to echo input. Only supported for
+              the standard shell I/O server (<code>group.erl</code>)</p>
+          </item>
+          <dt><code>{expand_fun, expand_fun()}</code></dt>
+          <item>
+            <p>Provides a function for tab-completion (expansion)
+              like the Erlang shell. This function is called
+              when the user presses the <em>Tab</em> key. The expansion is
+              active when calling line-reading functions, such as
+              <a href="#get_line/1" class="seealso"><code>get_line/1,2</code></a>.</p>
+            <p>The function is called with the current line, up to
+              the cursor, as a reversed string. It is to return a
+              three-tuple: <code>{yes|no, string(), [string(), ...]}</code>. The
+              first element gives a beep if <code>no</code>, otherwise the
+              expansion is silent; the second is a string that will be
+              entered at the cursor position; the third is a list of
+              possible expansions. If this list is not empty,
+              it is printed and the current input line is written
+              once again.</p>
+            <p>Trivial example (beep on anything except empty line, which
+              is expanded to <code>"quit"</code>):</p>
+            <pre class="sh_erlang">
+fun("") -&gt; {yes, "quit", []};
+   (_) -&gt; {no, "", ["quit"]} end</pre>
+            <p>This option is only supported by the standard shell
+              (<code>group.erl</code>).</p>
+          </item>
+          <dt><code>{encoding, latin1 | unicode}</code></dt>
+          <item>
+            <p>Specifies how characters are input or output from or to the I/O
+              device, implying that, for example, a terminal is set to handle
+              Unicode input and output or a file is set to handle UTF-8 data
+              encoding.</p>
+            <p>The option <em>does not</em> affect how data is returned from the
+              I/O functions or how it is sent in the I/O protocol, it only
+              affects how the I/O device is to handle Unicode characters to the
+              "physical" device.</p>
+            <p>The standard shell is set for <code>unicode</code> or <code>latin1</code>
+              encoding when
+              the system is started. The encoding is set with the help of the
+              <code>LANG</code> or <code>LC_CTYPE</code> environment variables on Unix-like
+              system or by other means on other systems.
+              So, the user can input Unicode characters and the I/O device
+              is in <code>{encoding, unicode}</code> mode if the I/O device supports
+              it. The mode can be changed, if the assumption of the runtime
+              system is wrong, by setting this option.</p>
+            <p>The I/O device used when Erlang is started with the "-oldshell"
+              or "-noshell" flags is by default set to <code>latin1</code> encoding,
+              meaning that any characters &gt; codepoint 255 are escaped
+              and that input is expected to be plain 8-bit ISO Latin-1.
+              If the encoding is changed to Unicode, input and output from
+              the standard file descriptors are in UTF-8 (regardless of
+              operating system).</p>
+            <p>Files can also be set in <code>{encoding, unicode}</code>, meaning
+              that data is written and read as UTF-8. More encodings are
+              possible for files, see below.</p>
+            <p><code>{encoding, unicode | latin1}</code> is supported by both the
+              standard shell (<code>group.erl</code> including <code>werl</code> on
+              Windows), the 'oldshell' (<code>user.erl</code>), and the file I/O
+              servers.</p>
+          </item>
+          <dt><code>{encoding, utf8 | utf16 | utf32 | {utf16,big} |
+            {utf16,little} | {utf32,big} | {utf32,little}}</code></dt>
+          <item>
+            <p>For disk files, the encoding can be set to various UTF variants.
+              This has the effect that data is expected to be read as the
+              specified encoding from the file, and the data is written in the
+              specified encoding to the disk file.</p>
+            <p><code>{encoding, utf8}</code> has the same effect as
+              <code>{encoding, unicode}</code> on files.</p>
+            <p>The extended encodings are only supported on disk files
+              (opened by function
+              <a href="../kernel/file.html#open/2" class="seealso">
+              <code>file:open/2</code></a>).</p>
+          </item>
+        </taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="write/1">write(Term) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>Term = term()</code></li></ul>
+      <h3 id="write/2">write(IoDevice, Term) -&gt; ok</h3>
+      <ul class="type_desc"><li><code>IoDevice = <a href="#type-device" class="seealso">device()</a></code></li><li><code>Term = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Writes term <code><anno>Term</anno></code> to the standard output
+          (<code><anno>IoDevice</anno></code>).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Standard Input/Output</h4>
+    <p>All Erlang processes have a default standard I/O device. This
+      device is used when no <code>IoDevice</code> argument is specified in
+      the function calls in this module. However, it is sometimes desirable to
+      use an explicit <code>IoDevice</code> argument that refers to the
+      default I/O device. This is the case with functions that can
+      access either a file or the default I/O device. The atom
+      <code>standard_io</code> has this special meaning. The following example
+      illustrates this:</p>
+
+    <pre class="sh_erlang">
+27&gt; <code>io:read('enter&gt;').</code>
+enter&gt;<code>foo.</code>
+{ok,foo}
+28&gt; <code>io:read(standard_io, 'enter&gt;').</code>
+enter&gt;<code>bar.</code>
+{ok,bar}</pre>
+
+    <p>There is always a process registered under the name of
+      <code>user</code>. This can be used for sending output to the user.</p>
+  </div>
+
+ <div class="section">
+    <h4>Standard Error</h4>
+    <p>In certain situations, especially when the standard output is
+      redirected, access to an I/O server specific for error messages can be
+      convenient. The I/O device <code>standard_error</code> can be used to direct
+      output to whatever the current operating system considers a suitable
+      I/O device for error output. Example on a Unix-like operating system:</p>
+
+<pre class="sh_erlang">
+$ <code>erl -noshell -noinput -eval 'io:format(standard_error,"Error: ~s~n",["error 11"]),'\</code>
+<code>'init:stop().' &gt; /dev/null</code>
+Error: error 11</pre>
+  </div>
+
+  <div class="section">
+    <h4>Error Information</h4>
+    <p>The <code>ErrorInfo</code> mentioned in this module is the standard
+      <code>ErrorInfo</code> structure that is returned from all I/O modules.
+      It has the following format:</p>
+
+    <pre class="sh_erlang">
+{ErrorLocation, Module, ErrorDescriptor}</pre>
+
+    <p>A string that describes the error is obtained with the following
+      call:</p>
+
+    <pre class="sh_erlang">
+Module:format_error(ErrorDescriptor)</pre>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>file_sorter (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>file_sorter</h1>
+  <h2 class="modsummary">File sorter.</h2>
+  <div class="description">
+    <p>This module contains functions for sorting terms on files, merging
+      already sorted files, and checking files for sortedness. Chunks
+      containing binary terms are read from a sequence of files, sorted
+      internally in memory and written on temporary files, which are
+      merged producing one sorted file as output. Merging is provided
+      as an optimization; it is faster when the files are already
+      sorted, but it always works to sort instead of merge.</p>
+
+    <p>On a file, a term is represented by a header and a binary. Two
+      options define the format of terms on files:</p>
+
+    <taglist>
+      <dt><code>{header, HeaderLength}</code></dt>
+      <item>
+        <p><code>HeaderLength</code> determines the
+          number of bytes preceding each binary and containing the
+          length of the binary in bytes. Defaults to 4. The order of the
+          header bytes is defined as follows: if <code>B</code> is a binary
+          containing a header only, size <code>Size</code> of the binary
+          is calculated as
+          <code>&lt;&lt;Size:HeaderLength/unit:8&gt;&gt; = B</code>.</p>
+      </item>
+      <dt><code>{format, Format}</code></dt>
+      <item>
+        <p>Option <code>Format</code> determines the
+          function that is applied to binaries to create the
+          terms to be sorted. Defaults to
+          <code>binary_term</code>, which is equivalent to
+          <code>fun binary_to_term/1</code>. Value <code>binary</code> is
+          equivalent to <code>fun(X) -&gt; X end</code>, which means that the
+          binaries are sorted as they are. This is the fastest
+          format. If <code>Format</code> is <code>term</code>, <code>io:read/2</code> is
+          called to read terms. In that case, only the default value of
+          option <code>header</code> is allowed.</p>
+        <p>Option <code>format</code> also determines what is written to the
+          sorted output file: if
+          <code>Format</code> is <code>term</code>, then <code>io:format/3</code> is called
+          to write each term, otherwise the binary prefixed by a header
+          is written. Notice that the binary written is the same binary
+          that was read; the results of applying function <code>Format</code>
+          are thrown away when the terms have been sorted.
+          Reading and writing terms using the <code>io</code> module
+          is much slower than reading and writing binaries.</p>
+      </item>
+    </taglist>
+
+    <p>Other options are:</p>
+
+    <taglist>
+      <dt><code>{order, Order}</code></dt>
+      <item>
+        <p>The default is to sort terms in
+          ascending order, but that can be changed by value
+          <code>descending</code> or by specifying an ordering function <code>Fun</code>.
+          An ordering function is antisymmetric, transitive, and total.
+          <code>Fun(A, B)</code> is to return <code>true</code> if <code>A</code>
+          comes before <code>B</code> in the ordering, otherwise <code>false</code>.
+          An example of a typical ordering function is less than or equal
+          to, <code>=&lt;/2</code>. Using an ordering function slows down the sort
+          considerably. Functions <code>keysort</code>, <code>keymerge</code> and
+          <code>keycheck</code> do not accept ordering functions.</p>
+      </item>
+      <dt><code>{unique, boolean()}</code></dt>
+      <item>
+        <p>When sorting or merging files,
+           only the first of a sequence of terms that compare equal (<code>==</code>)
+           is output if this option is set to <code>true</code>. Defaults
+           to <code>false</code>, which implies that all terms that
+           compare equal are output. When checking files for
+           sortedness, a check that no pair of consecutive terms
+           compares equal is done if this option is set to <code>true</code>.</p>
+      </item>
+      <dt><code>{tmpdir, TempDirectory}</code></dt>
+      <item>
+        <p>The directory where
+           temporary files are put can be chosen explicitly. The
+           default, implied by value <code>""</code>, is to put temporary
+           files on the same directory as the sorted output file. If
+           output is a function (see below), the directory returned by
+           <code>file:get_cwd()</code> is used instead. The names of
+           temporary files are derived from the Erlang nodename
+           (<code>node()</code>), the process identifier of the current Erlang
+           emulator (<code>os:getpid()</code>), and a unique integer
+           (<code>erlang:unique_integer([positive])</code>). A typical name is
+           <code>fs_mynode@myhost_1763_4711.17</code>, where
+           <code>17</code> is a sequence number. Existing files are
+           overwritten. Temporary files are deleted unless some
+           uncaught <code>EXIT</code> signal occurs.</p>
+      </item>
+      <dt><code>{compressed, boolean()}</code></dt>
+      <item>
+        <p>Temporary files and the output file can be compressed. Defaults
+          <code>false</code>, which implies that written files are not
+          compressed. Regardless of the value of option <code>compressed</code>,
+          compressed files can always be read. Notice that
+          reading and writing compressed files are significantly slower
+          than reading and writing uncompressed files.</p>
+      </item>
+      <dt><code>{size, Size}</code></dt>
+      <item>
+        <p>By default about 512*1024 bytes read from files are sorted
+          internally. This option is rarely needed.</p>
+      </item>
+      <dt><code>{no_files, NoFiles}</code></dt>
+      <item>
+        <p>By default 16 files are merged at a time. This option is rarely
+          needed.</p>
+      </item>
+    </taglist>
+
+    <p>As an alternative to sorting files, a function of one argument
+      can be specified as input. When called with argument <code>read</code>,
+      the function is assumed to return either of the following:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><code>end_of_input</code> or <code>{end_of_input, Value}}</code> when there
+          is no more input (<code>Value</code> is explained below).</p>
+      </item>
+      <item>
+        <p><code>{Objects, Fun}</code>, where <code>Objects</code> is a list of binaries
+          or terms depending on the format, and <code>Fun</code> is a new input
+          function.</p>
+      </item>
+    </list>
+
+    <p>Any other value is immediately returned as value of the current call
+      to <code>sort</code> or <code>keysort</code>. Each input function is
+      called exactly once. If an error occurs, the last
+      function is called with argument <code>close</code>, the reply of
+      which is ignored.</p>
+
+    <p>A function of one argument can be specified as output. The results
+      of sorting or merging the input is collected in a non-empty
+      sequence of variable length lists of binaries or terms depending
+      on the format. The output function is called with one list at a
+      time, and is assumed to return a new output function. Any other
+      return value is immediately returned as value of the current
+      call to the sort or merge function. Each output function is
+      called exactly once. When some output function has been applied
+      to all of the results or an error occurs, the last function is
+      called with argument <code>close</code>, and the reply is returned
+      as value of the current call to the sort or merge function.</p>
+
+    <p>If a function is specified as input and the last input function
+      returns <code>{end_of_input, Value}</code>, the function specified as output
+      is called with argument <code>{value, Value}</code>. This makes it
+      easy to initiate the sequence of output functions with a value
+      calculated by the input functions.</p>
+
+    <p>As an example, consider sorting the terms on a disk log file.
+      A function that reads chunks from the disk log and returns a
+      list of binaries is used as input. The results are collected in
+      a list of terms.</p>
+
+    <pre class="sh_erlang">
+sort(Log) -&gt;
+    {ok, _} = disk_log:open([{name,Log}, {mode,read_only}]),
+    Input = input(Log, start),
+    Output = output([]),
+    Reply = file_sorter:sort(Input, Output, {format,term}),
+    ok = disk_log:close(Log),
+    Reply.
+
+input(Log, Cont) -&gt;
+    fun(close) -&gt;
+            ok;
+       (read) -&gt;
+            case disk_log:chunk(Log, Cont) of
+                {error, Reason} -&gt;
+                    {error, Reason};
+                {Cont2, Terms} -&gt;
+                    {Terms, input(Log, Cont2)};
+                {Cont2, Terms, _Badbytes} -&gt;
+                    {Terms, input(Log, Cont2)};
+                eof -&gt;
+                    end_of_input
+            end
+    end.
+
+output(L) -&gt;
+    fun(close) -&gt;
+            lists:append(lists:reverse(L));
+       (Terms) -&gt;
+            output([Terms | L])
+    end.</pre>
+
+    <p>For more examples of functions as input and output, see
+      the end of the <code>file_sorter</code> module; the <code>term</code>
+      format is implemented with functions.</p>
+
+    <p>The possible values of <code>Reason</code> returned when an error
+      occurs are:</p>
+
+    <list type="bulleted">
+      <item>
+        <p><code>bad_object</code>, <code>{bad_object, FileName}</code> -
+          Applying the format function failed for some binary,
+          or the key(s) could not be extracted from some term.</p>
+      </item>
+      <item>
+        <p><code>{bad_term, FileName}</code> - <code>io:read/2</code> failed
+          to read some term.</p>
+      </item>
+      <item>
+        <p><code>{file_error, FileName, file:posix()}</code> - For an
+          explanation of <code>file:posix()</code>, see
+          <a href="../kernel/file.html" class="seealso"><code>file(3)</code></a>.</p>
+      </item>
+      <item>
+        <p><code>{premature_eof, FileName}</code> - End-of-file was
+          encountered inside some binary term.</p>
+      </item>
+    </list>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-file_name">file_name() = <a href="file.html#type-name" class="seealso">file:name()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-file_names">file_names() = [<a href="file.html#type-name" class="seealso">file:name()</a>]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-i_command">i_command() = read | close</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-i_reply">i_reply() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;end_of_input |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{end_of_input, <a href="#type-value" class="seealso">value()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[<a href="#type-object" class="seealso">object()</a>], <a href="#type-infun" class="seealso">infun()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-input_reply" class="seealso">input_reply()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-infun">infun() = fun((<a href="#type-i_command" class="seealso">i_command()</a>) -&gt; <a href="#type-i_reply" class="seealso">i_reply()</a>)</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-input">input() = <a href="#type-file_names" class="seealso">file_names()</a> | <a href="#type-infun" class="seealso">infun()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-input_reply">input_reply() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-o_command">o_command() = {value, <a href="#type-value" class="seealso">value()</a>} | [<a href="#type-object" class="seealso">object()</a>] | close</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-o_reply">o_reply() = <a href="#type-outfun" class="seealso">outfun()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-object">object() = term() | binary()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-outfun">outfun() = fun((<a href="#type-o_command" class="seealso">o_command()</a>) -&gt; <a href="#type-o_reply" class="seealso">o_reply()</a>)</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-output">output() = <a href="#type-file_name" class="seealso">file_name()</a> | <a href="#type-outfun" class="seealso">outfun()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-output_reply">output_reply() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-value">value() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-options">options() = [<a href="#type-option" class="seealso">option()</a>] | <a href="#type-option" class="seealso">option()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-option">option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{compressed, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{header, <a href="#type-header_length" class="seealso">header_length()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{format, <a href="#type-format" class="seealso">format()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{no_files, <a href="#type-no_files" class="seealso">no_files()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{order, <a href="#type-order" class="seealso">order()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{size, <a href="#type-size" class="seealso">size()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tmpdir, <a href="#type-tmp_directory" class="seealso">tmp_directory()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{unique, boolean()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-format">format() = binary_term | term | binary | <a href="#type-format_fun" class="seealso">format_fun()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-format_fun">format_fun() = fun((binary()) -&gt; term())</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-header_length">header_length() = integer() &gt;= 1</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-key_pos">key_pos() = integer() &gt;= 1 | [integer() &gt;= 1]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-no_files">no_files() = integer() &gt;= 1</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-order">order() = ascending | descending | <a href="#type-order_fun" class="seealso">order_fun()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-order_fun">order_fun() = fun((term(), term()) -&gt; boolean())</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-size">size() = integer() &gt;= 0</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-tmp_directory">tmp_directory() = [] | <a href="file.html#type-name" class="seealso">file:name()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-reason">reason() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bad_object |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{bad_object, <a href="#type-file_name" class="seealso">file_name()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{bad_term, <a href="#type-file_name" class="seealso">file_name()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{file_error,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-file_name" class="seealso">file_name()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="file.html#type-posix" class="seealso">file:posix()</a> | badarg | system_limit} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{premature_eof, <a href="#type-file_name" class="seealso">file_name()</a>}</h3>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="check/1">check(FileName) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>Reply = {ok, [Result]} | {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>Result = {FileName, TermPosition, term()}</code></li><li><code>TermPosition = integer() &gt;= 1</code></li></ul>
+      <h3 id="check/2">check(FileNames, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = {ok, [Result]} | {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>Result = {FileName, TermPosition, term()}</code></li><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>TermPosition = integer() &gt;= 1</code></li></ul>
+      
+      <div class="description">
+        <p>Checks files for sortedness. If a file is not sorted, the
+          first out-of-order element is returned. The first term on a
+          file has position 1.</p>
+        <p><code>check(FileName)</code> is equivalent to
+          <code>check([FileName], [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="keycheck/2">keycheck(KeyPos, FileName) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>Reply = {ok, [Result]} | {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>Result = {FileName, TermPosition, term()}</code></li><li><code>TermPosition = integer() &gt;= 1</code></li></ul>
+      <h3 id="keycheck/3">keycheck(KeyPos, FileNames, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = {ok, [Result]} | {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>Result = {FileName, TermPosition, term()}</code></li><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>TermPosition = integer() &gt;= 1</code></li></ul>
+      
+      <div class="description">
+        <p>Checks files for sortedness. If a file is not sorted, the
+          first out-of-order element is returned. The first term on a
+          file has position 1.</p>
+        <p><code>keycheck(KeyPos, FileName)</code> is equivalent
+          to <code>keycheck(KeyPos, [FileName], [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="keymerge/3">keymerge(KeyPos, FileNames, Output) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      <h3 id="keymerge/4">keymerge(KeyPos, FileNames, Output, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Merges tuples on files. Each input file is assumed to be
+          sorted on key(s).</p>
+        <p><code>keymerge(KeyPos, FileNames, Output)</code> is equivalent
+          to <code>keymerge(KeyPos, FileNames, Output, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="keysort/2">keysort(KeyPos, FileName) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Sorts tuples on files.</p>
+        <p><code>keysort(N, FileName)</code> is
+          equivalent to <code>keysort(N, [FileName], FileName)</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="keysort/3">keysort(KeyPos, Input, Output) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>Input = <a href="#type-input" class="seealso">input()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      <h3 id="keysort/4">keysort(KeyPos, Input, Output, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>KeyPos = <a href="#type-key_pos" class="seealso">key_pos()</a></code></li><li><code>Input = <a href="#type-input" class="seealso">input()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Sorts tuples on files. The sort is performed on the
+          element(s) mentioned in <code><anno>KeyPos</anno></code>. If two
+          tuples compare equal (<code>==</code>) on one element, the next
+          element according to <code><anno>KeyPos</anno></code>
+          is compared. The sort is stable.</p>
+        <p><code>keysort(N, Input, Output)</code> is equivalent to
+          <code>keysort(N, Input, Output, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="merge/2">merge(FileNames, Output) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      <h3 id="merge/3">merge(FileNames, Output, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>FileNames = <a href="#type-file_names" class="seealso">file_names()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Merges terms on files. Each input file is assumed to be
+          sorted.</p>
+        <p><code>merge(FileNames, Output)</code> is equivalent to
+          <code>merge(FileNames, Output, [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sort/1">sort(FileName) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>FileName = <a href="#type-file_name" class="seealso">file_name()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Sorts terms on files.</p>
+        <p><code>sort(FileName)</code> is equivalent
+          to <code>sort([FileName], FileName)</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sort/2">sort(Input, Output) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>Input = <a href="#type-input" class="seealso">input()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      <h3 id="sort/3">sort(Input, Output, Options) -&gt; Reply</h3>
+      <ul class="type_desc"><li><code>Input = <a href="#type-input" class="seealso">input()</a></code></li><li><code>Output = <a href="#type-output" class="seealso">output()</a></code></li><li><code>Options = <a href="#type-options" class="seealso">options()</a></code></li><li><code>Reply = ok | {error, <a href="#type-reason" class="seealso">reason()</a>} | <a href="#type-input_reply" class="seealso">input_reply()</a> | <a href="#type-output_reply" class="seealso">output_reply()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Sorts terms on files.</p>
+        <p><code>sort(Input, Output)</code> is
+          equivalent to <code>sort(Input, Output, [])</code>.</p>
+      </div>
+    </div>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

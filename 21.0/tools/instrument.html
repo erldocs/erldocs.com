@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>instrument (tools) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>instrument</h1>
+  <h2 class="modsummary">Analysis and Utility Functions for Instrumentation</h2>
+  <div class="description">
+    <p>The module <code>instrument</code> contains support for studying the resource
+      usage in an Erlang runtime system. Currently, only the allocation of memory can
+      be studied.</p>
+    <div class="note"><h2>Note!</h2>
+      <p>Note that this whole module is experimental, and the representations
+        used as well as the functionality is likely to change in the future.</p>
+    </div>
+  </div>
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-block_histogram">block_histogram() = tuple()</h3>
+      <div class="description">
+        <p>A histogram of block sizes where each interval's upper bound is 
+          twice as high as the one before it.</p>
+        <p>The upper bound of the first interval is provided by the function
+           that returned the histogram, and the last interval has no upper
+           bound.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-allocation_summary">allocation_summary() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{HistogramStart :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UnscannedSize :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allocations ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{Origin :: atom() =&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{Type :: atom() =&gt; <a href="#type-block_histogram" class="seealso">block_histogram()</a>}}}</h3>
+      <div class="description">
+        <p>A summary of allocated block sizes (including their headers) grouped
+          by their <code><anno>Origin</anno></code> and <code><anno>Type</anno></code>.</p>
+        <p><code><anno>Origin</anno></code> is generally which NIF or driver that
+          allocated the blocks, or 'system' if it could not be determined.</p>
+        <p><code><anno>Type</anno></code> is the allocation category that the blocks
+          belong to, e.g. <code>db_term</code>, <code>message</code> or <code>binary</code>.</p>
+        <p>If one or more carriers could not be scanned in full without harming
+          the responsiveness of the system, <code><anno>UnscannedSize</anno></code>
+          is the number of bytes that had to be skipped.</p>
+       </div>
+    </div>
+    <div class="type">
+      <h3 id="type-carrier_info_list">carrier_info_list() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{HistogramStart :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Carriers ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{AllocatorType :: atom(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TotalSize :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;UnscannedSize :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AllocatedSize :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AllocatedCount :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;InPool :: boolean(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FreeBlocks :: <a href="#type-block_histogram" class="seealso">block_histogram()</a>}]}</h3>
+      <div class="description">
+        <p><code><anno>AllocatorType</anno></code> is the type of the allocator that
+          employs this carrier.</p>
+        <p><code><anno>TotalSize</anno></code> is the total size of the carrier,
+          including its header.</p>
+        <p><code><anno>AllocatedSize</anno></code> is the combined size of the
+          carrier's allocated blocks, including their headers.</p>
+        <p><code><anno>AllocatedCount</anno></code> is the number of allocated
+          blocks in the carrier.</p>
+        <p><code><anno>InPool</anno></code> is whether the carrier is in the
+          migration pool.</p>
+        <p><code><anno>FreeBlocks</anno></code> is a histogram of the free block
+          sizes in the carrier.</p>
+        <p>If the carrier could not be scanned in full without harming the
+          responsiveness of the system, <code><anno>UnscannedSize</anno></code> is
+          the number of bytes that had to be skipped.</p>
+       </div>
+    </div>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+    <div class="function">
+      <h3 id="allocations/0">allocations() -&gt; {ok, Result} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Result = <a href="#type-allocation_summary" class="seealso">allocation_summary()</a></code></li><li><code>Reason = not_enabled</code></li></ul>
+      
+      <div class="description">
+        <p>Shorthand for
+          <a href="#allocations/1" class="seealso"><code>allocations(#{})</code>.</a></p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="allocations/1">allocations(Options) -&gt; {ok, Result} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Result = <a href="#type-allocation_summary" class="seealso">allocation_summary()</a></code></li><li><code>Reason = not_enabled</code></li><li><code>Options = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;#{scheduler_ids =&gt; [integer() &gt;= 0],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allocator_types =&gt; [atom()],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;histogram_start =&gt; integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;histogram_width =&gt; integer() &gt;= 1}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a summary of all tagged allocations in the system,
+          optionally filtered by allocator type and scheduler id.</p>
+        <p>Only binaries and allocations made by NIFs and drivers are tagged by
+          default, but this can be configured an a per-allocator basis with the
+          <a href="../erts/erts_alloc.html#M_atags" class="seealso"><code>+M&lt;S&gt;atags</code>
+          </a> emulator option.</p>
+        <p>If tagged allocations are not enabled on any of the specified
+          allocator types, the call will fail with
+          <code>{error, not_enabled}</code>.</p>
+        <p>The following options can be used:</p>
+        <taglist>
+          <dt><code>allocator_types</code></dt>
+          <item>
+            <p>The allocator types that will be searched. Defaults to all
+              <code>alloc_util</code> allocators.</p>
+          </item>
+          <dt><code>scheduler_ids</code></dt>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <dt><code>histogram_start</code></dt>
+          <item>
+            <p>The upper bound of the first interval in the allocated block
+              size histograms. Defaults to 128.</p>
+          </item>
+          <dt><code>histogram_width</code></dt>
+          <item>
+            <p>The number of intervals in the allocated block size histograms.
+              Defaults to 18.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; instrument:allocations(#{ histogram_start =&gt; 128, histogram_width =&gt; 15 }).
+{ok,{128,0,
+     #{udp_inet =&gt;
+           #{driver_event_state =&gt; {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}},
+       system =&gt;
+           #{heap =&gt; {0,0,0,0,20,4,2,2,2,3,0,1,0,0,1},
+             db_term =&gt; {271,3,1,52,80,1,0,0,0,0,0,0,0,0,0},
+             code =&gt; {0,0,0,5,3,6,11,22,19,20,10,2,1,0,0},
+             binary =&gt; {18,0,0,0,7,0,0,1,0,0,0,0,0,0,0},
+             message =&gt; {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0},
+             ... }
+       spawn_forker =&gt;
+           #{driver_select_data_state =&gt;
+                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       ram_file_drv =&gt; #{drv_binary =&gt; {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0}},
+       prim_file =&gt;
+           #{process_specific_data =&gt; {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             nif_trap_export_entry =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             monitor_extended =&gt; {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             drv_binary =&gt; {0,0,0,0,0,0,1,0,3,5,0,0,0,1,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       prim_buffer =&gt;
+           #{nif_internal =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             binary =&gt; {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}}}}}
+     </pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="carriers/0">carriers() -&gt; {ok, Result} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Result = <a href="#type-carrier_info_list" class="seealso">carrier_info_list()</a></code></li><li><code>Reason = not_enabled</code></li></ul>
+      
+      <div class="description">
+        <p>Shorthand for
+          <a href="#carriers/1" class="seealso"><code>carriers(#{})</code>.</a></p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="carriers/1">carriers(Options) -&gt; {ok, Result} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Result = <a href="#type-carrier_info_list" class="seealso">carrier_info_list()</a></code></li><li><code>Reason = not_enabled</code></li><li><code>Options = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;#{scheduler_ids =&gt; [integer() &gt;= 0],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allocator_types =&gt; [atom()],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;histogram_start =&gt; integer() &gt;= 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;histogram_width =&gt; integer() &gt;= 1}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a summary of all carriers in the system, optionally filtered
+          by allocator type and scheduler id.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <code>{error, not_enabled}</code>.</p>
+        <p>The following options can be used:</p>
+        <taglist>
+          <dt><code>allocator_types</code></dt>
+          <item>
+            <p>The allocator types that will be searched. Defaults to all
+              <code>alloc_util</code> allocators.</p>
+          </item>
+          <dt><code>scheduler_ids</code></dt>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <dt><code>histogram_start</code></dt>
+          <item>
+            <p>The upper bound of the first interval in the free block size
+              histograms. Defaults to 512.</p>
+          </item>
+          <dt><code>histogram_width</code></dt>
+          <item>
+            <p>The number of intervals in the free block size histograms.
+              Defaults to 14.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; instrument:carriers(#{ histogram_start =&gt; 512, histogram_width =&gt; 8 }).
+{ok,{512,
+     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
+      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
+      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
+      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+      {...}|...]}}
+     </pre>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="../erts/erts_alloc.html" class="seealso">erts_alloc(3)</a>,
+      <a href="../erts/erl.html" class="seealso">erl(1)</a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

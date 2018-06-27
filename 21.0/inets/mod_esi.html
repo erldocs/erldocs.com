@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>mod_esi (inets) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>mod_esi</h1>
+  <h2 class="modsummary">Erlang Server Interface</h2>
+  <div class="description">
+    <p>This module defines the Erlang Server Interface (ESI) API.
+    It is a more efficient way of writing Erlang scripts
+    for your <code>Inets</code> web server than writing them as common CGI scripts.</p>
+
+    <span id="deliver"> </span>
+  </div>
+
+ <div class="section">
+    <h4>DATA TYPES</h4>
+    <p>The following data types are used in the functions for mod_esi:</p>
+
+    <taglist>
+      <dt><code>env() = </code></dt>
+      <item> <p><code>{EnvKey()::atom(), Value::term()}</code></p>
+
+      <p>Currently supported key value pairs</p>
+      <taglist>		
+	
+	<dt><code>{server_software, string()}</code></dt>
+	<item><p>Indicates the inets version.</p></item>
+	
+	<dt><code>{server_name, string()}</code></dt>
+	<item><p>The local hostname. </p></item>
+
+	<dt><code>{gateway_interface, string()}</code></dt>
+	<item><p>Legacy string used in CGI, just ignore.</p> </item>
+	
+	<dt><code>{server_protocol, string()}</code></dt>
+	<item><p> HTTP version, currently "HTTP/1.1"</p></item>
+	
+	<dt><code>{server_port, integer()}</code></dt>
+	<item><p>Servers port number.</p></item>
+	
+	<dt><code>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</code></dt>
+	<item><p>HTTP request method.</p></item>
+		
+	<dt><code>{remote_adress, inet:ip_address()} </code></dt>
+	<item><p>The clients ip address.</p></item>
+
+	<dt><code>{peer_cert, undefined | no_peercert | DER:binary()}</code></dt>
+	<item>
+	  <p>For TLS connections where client certificates are used this will
+	  be an ASN.1 DER-encoded X509-certificate as an Erlang binary.
+	  If client certificates are not used the value will be <code>no_peercert</code>,
+	  and if TLS is not used (HTTP or connection is lost due to network failure)
+	  the value will be <code>undefined</code>.
+	</p></item>
+	
+	<dt><code>{script_name, string()}</code></dt>
+	<item><p>Request URI</p></item>
+
+	<dt><code>{http_LowerCaseHTTPHeaderName, string()}</code></dt>
+	<item><p>example: {http_content_type, "text/html"}</p></item>
+      </taglist>    
+      </item>
+    </taglist>
+ </div>
+
+ <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+   <div class="function">
+     <h3 id="deliver/2">deliver(SessionID, Data) -&gt; ok | {error, Reason}</h3>
+     
+     <ul class="type">
+        <li><code>SessionID = term()</code></li>
+        <li><code>Data = string() | io_list() | binary()</code></li>
+        <li><code>Reason = term()</code></li>
+     </ul>
+     <div class="description">
+       <span id="deliver"> </span>
+       <p>This function is <em>only</em> intended to be used from
+       functions called by the Erl Scheme interface to deliver
+       parts of the content to the user.</p>
+       <p>Sends data from an Erl Scheme script back to the client.</p>
+	
+       <div class="note"><h2>Note!</h2>
+	 <p>If any HTTP header fields are added by the
+	 script, they must be in the first call to <code>deliver/2</code>, 
+	 and the data in the call must be a string. Calls after the headers
+	 are complete can contain binary data to reduce copying
+	 overhead. Do not assume anything about the data type of 
+	 <code>SessionID</code>. <code>SessionID</code> must be the value given 
+	 as input to the ESI callback function that you implemented.</p>
+       </div>
+     </div>
+   </div>
+ </div>
+  
+ <div class="section">
+   <h4>ESI Callback Functions</h4>
+ </div>
+
+ <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+   <div class="function">
+     <h3 id="Function/3">Module:Function(SessionID, Env, Input)-&gt; {continue, State} | _ </h3>
+     
+     <ul class="type">
+       <li><code>SessionID = term()</code></li>
+       <li><code>Env = env()</code></li>
+       <li><code>Input = string() | chunked_data()</code></li>
+       <li><code>chunked_data() = {first, Data::binary()} |
+       {continue, Data::binary(), State::term()} |
+       {last, Data::binary(), State::term()} </code></li>
+       <li><code>State = term()</code></li>
+     </ul>
+      <div class="description">
+        <p><code>Module</code> must be found in the code path and export
+        <code>Function</code> with an arity of three. An <code>erlScriptAlias</code> must
+        also be set up in the configuration file for the web server.</p>
+
+	<p><code>mod_esi:deliver/2</code> shall be used to generate the response
+	to the client and <code>SessionID</code> is an identifier that shall by used when
+	calling this function, do not assume anything about
+	the datatype. This function may be called
+	several times to chunk the response data. Notice that the
+	first chunk of data sent to the client must at least contain
+	all HTTP header fields that the response will generate. If the
+	first chunk does not contain the <em>end of HTTP header</em>,
+	that is, <code>"\r\n\r\n",</code> the server assumes that no HTTP
+	header fields will be generated.</p>
+
+	<p><code>Env</code> environment data of the request see description above.</p>
+		
+	<p><code>Input</code> is query data of a GET request or the body of
+	a PUT or POST request. The default behavior (legacy reasons)
+	for delivering the body, is that the whole body is gathered and
+	converted to a string. But if the httpd config parameter
+	<a href="httpd.html#max_client_body_chunk" class="seealso">max_client_body_chunk</a>
+	is set, the body will be delivered as binary chunks
+	instead. The maximum size of the chunks is either <a href="httpd.html#max_client_body_chunk" class="seealso">max_client_body_chunk</a>
+	or decide by the client if it uses HTTP chunked encoding
+	to send the body. When using the chunking
+	mechanism this callback must return {continue, State::term()}
+	for all calls where <code>Input</code> is <code>{first,
+	Data::binary()}</code> or <code>{continue, Data::binary(),
+	State::term()}</code>. When <code>Input</code> is <code>{last,
+	Data::binary(), State::term()}</code> the return value will be ignored.</p>
+	<div class="note"><h2>Note!</h2><p>Note that if the body is
+	small all data may be delivered in only one chunk and then the
+	callback will be called with {last, Data::binary(), undefined}
+	without getting called with <code>{first,
+	Data::binary()}</code>.</p></div><p>The input <code>State</code> is
+	the last returned <code>State</code>, in it the callback can include
+	any data that it needs to keep track of when handling the chunks.
+	</p>
+      </div>
+   </div>
+
+   <div class="function">
+     <h3 id="Function/2">Module:Function(Env, Input)-&gt; Response </h3>
+     
+     <ul class="type">
+       <li><code>Env = env()</code></li>
+       <li><code>Input = string() </code></li>
+       <li><code>Response = string()</code></li>
+     </ul>
+      <div class="description">
+        <p>This callback format consumes much memory, as the
+        whole response must be generated before it is sent to the
+        user. This callback format is deprecated. 
+        For new development, use <code>Module:Function/3</code>.</p>
+      </div>
+   </div>
+ </div>
+ 
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

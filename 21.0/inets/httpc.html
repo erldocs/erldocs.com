@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>httpc (inets) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+
+  <h1>httpc</h1>
+  <h2 class="modsummary">An HTTP/1.1 client</h2>
+
+  <div class="description">
+    <p>This module provides the API to an HTTP/1.1 compatible client according 
+      to <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>. 
+    Caching is not supported.</p>
+    <div class="note"><h2>Note!</h2>
+      <p>When starting the <code>Inets</code> application, a manager process for the
+	default profile is started. The functions in this API
+	that do not explicitly use a profile accesses the
+	default profile. A profile keeps track of proxy options,
+	cookies, and other options that can be applied to more than one
+	request.</p>
+
+	<p>If the scheme <code>https</code> is used, the <code>SSL</code> application must
+	be started. When <code>https</code> links need to go through a proxy, the
+	CONNECT method extension to HTTP-1.1 is used to establish a
+	tunnel and then the connection is upgraded to TLS.
+	However, "TLS upgrade" according to <url href="http://www.ietf.org/rfc/rfc2817.txt">RFC 2817</url>is not
+	supported.</p>
+
+      <p>Pipelining is only used if the pipeline
+      time-out is set, otherwise persistent connections without
+      pipelining are used. That is, the client always waits for
+      the previous response before sending the next request.</p>
+    </div>
+    <p>Some examples are provided in the <a href="http_client.html" class="seealso">Inets User's Guide</a>.</p>
+  </div>
+  
+  <div class="section">
+    <h4>DATA TYPES</h4>
+    <span id="DATA_TYPES"> </span>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <p><code>boolean() = true | false</code></p>
+    <p><code>string()</code> = list of ASCII characters</p>
+    <p><code>request_id() = reference()</code></p>
+    <p><code>profile() = atom()</code></p>
+    <p><code>path() = string()</code> representing a file path or directory path</p>
+    <p><code>ip_address()</code> = See the
+    <a href="../kernel/inet.html" class="seealso">inet(3)</a> manual page in Kernel.</p>
+    <p><code>socket_opt()</code> = See the options used by
+    <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3)</a> <code>gen_tcp(3)</code> and 
+    <a href="../ssl/ssl.html" class="seealso">ssl(3)</a> connect(s)</p>
+  
+  </div>
+  
+  <div class="section">
+    <h4>HTTP DATA TYPES</h4>
+    <p>Type definitions related to HTTP:</p>
+
+    <p><code>method() = head | get | put | post | trace | options | delete | patch</code></p>
+    <taglist>
+      <dt><code>request()</code></dt>
+      <item><p>= <code>{url(), headers()}</code></p>
+      <p>| <code>{url(), headers(), content_type(), body()}</code></p>
+      </item>
+    </taglist>
+    <p><code>url() = string()</code> syntax according to the URI definition in
+    <url href="http://www.ietf.org/rfc/rfc2396.txt">RFC 2396</url>, 
+    for example <code>"http://www.erlang.org"</code></p>
+    <p><code>status_line() = {http_version(), status_code(), reason_phrase()}</code></p>
+    <p><code>http_version() = string()</code>, for example, <code>"HTTP/1.1"</code></p>
+    <p><code>status_code() = integer()</code></p>
+    <p><code>reason_phrase() = string()</code></p>
+    <p><code>content_type() = string()</code></p>
+    <p><code>headers() = [header()]</code></p>
+    <p><code>header() = {field(), value()}</code></p>
+    <p><code>field() = string()</code></p>
+    <p><code>value() = string()</code></p>
+    <taglist>
+      <dt><code>body()</code></dt>
+      <item><p>= <code>string() | binary()</code></p>
+      <p>| <code>{fun(accumulator())</code></p>
+      <p><code> -&gt; body_processing_result(), accumulator()}</code></p>
+      <p>| <code>{chunkify, fun(accumulator())</code></p>
+      <p><code> -&gt; body_processing_result(), accumulator()}</code></p>
+      </item>
+    </taglist>
+    <p><code>body_processing_result() = eof | {ok, iolist(), accumulator()}</code></p>
+    <p><code>accumulator() = term()</code></p>
+    <p><code>filename() = string()</code></p>
+ <p>For more information about HTTP, see
+ <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p> 
+</div>
+  
+  <div class="section">
+    <h4>SSL DATA TYPES</h4>
+    <p>See <a href="../ssl/ssl.html" class="seealso">ssl(3)</a> for information
+    about <code>SSL</code> options (<code>ssloptions()</code>). </p>
+  </div>
+
+  <div class="section">
+    <h4>HTTP CLIENT SERVICE START/STOP</h4>
+    
+    <p>An HTTP client can be configured to start when starting the <code>Inets</code>
+      application or started dynamically in runtime by calling the
+      <code>Inets</code> application API <code>inets:start(httpc, ServiceConfig)</code>
+      or <code>inets:start(httpc,  ServiceConfig, How)</code>,
+      see <a href="inets.html" class="seealso">inets(3)</a>.
+      The configuration options are as follows:</p>
+    <taglist>
+      <dt>{profile, profile()}</dt>
+      <item><p>Name of the profile, see
+	<a href="#DATA_TYPES" class="seealso">DATA TYPES</a>.
+      This option is mandatory.</p></item>
+      <dt>{data_dir, path()}</dt>
+      <item><p>Directory where the profile
+	can save persistent data. If omitted, all cookies are treated
+	as session cookies.</p></item>
+    </taglist>
+
+    <p>The client can be stopped using <code>inets:stop(httpc, Pid)</code> or
+    <code>inets:stop(httpc, Profile)</code>.</p>
+  </div>
+  
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+   
+    <div class="function">
+      <h3 id="cancel_request/1">cancel_request(RequestId) -&gt;</h3>
+      <h3 id="cancel_request/2">cancel_request(RequestId, Profile) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>RequestId = request_id() - A unique identifier as returned
+        by request/4</code></li>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+      </ul>
+      <div class="description">
+        <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
+	that the request response is not delivered. Because it is asynchronous,
+	the request can already have been completed when the cancellation arrives.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="cookie_header/1">cookie_header(Url) -&gt; </h3>
+      <h3 id="cookie_header/2">cookie_header(Url, Profile | Opts) -&gt; header() | {error, Reason}</h3>
+      <h3 id="cookie_header/3">cookie_header(Url, Opts, Profile) -&gt; header() | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Url = url()</code></li>
+        <li><code>Opts = [cookie_header_opt()]</code></li>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code>.</d>
+        <li><code>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</code></li>
+      </ul>
+      <div class="description">
+        <p>Returns the cookie header that would have been sent
+	when making a request to <code>Url</code> using profile <code>Profile</code>.
+	If no profile is specified, the default profile is used.</p>
+	<p>Option <code>ipv6_host_with_bracket</code> deals with how to 
+	parse IPv6 addresses. For details,
+	see argument <code>Options</code> of
+	<a href="#request/4" class="seealso">request/[4,5]</a>.</p>
+      </div>
+    </div>
+
+     <div class="function">
+      <h3 id="get_options/1">get_options(OptionItems) -&gt; {ok, Values} | {error, Reason}</h3>
+      <h3 id="get_options/2">get_options(OptionItems, Profile) -&gt; {ok, Values} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>OptionItems = all | [option_item()]</code></li>
+	<li><code>option_item() = proxy |
+	                   https_proxy |
+                           max_sessions | 
+			   keep_alive_timeout | 
+	                   max_keep_alive_length | 
+			   pipeline_timeout | 
+			   max_pipeline_length | 
+			   cookies | 
+			   ipfamily | 
+			   ip | 
+			   port | 
+			   socket_opts | 
+	                   verbose |
+	                   unix_socket</code></li>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can used.</d>
+        <li><code>Values = [{option_item(), term()}]</code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Retrieves the options currently used by the client.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="info/0">info() -&gt; list()</h3>
+      <h3 id="info/1">info(Profile) -&gt; list()</h3>
+      
+      <ul class="type">
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+      </ul>
+      <div class="description">
+        <p>Produces a list of miscellaneous information. 
+	Intended for debugging. 
+	If no profile is specified, the default profile is used.</p>
+      </div>
+    </div>
+
+    
+    <div class="function">
+      <h3 id="reset_cookies/0">reset_cookies() -&gt; void()</h3>
+      <h3 id="reset_cookies/1">reset_cookies(Profile) -&gt; void()</h3>
+      
+      <ul class="type">
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+      </ul>
+      <div class="description">
+        <p>Resets (clears) the cookie database for the specified 
+	<code>Profile</code>. If no profile is specified the default profile 
+	is used.</p>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="request/1">request(Url) -&gt; </h3>
+      <h3 id="request/2">request(Url, Profile) -&gt; {ok, Result} | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Url = url()</code></li> 
+	<li><code>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id()</code></li>
+	<li><code>Body = string() | binary()</code></li>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Equivalent to <code>httpc:request(get, {Url, []}, [], [])</code>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="request/4">request(Method, Request, HTTPOptions, Options) -&gt;</h3>
+      <h3 id="request/5">request(Method, Request, HTTPOptions, Options, Profile) -&gt; {ok, Result} | {ok, saved_to_file} | {error, Reason}</h3>
+      
+      
+      <ul class="type">
+        <li><code>Method = method()</code></li>
+        <li><code>Request = request()</code></li>
+        <li><code>HTTPOptions = http_options()</code></li>
+        <li><code>http_options() = [http_option()]</code></li>
+        <li><code>http_option() = {timeout,         timeout()} | 
+                           {connect_timeout, timeout()} | 
+                           {ssl,             ssloptions()} | 
+                           {essl,            ssloptions()} | 
+                           {autoredirect,    boolean()} | 
+                           {proxy_auth, {userstring(), passwordstring()}} | 
+                           {version,         http_version()} | 
+                           {relaxed,         boolean()}</code></li>
+        <li><code>timeout() = integer() &gt;= 0 | infinity</code></li>
+        <li><code>Options = options()</code></li>
+        <li><code>options() = [option()]</code></li>
+        <li><code>option() = {sync,                    boolean()} | 
+                      {stream,                  stream_to()} | 
+                      {body_format,             body_format()} | 
+                      {full_result,             boolean()} | 
+                      {headers_as_is,           boolean() |
+                      {socket_opts,             socket_opts()} | 
+                      {receiver,                receiver()} |
+	              {ipv6_host_with_brackets, boolean()}</code></li>
+        <li><code>stream_to() = none | self | {self, once} | filename()</code></li>
+        <li><code>socket_opts() = [socket_opt()]</code></li>
+        <li><code>receiver() = pid() | function()/1 | {Module, Function, Args}</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Function = atom()</code></li>
+        <li><code>Args = list()</code></li>
+	<li><code>body_format() = string | binary</code></li>
+        <li><code>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id()</code></li>
+        <li><code>Body = string() | binary()</code></li>
+        <li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+        <li><code>Reason = term()</code></li>
+      </ul>
+
+      <div class="description">
+        <p>Sends an HTTP request. The function can be both synchronous
+	and asynchronous. In the latter case, the function returns
+	<code>{ok, RequestId}</code> and then the information is delivered
+	to the <code>receiver</code> depending on that value.</p>
+
+        <p>HTTP option (<code>http_option()</code>) details:</p>
+        <span id="request2_http_options"> </span>
+        <taglist>
+          <dt><code>timeout</code></dt>
+          <item>
+            <p>Time-out time for the request.</p>
+            <p>The clock starts ticking when the request is sent.</p>
+            <p>Time is in milliseconds.</p>
+            <p>Default is <code>infinity</code>.</p>
+	  </item>
+
+          <dt><code>connect_timeout</code></dt>
+          <item>
+            <p>Connection time-out time, used during the initial request, 
+	    when the client is <em>connecting</em> to the server.</p>
+            <p>Time is in milliseconds.</p>
+            <p>Default is the value of option <code>timeout</code>.</p>
+	  </item>
+
+          <dt><code>ssl</code></dt>
+          <item>
+            <p>This is the <code>SSL/TLS</code> connectin configuration option.</p>
+            <p>Defaults to <code>[]</code>. See <a href="../ssl/ssl.html" class="seealso">ssl:connect/[2,3,4]</a>  for available options.</p>
+	  </item>
+
+          <dt><code>autoredirect</code></dt>
+          <item>
+	    <p>The client automatically retrieves the information
+	    from the new URI and returns that as the result, instead 
+	    of a 30X-result code.</p>
+	    <p>For some 30X-result codes, automatic redirect 
+	    is not allowed. In these cases the 30X-result is always
+	    returned.</p>
+	    <p>Default is <code>true</code>.</p>
+	  </item>
+
+          <dt><code>proxy_auth</code></dt>
+          <item>
+            <p>A proxy-authorization header using the provided username and 
+	    password is added to the request.</p>
+	  </item>
+
+          <dt><code>version</code></dt>
+          <item>
+            <p>Can be used to make the client act as an <code>HTTP/1.0</code> or
+	    <code>HTTP/0.9</code> client. By default this is an <code>HTTP/1.1</code> 
+	    client. When using <code>HTTP/1.0</code> persistent connections are 
+	    not used.</p>
+	    <p>Default is the string <code>"HTTP/1.1"</code>.</p>
+	  </item>
+
+          <dt><code>relaxed</code></dt>
+          <item>
+            <p>If set to <code>true</code>, workarounds for known server deviations 
+	    from the HTTP-standard are enabled.</p>
+            <p>Default is <code>false</code>.</p>
+	  </item>
+        </taglist>
+
+        <p>Option (<code>option()</code>) details:</p>
+        <taglist>
+          <dt><code>sync</code></dt>
+          <item>
+            <p>Option for the request to be synchronous or asynchronous.</p>
+            <p>Default is <code>true</code>.</p>
+	  </item>
+
+          <dt><code>stream</code></dt>
+          <item>
+            <p>Streams the body of a 200 or 206 response to the calling 
+	    process or to a file. When streaming to the calling process 
+	    using option <code>self</code>, the following stream messages
+	    are sent to that process: <code>{http, {RequestId,
+	    stream_start, Headers}}, {http, {RequestId, stream,
+	    BinBodyPart}}, and {http, {RequestId, stream_end, Headers}}</code>.</p>
+	    <p>When streaming to the calling processes using option
+	    <code>{self, once}</code>, the first message has an extra
+	    element, that is, <code>{http, {RequestId, stream_start, Headers, Pid}}</code>.
+	    This is the process id to be used as an argument to
+	    <code>httpc:stream_next/1</code> to trigger the next message to be sent to
+	    the calling process.</p>
+	    <p>Notice that chunked encoding can add
+	    headers so that there are more headers in the <code>stream_end</code>
+	    message than in <code>stream_start</code>.
+	    When streaming to a file and the request is asynchronous, the
+	    message <code>{http, {RequestId, saved_to_file}}</code> is sent.</p>
+            <p>Default is <code>none</code>.</p>
+	  </item>
+
+          <dt><code>body_format</code></dt>
+          <item>
+            <p>Defines if the body is to be delivered as a string or 
+	    binary. This option is only valid for the synchronous 
+	    request.</p>
+            <p>Default is <code>string</code>.</p>
+	  </item>
+
+          <dt><code>full_result</code></dt>
+          <item>
+            <p>Defines if a "full result" is to be returned to the caller (that is,
+	    the body, the headers, and the entire status line) or not 
+	    (the body and the status code).</p>
+            <p>Default is <code>true</code>.</p>
+	  </item>
+
+          <dt><code>headers_as_is</code></dt>
+          <item>
+            <p>Defines if the headers provided by the user are to be made 
+	    lower case or to be regarded as case sensitive.</p>
+            <p>The HTTP standard requires them to be 
+	    case insensitive. Use this feature only if there is 
+	    no other way to communicate with the server or for testing 
+	    purpose. When this option is used, no headers 
+	    are automatically added. All necessary headers must be
+	    provided by the user.</p>
+	    <p>Default is <code>false</code>.</p>
+	  </item>
+
+          <dt><code>socket_opts</code></dt>
+          <item>
+            <p>Socket options to be used for this request.</p>
+	    <p>Overrides any value set by function
+	    <a href="#set_options/1" class="seealso">set_options</a>.</p>
+            <p>The validity of the options is <em>not</em> checked by
+            the HTTP client they are assumed to be correct and passed
+            on to ssl application and inet driver, which may reject
+            them if they are not correct.
+	    </p>
+	    <div class="note"><h2>Note!</h2>
+	      <p>
+		Persistent connections are not supported when setting the
+		<code>socket_opts</code> option. When <code>socket_opts</code> is not
+		set the current implementation assumes the requests to the
+		same host, port combination will use the same socket options.
+	      </p>
+	    </div>
+	    
+            <p>By default the socket options set by function
+	    <a href="#set_options/1" class="seealso">set_options/[1,2]</a> 
+	     are used when establishing a connection.</p>
+	  </item>
+
+          <dt><code>receiver</code></dt>
+          <item>
+            <p>Defines how the client delivers the result of an
+	    asynchronous request (<code>sync</code> has the value 
+	    <code>false</code>).</p>
+
+            <taglist>
+              <dt><code>pid()</code></dt>
+              <item>
+	        <p>Messages are sent to this process in the format 
+		<code>{http, ReplyInfo}</code>.</p>
+	      </item>
+
+              <dt><code>function/1</code></dt>
+              <item>
+	        <p>Information is delivered to the receiver through calls 
+		to the provided fun <code>Receiver(ReplyInfo)</code>.</p>
+  	      </item>
+
+              <dt><code>{Module, Function, Args}</code></dt>
+              <item>
+	        <p>Information is delivered to the receiver through calls 
+		to the callback function 
+		<code>apply(Module, Function, [ReplyInfo | Args])</code>.</p>
+	      </item>
+            </taglist>
+            <p>In all of these cases, <code>ReplyInfo</code> has the following
+              structure:</p>
+
+<pre class="sh_erlang">
+{RequestId, saved_to_file}
+{RequestId, {error, Reason}}
+{RequestId, Result}
+{RequestId, stream_start, Headers}
+{RequestId, stream_start, Headers, HandlerPid}
+{RequestId, stream, BinBodyPart}
+{RequestId, stream_end, Headers}</pre>
+
+            <p>Default is the <code>pid</code> of the process calling the request 
+	    function (<code>self()</code>). </p>
+
+	    <span id="ipv6_host_with_brackets"> </span>
+	  </item>
+
+          <dt><code>ipv6_host_with_brackets</code></dt>
+          <item>
+            <p>Defines when parsing the Host-Port part of an URI with an IPv6 address 
+	    with brackets, if those brackets are to be retained (<code>true</code>) 
+	    or stripped (<code>false</code>).</p>
+            <p>Default is <code>false</code>.</p>
+	  </item>
+
+        </taglist>
+      </div>
+    </div>
+
+  
+    <div class="function">
+      <h3 id="set_options/1">set_options(Options) -&gt; </h3>
+      <h3 id="set_options/2">set_options(Options, Profile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>Options = [Option]</code></li>
+        <li><code>Option = {proxy, {Proxy, NoProxy}}</code></li>
+	<li><code>| {https_proxy, {Proxy, NoProxy}}</code></li>
+	<li><code>| {max_sessions, MaxSessions}</code></li>
+	<li><code>| {max_keep_alive_length, MaxKeepAlive}</code></li>
+	<li><code>| {keep_alive_timeout, KeepAliveTimeout}</code></li>
+	<li><code>| {max_pipeline_length, MaxPipeline}</code></li>
+	<li><code>| {pipeline_timeout, PipelineTimeout}</code></li>
+	<li><code>| {cookies, CookieMode}</code></li>
+	<li><code>| {ipfamily, IpFamily}</code></li>
+	<li><code>| {ip, IpAddress}</code></li>
+	<li><code>| {port, Port}</code></li>
+	<li><code>| {socket_opts, socket_opts()}</code></li>
+	<li><code>| {verbose, VerboseMode}</code></li>
+	<li><code>| {unix_socket, UnixSocket}</code></li>
+        <li><code>Proxy = {Hostname, Port}</code></li>
+        <li><code>Hostname = string()</code></li>
+        <d>Example: "localhost" or "foo.bar.se"</d>
+        <li><code>Port = integer()</code></li>
+        <d>Example: 8080</d>
+        <li><code>NoProxy = [NoProxyDesc]</code></li>
+        <li><code>NoProxyDesc = DomainDesc | HostName | IPDesc</code></li>
+        <li><code>DomainDesc = "*.Domain"</code></li>
+        <d>Example: "*.ericsson.se"</d>
+        <li><code>IpDesc = string()</code></li>
+        <d>Example: "134.138" or "[FEDC:BA98" 
+	(all IP addresses starting with 134.138 or FEDC:BA98), 
+	"66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP address). 
+	<code>proxy</code> defaults to <code>{undefined, []}</code>, 
+	that is, no proxy is configured and 
+	<code>https_proxy</code> defaults to the value of <code>proxy</code>.</d>	
+	<li><code>MaxSessions = integer()</code></li>
+        <d>Maximum number of persistent connections to a host.
+	Default is <code>2</code>.</d>
+	<li><code>MaxKeepAlive = integer()</code></li>
+	<d>Maximum number of outstanding requests on the same connection to 
+	a host. Default is <code>5</code>.</d>
+	<li><code>KeepAliveTimeout = integer()</code></li>
+	<d>If a persistent connection is idle longer than the 
+	<code>keep_alive_timeout</code> in milliseconds, 
+	the client closes the connection.
+	The server can also have such a time-out but do not take that for granted.
+	Default is <code>120000</code> (= 2 min).</d>
+	<li><code>MaxPipeline = integer()</code></li>
+	<d>Maximum number of outstanding requests on a pipelined connection 
+	to a host. Default is <code>2</code>.</d>
+	<li><code>PipelineTimeout = integer()</code></li>
+	<d>If a persistent connection is idle longer than the 
+	<code>pipeline_timeout</code> in milliseconds, 
+	the client closes the connection. Default is <code>0</code>,
+	which results in pipelining not being used.</d>
+        <li><code>CookieMode = enabled | disabled | verify</code></li>
+        <d>If cookies are enabled, all valid cookies are automatically 
+	saved in the cookie database of the client manager.
+	If option <code>verify</code> is used, function <code>store_cookies/2</code>
+	has to be called for the cookies to be saved. 
+	Default is <code>disabled</code>.</d>
+	<li><code>IpFamily = inet | inet6 | local</code></li>
+	<d>Default is <code>inet</code>.</d>
+	<li><code>IpAddress = ip_address()</code></li>
+	<d>If the host has several network interfaces, this option specifies 
+	which one to use. 
+	See <a href="../kernel/gen_tcp.html#connect" class="seealso">gen_tcp:connect/3,4</a> 
+	for details.</d>
+	<li><code>Port = integer()</code></li>
+	<d>Local port number to use. 
+	See <a href="../kernel/gen_tcp.html#connect" class="seealso">gen_tcp:connect/3,4</a> 
+	for details.</d>
+	<li><code>socket_opts() = [socket_opt()]</code></li>
+	<d>The options are appended to the socket options used by the 
+	client. 
+	These are the default values when a new request handler
+	is started (for the initial connect). They are passed directly 
+        to the underlying transport (<code>gen_tcp</code> or <code>SSL</code>) 
+	<em>without</em> verification.</d>
+	<li><code>VerboseMode = false | verbose | debug | trace</code></li>
+	<d>Default is <code>false</code>.
+	This option is used to switch on (or off) 
+	different levels of Erlang trace on the client. 
+	It is a debug feature.</d>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+	<li><code>UnixSocket = path()</code></li>
+	<d>
+	  Experimental option for sending HTTP requests over a unix domain socket. The value
+	  of <code>unix_socket</code> shall be the full path to a unix domain socket file with read/write
+	  permissions for the erlang process. Default is <code>undefined</code>.
+	</d>
+      </ul>
+      <div class="description">
+	<p>Sets options to be used for subsequent requests.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>If possible, the client keeps its connections
+	  alive and uses persistent connections
+	  with or without pipeline depending on configuration
+	  and current circumstances. The HTTP/1.1 specification does not
+	  provide a guideline for how many requests that are
+	  ideal to be sent on a persistent connection.
+	  This depends much on the application.</p>
+	  <p>A long queue of requests can cause a
+	  user-perceived delay, as earlier requests can take a long time
+	  to complete. The HTTP/1.1 specification suggests a
+	  limit of two persistent connections per server, which is the
+	  default value of option <code>max_sessions</code>.</p>
+	  <p>
+            The current implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	  </p>
+	</div>
+        <span id="get_options"> </span>
+      </div>
+    </div>
+     
+    <div class="function">
+      <h3 id="store_cookies/2">store_cookies(SetCookieHeaders, Url) -&gt; </h3>
+      <h3 id="store_cookies/3">store_cookies(SetCookieHeaders, Url, Profile) -&gt; ok | {error, Reason}</h3>
+      
+      <ul class="type">
+        <li><code>SetCookieHeaders = headers() - where field = "set-cookie"</code></li>
+        <li><code>Url = url()</code></li>
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+      </ul>
+      <div class="description">
+        <p>Saves the cookies defined in <code>SetCookieHeaders</code>
+	in the client profile cookie database.
+	Call this function if option <code>cookies</code> is set to <code>verify</code>.
+	If no profile is specified, the default profile is used.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="stream_next/1">stream_next(Pid) -&gt; ok</h3>
+      
+      <ul class="type">
+        <li><code>Pid = pid()</code></li>
+	<d>As received in the <code>stream_start message</code></d>
+      </ul>
+      <div class="description">
+        <p>Triggers the next message to be streamed, that is,
+	the same behavior as active ones for sockets.</p>
+
+        <span id="verify_cookies"> </span>
+        <span id="store_cookies"> </span>
+      </div>
+    </div>
+    
+    <div class="function">
+      <h3 id="which_cookies/0">which_cookies() -&gt; cookies()</h3>
+      <h3 id="which_cookies/1">which_cookies(Profile) -&gt; cookies()</h3>
+      
+      <ul class="type">
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+	<li><code>cookies() = [cookie_stores()]</code></li>
+	<li><code>cookie_stores() = {cookies, cookies()} | {session_cookies, cookies()}</code></li>
+	<li><code>cookies() = [cookie()]</code></li>
+	<li><code>cookie() = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Produces a list of the entire cookie database.
+	Intended for debugging/testing purposes. 
+	If no profile is specified, the default profile is used.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="which_sessions/0">which_sessions() -&gt; session_info()</h3>
+      <h3 id="which_sessions/1">which_sessions(Profile) -&gt; session_info()</h3>
+      
+      <ul class="type">
+	<li><code>Profile = profile() | pid()</code></li>
+	<d>When started <code>stand_alone</code> only the pid can be used.</d>
+	<li><code>session_info() = {GoodSessions, BadSessions, NonSessions}</code></li>
+	<li><code>GoodSessions = session()</code></li>
+	<li><code>BadSessions = tuple()</code></li>
+	<li><code>NonSessions = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Produces a slightly processed dump of the session 
+	database. It is intended for debugging. 
+	If no profile is specified, the default profile is used.</p>
+      </div>
+    </div>
+
+  
+  </div>
+
+  <div class="section">
+    <h4>SEE ALSO</h4>
+    <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
+    <a href="inets.html" class="seealso">inets(3)</a>,
+    <a href="../kernel/gen_tcp.html" class="seealso">gen_tcp(3)</a>, 
+    <a href="../ssl/ssl.html" class="seealso">ssl(3)</a>
+    </p>
+  </div>
+  
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

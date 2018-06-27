@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>disk_log (kernel) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>disk_log</h1>
+  <h2 class="modsummary">A disk-based term logging facility.</h2>
+  <div class="description">
+    <p><code>disk_log</code> is a disk-based term logger that enables
+      efficient logging of items on files.</p>
+    <p>Two types of logs are supported:</p>
+      <taglist>
+	<dt>halt logs</dt>
+	<item><p>Appends items to a single file, which size can
+	be limited by the <code>disk_log</code> module.</p></item>
+	<dt>wrap logs</dt>
+	<item><p>Uses a sequence of wrap log files of limited size. As a
+	wrap log file is filled up, further items are logged on to the next
+	file in the sequence, starting all over with the first file when
+	the last file is filled up.</p></item>
+      </taglist>
+     <p>For efficiency reasons, items are always written to files as binaries.</p>
+
+    <p>Two formats of the log files are supported:</p>
+      <taglist>
+	<dt>internal format</dt>
+	<item><p>Supports automatic repair of log files that are not
+	properly closed and enables efficient reading of logged items in
+	<em>chunks</em> using a set of functions defined in this module.
+	This is the only way to read internally formatted logs.
+	An item logged to an internally formatted log must not occupy more
+	than 4 GB of disk space (the size must fit in 4 bytes).</p></item>
+	<dt>external format</dt>
+	<item><p>Leaves it up to the user to read and interpret the logged data.
+	The <code>disk_log</code> module cannot repair externally formatted logs.</p></item>
+      </taglist>
+
+    <p>For each open disk log, one process handles requests
+      made to the disk log. This process is created when
+      <a href="#open/1" class="seealso"><code>open/1</code></a>
+      is called, provided there exists no process handling the disk log.
+      A process that opens a disk log can be an <em>owner</em>
+      or an anonymous <em>user</em> of the disk log. Each owner is 
+      linked to the disk log process, and an owner can close the disk log
+      either explicitly (by calling <code>close/1</code> or <code>lclose/1,2</code>)
+      or by terminating.</p>
+      <p>Owners can subscribe to <em>notifications</em>,
+      messages of the form <code>{disk_log, Node, Log, Info}</code>, which are sent
+      from the disk log process when certain events occur, see 
+      the functions and in particular the <code>open/1</code> option
+      <a href="#notify" class="seealso"><code>notify</code></a>.
+      A log can have many owners, but a process cannot own a
+      log more than once. However, the same process can open the log
+      as a user more than once.</p>
+      <p>For a disk log process to close its file properly and terminate,
+      it must be closed by its owners and once by some non-owner process
+      for each time the log was used anonymously. The users are counted
+      and there must not be any users left when the disk log process terminates.
+      </p>
+    <p>Items can be logged <em>synchronously</em> by using functions
+      <a href="#log/2" class="seealso"><code>log/2</code></a>,
+      <a href="#blog/2" class="seealso"><code>blog/2</code></a>,
+      <a href="#log_terms/2" class="seealso"><code>log_terms/2</code></a>, and
+      <a href="#blog_terms/2" class="seealso"><code>blog_terms/2</code></a>.
+      For each of these functions, the caller is put
+      on hold until the items are logged (but not necessarily
+      written, use <code>sync/1</code> to ensure that). By adding an <code>a</code>
+      to each of the mentioned function names, we get functions that log
+      items <em>asynchronously</em>. Asynchronous functions do not wait for
+      the disk log process to write the items to the file, but
+      return the control to the caller more or less immediately.
+      </p>
+    <p>When using the internal format for logs, use functions
+      <a href="#log/2" class="seealso"><code>log/2</code></a>,
+      <a href="#log_terms/2" class="seealso"><code>log_terms/2</code></a>,
+      <a href="#alog/2" class="seealso"><code>alog/2</code></a>, and
+      <a href="#alog_terms/2" class="seealso"><code>alog_terms/2</code></a>.
+      These functions log one or more Erlang terms.
+      By prefixing each of the functions with a <code>b</code> (for "binary"),
+      we get the corresponding <code>blog()</code> functions for the external format.
+      These functions log one or more chunks of bytes.
+      For example, to log the string <code>"hello"</code> in ASCII format, you
+      can use <code>disk_log:blog(Log, "hello")</code>, or
+      <code>disk_log:blog(Log, list_to_binary("hello"))</code>. The two
+      alternatives are equally efficient.</p>
+      <p>The <code>blog()</code> functions can also be used for internally formatted
+      logs, but in this case they must be called with binaries constructed
+      with calls to
+      <a href="../erts/erlang.html#term_to_binary/1" class="seealso"><code>term_to_binary/1</code></a>.
+      There is no check to ensure
+      this, it is entirely the responsibility of the caller. If these
+      functions are called with binaries that do not correspond to
+      Erlang terms, the
+      <a href="#chunk/2" class="seealso"><code>chunk/2,3</code></a>
+      and automatic repair
+      functions fail. The corresponding terms (not the binaries)
+      are returned when <code>chunk/2,3</code> is called.
+      </p>
+    <p>A collection of open disk logs with the same name running on
+      different nodes is said to be a <em>distributed disk log</em>
+      if requests made to any of the logs are automatically made to
+      the other logs as well. The members of such a collection are
+      called individual distributed disk logs, or just distributed
+      disk logs if there is no risk of confusion. There is no order
+      between the members of such a collection. For example, logged
+      terms are not necessarily written to the node where the
+      request was made before written to the other nodes. However,
+      a few functions do not make requests to all
+      members of distributed disk logs, namely
+      <a href="#info/1" class="seealso"><code>info/1</code></a>,
+      <a href="#chunk/2" class="seealso"><code>chunk/2,3</code></a>,
+      <a href="#bchunk/2" class="seealso"><code>bchunk/2,3</code></a>,
+      <a href="#chunk_step/3" class="seealso"><code>chunk_step/3</code></a>, and
+      <a href="#lclose/1" class="seealso"><code>lclose/1,2</code></a>.</p>
+     <p>An open disk log that is not a distributed disk
+      log is said to be a <em>local disk log</em>. A local disk log is
+      only accessible from the node where the disk log process runs,
+      whereas a distributed disk log is accessible from all nodes in
+      the Erlang system, except for those nodes where a local
+      disk log with the same name as the distributed disk log exists.
+      All processes on nodes that have access to a local or
+      distributed disk log can log items or otherwise change, inspect,
+      or close the log.
+      </p>
+    <p>It is not guaranteed that all log files of a distributed disk log 
+      contain the same log items. No attempt is made to synchronize
+      the contents of the files. However, as long as at least one of 
+      the involved nodes is alive at each time, all items are logged.
+      When logging items to a distributed log, or otherwise trying to
+      change the log, the replies from individual logs are
+      ignored. If all nodes are down, the disk log functions
+      reply with a <code>nonode</code> error.
+      </p>
+    <div class="note"><h2>Note!</h2>
+      <p>In some applications, it can be unacceptable that
+        replies from individual logs are ignored. An alternative in such
+        situations is to use many local disk logs instead of one
+        distributed disk log, and implement the distribution without use
+        of the <code>disk_log</code> module.</p>
+    </div>
+    <p>Errors are reported differently for asynchronous log attempts
+      and other uses of the <code>disk_log</code> module. When used synchronously,
+      this module replies with an error message, but when called
+      asynchronously, this module does not know where to send
+      the error message. Instead, owners subscribing to notifications
+      receive an <code>error_status</code> message. 
+      </p>
+    <p>The <code>disk_log</code> module does not report errors to the
+      <a href="error_logger.html" class="seealso"><code>error_logger</code></a>
+      module. It is up to the caller to decide
+      whether to employ the error logger. Function
+      <a href="#format_error/1" class="seealso"><code>format_error/1</code></a>
+      can be used to produce readable messages from error replies.
+      However, information events are sent to the error logger in two
+      situations, namely when a log is repaired, or when a file is missing
+      while reading chunks.
+      </p>
+    <p>Error message <code>no_such_log</code> means that the specified
+      disk log is not open. Nothing is said about whether the disk log
+      files exist or not.
+      </p>
+    <div class="note"><h2>Note!</h2>
+      <p>If an attempt to reopen or truncate a log fails (see
+        <a href="#reopen/2" class="seealso"><code>reopen/2,3</code></a>
+	and
+	<a href="#truncate/1" class="seealso"><code>truncate/1,2</code></a>)
+	the disk log process terminates immediately. Before the process
+	terminates, links to owners and blocking processes (see
+	<a href="#block/1" class="seealso"><code>block/1,2</code></a>) are removed.
+        The effect is that the links work in one direction only. Any
+        process using a disk log must check for error message
+        <code>no_such_log</code> if some other process truncates or
+        reopens the log simultaneously.</p>
+    </div>
+  </div>
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-log">log() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dlog_size">dlog_size() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;infinity |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 1 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{MaxNoBytes :: integer() &gt;= 1, MaxNoFiles :: integer() &gt;= 1}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dlog_format">dlog_format() = external | internal</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dlog_head_opt">dlog_head_opt() = none | term() | iodata()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dlog_mode">dlog_mode() = read_only | read_write</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-dlog_type">dlog_type() = halt | wrap</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-continuation">continuation()</h3>
+      <div class="description"><p>Chunk continuation returned by
+         <code>chunk/2,3</code>, <code>bchunk/2,3</code>, or <code>chunk_step/3</code>.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-invalid_header">invalid_header() = term()</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-file_error">file_error() = term()</h3>
+    </div>
+  </div>
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="accessible_logs/0">accessible_logs() -&gt; {[LocalLog], [DistributedLog]}</h3>
+      <ul class="type_desc"><li><code>LocalLog = DistributedLog = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns the names of the disk logs accessible on the current node.
+          The first list contains local disk logs and the
+          second list contains distributed disk logs.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="alog/2">alog(Log, Term) -&gt; <a href="#type-notify_ret" class="seealso">notify_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Term = term()</code></li></ul>
+      <h3 id="balog/2">balog(Log, Bytes) -&gt; <a href="#type-notify_ret" class="seealso">notify_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Bytes = iodata()</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>notify_ret() = ok | {error, no_such_log}</code></li></ul>
+      <div class="description">
+        <p>Asynchronously append an item to a disk log. <code>alog/2</code> is
+          used for internally formatted logs and <code>balog/2</code>
+          for externally formatted logs. <code>balog/2</code> can also be used
+          for internally formatted logs if the binary is
+          constructed with a call to
+	  <a href="../erts/erlang.html#term_to_binary/1" class="seealso"><code>term_to_binary/1</code></a>.
+          </p>
+        <p>Owners subscribing to notifications receive
+          message <code>read_only</code>, <code>blocked_log</code>,
+          or <code>format_external</code> if the item cannot be written
+          on the log, and possibly one of the messages <code>wrap</code>,
+          <code>full</code>, or <code>error_status</code> if an item is written
+          on the log. Message <code>error_status</code> is sent if
+          something is wrong with the header function or if a file error
+          occurs.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="alog_terms/2">alog_terms(Log, TermList) -&gt; <a href="#type-notify_ret" class="seealso">notify_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>TermList = [term()]</code></li></ul>
+      <h3 id="balog_terms/2">balog_terms(Log, ByteList) -&gt; <a href="#type-notify_ret" class="seealso">notify_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>ByteList = [iodata()]</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>notify_ret() = ok | {error, no_such_log}</code></li></ul>
+      <div class="description">
+        <p>Asynchronously append a list of items to a disk log.
+          <code>alog_terms/2</code> is used for internally
+          formatted logs and <code>balog_terms/2</code>
+          for externally formatted logs. <code>balog_terms/2</code> can also be used
+          for internally formatted logs if the binaries are
+          constructed with calls to
+	  <a href="../erts/erlang.html#term_to_binary/1" class="seealso"><code>term_to_binary/1</code></a>.
+          </p>
+        <p>Owners subscribing to notifications receive
+          message <code>read_only</code>, <code>blocked_log</code>,
+          or <code>format_external</code> if the items cannot be written
+          on the log, and possibly one or more of the messages <code>wrap</code>,
+          <code>full</code>, and <code>error_status</code> if items are written
+          on the log. Message <code>error_status</code> is sent if
+          something is wrong with the header function or if a file error
+          occurs.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="block/1">block(Log) -&gt; ok | {error, <a href="#type-block_error_rsn" class="seealso">block_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      <h3 id="block/2">block(Log, QueueLogRecords) -&gt; ok | {error, <a href="#type-block_error_rsn" class="seealso">block_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>QueueLogRecords = boolean()</code></li></ul>
+      
+      <ul class="type"><li><code>block_error_rsn() = no_such_log | nonode | {blocked_log, <a href="#type-log" class="seealso">log()</a>}</code></li></ul>
+      <div class="description">
+        <p>With a call to <code>block/1,2</code> a process can block a log.
+          If the blocking process is not an owner of the log, a temporary
+          link is created between the disk log process and the blocking
+          process. The link ensures that the disk log is
+          unblocked if the blocking process terminates without
+          first closing or unblocking the log.
+          </p>
+        <p>Any process can probe a blocked log with <code>info/1</code> or
+          close it with <code>close/1</code>. The blocking process can also
+          use functions <code>chunk/2,3</code>, <code>bchunk/2,3</code>,
+          <code>chunk_step/3</code>, and <code>unblock/1</code> without being
+          affected by the block. Any other attempt than those
+          mentioned so far to update or read a blocked log suspends the
+          calling process until the log is unblocked or returns
+          error message <code>{blocked_log, <anno>Log</anno>}</code>, depending on
+          whether the value of <code><anno>QueueLogRecords</anno></code> is <code>true</code>
+          or <code>false</code>. <code><anno>QueueLogRecords</anno></code> defaults to
+          <code>true</code>, which is used by <code>block/1</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_header/2">change_header(Log, Header) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Header = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{head, <a href="#type-dlog_head_opt" class="seealso">dlog_head_opt()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{head_func, MFA :: {atom(), atom(), list()}}</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, head}</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the value of option <code>head</code> or <code>head_func</code> for an owner of a disk log.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_notify/3">change_notify(Log, Owner, Notify) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Owner = pid()</code></li><li><code>Notify = boolean()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, notify} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{not_owner, Owner}</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the value of option <code>notify</code> for an owner of a disk log. </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="change_size/2">change_size(Log, Size) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Size = <a href="#type-dlog_size" class="seealso">dlog_size()</a></code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{new_size_too_small, Log, CurrentSize :: integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, size} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Changes the size of an open log.
+          For a halt log, the size can always be increased,
+          but it cannot be decreased to something less than
+          the current file size.
+          </p>
+        <p>For a wrap log, both the size and the number of files can always
+	  be increased, as long as the number of files does not
+          exceed 65000. If the maximum number of files is decreased, the
+          change is not valid until the current file is full and the
+          log wraps to the next file.
+          The redundant files are removed the next time the log wraps around,
+          that is, starts to log to file number 1.
+          </p>
+        <p>As an example, assume that the old maximum number of files 
+          is 10 and that the new maximum number of files is 6. If 
+          the current file number is not greater than the new maximum number 
+          of files, files 7-10 are removed when file 6
+          is full and the log starts to write to file number 1 again. 
+          Otherwise, the files greater than the current
+          file are removed when the current file is full (for example, if
+          the current file is 8, files 9 and 10 are removed). The files between
+          the new maximum number of files and the current
+          file (that is, files 7 and 8) are removed the next time file 6
+          is full.
+          </p>
+        <p>If the size of the files is decreased, the change immediately
+          affects the current log. It does not change the
+          size of log files already full until the next time they are used.
+          </p>
+        <p>If the log size is decreased, for example, to save space,
+          function
+	  <a href="#inc_wrap_file/1" class="seealso"><code>inc_wrap_file/1</code></a>
+	  can be used to force the log to wrap.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="chunk/2">chunk(Log, Continuation) -&gt; <a href="#type-chunk_ret" class="seealso">chunk_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Continuation = start | <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <h3 id="chunk/3">chunk(Log, Continuation, N) -&gt; <a href="#type-chunk_ret" class="seealso">chunk_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Continuation = start | <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>N = integer() &gt;= 1 | infinity</code></li></ul>
+      <h3 id="bchunk/2">bchunk(Log, Continuation) -&gt; <a href="#type-bchunk_ret" class="seealso">bchunk_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Continuation = start | <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <h3 id="bchunk/3">bchunk(Log, Continuation, N) -&gt; <a href="#type-bchunk_ret" class="seealso">bchunk_ret()</a></h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Continuation = start | <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>N = integer() &gt;= 1 | infinity</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>chunk_ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Continuation2 :: <a href="#type-continuation" class="seealso">continuation()</a>, Terms :: [term()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Continuation2 :: <a href="#type-continuation" class="seealso">continuation()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Terms :: [term()],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Badbytes :: integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;eof |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason :: <a href="#type-chunk_error_rsn" class="seealso">chunk_error_rsn()</a>}</code></li></ul>
+      <ul class="type"><li><code>bchunk_ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Continuation2 :: <a href="#type-continuation" class="seealso">continuation()</a>, Binaries :: [binary()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{Continuation2 :: <a href="#type-continuation" class="seealso">continuation()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Binaries :: [binary()],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Badbytes :: integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;eof |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{error, Reason :: <a href="#type-chunk_error_rsn" class="seealso">chunk_error_rsn()</a>}</code></li></ul>
+      <ul class="type"><li><code>chunk_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format_external, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, continuation} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{not_internal_wrap, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{corrupt_log_file, FileName :: <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Efficiently reads the terms that are appended
+	  to an internally formatted log. It minimizes disk
+          I/O by reading 64 kilobyte chunks from the file. Functions
+          <code>bchunk/2,3</code> return the binaries read from
+          the file, they do not call <code>binary_to_term()</code>. Apart from that,
+          they work just like <code>chunk/2,3</code>.
+          </p>
+        <p>The first time <code>chunk()</code> (or <code>bchunk()</code>) is called,
+          an initial continuation, the atom <code>start</code>, must be
+          provided. If a disk log process is running on the
+          current node, terms are read from that log. Otherwise, an
+          individual distributed log on some other node is chosen, if
+          such a log exists.
+          </p>
+        <p>When <code>chunk/3</code> is called, <code><anno>N</anno></code> controls the
+          maximum number of terms that are read from the log in each
+          chunk. Defaults to <code>infinity</code>, which means that all the
+          terms contained in the 64 kilobyte chunk are read. If less than
+          <code><anno>N</anno></code> terms are returned, this does not necessarily mean
+          that the end of the file is reached.
+          </p>
+        <p><code>chunk()</code> returns a tuple
+          <code>{<anno>Continuation2</anno>, <anno>Terms</anno>}</code>, where
+	  <code><anno>Terms</anno></code> is a list
+          of terms found in the log. <code><anno>Continuation2</anno></code> is yet
+          another continuation, which must be passed on to any
+          subsequent calls to <code>chunk()</code>. With a series of calls to
+          <code>chunk()</code>, all terms from a log can be extracted.
+          </p>
+        <p><code>chunk()</code> returns a tuple
+          <code>{<anno>Continuation2</anno>, <anno>Terms</anno>, <anno>Badbytes</anno>}</code>
+	  if the log is opened in read-only mode and the read chunk is corrupt.
+	  <code><anno>Badbytes</anno></code> is the number of bytes in the file found not to be
+          Erlang terms in the chunk. Notice that the log is not repaired.
+          When trying to read chunks from a log opened in read-write mode,
+          tuple <code>{corrupt_log_file, <anno>FileName</anno>}</code> is returned if the
+          read chunk is corrupt.
+          </p>
+        <p><code>chunk()</code> returns <code>eof</code> when the end of the log is
+          reached, or <code>{error, <anno>Reason</anno>}</code> if an error occurs. If
+          a wrap log file is missing, a message is output on the error log.
+          </p>
+        <p>When <code>chunk/2,3</code> is used with wrap logs, the returned
+          continuation might not be valid in the next call to
+          <code>chunk()</code>. This is because the log can wrap and delete
+          the file into which the continuation points. To prevent this,
+          the log can be blocked during the search.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="chunk_info/1">chunk_info(Continuation) -&gt; InfoList | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>InfoList = [{node, Node :: node()}, ...]</code></li><li><code>Reason = {no_continuation, Continuation}</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the pair <code>{node, <anno>Node</anno>}</code>,
+          describing the chunk continuation returned by
+          <code>chunk/2,3</code>, <code>bchunk/2,3</code>, or <code>chunk_step/3</code>.</p>
+	  <p>Terms are read from the disk log running on <code><anno>Node</anno></code>.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="chunk_step/3">chunk_step(Log, Continuation, Step) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, any()} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Continuation = start | <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>Step = integer()</code></li><li><code>Reason = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;end_of_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format_external, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, Log} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, continuation} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      
+      <div class="description">
+        <p>Can be used with <code>chunk/2,3</code> and <code>bchunk/2,3</code>
+	  to search through an internally formatted wrap log. It takes as
+          argument a continuation as returned by <code>chunk/2,3</code>,
+          <code>bchunk/2,3</code>, or <code>chunk_step/3</code>, and steps forward
+          (or backward) <code><anno>Step</anno></code> files in the wrap log. The
+          continuation returned, points to the first log item in the
+          new current file.
+          </p>
+        <p>If atom <code>start</code> is specified as continuation, a disk log
+          to read terms from is chosen. A local or distributed disk log
+          on the current node is preferred to an
+          individual distributed log on some other node.
+          </p>
+        <p>If the wrap log is not full because all files are not yet
+          used, <code>{error, end_of_log}</code> is returned if trying to
+          step outside the log.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="close/1">close(Log) -&gt; ok | {error, <a href="#type-close_error_rsn" class="seealso">close_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <ul class="type"><li><code>close_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p><span id="close_1"> </span>Closes a
+          local or distributed disk log properly. An internally
+          formatted log must be closed before the Erlang system is
+          stopped. Otherwise, the log is regarded as unclosed and the
+          automatic repair procedure is activated next time the
+          log is opened.
+          </p>
+        <p>The disk log process is not terminated as long as there are
+          owners or users of the log. All owners must close the log,
+	  possibly by terminating. Also, any other process, not only the processes
+	  that have opened the log anonymously, can decrement the <code>users</code>
+          counter by closing the log. 
+          Attempts to close a log by a process that is 
+          not an owner are ignored if there are no users.
+          </p>
+        <p>If the log is blocked by the closing process, the log is also
+          unblocked.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="format_error/1">format_error(Error) -&gt; <a href="io_lib.html#type-chars" class="seealso">io_lib:chars()</a></h3>
+      <ul class="type_desc"><li><code>Error = term()</code></li></ul>
+      
+      <div class="description">
+        <p>Given the error returned by any function in this module, 
+          this function returns a descriptive string
+          of the error in English. For file errors, function
+          <code>format_error/1</code> in module
+	  <a href="file.html#format_error/1" class="seealso"><code>file</code></a>
+	  is called.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="inc_wrap_file/1">inc_wrap_file(Log) -&gt; ok | {error, <a href="#type-inc_wrap_error_rsn" class="seealso">inc_wrap_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <ul class="type"><li><code>inc_wrap_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{halt_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <ul class="type"><li><code>invalid_header() = term()</code></li></ul>
+      <div class="description">
+        <p>Forces the internally formatted disk log to start logging to the
+          next log file. It can be used, for example, with
+          <code>change_size/2</code> to reduce the amount of disk space allocated
+          by the disk log.
+          </p>
+        <p>Owners subscribing to notifications normally
+          receive a <code>wrap</code> message, but if
+          an error occurs with a reason tag of <code>invalid_header</code> or
+          <code>file_error</code>, an <code>error_status</code> message is sent.</p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="info/1">info(Log) -&gt; InfoList | {error, no_such_log}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>InfoList = [<a href="#type-dlog_info" class="seealso">dlog_info()</a>]</code></li></ul>
+      
+      <ul class="type"><li><code>dlog_info() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{name, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file, File :: <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{type, Type :: <a href="#type-dlog_type" class="seealso">dlog_type()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format, Format :: <a href="#type-dlog_format" class="seealso">dlog_format()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{size, Size :: <a href="#type-dlog_size" class="seealso">dlog_size()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{mode, Mode :: <a href="#type-dlog_mode" class="seealso">dlog_mode()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{owners, [{pid(), Notify :: boolean()}]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{users, Users :: integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{status,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Status :: ok | {blocked, QueueLogRecords :: boolean()}} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{node, Node :: node()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{distributed, Dist :: local | [node()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{head,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Head ::<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;none | {head, term()} | (MFA :: {atom(), atom(), list()})} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_written_items, NoWrittenItems :: integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{full, Full :: boolean} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_current_bytes, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_current_items, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_items, integer() &gt;= 0} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{current_file, integer() &gt;= 1} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{no_overflows,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{SinceLogWasOpened :: integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SinceLastInfo :: integer() &gt;= 0}}</code></li></ul>
+      <div class="description">
+        <p>Returns a list of <code>{Tag, Value}</code> pairs describing the log.
+	  If a disk log process is running on the current node,
+	  that log is used as source of information, otherwise an individual
+	  distributed log on some other node is chosen, if such a log exists.
+          </p>
+        <p>The following pairs are returned for all logs:
+          </p>
+        <taglist>
+	  <dt><code>{name, <anno>Log</anno>}</code></dt>
+          <item>
+            <p><code><anno>Log</anno></code> is the log name
+              as specified by the <code>open/1</code> option <code>name</code>.</p>
+          </item>
+	  <dt><code>{file, <anno>File</anno>}</code></dt>
+          <item>
+            <p>For halt logs <code><anno>File</anno></code> is the
+              filename, and for wrap logs <code><anno>File</anno></code> is the base name.</p>
+          </item>
+	  <dt><code>{type, <anno>Type</anno>}</code></dt>
+          <item>
+            <p><code><anno>Type</anno></code> is the log type
+              as specified by the <code>open/1</code> option <code>type</code>.</p>
+          </item>
+	  <dt><code>{format, <anno>Format</anno>}</code></dt>
+          <item>
+            <p><code><anno>Format</anno></code> is the log format
+              as specified by the <code>open/1</code> option <code>format</code>.</p>
+          </item>
+	  <dt><code>{size, <anno>Size</anno>}</code></dt>
+          <item>
+            <p><code><anno>Size</anno></code> is the log size
+              as specified by the <code>open/1</code> option <code>size</code>,
+              or the size set by <code>change_size/2</code>. The value set by 
+              <code>change_size/2</code> is reflected immediately.</p>
+          </item>
+	  <dt><code>{mode, <anno>Mode</anno>}</code></dt>
+          <item>
+            <p><code><anno>Mode</anno></code> is the log mode
+              as specified by the <code>open/1</code> option <code>mode</code>.</p>
+          </item>
+	  <dt><code>{owners, [{pid(), <anno>Notify</anno>}]}</code></dt>
+          <item>
+            <p><code><anno>Notify</anno></code>
+              is the value set by the <code>open/1</code> option <code>notify</code>
+              or function <code>change_notify/3</code> for the owners of
+              the log.</p>
+          </item>
+	  <dt><code>{users, <anno>Users</anno>}</code></dt>
+          <item>
+            <p><code><anno>Users</anno></code> is the number
+              of anonymous users of the log, see the <code>open/1</code> option
+              <a href="#linkto" class="seealso"><code>linkto</code></a>.</p>
+          </item>
+	  <dt><code>{status, <anno>Status</anno>}</code></dt>
+          <item>
+            <p><code><anno>Status</anno></code> is <code>ok</code>
+              or <code>{blocked, <anno>QueueLogRecords</anno>}</code> as set by functions
+              <code>block/1,2</code> and <code>unblock/1</code>.</p>
+          </item>
+	  <dt><code>{node, <anno>Node</anno>}</code></dt>
+          <item>
+            <p>The information returned by the
+              current invocation of function <code>info/1</code> is
+              gathered from the disk log process running on <code><anno>Node</anno></code>.</p>
+          </item>
+	  <dt><code>{distributed, <anno>Dist</anno>}</code></dt>
+          <item>
+            <p>If the log is local on
+              the current node, <code><anno>Dist</anno></code> has the value <code>local</code>,
+              otherwise all nodes where the log is distributed
+              are returned as a list.</p>
+          </item>
+        </taglist>
+        <p>The following pairs are returned for all logs opened in 
+          <code>read_write</code> mode:
+          </p>
+        <taglist>
+	  <dt><code>{head, <anno>Head</anno>}</code></dt>
+          <item>
+            <p>Depending on the value of
+              the <code>open/1</code> options <code>head</code> and <code>head_func</code>,
+              or set by function <code>change_header/2</code>, the value
+              of <code><anno>Head</anno></code> is <code>none</code> (default),
+              <code>{head, H}</code> (<code>head</code> option), or <code>{M,F,A}</code>
+              (<code>head_func</code> option).</p>
+          </item>
+	  <dt><code>{no_written_items, <anno>NoWrittenItems</anno>}</code></dt>
+          <item>
+            <p><code><anno>NoWrittenItems</anno></code> is the number of items
+              written to the log since the disk log process was created.</p>
+          </item>
+        </taglist>
+        <p>The following pair is returned for halt logs opened in 
+          <code>read_write</code> mode:
+          </p>
+        <taglist>
+	  <dt><code>{full, <anno>Full</anno>}</code></dt>
+          <item>
+            <p><code><anno>Full</anno></code> is <code>true</code> or
+              <code>false</code> depending on whether the halt log is full or not.</p>
+          </item>
+        </taglist>
+        <p>The following pairs are returned for wrap logs opened in 
+          <code>read_write</code> mode:
+          </p>
+        <taglist>
+	  <dt><code>{no_current_bytes, integer() &gt;= 0}</code></dt>
+          <item>
+            <p>The number
+              of bytes written to the current wrap log file.</p>
+          </item>
+	  <dt><code>{no_current_items, integer() &gt;= 0}</code></dt>
+          <item>
+            <p>The number
+              of items written to the current wrap log file, header
+              inclusive.</p>
+          </item>
+	  <dt><code>{no_items, integer() &gt;= 0}</code></dt>
+          <item>
+            <p>The total number
+              of items in all wrap log files.</p>
+          </item>
+	  <dt><code>{current_file, integer()}</code></dt>
+          <item>
+            <p>The ordinal for
+              the current wrap log file in the range <code>1..MaxNoFiles</code>,
+              where <code>MaxNoFiles</code> is specified by the <code>open/1</code> option
+              <code>size</code> or set by <code>change_size/2</code>.</p>
+          </item>
+	  <dt><code>{no_overflows, {<anno>SinceLogWasOpened</anno>, <anno>SinceLastInfo</anno>}}</code></dt>
+          <item>
+            <p><code><anno>SinceLogWasOpened</anno></code> (<code><anno>SinceLastInfo</anno></code>)
+	      is the number of times a wrap log file has been filled up and a
+              new one is opened or <code>inc_wrap_file/1</code> has been called since
+              the disk log was last opened (<code>info/1</code> 
+              was last called). The first time <code>info/2</code> is called 
+              after a log was (re)opened or truncated, the two values 
+              are equal.</p>
+          </item>
+        </taglist>
+        <p>Notice that functions <code>chunk/2,3</code>, <code>bchunk/2,3</code>, and
+          <code>chunk_step/3</code> do not affect any value
+          returned by <code>info/1</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="lclose/1">lclose(Log) -&gt; ok | {error, <a href="#type-lclose_error_rsn" class="seealso">lclose_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      <h3 id="lclose/2">lclose(Log, Node) -&gt; ok | {error, <a href="#type-lclose_error_rsn" class="seealso">lclose_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Node = node()</code></li></ul>
+      
+      <ul class="type"><li><code>lclose_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log | {file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p><code>lclose/1</code> closes a local log or an individual distributed
+	log on the current node.</p>
+        <p><code>lclose/2</code> closes an individual distributed log on the
+	specified node if the node is not the current one.</p>
+        <p><code>lclose(<anno>Log</anno>)</code> is equivalent to
+          <code>lclose(<anno>Log</anno>, node())</code>.
+          See also <a href="#close_1" class="seealso"><code>close/1</code></a>.
+          </p>
+        <p>If no log with the specified name exist on the specified node,
+	<code>no_such_log</code> is returned.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="log/2">log(Log, Term) -&gt; ok | {error, Reason :: <a href="#type-log_error_rsn" class="seealso">log_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Term = term()</code></li></ul>
+      <h3 id="blog/2">blog(Log, Bytes) -&gt; ok | {error, Reason :: <a href="#type-log_error_rsn" class="seealso">log_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Bytes = iodata()</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>log_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format_external, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{full, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Synchronously
+          appends a term to a disk log. Returns <code>ok</code> or
+          <code>{error, <anno>Reason</anno>}</code> when the term is written to
+          disk. If the log is distributed, <code>ok</code> is returned,
+	  unless all nodes are down. Terms are written by
+          the ordinary <code>write()</code> function of the
+          operating system. Hence, it is not guaranteed that the term
+          is written to disk, it can linger in
+          the operating system kernel for a while. To ensure that the
+          item is written to disk, function
+	  <a href="#sync/1" class="seealso"><code>sync/1</code></a>
+          must be called.
+          </p>
+        <p><code>log/2</code> is used for internally formatted logs,
+          and <code>blog/2</code> for externally formatted logs. 
+          <code>blog/2</code> can also be used
+          for internally formatted logs if the binary is
+          constructed with a call to
+	  <a href="../erts/erlang.html#term_to_binary/1" class="seealso">
+	  <code>term_to_binary/1</code></a>.</p>
+        <p>Owners subscribing to notifications are notified
+          of an error with an <code>error_status</code> message if the error 
+          reason tag is <code>invalid_header</code> or <code>file_error</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="log_terms/2">log_terms(Log, TermList) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, Resaon :: <a href="#type-log_error_rsn" class="seealso">log_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>TermList = [term()]</code></li></ul>
+      <h3 id="blog_terms/2">blog_terms(Log, BytesList) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | {error, Reason :: <a href="#type-log_error_rsn" class="seealso">log_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>BytesList = [iodata()]</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>log_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format_external, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{full, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Synchronously appends a list of items to the log. It is more
+          efficient to use these functions instead of functions <code>log/2</code>
+	  and <code>blog/2</code>. The specified list is split into as large
+	  sublists as possible (limited by the size of wrap log files),
+	  and each sublist is logged as one single item, which reduces
+	  the overhead.
+          </p>
+        <p><code>log_terms/2</code> is used for internally formatted
+          logs, and <code>blog_terms/2</code> for externally formatted logs.
+          <code>blog_terms/2</code> can also be used
+          for internally formatted logs if the binaries are
+          constructed with calls to
+	  <a href="../erts/erlang.html#term_to_binary/1" class="seealso">
+	  <code>term_to_binary/1</code></a>.</p>
+        <p>Owners subscribing to notifications are notified
+          of an error with an <code>error_status</code> message if the error 
+          reason tag is <code>invalid_header</code> or <code>file_error</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="open/1">open(ArgL) -&gt; <a href="#type-open_ret" class="seealso">open_ret()</a> | <a href="#type-dist_open_ret" class="seealso">dist_open_ret()</a></h3>
+      <ul class="type_desc"><li><code>ArgL = <a href="#type-dlog_options" class="seealso">dlog_options()</a></code></li></ul>
+      
+      <ul class="type"><li><code>dlog_options() = [<a href="#type-dlog_option" class="seealso">dlog_option()</a>]</code></li></ul>
+      <ul class="type"><li><code>dlog_option() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{name, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file, FileName :: <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{linkto, LinkTo :: none | pid()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{repair, Repair :: true | false | truncate} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{type, Type :: <a href="#type-dlog_type" class="seealso">dlog_type()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{format, Format :: <a href="#type-dlog_format" class="seealso">dlog_format()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{size, Size :: <a href="#type-dlog_size" class="seealso">dlog_size()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{distributed, Nodes :: [node()]} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{notify, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{head, Head :: <a href="#type-dlog_head_opt" class="seealso">dlog_head_opt()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{head_func, MFA :: {atom(), atom(), list()}} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{quiet, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{mode, Mode :: <a href="#type-dlog_mode" class="seealso">dlog_mode()</a>}</code></li></ul>
+      <ul class="type"><li><code>open_ret() = <a href="#type-ret" class="seealso">ret()</a> | {error, <a href="#type-open_error_rsn" class="seealso">open_error_rsn()</a>}</code></li></ul>
+      <ul class="type"><li><code>ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{ok, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{repaired,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Log :: <a href="#type-log" class="seealso">log()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{recovered, Rec :: integer() &gt;= 0},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{badbytes, Bad :: integer() &gt;= 0}}</code></li></ul>
+      <ul class="type"><li><code>dist_open_ret() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;{[{node(), <a href="#type-ret" class="seealso">ret()</a>}], [{node(), {error, <a href="#type-dist_error_rsn" class="seealso">dist_error_rsn()</a>}}]}</code></li></ul>
+      <ul class="type"><li><code>dist_error_rsn() = nodedown | <a href="#type-open_error_rsn" class="seealso">open_error_rsn()</a></code></li></ul>
+      <ul class="type"><li><code>open_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{badarg, term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{size_mismatch,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CurrentSize :: <a href="#type-dlog_size" class="seealso">dlog_size()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NewSize :: <a href="#type-dlog_size" class="seealso">dlog_size()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{arg_mismatch,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OptionName :: <a href="#type-dlog_optattr" class="seealso">dlog_optattr()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CurrentValue :: term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Value :: term()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{name_already_open, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{open_read_write, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{open_read_only, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{need_repair, Log :: <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{not_a_log_file, FileName :: <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_index_file, FileName :: <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{node_already_open, Log :: <a href="#type-log" class="seealso">log()</a>}</code></li></ul>
+      <ul class="type"><li><code>dlog_optattr() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;name |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;file |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;linkto |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;repair |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;type |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;format |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;size |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;distributed |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;notify |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;head |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;head_func |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mode</code></li></ul>
+      <ul class="type"><li><code>dlog_size() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;infinity |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 1 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{MaxNoBytes :: integer() &gt;= 1, MaxNoFiles :: integer() &gt;= 1}</code></li></ul>
+      <div class="description">
+        <p>Parameter <code><anno>ArgL</anno></code> is a list of the following
+	  options:</p>
+        <taglist>
+	  <dt><code>{name, <anno>Log</anno>}</code></dt>
+          <item>
+            <p>Specifies the log name.
+              This name must be passed on as a parameter in
+              all subsequent logging operations. A name must always
+              be supplied.
+              </p>
+          </item>
+	  <dt><code>{file, <anno>FileName</anno>}</code></dt>
+          <item>
+            <p>Specifies the name of the
+              file to be used for logged terms. If this value is
+              omitted and the log name is an atom or a string,
+              the filename defaults to <code>lists:concat([<anno>Log</anno>, ".LOG"])</code>
+	      for halt logs.</p>
+	    <p>For wrap logs, this is the base name of the files. Each file in
+	      a wrap log is called <code>&lt;base_name&gt;.N</code>, where <code>N</code>
+	      is an integer. Each wrap log also has two files called
+              <code>&lt;base_name&gt;.idx</code> and <code>&lt;base_name&gt;.siz</code>.
+              </p>
+          </item>
+	  <dt><code>{linkto, <anno>LinkTo</anno>}</code><span id="linkto"> </span></dt>
+          <item>
+            <p>If <code><anno>LinkTo</anno></code> is a pid, it becomes an owner of the
+              log. If <code><anno>LinkTo</anno></code> is <code>none</code>, the log records
+              that it is used anonymously by some process by
+              incrementing the <code>users</code> counter. By default, the
+              process that calls <code>open/1</code> owns the log.
+              </p>
+          </item>
+	  <dt><code>{repair, <anno>Repair</anno>}</code></dt>
+          <item>
+            <p>If <code><anno>Repair</anno></code> is <code>true</code>,
+              the current log file is repaired, if needed. As the
+              restoration is initiated, a message is output on the error log.
+              If <code>false</code> is specified,
+              no automatic repair is attempted. Instead, the
+              tuple <code>{error, {need_repair, <anno>Log</anno>}}</code> is returned if an
+              attempt is made to open a corrupt log file. 
+              If <code>truncate</code> is specified, the log file becomes
+              truncated, creating an empty log. Defaults to
+              <code>true</code>, which has no effect on logs opened in 
+              read-only mode.
+              </p>
+          </item>
+	  <dt><code>{type, <anno>Type</anno>}</code></dt>
+          <item>
+            <p>The log type. Defaults to <code>halt</code>.
+              </p>
+          </item>
+	  <dt><code>{format, <anno>Format</anno>}</code></dt>
+          <item>
+            <p>Disk log format. Defaults to <code>internal</code>.
+              </p>
+          </item>
+	  <dt><code>{size, <anno>Size</anno>}</code></dt>
+          <item>
+            <p>Log size.</p>
+              <p>When a halt log has reached its maximum size, all attempts to
+              log more items are rejected. Defaults to
+              <code>infinity</code>, which for halt implies that there is no
+              maximum size.</p>
+	    <p>For wrap logs, parameter <code><anno>Size</anno></code>
+              can be a pair
+              <code>{<anno>MaxNoBytes</anno>, <anno>MaxNoFiles</anno>}</code> or
+	      <code>infinity</code>.
+	      In the latter case, if the files of an existing wrap log
+              with the same name can be found, the size is read
+              from the existing wrap log, otherwise an error is returned.</p>
+            <p>Wrap logs write at most <code><anno>MaxNoBytes</anno></code>
+              bytes on each file and use <code><anno>MaxNoFiles</anno></code>
+              files before starting all over with the first wrap log
+              file. Regardless of <code><anno>MaxNoBytes</anno></code>,
+              at least the header (if there is one) and one
+              item are written on each wrap log file before
+              wrapping to the next file.</p>
+            <p>When opening an existing wrap log, it is not
+              necessary to supply a value for option <code>Size</code>, but any
+              supplied value must equal the current log size, otherwise
+              the tuple <code>{error, {size_mismatch, <anno>CurrentSize</anno>,
+	      <anno>NewSize</anno>}}</code> is returned.</p>
+          </item>
+	  <dt><code>{distributed, <anno>Nodes</anno>}</code></dt>
+          <item>
+            <p>This option can be used for
+              adding members to a distributed disk log.
+              Defaults to <code>[]</code>, which means that
+              the log is local on the current node.
+              </p>
+          </item>
+	  <dt><code>{notify, boolean()}</code><span id="notify"> </span></dt>
+          <item>
+            <p>If <code>true</code>, the log owners
+              are notified when certain log events occur.
+              Defaults to <code>false</code>. The owners are sent one of the
+              following messages when an event occurs:
+              </p>
+            <taglist>
+	      <dt><code>{disk_log, Node, Log, {wrap, NoLostItems}}</code></dt>
+              <item>
+                <p>Sent when a wrap log has
+                  filled up one of its files and a new file is
+                  opened. <code>NoLostItems</code> is the number of
+                  previously logged items that were lost when
+                  truncating existing files.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, {truncated, NoLostItems}}</code></dt>
+              <item>
+                <p>Sent when a log is
+                  truncated or reopened. For halt logs <code>NoLostItems</code>
+                  is the number of items written on the log since the 
+                  disk log process was created. For wrap logs 
+                  <code>NoLostItems</code> is the number of items on all 
+                  wrap log files.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, {read_only, Items}}</code></dt>
+              <item>
+                <p>Sent when an asynchronous log attempt is made to
+                  a log file opened in read-only mode. 
+                  <code>Items</code> is the items from the log attempt.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, {blocked_log, Items}}</code></dt>
+              <item>
+                <p>Sent when an asynchronous log attempt is made to
+                  a blocked log that does not queue log attempts.
+                  <code>Items</code> is the items from the log attempt.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, {format_external, Items}}</code></dt>
+              <item>
+                <p>Sent when function <code>alog/2</code> or <code>alog_terms/2</code> is
+                  used for internally formatted logs. <code>Items</code> is the 
+                  items from the log attempt.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, full}</code></dt>
+              <item>
+                <p>Sent when
+                  an attempt to log items to a wrap log would write more
+                  bytes than the limit set by option <code>size</code>.
+                  </p>
+              </item>
+	      <dt><code>{disk_log, Node, Log, {error_status, Status}}</code></dt>
+              <item>
+                <p>Sent when the error status changes. The error status
+                  is defined by the outcome of the last attempt to log
+                  items to the log, or to truncate the log, or the last
+                  use of function <code>sync/1</code>, <code>inc_wrap_file/1</code>, or
+                  <code>change_size/2</code>. <code>Status</code> is either <code>ok</code> or
+                  <code>{error, Error}</code>, the former is the initial value.
+                  </p>
+              </item>
+            </taglist>
+          </item>
+	  <dt><code>{head, <anno>Head</anno>}</code></dt>
+          <item>
+            <p>Specifies a header to be
+              written first on the log file. If the log is a wrap
+              log, the item <code><anno>Head</anno></code> is written first in each new file.
+              <code><anno>Head</anno></code> is to be a term if the format is
+              <code>internal</code>, otherwise a sequence of bytes.
+              Defaults to <code>none</code>, which means that
+              no header is written first on the file.
+              </p>
+          </item>
+	  <dt><code>{head_func, {M,F,A}}</code></dt>
+          <item>
+            <p>Specifies a function
+              to be called each time a new log file is opened.
+              The call <code>M:F(A)</code> is assumed to return <code>{ok, Head}</code>.
+              The item <code>Head</code> is written first in each file.
+              <code>Head</code> is to be a term if the format is
+              <code>internal</code>, otherwise a sequence of bytes.
+              </p>
+          </item>
+	  <dt><code>{mode, <anno>Mode</anno>}</code></dt>
+          <item>
+            <p>Specifies if the log is to be
+              opened in read-only or read-write mode. Defaults to
+              <code>read_write</code>.
+              </p>
+          </item>
+          <dt><code>{quiet, Boolean}</code></dt>
+          <item>
+              <p>Specifies if messages will be sent to
+                <code>error_logger</code> on recoverable errors with
+                the log files. Defaults to <code>false</code>.</p>
+          </item>
+        </taglist>
+        <p><code>open/1</code> returns <code>{ok, <anno>Log</anno>}</code> if the
+          log file is successfully opened. If the file is
+          successfully repaired, the tuple <code>{repaired, <anno>Log</anno>,
+	  {recovered, <anno>Rec</anno>}, {badbytes, <anno>Bad</anno>}}</code>
+	  is returned, where <code><anno>Rec</anno></code> is the number of
+	  whole Erlang terms found in the file and <code><anno>Bad</anno></code>
+	  is the number of bytes in the file that
+          are non-Erlang terms. If the parameter <code>distributed</code>
+          is specified, <code>open/1</code> returns a list of
+          successful replies and a list of erroneous replies. Each
+          reply is tagged with the node name.
+          </p>
+        <p>When a disk log is opened in read-write mode, any existing
+          log file is checked for. If there is none, a new empty
+          log is created, otherwise the existing file is opened at the
+          position after the last logged item, and the logging of items
+          starts from there. If the format is <code>internal</code>
+          and the existing file is not recognized as an internally
+          formatted log, a tuple
+	  <code>{error, {not_a_log_file, <anno>FileName</anno>}}</code>
+          is returned.
+          </p>
+        <p><code>open/1</code> cannot be used for changing the
+          values of options of an open log. When there are prior
+          owners or users of a log, all option values except <code>name</code>, 
+          <code>linkto</code>, and <code>notify</code> are only checked against
+          the values supplied before as option values
+          to function <code>open/1</code>, <code>change_header/2</code>, <code>change_notify/3</code>,
+          or <code>change_size/2</code>. Thus,
+          none of the options except <code>name</code> is mandatory. If some
+          specified value differs from the current value, a tuple
+          <code>{error, {arg_mismatch, <anno>OptionName</anno>, <anno>CurrentValue</anno>, <anno>Value</anno>}}</code>
+          is returned.</p>
+	<div class="note"><h2>Note!</h2><p>If an owner attempts to open a log
+          as owner once again, it is acknowledged with the return value
+          <code>{ok, <anno>Log</anno>}</code>, but the state of the disk log is not
+          affected.</p></div>
+        <p>If a log with a specified name is local on some node,
+          and one tries to open the log distributed on the same node,
+          the tuple <code>{error, {node_already_open, <anno>Log</anno>}}</code> is
+          returned. The same tuple is returned if the log is distributed on
+          some node, and one tries to open the log locally on the same node.
+          Opening individual distributed disk logs for the first time
+          adds those logs to a (possibly empty) distributed disk log.
+          The supplied option values are used
+          on all nodes mentioned by option <code>distributed</code>.
+          Individual distributed logs know nothing
+          about each other's option values, so each node can be
+          given unique option values by creating a distributed
+          log with many calls to <code>open/1</code>.
+          </p>
+        <p>A log file can be opened more than once by giving
+          different values to option <code>name</code> or by using the
+          same file when distributing a log on different nodes.
+          It is up to the user of module <code>disk_log</code>
+          to ensure that not more than one disk log process has write
+	  access to any file, otherwise the file can be corrupted.
+          </p>
+        <p>If an attempt to open a log file for the first time fails, 
+          the disk log process terminates with the EXIT message 
+          <code>{{failed,Reason},[{disk_log,open,1}]}</code>.
+          The function returns <code>{error, Reason}</code> for all other errors.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="pid2name/1">pid2name(Pid) -&gt; {ok, Log} | undefined</h3>
+      <ul class="type_desc"><li><code>Pid = pid()</code></li><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Returns the log name
+          given the pid of a disk log process on the current node, or
+          <code>undefined</code> if the specified pid is not a disk log process.
+          </p>
+        <p>This function is meant to be used for debugging only.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="reopen/2">reopen(Log, File) -&gt; ok | {error, <a href="#type-reopen_error_rsn" class="seealso">reopen_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>File = <a href="file.html#type-filename" class="seealso">file:filename()</a></code></li></ul>
+      <h3 id="reopen/3">reopen(Log, File, Head) -&gt; ok | {error, <a href="#type-reopen_error_rsn" class="seealso">reopen_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>File = <a href="file.html#type-filename" class="seealso">file:filename()</a></code></li><li><code>Head = term()</code></li></ul>
+      <h3 id="breopen/3">breopen(Log, File, BHead) -&gt; ok | {error, <a href="#type-reopen_error_rsn" class="seealso">reopen_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>File = <a href="file.html#type-filename" class="seealso">file:filename()</a></code></li><li><code>BHead = iodata()</code></li></ul>
+      
+      
+      
+      
+      
+      <ul class="type"><li><code>reopen_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{same_file_name, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_index_file, <a href="file.html#type-filename" class="seealso">file:filename()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Renames the log file
+          to <code><anno>File</anno></code> and then recreates a new log file.
+          If a wrap log exists, <code><anno>File</anno></code> is used as the base name
+          of the renamed files.
+          By default the header given to <code>open/1</code> is written first in
+          the newly opened log file, but if argument <code><anno>Head</anno></code> or
+          <code><anno>BHead</anno></code> is specified, this item is used instead.
+          The header argument is used only once. Next time a wrap log file
+          is opened, the header given to <code>open/1</code> is used.
+          </p>
+        <p><code>reopen/2,3</code> are used for internally formatted
+          logs, and <code>breopen/3</code> for externally formatted logs.
+          </p>
+        <p>Owners subscribing to notifications receive
+          a <code>truncate</code> message.
+          </p>
+        <p>Upon failure to reopen the log, the disk log process terminates
+          with the EXIT message <code>{{failed,Error},[{disk_log,Fun,Arity}]}</code>.
+          Other processes having requests queued receive the message
+          <code>{disk_log, Node, {error, disk_log_stopped}}</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="sync/1">sync(Log) -&gt; ok | {error, <a href="#type-sync_error_rsn" class="seealso">sync_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <ul class="type"><li><code>sync_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Ensures that the contents of the log are written to the disk.
+          This is usually a rather expensive operation.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="truncate/1">truncate(Log) -&gt; ok | {error, <a href="#type-trunc_error_rsn" class="seealso">trunc_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      <h3 id="truncate/2">truncate(Log, Head) -&gt; ok | {error, <a href="#type-trunc_error_rsn" class="seealso">trunc_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>Head = term()</code></li></ul>
+      <h3 id="btruncate/2">btruncate(Log, BHead) -&gt; ok | {error, <a href="#type-trunc_error_rsn" class="seealso">trunc_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li><li><code>BHead = iodata()</code></li></ul>
+      
+      
+      
+      
+      <ul class="type"><li><code>trunc_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{read_only_mode, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{blocked_log, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{invalid_header, <a href="#type-invalid_header" class="seealso">invalid_header()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{file_error, <a href="file.html#type-filename" class="seealso">file:filename()</a>, <a href="#type-file_error" class="seealso">file_error()</a>}</code></li></ul>
+      <div class="description">
+        <p>Removes all items from a disk log.
+          If argument <code><anno>Head</anno></code> or <code><anno>BHead</anno></code> is
+          specified, this item is written first in the newly truncated
+          log, otherwise the header given to <code>open/1</code> is used.
+          The header argument is used only once. Next time a wrap log file
+          is opened, the header given to <code>open/1</code> is used.
+          </p>
+        <p><code>truncate/1,2</code> are used for internally
+          formatted logs, and <code>btruncate/2</code> for externally formatted
+          logs.
+          </p>
+        <p>Owners subscribing to notifications receive
+          a <code>truncate</code> message.
+          </p>
+        <p>If the attempt to truncate the log fails, the disk log process
+          terminates with the EXIT message 
+          <code>{{failed,Reason},[{disk_log,Fun,Arity}]}</code>.
+          Other processes having requests queued receive the message
+          <code>{disk_log, Node, {error, disk_log_stopped}}</code>.
+          </p>
+      </div>
+    </div>
+    <div class="function">
+      <h3 id="unblock/1">unblock(Log) -&gt; ok | {error, <a href="#type-unblock_error_rsn" class="seealso">unblock_error_rsn()</a>}</h3>
+      <ul class="type_desc"><li><code>Log = <a href="#type-log" class="seealso">log()</a></code></li></ul>
+      
+      <ul class="type"><li><code>unblock_error_rsn() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;no_such_log |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;nonode |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{not_blocked, <a href="#type-log" class="seealso">log()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{not_blocked_by_pid, <a href="#type-log" class="seealso">log()</a>}</code></li></ul>
+      <div class="description">
+        <p>Unblocks a log.
+          A log can only be unblocked by the blocking process.
+          </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="file.html" class="seealso"><code>file(3)</code></a>,
+      <a href="pg2.html" class="seealso"><code>pg2(3)</code></a>,
+      <a href="wrap_log_reader.html" class="seealso"><code>wrap_log_reader(3)</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

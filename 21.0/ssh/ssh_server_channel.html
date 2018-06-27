@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ssh_server_channel (ssh) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>ssh_server_channel</h1>
+  <h2 class="modsummary">-behaviour(ssh_server_channel). (Replaces ssh_daemon_channel)
+  </h2>
+  <div class="description">
+    <div class="note"><h2>Note!</h2>
+      <p>This module replaces ssh_daemon_channel.</p>
+      <p>The old module is still available for compatibility, but should not be used for new programs.
+      The old module will not be maintained except for some error corrections
+      </p>
+    </div>
+
+    <p>SSH services (clients and servers) are implemented as channels
+    that are multiplexed over an SSH connection and communicates over
+    the <url href="http://www.ietf.org/rfc/rfc4254.txt"> SSH
+    Connection Protocol</url>. This module provides a callback API
+    that takes care of generic channel aspects for daemons, such as flow control
+    and close messages. It lets the callback functions take care of
+    the service (application) specific parts. This behavior also ensures
+    that the channel process honors the principal of an OTP-process so
+    that it can be part of a supervisor tree. This is a requirement of
+    channel processes implementing a subsystem that will be added to
+    the <code>ssh</code> applications supervisor tree.
+    </p>
+
+    <div class="note"><h2>Note!</h2><p>When implementing a client subsystem handler, use
+    <a href="ssh_client_channel.html" class="seealso">-behaviour(ssh_client_channel)</a> instead.
+    </p>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <h4>Callback Functions</h4>
+    <p>
+      The following functions are to be exported from a
+      <code>ssh_server_channel</code> callback module.
+    </p>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="init/1">Module:init(Args) -&gt; {ok, State} | {ok, State, timeout()} |
+      {stop, Reason}</h3>
+      
+      <ul class="type">
+	<li><code>Args = term()</code></li>
+	<d>Last argument to <code>start_link/4</code>.</d>
+	<li><code>State = term()</code></li>
+	<li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Makes necessary initializations and returns the initial channel
+	state if the initializations succeed.
+	</p>
+	<p>The time-out values that can be returned
+	have the same semantics as in a <a href="../stdlib/gen_server.html" class="seealso">gen_server</a>.
+	If the time-out occurs, <a href="../#Module/handle_msg-2.html" class="seealso">handle_msg/2</a>
+	is called as <code>handle_msg(timeout, State)</code>.
+	</p>
+      </div>
+    </div>
+   
+    <div class="function">
+      <h3 id="handle_msg/2">Module:handle_msg(Msg, State) -&gt; {ok, State} |
+      {stop, ChannelId, State}</h3>
+
+      
+      <ul class="type">
+	<li><code>Msg = timeout | term()</code></li>
+	<li><code>ChannelId = <a href="ssh.html#type-channel_id" class="seealso">ssh:channel_id()</a></code></li>
+	<li><code>State = term() </code></li>
+      </ul>
+      <div class="description">
+	<p>Handles other messages than SSH Connection Protocol, call, or
+	cast messages sent to the channel. 
+	</p>
+
+	<p>Possible Erlang 'EXIT' messages is to be handled by this
+	function and all channels are to handle the following message.</p>
+	
+	<taglist>
+	  <dt><code>{ssh_channel_up, ssh:channel_id(), ssh:connection_ref()}</code></dt>
+	  <item><p>This is the first message that the channel receives.
+	  This is especially useful if the
+	  server wants to send a message to the client without first
+	  receiving a message from it. If the message is not
+	  useful for your particular scenario, ignore it by
+	  immediately returning <code>{ok, State}</code>.
+	  </p></item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="handle_ssh_msg/2">Module:handle_ssh_msg(Msg, State) -&gt; {ok, State} | {stop,
+      ChannelId, State}</h3>
+      
+      <ul class="type">
+	<li><code>Msg = ssh_connection:event()</code></li>
+	<li><code>ChannelId = <a href="ssh.html#type-channel_id" class="seealso">ssh:channel_id()</a></code></li>
+	<li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Handles SSH Connection Protocol messages that may need
+	service-specific attention. For details,
+	see <a href="ssh_connection.html" class="seealso"> ssh_connection:event()</a>.
+	</p>
+	
+	<p>The following message is taken care of by the
+	<code>ssh_server_channel</code> behavior.</p>
+	
+	<taglist>
+	  <dt><code>{closed, ssh:channel_id()}</code></dt>
+	  <item><p>The channel behavior sends a close message to the
+	  other side, if such a message has not already been sent.
+	  Then it terminates the channel with reason <code>normal</code>.</p></item>
+	</taglist>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="terminate/2">Module:terminate(Reason, State) -&gt; _</h3>
+      
+      <ul class="type">
+	<li><code>Reason = term()</code></li>
+	<li><code>State = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>This function is called by a channel process when it is
+	about to terminate. Before this function is called, <a href="ssh_connection.html#close/2" class="seealso"> ssh_connection:close/2
+	</a> is called, if it has not been called earlier.
+	This function does any necessary cleaning
+	up. When it returns, the channel process terminates with
+	reason <code>Reason</code>. The return value is ignored.
+	</p>
+      </div>
+    </div>
+    
+  </div>
+  
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>

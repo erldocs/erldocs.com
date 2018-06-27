@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>string (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>string</h1>
+  <h2 class="modsummary">String processing functions.</h2>
+  <div class="description">
+    <p>This module provides functions for string processing.</p>
+    <p>A string in this module is represented by <a href="unicode.html#type-chardata" class="seealso">
+    <code>unicode:chardata()</code></a>, that is, a list of codepoints,
+    binaries with UTF-8-encoded codepoints
+    (<em>UTF-8 binaries</em>), or a mix of the two.</p>
+    <code>
+"abcd"               is a valid string
+&lt;&lt;"abcd"&gt;&gt;           is a valid string
+["abcd"]             is a valid string
+&lt;&lt;"abc..åäö"/utf8&gt;&gt;  is a valid string
+&lt;&lt;"abc..åäö"&gt;&gt;       is NOT a valid string,
+                     but a binary with Latin-1-encoded codepoints
+[&lt;&lt;"abc"&gt;&gt;, "..åäö"] is a valid string
+[atom]               is NOT a valid string</code>
+    <p>
+      This module operates on grapheme clusters. A <em>grapheme cluster</em>
+      is a user-perceived character, which can be represented by several
+      codepoints.
+    </p>
+    <code>
+"å"  [229] or [97, 778]
+"e̊"  [101, 778]</code>
+    <p>
+      The string length of "ß↑e̊" is 3, even though it is represented by the
+      codepoints <code>[223,8593,101,778]</code> or the UTF-8 binary
+      <code>&lt;&lt;195,159,226,134,145,101,204,138&gt;&gt;</code>.
+    </p>
+    <p>
+      Grapheme clusters for codepoints of class <code>prepend</code>
+      and non-modern (or decomposed) Hangul is not handled for performance
+      reasons in
+      <a href="#find/3" class="seealso"><code>find/3</code></a>,
+      <a href="#replace/3" class="seealso"><code>replace/3</code></a>,
+      <a href="#split/2" class="seealso"><code>split/2</code></a>,
+      <a href="#lexemes/2" class="seealso"><code>split/2</code></a> and
+      <a href="#trim/3" class="seealso"><code>trim/3</code></a>.
+    </p>
+    <p>
+      Splitting and appending strings is to be done on grapheme clusters
+      borders.
+      There is no verification that the results of appending strings are
+      valid or normalized.
+    </p>
+    <p>
+      Most of the functions expect all input to be normalized to one form,
+      see for example <a href="unicode.html#characters_to_nfc_list/1" class="seealso">
+      <code>unicode:characters_to_nfc_list/1</code></a>.
+    </p>
+    <p>
+      Language or locale specific handling of input is not considered
+      in any function.
+    </p>
+    <p>
+      The functions can crash for non-valid input strings. For example,
+      the functions expect UTF-8 binaries but not all functions
+      verify that all binaries are encoded correctly.
+    </p>
+    <p>
+      Unless otherwise specified the return value type is the same as
+      the input type. That is, binary input returns binary output,
+      list input returns a list output, and mixed input can return a
+      mixed output.</p>
+      <code>
+1&gt; string:trim("  sarah  ").
+"sarah"
+2&gt; string:trim(&lt;&lt;"  sarah  "&gt;&gt;).
+&lt;&lt;"sarah"&gt;&gt;
+3&gt; string:lexemes("foo bar", " ").
+["foo","bar"]
+4&gt; string:lexemes(&lt;&lt;"foo bar"&gt;&gt;, " ").
+[&lt;&lt;"foo"&gt;&gt;,&lt;&lt;"bar"&gt;&gt;]</code>
+    <p>This module has been reworked in Erlang/OTP 20 to
+    handle <a href="unicode.html#type-chardata" class="seealso">
+    <code>unicode:chardata()</code></a> and operate on grapheme
+    clusters. The <a href="#oldapi" class="seealso"> <code>old
+    functions</code></a> that only work on Latin-1 lists as input
+    are still available but should not be used, they will be
+    deprecated in a future release.
+    </p>
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-direction">direction() = leading | trailing</h3>
+      <h3 id="type-grapheme_cluster">grapheme_cluster() = char() | [char()]</h3>
+      <div class="description">
+        <p>A user-perceived character, consisting of one or more
+        codepoints.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+    <div class="function">
+      <h3 id="casefold/1">casefold(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Converts <code><anno>String</anno></code> to a case-agnostic
+	  comparable string. Function <code>casefold/1</code> is preferred
+	  over <code>lowercase/1</code> when two strings are to be compared
+	  for equality. See also <a href="#equal/4" class="seealso"><code>equal/4</code></a>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:casefold("Ω and ẞ SHARP S").</code>
+"ω and ss sharp s"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="chomp/1">chomp(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Returns a string where any trailing <code>\n</code> or
+	  <code>\r\n</code> have been removed from <code><anno>String</anno></code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+182&gt; <code>string:chomp(&lt;&lt;"\nHello\n\n"&gt;&gt;).</code>
+&lt;&lt;"\nHello"&gt;&gt;
+183&gt; <code>string:chomp("\nHello\r\r\n").</code>
+"\nHello\r"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="equal/2">equal(A, B) -&gt; boolean()</h3>
+      <ul class="type_desc"><li><code>A = B = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="equal/3">equal(A, B, IgnoreCase) -&gt; boolean()</h3>
+      <ul class="type_desc"><li><code>A = B = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>IgnoreCase = boolean()</code></li></ul>
+      <h3 id="equal/4">equal(A, B, IgnoreCase, Norm) -&gt; boolean()</h3>
+      <ul class="type_desc"><li><code>A = B = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>IgnoreCase = boolean()</code></li><li><code>Norm = none | nfc | nfd | nfkc | nfkd</code></li></ul>
+      
+      <div class="description">
+        <p>
+	  Returns <code>true</code> if <code><anno>A</anno></code> and
+          <code><anno>B</anno></code> are equal, otherwise <code>false</code>.
+	</p>
+	<p>
+	  If <code><anno>IgnoreCase</anno></code> is <code>true</code>
+	  the function does <a href="#casefold/1" class="seealso">
+	  <code>casefold</code>ing</a> on the fly before the equality test.
+	</p>
+	<p>If <code><anno>Norm</anno></code> is not <code>none</code>
+	the function applies normalization on the fly before the equality test.
+	There are four available normalization forms:
+	<a href="unicode.html#characters_to_nfc_list/1" class="seealso"> <code>nfc</code></a>,
+	<a href="unicode.html#characters_to_nfd_list/1" class="seealso"> <code>nfd</code></a>,
+	<a href="unicode.html#characters_to_nfkc_list/1" class="seealso"> <code>nfkc</code></a>, and
+	<a href="unicode.html#characters_to_nfkd_list/1" class="seealso"> <code>nfkd</code></a>.
+	</p>
+	<p>By default,
+	<code><anno>IgnoreCase</anno></code> is <code>false</code> and
+	<code><anno>Norm</anno></code> is <code>none</code>.</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:equal("åäö", &lt;&lt;"åäö"/utf8&gt;&gt;).</code>
+true
+2&gt; <code>string:equal("åäö", unicode:characters_to_nfd_binary("åäö")).</code>
+false
+3&gt; <code>string:equal("åäö", unicode:characters_to_nfd_binary("ÅÄÖ"), true, nfc).</code>
+true</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="find/2">find(String, SearchPattern) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a> | nomatch</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="find/3">find(String, SearchPattern, Dir) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a> | nomatch</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a></code></li></ul>
+      
+      <div class="description">
+        <p>
+	  Removes anything before <code><anno>SearchPattern</anno></code> in <code><anno>String</anno></code>
+	  and returns the remainder of the string or <code>nomatch</code> if <code><anno>SearchPattern</anno></code> is not
+	  found.
+          <code><anno>Dir</anno></code>, which can be <code>leading</code> or
+	  <code>trailing</code>, indicates from which direction characters
+	  are to be searched.
+        </p>
+	<p>
+          By default, <code><anno>Dir</anno></code> is <code>leading</code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:find("ab..cd..ef", ".").</code>
+"..cd..ef"
+2&gt; <code>string:find(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", trailing).</code>
+&lt;&lt;"..ef"&gt;&gt;
+3&gt; <code>string:find(&lt;&lt;"ab..cd..ef"&gt;&gt;, "x", leading).</code>
+nomatch
+4&gt; <code>string:find("ab..cd..ef", "x", trailing).</code>
+nomatch</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="is_empty/1">is_empty(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; boolean()</h3>
+      
+      <div class="description">
+        <p>Returns <code>true</code> if <code><anno>String</anno></code> is the
+        empty string, otherwise <code>false</code>.</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:is_empty("foo").</code>
+false
+2&gt; <code>string:is_empty(["",&lt;&lt;&gt;&gt;]).</code>
+true</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="length/1">length(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; integer() &gt;= 0</h3>
+      
+      <div class="description">
+        <p>
+	  Returns the number of grapheme clusters in <code><anno>String</anno></code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:length("ß↑e̊").</code>
+3
+2&gt; <code>string:length(&lt;&lt;195,159,226,134,145,101,204,138&gt;&gt;).</code>
+3</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lexemes/2">lexemes(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SeparatorList :: [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>]</h3>
+      
+      <div class="description">
+	<p>
+	  Returns a list of lexemes in <code><anno>String</anno></code>, separated
+          by the grapheme clusters in <code><anno>SeparatorList</anno></code>.
+	</p>
+	<p>
+	  Notice that, as shown in this example, two or more
+          adjacent separator graphemes clusters in <code><anno>String</anno></code>
+          are treated as one. That is, there are no empty
+          strings in the resulting list of lexemes.
+	  See also <a href="#split/3" class="seealso"><code>split/3</code></a> which returns
+	  empty strings.
+	</p>
+	<p>Notice that <code>[$\r,$\n]</code> is one grapheme cluster.</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:lexemes("abc de̊fxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).</code>
+["abc","de̊f","ghi","jkl","foo"]
+2&gt; <code>string:lexemes(&lt;&lt;"abc de̊fxxghix jkl\r\nfoo"/utf8&gt;&gt;, "x e" ++ [$\r,$\n]).</code>
+[&lt;&lt;"abc"&gt;&gt;,&lt;&lt;"de̊f"/utf8&gt;&gt;,&lt;&lt;"ghi"&gt;&gt;,&lt;&lt;"jkl\r\nfoo"&gt;&gt;]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="lowercase/1">lowercase(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Converts <code><anno>String</anno></code> to lowercase.
+	</p>
+	<p>
+	  Notice that function <a href="#casefold/1" class="seealso"><code>casefold/1</code></a>
+	  should be used when converting a string to
+	  be tested for equality.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+2&gt; <code>string:lowercase(string:uppercase("Michał")).</code>
+"michał"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="next_codepoint/1">next_codepoint(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maybe_improper_list(char(), <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>}</h3>
+      
+      <div class="description">
+        <p>
+	  Returns the first codepoint in <code><anno>String</anno></code>
+	  and the rest of <code><anno>String</anno></code> in the tail. Returns
+	  an empty list if <code><anno>String</anno></code> is empty or an
+	  <code>{error, String}</code> tuple if the next byte is invalid.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:next_codepoint(unicode:characters_to_binary("e̊fg")).</code>
+[101|&lt;&lt;"̊fg"/utf8&gt;&gt;]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="next_grapheme/1">next_grapheme(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maybe_improper_list(<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{error, <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>}</h3>
+      
+      <div class="description">
+        <p>
+	  Returns the first grapheme cluster in <code><anno>String</anno></code>
+	  and the rest of <code><anno>String</anno></code> in the tail. Returns
+	  an empty list if <code><anno>String</anno></code> is empty or an
+	  <code>{error, String}</code> tuple if the next byte is invalid.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:next_grapheme(unicode:characters_to_binary("e̊fg")).</code>
+["e̊"|&lt;&lt;"fg"&gt;&gt;]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="nth_lexeme/3">nth_lexeme(String, N, SeparatorList) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>N = integer() &gt;= 0</code></li><li><code>SeparatorList = [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</code></li></ul>
+      
+      <div class="description">
+	<p>Returns lexeme number <code><anno>N</anno></code> in
+	<code><anno>String</anno></code>, where lexemes are separated by
+	the grapheme clusters in <code><anno>SeparatorList</anno></code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:nth_lexeme("abc.de̊f.ghiejkl", 3, ".e").</code>
+"ghi"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="pad/2">pad(String, Length) -&gt; <a href="unicode.html#type-charlist" class="seealso">unicode:charlist()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Length = integer()</code></li></ul>
+      <h3 id="pad/3">pad(String, Length, Dir) -&gt; <a href="unicode.html#type-charlist" class="seealso">unicode:charlist()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Length = integer()</code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a> | both</code></li></ul>
+      <h3 id="pad/4">pad(String, Length, Dir, Char) -&gt; <a href="unicode.html#type-charlist" class="seealso">unicode:charlist()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Length = integer()</code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a> | both</code></li><li><code>Char = <a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a></code></li></ul>
+      
+      <div class="description">
+        <p>
+	  Pads <code><anno>String</anno></code> to <code><anno>Length</anno></code> with
+	  grapheme cluster <code><anno>Char</anno></code>.
+	  <code><anno>Dir</anno></code>, which can be <code>leading</code>, <code>trailing</code>,
+	  or <code>both</code>, indicates where the padding should be added.
+	</p>
+	<p>By default, <code><anno>Char</anno></code> is <code>$\s</code> and
+	<code><anno>Dir</anno></code> is <code>trailing</code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:pad(&lt;&lt;"He̊llö"/utf8&gt;&gt;, 8).</code>
+[&lt;&lt;72,101,204,138,108,108,195,182&gt;&gt;,32,32,32]
+2&gt; <code>io:format("'~ts'~n",[string:pad("He̊llö", 8, leading)]).</code>
+'   He̊llö'
+3&gt; <code>io:format("'~ts'~n",[string:pad("He̊llö", 8, both)]).</code>
+' He̊llö  '</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="prefix/2">prefix(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>, Prefix :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nomatch | <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  If <code><anno>Prefix</anno></code> is the prefix of
+	  <code><anno>String</anno></code>, removes it and returns the
+	  remainder of <code><anno>String</anno></code>, otherwise returns
+	  <code>nomatch</code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:prefix(&lt;&lt;"prefix of string"&gt;&gt;, "pre").</code>
+&lt;&lt;"fix of string"&gt;&gt;
+2&gt; <code>string:prefix("pre", "prefix").</code>
+nomatch</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="replace/3">replace(String, SearchPattern, Replacement) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>]</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = Replacement = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="replace/4">replace(String, SearchPattern, Replacement, Where) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>]</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = Replacement = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Where = <a href="#type-direction" class="seealso">direction()</a> | all</code></li></ul>
+      
+      <div class="description">
+        <p>
+	  Replaces <code><anno>SearchPattern</anno></code> in <code><anno>String</anno></code>
+	  with <code><anno>Replacement</anno></code>.
+	  <code><anno>Where</anno></code>, default <code>leading</code>, indicates whether
+	  the <code>leading</code>, the <code>trailing</code> or <code>all</code> encounters of
+	  <code><anno>SearchPattern</anno></code> are to be replaced.
+	</p>
+	<p>Can be implemented as:</p>
+	<pre class="sh_erlang">lists:join(Replacement, split(String, SearchPattern, Where)).</pre>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:replace(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", "*").</code>
+[&lt;&lt;"ab"&gt;&gt;,"*",&lt;&lt;"cd..ef"&gt;&gt;]
+2&gt; <code>string:replace(&lt;&lt;"ab..cd..ef"&gt;&gt;, "..", "*", all).</code>
+[&lt;&lt;"ab"&gt;&gt;,"*",&lt;&lt;"cd"&gt;&gt;,"*",&lt;&lt;"ef"&gt;&gt;]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="reverse/1">reverse(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</h3>
+      
+      <div class="description">
+        <p>
+	  Returns the reverse list of the grapheme clusters in <code><anno>String</anno></code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; Reverse = <code>string:reverse(unicode:characters_to_nfd_binary("ÅÄÖ")).</code>
+[[79,776],[65,776],[65,778]]
+2&gt; <code>io:format("~ts~n",[Reverse]).</code>
+ÖÄÅ</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="slice/2">slice(String, Start) -&gt; Slice</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Start = integer() &gt;= 0</code></li><li><code>Slice = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="slice/3">slice(String, Start, Length) -&gt; Slice</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Start = integer() &gt;= 0</code></li><li><code>Length = infinity | integer() &gt;= 0</code></li><li><code>Slice = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      
+      <div class="description">
+	<p>Returns a substring of <code><anno>String</anno></code> of
+	at most <code><anno>Length</anno></code> grapheme clusters, starting at position
+	<code><anno>Start</anno></code>.</p>
+	<p>By default, <code><anno>Length</anno></code> is <code>infinity</code>.</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:slice(&lt;&lt;"He̊llö Wörld"/utf8&gt;&gt;, 4).</code>
+&lt;&lt;"ö Wörld"/utf8&gt;&gt;
+2&gt; <code>string:slice(["He̊llö ", &lt;&lt;"Wörld"/utf8&gt;&gt;], 4,4).</code>
+"ö Wö"
+3&gt; <code>string:slice(["He̊llö ", &lt;&lt;"Wörld"/utf8&gt;&gt;], 4,50).</code>
+"ö Wörld"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="split/2">split(String, SearchPattern) -&gt; [<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>]</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="split/3">split(String, SearchPattern, Where) -&gt; [<a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>]</h3>
+      <ul class="type_desc"><li><code>String = SearchPattern = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Where = <a href="#type-direction" class="seealso">direction()</a> | all</code></li></ul>
+      
+      <div class="description">
+        <p>
+	  Splits <code><anno>String</anno></code> where <code><anno>SearchPattern</anno></code>
+	  is encountered and return the remaining parts.
+	  <code><anno>Where</anno></code>, default <code>leading</code>, indicates whether
+	  the <code>leading</code>, the <code>trailing</code> or <code>all</code> encounters of
+	  <code><anno>SearchPattern</anno></code> will split <code><anno>String</anno></code>.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+0&gt; <code>string:split("ab..bc..cd", "..").</code>
+["ab","bc..cd"]
+1&gt; <code>string:split(&lt;&lt;"ab..bc..cd"&gt;&gt;, "..", trailing).</code>
+[&lt;&lt;"ab..bc"&gt;&gt;,&lt;&lt;"cd"&gt;&gt;]
+2&gt; <code>string:split(&lt;&lt;"ab..bc....cd"&gt;&gt;, "..", all).</code>
+[&lt;&lt;"ab"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;,&lt;&lt;&gt;&gt;,&lt;&lt;"cd"&gt;&gt;]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="take/2">take(String, Characters) -&gt; {Leading, Trailing}</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Characters = [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</code></li><li><code>Leading = Trailing = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="take/3">take(String, Characters, Complement) -&gt; {Leading, Trailing}</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Characters = [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</code></li><li><code>Complement = boolean()</code></li><li><code>Leading = Trailing = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="take/4">take(String, Characters, Complement, Dir) -&gt; {Leading, Trailing}</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Characters = [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</code></li><li><code>Complement = boolean()</code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a></code></li><li><code>Leading = Trailing = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Takes characters from <code><anno>String</anno></code> as long as
+        the characters are members of set <code><anno>Characters</anno></code>
+	or the complement of set <code><anno>Characters</anno></code>.
+        <code><anno>Dir</anno></code>,
+        which can be <code>leading</code> or <code>trailing</code>, indicates from
+        which direction characters are to be taken.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+5&gt; <code>string:take("abc0z123", lists:seq($a,$z)).</code>
+{"abc","0z123"}
+6&gt; <code>string:take(&lt;&lt;"abc0z123"&gt;&gt;, lists:seq($0,$9), true, leading).</code>
+{&lt;&lt;"abc"&gt;&gt;,&lt;&lt;"0z123"&gt;&gt;}
+7&gt; <code>string:take("abc0z123", lists:seq($0,$9), false, trailing).</code>
+{"abc0z","123"}
+8&gt; <code>string:take(&lt;&lt;"abc0z123"&gt;&gt;, lists:seq($a,$z), true, trailing).</code>
+{&lt;&lt;"abc0z"&gt;&gt;,&lt;&lt;"123"&gt;&gt;}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="titlecase/1">titlecase(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Converts <code><anno>String</anno></code> to titlecase.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:titlecase("ß is a SHARP s").</code>
+"Ss is a SHARP s"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="to_float/1">to_float(String) -&gt; {Float, Rest} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Float = float()</code></li><li><code>Rest = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Reason = no_float | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Argument <code><anno>String</anno></code> is expected to start with a
+          valid text represented float (the digits are ASCII values).
+          Remaining characters in the string after the float are returned in
+          <code><anno>Rest</anno></code>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; <code>{F1,Fs} = string:to_float("1.0-1.0e-1"),</code>
+&gt; <code>{F2,[]} = string:to_float(Fs),</code>
+&gt; <code>F1+F2.</code>
+0.9
+&gt; <code>string:to_float("3/2=1.5").</code>
+{error,no_float}
+&gt; <code>string:to_float("-1.5eX").</code>
+{-1.5,"eX"}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="to_integer/1">to_integer(String) -&gt; {Int, Rest} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Int = integer()</code></li><li><code>Rest = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Reason = no_integer | badarg</code></li></ul>
+      
+      <div class="description">
+        <p>Argument <code><anno>String</anno></code> is expected to start with a
+          valid text represented integer (the digits are ASCII values).
+          Remaining characters in the string after the integer are returned in
+          <code><anno>Rest</anno></code>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; <code>{I1,Is} = string:to_integer("33+22"),</code>
+&gt; <code>{I2,[]} = string:to_integer(Is),</code>
+&gt; <code>I1-I2.</code>
+11
+&gt; <code>string:to_integer("0.5").</code>
+{0,".5"}
+&gt; <code>string:to_integer("x=2").</code>
+{error,no_integer}</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="to_graphemes/1">to_graphemes(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</h3>
+      
+      <div class="description">
+        <p>
+	  Converts <code><anno>String</anno></code> to a list of grapheme clusters.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:to_graphemes("ß↑e̊").</code>
+[223,8593,[101,778]]
+2&gt; <code>string:to_graphemes(&lt;&lt;"ß↑e̊"/utf8&gt;&gt;).</code>
+[223,8593,[101,778]]</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="trim/1">trim(String) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li></ul>
+      <h3 id="trim/2">trim(String, Dir) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a> | both</code></li></ul>
+      <h3 id="trim/3">trim(String, Dir, Characters) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      <ul class="type_desc"><li><code>String = <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></code></li><li><code>Dir = <a href="#type-direction" class="seealso">direction()</a> | both</code></li><li><code>Characters = [<a href="#type-grapheme_cluster" class="seealso">grapheme_cluster()</a>]</code></li></ul>
+      
+      <div class="description">
+	<p>
+	  Returns a string, where leading or trailing, or both,
+	  <code><anno>Characters</anno></code> have been removed.
+	  <code><anno>Dir</anno></code> which can be <code>leading</code>, <code>trailing</code>,
+	  or <code>both</code>, indicates from which direction characters
+	  are to be removed.
+	</p>
+	<p> Default <code><anno>Characters</anno></code> is the set of
+	nonbreakable whitespace codepoints, defined as
+	Pattern_White_Space in
+	<url href="http://unicode.org/reports/tr31/">Unicode Standard Annex #31</url>.
+	<code>By default, <anno>Dir</anno></code> is <code>both</code>.
+	</p>
+	<p>
+	  Notice that <code>[$\r,$\n]</code> is one grapheme cluster according
+	  to the Unicode Standard.
+	</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:trim("\t  Hello  \n").</code>
+"Hello"
+2&gt; <code>string:trim(&lt;&lt;"\t  Hello  \n"&gt;&gt;, leading).</code>
+&lt;&lt;"Hello  \n"&gt;&gt;
+3&gt; <code>string:trim(&lt;&lt;".Hello.\n"&gt;&gt;, trailing, "\n.").</code>
+&lt;&lt;".Hello"&gt;&gt;</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="uppercase/1">uppercase(String :: <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a>) -&gt; <a href="unicode.html#type-chardata" class="seealso">unicode:chardata()</a></h3>
+      
+      <div class="description">
+        <p>
+	  Converts <code><anno>String</anno></code> to uppercase.
+	</p>
+	<p>See also <a href="#titlecase/1" class="seealso"><code>titlecase/1</code></a>.</p>
+	<p><em>Example:</em></p>
+	<pre class="sh_erlang">
+1&gt; <code>string:uppercase("Michał").</code>
+"MICHAŁ"</pre>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <span id="oldapi"> </span>
+    <h4>Obsolete API functions</h4>
+    <p>Here follows the function of the old API.
+    These functions only work on a list of Latin-1 characters.
+    </p>
+    <div class="note"><h2>Note!</h2><p>
+      The functions are kept for backward compatibility, but are
+      not recommended.
+      They will be deprecated in a future release.
+    </p>
+    <p>Any undocumented functions in <code>string</code> are not to be used.</p>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+    <div class="function">
+      <h3 id="centre/2">centre(String, Number) -&gt; Centered</h3>
+      <ul class="type_desc"><li><code>String = Centered = string()</code></li><li><code>Number = integer() &gt;= 0</code></li></ul>
+      <h3 id="centre/3">centre(String, Number, Character) -&gt; Centered</h3>
+      <ul class="type_desc"><li><code>String = Centered = string()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Character = char()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a string, where <code><anno>String</anno></code> is centered in the
+          string and surrounded by blanks or <code><anno>Character</anno></code>.
+	  The resulting string has length <code><anno>Number</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#pad/3" class="seealso"><code>pad/3</code></a>.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="chars/2">chars(Character, Number) -&gt; String</h3>
+      <ul class="type_desc"><li><code>Character = char()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>String = string()</code></li></ul>
+      <h3 id="chars/3">chars(Character, Number, Tail) -&gt; String</h3>
+      <ul class="type_desc"><li><code>Character = char()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Tail = String = string()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a string consisting of <code><anno>Number</anno></code> characters
+          <code><anno>Character</anno></code>. Optionally, the string can end with
+          string <code><anno>Tail</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="lists.html#duplicate/2" class="seealso"><code>lists:duplicate/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="chr/2">chr(String, Character) -&gt; Index</h3>
+      <ul class="type_desc"><li><code>String = string()</code></li><li><code>Character = char()</code></li><li><code>Index = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the index of the first occurrence of
+          <code><anno>Character</anno></code> in <code><anno>String</anno></code>. Returns
+          <code>0</code> if <code><anno>Character</anno></code> does not occur.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#find/2" class="seealso"><code>find/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="concat/2">concat(String1, String2) -&gt; String3</h3>
+      <ul class="type_desc"><li><code>String1 = String2 = String3 = string()</code></li></ul>
+      
+      <div class="description">
+        <p>Concatenates <code><anno>String1</anno></code> and
+          <code><anno>String2</anno></code> to form a new string
+          <code><anno>String3</anno></code>, which is returned.</p>
+	<p>
+	  This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	  Use <code>[<anno>String1</anno>, <anno>String2</anno>]</code> as
+	  <code>Data</code> argument, and call
+	  <a href="unicode.html#characters_to_list/2" class="seealso">
+	  <code>unicode:characters_to_list/2</code></a> or
+	  <a href="unicode.html#characters_to_binary/2" class="seealso">
+	  <code>unicode:characters_to_binary/2</code></a>
+	  to flatten the output.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="copies/2">copies(String, Number) -&gt; Copies</h3>
+      <ul class="type_desc"><li><code>String = Copies = string()</code></li><li><code>Number = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a string containing <code><anno>String</anno></code> repeated
+          <code><anno>Number</anno></code> times.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="lists.html#duplicate/2" class="seealso"><code>lists:duplicate/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="cspan/2">cspan(String, Chars) -&gt; Length</h3>
+      <ul class="type_desc"><li><code>String = Chars = string()</code></li><li><code>Length = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the length of the maximum initial segment of
+          <code><anno>String</anno></code>, which consists entirely of characters
+          not from <code><anno>Chars</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#take/3" class="seealso"><code>take/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:cspan("\t    abcdef", " \t").
+0</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="join/2">join(StringList, Separator) -&gt; String</h3>
+      <ul class="type_desc"><li><code>StringList = [string()]</code></li><li><code>Separator = String = string()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a string with the elements of <code><anno>StringList</anno></code>
+          separated by the string in <code><anno>Separator</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="lists.html#join/2" class="seealso"><code>lists:join/2</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; join(["one", "two", "three"], ", ").
+"one, two, three"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="left/2">left(String, Number) -&gt; Left</h3>
+      <ul class="type_desc"><li><code>String = Left = string()</code></li><li><code>Number = integer() &gt;= 0</code></li></ul>
+      <h3 id="left/3">left(String, Number, Character) -&gt; Left</h3>
+      <ul class="type_desc"><li><code>String = Left = string()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Character = char()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code><anno>String</anno></code> with the length adjusted in
+          accordance with <code><anno>Number</anno></code>. The left margin is
+          fixed. If <code>length(<anno>String</anno>)</code> &lt;
+          <code><anno>Number</anno></code>, then <code><anno>String</anno></code> is padded
+          with blanks or <code><anno>Character</anno></code>s.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#pad/2" class="seealso"><code>pad/2</code></a> or
+	<a href="#pad/3" class="seealso"><code>pad/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:left("Hello",10,$.).
+"Hello....."</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="len/1">len(String) -&gt; Length</h3>
+      <ul class="type_desc"><li><code>String = string()</code></li><li><code>Length = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the number of characters in <code><anno>String</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#length/1" class="seealso"><code>length/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="rchr/2">rchr(String, Character) -&gt; Index</h3>
+      <ul class="type_desc"><li><code>String = string()</code></li><li><code>Character = char()</code></li><li><code>Index = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the index of the last occurrence of
+          <code><anno>Character</anno></code> in <code><anno>String</anno></code>. Returns
+          <code>0</code> if <code><anno>Character</anno></code> does not occur.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#find/3" class="seealso"><code>find/3</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="right/2">right(String, Number) -&gt; Right</h3>
+      <ul class="type_desc"><li><code>String = Right = string()</code></li><li><code>Number = integer() &gt;= 0</code></li></ul>
+      <h3 id="right/3">right(String, Number, Character) -&gt; Right</h3>
+      <ul class="type_desc"><li><code>String = Right = string()</code></li><li><code>Number = integer() &gt;= 0</code></li><li><code>Character = char()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns <code><anno>String</anno></code> with the length adjusted in
+          accordance with <code><anno>Number</anno></code>. The right margin is
+          fixed. If the length of <code>(<anno>String</anno>)</code> &lt;
+          <code><anno>Number</anno></code>, then <code><anno>String</anno></code> is padded
+          with blanks or <code><anno>Character</anno></code>s.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#pad/3" class="seealso"><code>pad/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:right("Hello", 10, $.).
+".....Hello"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="rstr/2">rstr(String, SubString) -&gt; Index</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Index = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the position where the last occurrence of
+          <code><anno>SubString</anno></code> begins in <code><anno>String</anno></code>.
+          Returns <code>0</code> if <code><anno>SubString</anno></code>
+          does not exist in <code><anno>String</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#find/3" class="seealso"><code>find/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:rstr(" Hello Hello World World ", "Hello World").
+8</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="span/2">span(String, Chars) -&gt; Length</h3>
+      <ul class="type_desc"><li><code>String = Chars = string()</code></li><li><code>Length = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the length of the maximum initial segment of
+          <code><anno>String</anno></code>, which consists entirely of characters
+          from <code><anno>Chars</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#take/2" class="seealso"><code>take/2</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:span("\t    abcdef", " \t").
+5</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="str/2">str(String, SubString) -&gt; Index</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Index = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the position where the first occurrence of
+          <code><anno>SubString</anno></code> begins in <code><anno>String</anno></code>.
+          Returns <code>0</code> if <code><anno>SubString</anno></code>
+          does not exist in <code><anno>String</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#find/2" class="seealso"><code>find/2</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:str(" Hello Hello World World ", "Hello World").
+8</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="strip/1">strip(String :: string()) -&gt; string()</h3>
+      <h3 id="strip/2">strip(String, Direction) -&gt; Stripped</h3>
+      <ul class="type_desc"><li><code>String = Stripped = string()</code></li><li><code>Direction = left | right | both</code></li></ul>
+      <h3 id="strip/3">strip(String, Direction, Character) -&gt; Stripped</h3>
+      <ul class="type_desc"><li><code>String = Stripped = string()</code></li><li><code>Direction = left | right | both</code></li><li><code>Character = char()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a string, where leading or trailing, or both, blanks or a
+          number of <code><anno>Character</anno></code> have been removed.
+          <code><anno>Direction</anno></code>, which can be <code>left</code>, <code>right</code>,
+          or <code>both</code>, indicates from which direction blanks are to be
+          removed. <code>strip/1</code> is equivalent to
+          <code>strip(String, both)</code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#trim/3" class="seealso"><code>trim/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:strip("...Hello.....", both, $.).
+"Hello"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sub_string/2">sub_string(String, Start) -&gt; SubString</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Start = integer() &gt;= 1</code></li></ul>
+      <h3 id="sub_string/3">sub_string(String, Start, Stop) -&gt; SubString</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Start = Stop = integer() &gt;= 1</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a substring of <code><anno>String</anno></code>, starting at
+          position <code><anno>Start</anno></code> to the end of the string, or to
+          and including position <code><anno>Stop</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#slice/3" class="seealso"><code>slice/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+sub_string("Hello World", 4, 8).
+"lo Wo"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="substr/2">substr(String, Start) -&gt; SubString</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Start = integer() &gt;= 1</code></li></ul>
+      <h3 id="substr/3">substr(String, Start, Length) -&gt; SubString</h3>
+      <ul class="type_desc"><li><code>String = SubString = string()</code></li><li><code>Start = integer() &gt;= 1</code></li><li><code>Length = integer() &gt;= 0</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a substring of <code><anno>String</anno></code>, starting at
+          position <code><anno>Start</anno></code>, and ending at the end of the
+          string or at length <code><anno>Length</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#slice/3" class="seealso"><code>slice/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; substr("Hello World", 4, 5).
+"lo Wo"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sub_word/2">sub_word(String, Number) -&gt; Word</h3>
+      <ul class="type_desc"><li><code>String = Word = string()</code></li><li><code>Number = integer()</code></li></ul>
+      <h3 id="sub_word/3">sub_word(String, Number, Character) -&gt; Word</h3>
+      <ul class="type_desc"><li><code>String = Word = string()</code></li><li><code>Number = integer()</code></li><li><code>Character = char()</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the word in position <code><anno>Number</anno></code> of
+          <code><anno>String</anno></code>. Words are separated by blanks or
+          <code><anno>Character</anno></code>s.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#nth_lexeme/3" class="seealso"><code>nth_lexeme/3</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; string:sub_word(" Hello old boy !",3,$o).
+"ld b"</pre>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="to_lower/1">to_lower(String) -&gt; Result</h3><h3>to_lower(Char) -&gt; CharResult</h3>
+      <ul class="type_desc"><li><code>String = Result = <a href="io_lib.html#type-latin1_string" class="seealso">io_lib:latin1_string()</a></code></li><li><code>Char = CharResult = char()</code></li></ul>
+      
+      <h3 id="to_upper/1">to_upper(String) -&gt; Result</h3><h3>to_upper(Char) -&gt; CharResult</h3>
+      <ul class="type_desc"><li><code>String = Result = <a href="io_lib.html#type-latin1_string" class="seealso">io_lib:latin1_string()</a></code></li><li><code>Char = CharResult = char()</code></li></ul>
+      
+      
+      
+      
+      
+      
+      <div class="description">
+        <p>The specified string or character is case-converted. Notice that
+          the supported character set is ISO/IEC 8859-1 (also called Latin 1);
+          all values outside this set are unchanged</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a> use
+	<a href="#lowercase/1" class="seealso"><code>lowercase/1</code></a>,
+	<a href="#uppercase/1" class="seealso"><code>uppercase/1</code></a>,
+	<a href="#titlecase/1" class="seealso"><code>titlecase/1</code></a> or
+	<a href="#casefold/1" class="seealso"><code>casefold/1</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="tokens/2">tokens(String, SeparatorList) -&gt; Tokens</h3>
+      <ul class="type_desc"><li><code>String = SeparatorList = string()</code></li><li><code>Tokens = [Token :: nonempty_string()]</code></li></ul>
+      
+      <div class="description">
+        <p>Returns a list of tokens in <code><anno>String</anno></code>, separated
+          by the characters in <code><anno>SeparatorList</anno></code>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; tokens("abc defxxghix jkl", "x ").
+["abc", "def", "ghi", "jkl"]</pre>
+        <p>Notice that, as shown in this example, two or more
+          adjacent separator characters in <code><anno>String</anno></code>
+          are treated as one. That is, there are no empty
+          strings in the resulting list of tokens.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#lexemes/2" class="seealso"><code>lexemes/2</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="words/1">words(String) -&gt; Count</h3>
+      <ul class="type_desc"><li><code>String = string()</code></li><li><code>Count = integer() &gt;= 1</code></li></ul>
+      <h3 id="words/2">words(String, Character) -&gt; Count</h3>
+      <ul class="type_desc"><li><code>String = string()</code></li><li><code>Character = char()</code></li><li><code>Count = integer() &gt;= 1</code></li></ul>
+      
+      <div class="description">
+        <p>Returns the number of words in <code><anno>String</anno></code>, separated
+          by blanks or <code><anno>Character</anno></code>.</p>
+	<p>This function is <a href="#oldapi" class="seealso">obsolete</a>.
+	Use
+	<a href="#lexemes/2" class="seealso"><code>lexemes/2</code></a>.</p>
+        <p><em>Example:</em></p>
+        <pre class="sh_erlang">
+&gt; words(" Hello old boy!", $o).
+4</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Notes</h4>
+    <p>Some of the general string functions can seem to overlap each
+      other. The reason is that this string package is the
+      combination of two earlier packages and all functions of
+      both packages have been retained.</p>
+  </div>
+
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
