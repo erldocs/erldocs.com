@@ -26,7 +26,7 @@
       <div style="margin:0px; padding:10px 20px;">
         
   
-  <h1>ets</h1>
+  <module since="">ets</module>
   <h2 class="modsummary">Built-in term storage.</h2>
   <div class="description">
     <p>This module is an interface to the Erlang built-in term storage
@@ -136,23 +136,96 @@
        operation. In database terms the isolation level can be seen as
        "serializable", as if all isolated operations are carried out serially,
        one after the other in a strict order.</p>
+  </div>
 
-      <p>No other support is available within this module that would guarantee
-       consistency between objects. However, function
-       <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
-       can be used to guarantee that a sequence of
-       <a href="#first/1" class="seealso"><code>first/1</code></a> and
-       <a href="#next/2" class="seealso"><code>next/2</code></a> calls traverse the
-       table without errors and that each existing object in the table is
-       visited exactly once, even if another (or the same) process
-       simultaneously deletes or inserts objects into the table.
-       Nothing else is guaranteed; in particular objects that are inserted
-       or deleted during such a traversal can be visited once or not at all.
-       Functions that internally traverse over a table, like
-       <a href="#select/1" class="seealso"><code>select</code></a> and
-       <a href="#match/1" class="seealso"><code>match</code></a>,
-       give the same guarantee as
-       <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable</code></a>.</p>
+  <div class="section"><span id="traversal"> </span>
+    <h4>Table traversal</h4>
+    <p>There are different ways to traverse through the objects of a table.</p>
+    <list type="bulleted">
+      <item><p><em>Single-step</em> traversal one key at at time, using
+	<a href="#first/1" class="seealso"><code>first/1</code></a>,
+	<a href="#next/2" class="seealso"><code>next/2</code></a>,
+	<a href="#last/1" class="seealso"><code>last/1</code></a> and
+	<a href="#prev/2" class="seealso"><code>prev/2</code></a>.</p>
+      </item>
+      <item><p>Search with simple <em>match patterns</em>, using
+	<a href="#match/1" class="seealso"><code>match/1/2/3</code></a>,
+	<a href="#match_delete/2" class="seealso"><code>match_delete/2</code></a> and
+	<a href="#match_object/1" class="seealso"><code>match_object/1/2/3</code></a>.</p>
+      </item>
+      <item><p>Search with more powerful <em>match specifications</em>, using
+	<a href="#select/1" class="seealso"><code>select/1/2/3</code></a>,
+	<a href="#select_count/2" class="seealso"><code>select_count/2</code></a>,
+	<a href="#select_delete/2" class="seealso"><code>select_delete/2</code></a>,
+	<a href="#select_replace/2" class="seealso"><code>select_replace/2</code></a> and
+	<a href="#select_reverse/1" class="seealso"><code>select_reverse/1/2/3</code></a>.</p>
+      </item>
+      <item><p><em>Table conversions</em>, using
+	<a href="#tab2file/2" class="seealso"><code>tab2file/2/3</code></a> and
+        <a href="#tab2list/1" class="seealso"><code>tab2list/1</code></a>.</p>
+      </item>
+    </list>
+    <p>None of these ways of table traversal will guarantee a consistent table snapshot
+    if the table is also updated during the traversal. Moreover, traversals not
+    done in a <em>safe</em> way, on tables where keys are inserted or deleted
+    during the traversal, may yield the following undesired effects:</p>
+    <list type="bulleted">
+      <item><p>Any key may be missed.</p></item>
+      <item><p>Any key may be found more than once.</p></item>
+      <item><p>The traversal may fail with <code>badarg</code> exception if keys are deleted.</p>
+      </item>
+    </list>
+    <p>A table traversal is <em>safe</em> if either</p>
+    <list type="bulleted">
+      <item><p>the table is of type <code>ordered_set</code>.</p>
+      </item>
+      <item><p>the entire table traversal is done within one ETS function
+        call.</p>
+      </item>
+      <item><p>function <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+        is used to keep the table fixated during the entire traversal.</p>
+      </item>
+    </list>
+    <div class="note"><h2>Note!</h2>
+      <p>Even though the access of a single object is always guaranteed to be
+      <a href="#concurrency" class="seealso">atomic and isolated</a>, each traversal
+      through a table to find the next key is not done with such guarantees. This is often
+      not a problem, but may cause rare subtle "unexpected" effects if a concurrent
+      process inserts objects during a traversal. For example, consider one
+      process doing</p>
+<pre class="sh_erlang">
+ets:new(t, [ordered_set, named_table]),
+ets:insert(t, {1}),
+ets:insert(t, {2}),
+ets:insert(t, {3}),
+</pre>
+      <p>A concurrent call to <code>ets:first(t)</code>, done by another
+      process, may then in rare cases return <code>2</code> even though
+      <code>2</code> has never existed in the table ordered as the first key. In
+      the same way, a concurrent call to <code>ets:next(t, 1)</code> may return
+      <code>3</code> even though <code>3</code> never existed in the table
+      ordered directly after <code>1</code>.</p>
+      <p>Effects like this are improbable but possible. The probability will
+      further be reduced (if not vanish) if table option
+      <a href="#new_2_write_concurrency" class="seealso"><code>write_concurrency</code></a>
+      is not enabled. This can also only be a potential concern for
+      <code>ordered_set</code> where the traversal order is defined.</p>
+    </div>
+    <p>Traversals using <code>match</code> and <code>select</code> functions may not need to
+    scan the entire table depending on how the key is specified. A match
+    pattern with a <em>fully bound key</em> (without any match variables) will
+    optimize the operation to a single key lookup without any table traversal
+    at all. For <code>ordered_set</code> a <em>partially bound key</em> will limit the
+    traversal to only scan a subset of the table based on term order. A
+    partially bound key is either a list or a tuple with a prefix that is fully
+    bound. Example:</p>
+<pre class="sh_erlang">
+1&gt; <code>T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).</code>
+true
+2&gt; <code>%% Efficient search of all with area code 555</code>
+2&gt; <code>ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).</code>
+[["1234","John Smith"]]
+</pre>
   </div>
 
   <div class="section">
@@ -205,8 +278,7 @@
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
-      <h3 id="all/0">all() -&gt; [Tab]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li></ul>
+      <name name="all" arity="0" since=""/>
       
       <div class="description">
         <p>Returns a list of all tables at the node. Named tables are
@@ -221,8 +293,7 @@
     </div>
 
     <div class="function">
-      <h3 id="delete/1">delete(Tab) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li></ul>
+      <name name="delete" arity="1" since=""/>
       
       <div class="description">
         <p>Deletes the entire table <code><anno>Tab</anno></code>.</p>
@@ -230,8 +301,7 @@
     </div>
 
     <div class="function">
-      <h3 id="delete/2">delete(Tab, Key) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li></ul>
+      <name name="delete" arity="2" since=""/>
       
       <div class="description">
         <p>Deletes all objects with key <code><anno>Key</anno></code> from table
@@ -240,8 +310,7 @@
     </div>
 
     <div class="function">
-      <h3 id="delete_all_objects/1">delete_all_objects(Tab) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li></ul>
+      <name name="delete_all_objects" arity="1" since=""/>
       
       <div class="description">
         <p>Delete all objects in the ETS table <code><anno>Tab</anno></code>.
@@ -251,8 +320,7 @@
     </div>
 
     <div class="function">
-      <h3 id="delete_object/2">delete_object(Tab, Object) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="delete_object" arity="2" since=""/>
       
       <div class="description">
         <p>Delete the exact object <code><anno>Object</anno></code> from the
@@ -264,8 +332,7 @@
     </div>
 
     <div class="function">
-      <h3 id="file2tab/1">file2tab(Filename) -&gt; {ok, Tab} | {error, Reason}</h3>
-      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <name name="file2tab" arity="1" since=""/>
       
       <div class="description">
         <p>Reads a file produced by <a href="#tab2file/2" class="seealso">
@@ -277,8 +344,7 @@
     </div>
 
     <div class="function">
-      <h3 id="file2tab/2">file2tab(Filename, Options) -&gt; {ok, Tab} | {error, Reason}</h3>
-      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Options = [Option]</code></li><li><code>Option = {verify, boolean()}</code></li><li><code>Reason = term()</code></li></ul>
+      <name name="file2tab" arity="2" since=""/>
       
       <div class="description">
         <p>Reads a file produced by <a href="#tab2file/2" class="seealso">
@@ -310,8 +376,7 @@
     </div>
 
     <div class="function">
-      <h3 id="first/1">first(Tab) -&gt; Key | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li></ul>
+      <name name="first" arity="1" since=""/>
       
       <div class="description">
         <p>Returns the first key <code><anno>Key</anno></code> in table
@@ -326,8 +391,7 @@
     </div>
 
     <div class="function">
-      <h3 id="foldl/3">foldl(Function, Acc0, Tab) -&gt; Acc1</h3>
-      <ul class="type_desc"><li><code>Function = fun((Element :: term(), AccIn) -&gt; AccOut)</code></li><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Acc0 = Acc1 = AccIn = AccOut = term()</code></li></ul>
+      <name name="foldl" arity="3" since=""/>
       
       <div class="description">
         <p><code><anno>Acc0</anno></code> is returned if the table is empty.
@@ -343,8 +407,7 @@
     </div>
 
     <div class="function">
-      <h3 id="foldr/3">foldr(Function, Acc0, Tab) -&gt; Acc1</h3>
-      <ul class="type_desc"><li><code>Function = fun((Element :: term(), AccIn) -&gt; AccOut)</code></li><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Acc0 = Acc1 = AccIn = AccOut = term()</code></li></ul>
+      <name name="foldr" arity="3" since=""/>
       
       <div class="description">
         <p><code><anno>Acc0</anno></code> is returned if the table is empty.
@@ -360,8 +423,7 @@
     </div>
 
     <div class="function">
-      <h3 id="from_dets/2">from_dets(Tab, DetsTab) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>DetsTab = <a href="dets.html#type-tab_name" class="seealso">dets:tab_name()</a></code></li></ul>
+      <name name="from_dets" arity="2" since=""/>
       
       <div class="description">
         <p>Fills an already created ETS table with the objects in the
@@ -374,8 +436,7 @@
     </div>
 
     <div class="function">
-      <h3 id="fun2ms/1">fun2ms(LiteralFun) -&gt; MatchSpec</h3>
-      <ul class="type_desc"><li><code>LiteralFun = function()</code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li></ul>
+      <name name="fun2ms" arity="1" since=""/>
       
       <div class="description">
         <p>Pseudo function that by a <code>parse_transform</code> translates
@@ -443,8 +504,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="give_away/3">give_away(Tab, Pid, GiftData) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pid = pid()</code></li><li><code>GiftData = term()</code></li></ul>
+      <name name="give_away" arity="3" since=""/>
       
       <div class="description">
         <p>Make process <code><anno>Pid</anno></code> the new owner of table
@@ -462,7 +522,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="i/0">i() -&gt; ok</h3>
+      <name name="i" arity="0" since=""/>
       
       <div class="description">
         <p>Displays information about all ETS tables on a terminal.</p>
@@ -470,8 +530,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="i/1">i(Tab) -&gt; ok</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li></ul>
+      <name name="i" arity="1" since=""/>
       
       <div class="description">
         <p>Browses table <code><anno>Tab</anno></code> on a terminal.</p>
@@ -479,22 +538,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="info/1">info(Tab) -&gt; InfoList | undefined</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>InfoList = [InfoTuple]</code></li><li><code>InfoTuple = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;{compressed, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{heir, pid() | none} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{id, <a href="#type-tid" class="seealso">tid()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{keypos, integer() &gt;= 1} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{memory, integer() &gt;= 0} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{name, atom()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{named_table, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{node, node()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{owner, pid()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{protection, <a href="#type-access" class="seealso">access()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{size, integer() &gt;= 0} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{type, <a href="#type-type" class="seealso">type()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{write_concurrency, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{read_concurrency, boolean()}</code></li></ul>
+      <name name="info" arity="1" since=""/>
       
       <div class="description">
         <p>Returns information about table <code><anno>Tab</anno></code> as a list of
@@ -570,26 +614,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="info/2">info(Tab, Item) -&gt; Value | undefined</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Item = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;compressed |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;fixed |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;heir |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;id |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;keypos |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;memory |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;name |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;named_table |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;node |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;owner |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;protection |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;safe_fixed |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;safe_fixed_monotonic_time |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;size |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;stats |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;type |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;write_concurrency |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;read_concurrency</code></li><li><code>Value = term()</code></li></ul>
+      <name name="info" arity="2" since=""/>
       
       <div class="description">
         <p>Returns the information associated with <code>Item</code> for table
@@ -610,12 +635,11 @@ Error: fun containing local Erlang function calls
             <p><span id="info_2_safe_fixed_monotonic_time"> </span></p>
             <p><code>Item=safe_fixed|safe_fixed_monotonic_time,
               Value={FixationTime,Info}|false</code></p>
-            <p>If the table has been fixed using
+            <p>If the table is fixed using
               <a href="#safe_fixtable/2" class="seealso">
               <code>safe_fixtable/2</code></a>,
               the call returns a tuple where <code>FixationTime</code> is the
-              time when the table was first fixed by a process, which either
-              is or is not one of the processes it is fixed by now.</p>
+              last time when the table changed from unfixed to fixed.</p>
             <p>The format and value of <code>FixationTime</code> depends on
               <code>Item</code>:</p>
             <taglist>
@@ -647,21 +671,26 @@ Error: fun containing local Erlang function calls
               table is fixed by now. <code>RefCount</code> is the value
               of the reference counter and it keeps track of how many times
               the table has been fixed by the process.</p>
-            <p>If the table never has been fixed, the call returns
-              <code>false</code>.</p>
+	    <p>Table fixations are not limited to <a href="#safe_fixtable/2" class="seealso">
+	      <code>safe_fixtable/2</code></a>. Temporary fixations may also
+	      be done by for example <a href="#traversal" class="seealso">traversing
+	      functions</a> like <code>select</code> and <code>match</code>. Such
+	      table fixations are automatically released before the
+	      corresponding functions returns, but they may be seen by a
+	      concurrent call to
+	      <code>ets:info(T,safe_fixed|safe_fixed_monotonic_time)</code>.</p>
+            <p>If the table is not fixed at all, the call returns <code>false</code>.</p>
           </item>
           <item>
             <p><code>Item=stats, Value=tuple()</code></p>
-            <p>Returns internal statistics about <code>set</code>, <code>bag</code>, and
-              <code>duplicate_bag</code> tables on an internal format used by OTP
-              test suites. Not for production use.</p></item>
+            <p>Returns internal statistics about tables on an internal format
+	    used by OTP test suites. Not for production use.</p></item>
         </list>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="init_table/2">init_table(Tab, InitFun) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>InitFun = fun((Arg) -&gt; Res)</code></li><li><code>Arg = read | close</code></li><li><code>Res = end_of_input | {Objects :: [term()], InitFun} | term()</code></li></ul>
+      <name name="init_table" arity="2" since=""/>
       
       <div class="description">
         <p>Replaces the existing objects of table <code><anno>Tab</anno></code> with
@@ -691,8 +720,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="insert/2">insert(Tab, ObjectOrObjects) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>ObjectOrObjects = tuple() | [tuple()]</code></li></ul>
+      <name name="insert" arity="2" since=""/>
       
       <div class="description">
         <p>Inserts the object or all of the objects in list
@@ -724,8 +752,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="insert_new/2">insert_new(Tab, ObjectOrObjects) -&gt; boolean()</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>ObjectOrObjects = tuple() | [tuple()]</code></li></ul>
+      <name name="insert_new" arity="2" since=""/>
       
       <div class="description">
         <p>Same as <a href="#insert/2" class="seealso"><code>insert/2</code></a>
@@ -743,8 +770,7 @@ Error: fun containing local Erlang function calls
     </div>
 
     <div class="function">
-      <h3 id="is_compiled_ms/1">is_compiled_ms(Term) -&gt; boolean()</h3>
-      <ul class="type_desc"><li><code>Term = term()</code></li></ul>
+      <name name="is_compiled_ms" arity="1" since=""/>
       
       <div class="description">
         <p>Checks if a term is a valid
@@ -775,8 +801,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="last/1">last(Tab) -&gt; Key | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li></ul>
+      <name name="last" arity="1" since=""/>
       
       <div class="description">
         <p>Returns the last key <code><anno>Key</anno></code> according to Erlang
@@ -790,8 +815,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="lookup/2">lookup(Tab, Key) -&gt; [Object]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="lookup" arity="2" since=""/>
       
       <div class="description">
         <p>Returns a list of all objects with key <code><anno>Key</anno></code> in
@@ -830,8 +854,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="lookup_element/3">lookup_element(Tab, Key, Pos) -&gt; Elem</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>Pos = integer() &gt;= 1</code></li><li><code>Elem = term() | [term()]</code></li></ul>
+      <name name="lookup_element" arity="3" since=""/>
       
       <div class="description">
         <p>For a table <code><anno>Tab</anno></code> of type <code>set</code> or
@@ -853,8 +876,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match/1">match(Continuation) -&gt; {[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Match = [term()]</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="match" arity="1" since=""/>
       
       <div class="description">
         <p>Continues a match started with
@@ -868,8 +890,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match/2">match(Tab, Pattern) -&gt; [Match]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pattern = <a href="#type-match_pattern" class="seealso">match_pattern()</a></code></li><li><code>Match = [term()]</code></li></ul>
+      <name name="match" arity="2" since=""/>
       
       <div class="description">
         <p>Matches the objects in table <code><anno>Tab</anno></code> against
@@ -900,9 +921,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match/3">match(Tab, Pattern, Limit) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pattern = <a href="#type-match_pattern" class="seealso">match_pattern()</a></code></li><li><code>Limit = integer() &gt;= 1</code></li><li><code>Match = [term()]</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="match" arity="3" since=""/>
       
       <div class="description">
         <p>Works like <a href="#match/2" class="seealso"><code>match/2</code></a>, 
@@ -916,12 +935,14 @@ ets:is_compiled_ms(Broken).</pre>
           <a href="#first/1" class="seealso"><code>first/1</code></a> and
           <a href="#next/2" class="seealso"><code>next/2</code></a>.</p>
         <p>If the table is empty, <code>'$end_of_table'</code> is returned.</p>
+	<p>Use <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+	  to guarantee <a href="#traversal" class="seealso">safe traversal</a>
+	  for subsequent calls to <a href="#match/1" class="seealso"><code>match/1</code></a>.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="match_delete/2">match_delete(Tab, Pattern) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pattern = <a href="#type-match_pattern" class="seealso">match_pattern()</a></code></li></ul>
+      <name name="match_delete" arity="2" since=""/>
       
       <div class="description">
         <p>Deletes all objects that match pattern <code><anno>Pattern</anno></code>
@@ -931,9 +952,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match_object/1">match_object(Continuation) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Object], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Object = tuple()</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="match_object" arity="1" since=""/>
       
       <div class="description">
         <p>Continues a match started with
@@ -948,8 +967,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match_object/2">match_object(Tab, Pattern) -&gt; [Object]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pattern = <a href="#type-match_pattern" class="seealso">match_pattern()</a></code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="match_object" arity="2" since=""/>
       
       <div class="description">
         <p>Matches the objects in table <code><anno>Tab</anno></code> against
@@ -967,9 +985,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match_object/3">match_object(Tab, Pattern, Limit) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Object], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Pattern = <a href="#type-match_pattern" class="seealso">match_pattern()</a></code></li><li><code>Limit = integer() &gt;= 1</code></li><li><code>Object = tuple()</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="match_object" arity="3" since=""/>
       
       <div class="description">
         <p>Works like <a href="#match_object/2" class="seealso">
@@ -984,12 +1000,15 @@ ets:is_compiled_ms(Broken).</pre>
           <a href="#first/1" class="seealso"><code>first/1</code></a> and
           <a href="#next/2" class="seealso"><code>next/2</code></a>.</p>
         <p>If the table is empty, <code>'$end_of_table'</code> is returned.</p>
+	<p>Use <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+	  to guarantee <a href="#traversal" class="seealso">safe traversal</a>
+	  for subsequent calls to <a href="#match_object/1" class="seealso">
+	  <code>match_object/1</code></a>.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="match_spec_compile/1">match_spec_compile(MatchSpec) -&gt; CompiledMatchSpec</h3>
-      <ul class="type_desc"><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>CompiledMatchSpec = <a href="#type-comp_match_spec" class="seealso">comp_match_spec()</a></code></li></ul>
+      <name name="match_spec_compile" arity="1" since=""/>
       
       <div class="description">
         <p>Transforms a
@@ -1016,8 +1035,7 @@ ets:is_compiled_ms(Broken).</pre>
     </div>
 
     <div class="function">
-      <h3 id="match_spec_run/2">match_spec_run(List, CompiledMatchSpec) -&gt; list()</h3>
-      <ul class="type_desc"><li><code>List = [term()]</code></li><li><code>CompiledMatchSpec = <a href="#type-comp_match_spec" class="seealso">comp_match_spec()</a></code></li></ul>
+      <name name="match_spec_run" arity="2" since=""/>
       
       <div class="description">
         <p>Executes the matching specified in a compiled
@@ -1053,8 +1071,7 @@ ets:select(Table, MatchSpec),</pre>
     </div>
 
     <div class="function">
-      <h3 id="member/2">member(Tab, Key) -&gt; boolean()</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li></ul>
+      <name name="member" arity="2" since=""/>
       
       <div class="description">
         <p>Works like <a href="#lookup/2" class="seealso"><code>lookup/2</code></a>,
@@ -1065,25 +1082,14 @@ ets:select(Table, MatchSpec),</pre>
     </div>
 
     <div class="function">
-      <h3 id="new/2">new(Name, Options) -&gt; <a href="#type-tid" class="seealso">tid()</a> | atom()</h3>
-      <ul class="type_desc"><li><code>Name = atom()</code></li><li><code>Options = [Option]</code></li><li><code>Option = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;Type |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;Access |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;named_table |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{keypos, Pos} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{heir, Pid :: pid(), HeirData} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{heir, none} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;Tweaks</code></li><li><code>Type = <a href="#type-type" class="seealso">type()</a></code></li><li><code>Access = <a href="#type-access" class="seealso">access()</a></code></li><li><code>Tweaks = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;{write_concurrency, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{read_concurrency, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;compressed</code></li><li><code>Pos = integer() &gt;= 1</code></li><li><code>HeirData = term()</code></li></ul>
+      <name name="new" arity="2" since=""/>
       
       <div class="description">
         <p>Creates a new table and returns a table identifier that can
           be used in subsequent operations. The table identifier can be
           sent to other processes so that a table can be shared between
           different processes within a node.</p>
-        <p>Parameter <code><anno>Options</anno></code> is a list of atoms that
+        <p>Parameter <code><anno>Options</anno></code> is a list of options that
           specifies table type, access rights, key position, and whether the
           table is named. Default values are used for omitted options.
           This means that not specifying any options (<code>[]</code>) is the same
@@ -1195,11 +1201,17 @@ ets:select(Table, MatchSpec),</pre>
               Functions that makes such promises over many objects (like
               <a href="#insert/2" class="seealso"><code>insert/2</code></a>)
               gain less (or nothing) from this option.</p>
-            <p>Table type <code>ordered_set</code> is not affected by this option.
-              Also, the memory consumption inflicted by
-              both <code>write_concurrency</code> and <code>read_concurrency</code> is a
-              constant overhead per table. This overhead can be especially
-              large when both options are combined.</p>
+            <p>The memory consumption inflicted by both <code>write_concurrency</code>
+	      and <code>read_concurrency</code> is a constant overhead per table for
+	      <code>set</code>, <code>bag</code> and <code>duplicate_bag</code>. For
+	      <code>ordered_set</code> the memory overhead depends on the number
+	      of inserted objects and the amount of actual detected
+	      concurrency in runtime. The memory overhead can be especially
+	      large when both options are combined.</p>
+	    <div class="note"><h2>Note!</h2>
+              <p>Prior to stdlib-3.7 (OTP-22.0) <code>write_concurrency</code> had no
+	      effect on <code>ordered_set</code>.</p>
+            </div>
             <span id="new_2_read_concurrency"> </span>
           </item>
           <dt><code>{read_concurrency,boolean()}</code></dt>
@@ -1240,8 +1252,7 @@ ets:select(Table, MatchSpec),</pre>
     </div>
 
     <div class="function">
-      <h3 id="next/2">next(Tab, Key1) -&gt; Key2 | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key1 = Key2 = term()</code></li></ul>
+      <name name="next" arity="2" since=""/>
       
       <div class="description">
         <p>Returns the next key <code><anno>Key2</anno></code>, following key
@@ -1253,18 +1264,18 @@ ets:select(Table, MatchSpec),</pre>
         <p>To find the first key in the table, use
           <a href="#first/1" class="seealso"><code>first/1</code></a>.</p>
         <p>Unless a table of type <code>set</code>, <code>bag</code>, or
-          <code>duplicate_bag</code> is protected using
+          <code>duplicate_bag</code> is fixated using
           <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>,
-          a traversal can fail if
-          concurrent updates are made to the table. For table
-          type <code>ordered_set</code>, the function returns the next key in
-          order, even if the object does no longer exist.</p>
+          a call to <code>next/2</code> will fail if <code><anno>Key1</anno></code> no longer
+	  exists in the table. For table type <code>ordered_set</code>, the function
+	  always returns the next key after <code><anno>Key1</anno></code> in term
+	  order, regardless whether <code><anno>Key1</anno></code> ever existed in the
+	  table.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="prev/2">prev(Tab, Key1) -&gt; Key2 | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key1 = Key2 = term()</code></li></ul>
+      <name name="prev" arity="2" since=""/>
       
       <div class="description">
         <p>Returns the previous key <code><anno>Key2</anno></code>, preceding key
@@ -1273,14 +1284,13 @@ ets:select(Table, MatchSpec),</pre>
           table types, the function is synonymous to
           <a href="#next/2" class="seealso"><code>next/2</code></a>.
           If no previous key exists, <code>'$end_of_table'</code> is returned.</p>
-        <p>To find the last key in the table, use
+        <p>To find the last key in an <code>ordered_set</code> table, use
           <a href="#last/1" class="seealso"><code>last/1</code></a>.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="rename/2">rename(Tab, Name) -&gt; Name</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Name = atom()</code></li></ul>
+      <name name="rename" arity="2" since=""/>
       
       <div class="description">
         <p>Renames the named table <code><anno>Tab</anno></code> to the new name
@@ -1290,8 +1300,7 @@ ets:select(Table, MatchSpec),</pre>
     </div>
 
     <div class="function">
-      <h3 id="repair_continuation/2">repair_continuation(Continuation, MatchSpec) -&gt; Continuation</h3>
-      <ul class="type_desc"><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li></ul>
+      <name name="repair_continuation" arity="2" since=""/>
       
       <div class="description">
         <p>Restores an opaque continuation returned by
@@ -1345,12 +1354,20 @@ ets:select(ets:repair_continuation(Broken,MS)).</pre>
     </div>
 
     <div class="function">
-      <h3 id="safe_fixtable/2">safe_fixtable(Tab, Fix) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Fix = boolean()</code></li></ul>
+      <name name="safe_fixtable" arity="2" since=""/>
       
       <div class="description">
         <p>Fixes a table of type <code>set</code>, <code>bag</code>, or
-          <code>duplicate_bag</code> for safe traversal.</p>
+        <code>duplicate_bag</code> for <a href="#traversal" class="seealso">
+	safe traversal</a> using
+	<a href="#first/1" class="seealso"><code>first/1</code></a> &
+	<a href="#next/2" class="seealso"><code>next/2</code></a>,
+	<a href="#match/3" class="seealso"><code>match/3</code></a> &
+	<a href="#match/1" class="seealso"><code>match/1</code></a>,
+	<a href="#match_object/3" class="seealso"><code>match_object/3</code></a> &
+	<a href="#match_object/1" class="seealso"><code>match_object/1</code></a>, or
+	<a href="#select/3" class="seealso"><code>select/3</code></a> &
+	<a href="#select/1" class="seealso"><code>select/1</code></a>.</p>
         <p>A process fixes a table by calling
           <code>safe_fixtable(<anno>Tab</anno>, true)</code>. The table remains
           fixed until the process releases it by calling
@@ -1363,11 +1380,11 @@ ets:select(ets:repair_continuation(Broken,MS)).</pre>
         <p>When a table is fixed, a sequence of
           <a href="#first/1" class="seealso"><code>first/1</code></a> and
           <a href="#next/2" class="seealso"><code>next/2</code></a> calls are
-          guaranteed to succeed, and each object in
-          the table is returned only once, even if objects
-          are removed or inserted during the traversal. The keys for new
-          objects inserted during the traversal <em>can</em> be returned by
-          <code>next/2</code> (it depends on the internal ordering of the keys).</p>
+          guaranteed to succeed even if keys are removed during the
+	  traversal. The keys for objects inserted or deleted during a
+	  traversal may or may not be returned by <code>next/2</code> depending on
+	  the ordering of keys within the table and if the key exists at the time
+	  <code>next/2</code> is called.</p>
         <p><em>Example:</em></p>
         <pre class="sh_erlang">
 clean_all_with_value(Tab,X) -&gt;
@@ -1385,7 +1402,7 @@ clean_all_with_value(Tab,X,Key) -&gt;
             true
     end,
     clean_all_with_value(Tab,X,ets:next(Tab,Key)).</pre>
-        <p>Notice that no deleted objects are removed from a
+        <p>Notice that deleted objects are not freed from a
           fixed table until it has been released. If a process fixes a
           table but never releases it, the memory used by the deleted
           objects is never freed. The performance of operations on
@@ -1395,15 +1412,14 @@ clean_all_with_value(Tab,X,Key) -&gt;
           <code>info(Tab, safe_fixed_monotonic_time)</code></a>. A system with
           many processes fixing tables can need a monitor that sends alarms
           when tables have been fixed for too long.</p>
-        <p>Notice that for table type <code>ordered_set</code>,
-          <code>safe_fixtable/2</code> is not necessary, as calls to
-          <code>first/1</code> and <code>next/2</code> always succeed.</p>
+        <p>Notice that <code>safe_fixtable/2</code> is not necessary for table type
+	<code>ordered_set</code> and for traversals done by a single ETS function call,
+	like <a href="#select/2" class="seealso"><code>select/2</code></a>.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="select/1">select(Continuation) -&gt; {[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Match = term()</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="select" arity="1" since=""/>
       
       <div class="description">
         <p>Continues a match started with
@@ -1417,8 +1433,7 @@ clean_all_with_value(Tab,X,Key) -&gt;
     </div>
 
     <div class="function">
-      <h3 id="select/2">select(Tab, MatchSpec) -&gt; [Match]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Match = term()</code></li></ul>
+      <name name="select" arity="2" since=""/>
       
       <div class="description">
         <p>Matches the objects in table <code><anno>Tab</anno></code> using a
@@ -1512,9 +1527,7 @@ is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
     </div>
 
     <div class="function">
-      <h3 id="select/3">select(Tab, MatchSpec, Limit) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Limit = integer() &gt;= 1</code></li><li><code>Match = term()</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="select" arity="3" since=""/>
       
       <div class="description">
         <p>Works like <a href="#select/2" class="seealso"><code>select/2</code></a>,
@@ -1527,13 +1540,15 @@ is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
           table, which is still faster than traversing the table object by
           object using <a href="#first/1" class="seealso"><code>first/1</code></a>
           and <a href="#next/2" class="seealso"><code>next/2</code></a>.</p>
-        <p>If the table is empty, <code>'$end_of_table'</code> is returned.</p>
+          <p>If the table is empty, <code>'$end_of_table'</code> is returned.</p>
+	  <p>Use <a href="#safe_fixtable/2" class="seealso"><code>safe_fixtable/2</code></a>
+	  to guarantee <a href="#traversal" class="seealso">safe traversal</a>
+	  for subsequent calls to <a href="#select/1" class="seealso"><code>select/1</code></a>.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="select_count/2">select_count(Tab, MatchSpec) -&gt; NumMatched</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>NumMatched = integer() &gt;= 0</code></li></ul>
+      <name name="select_count" arity="2" since=""/>
       
       <div class="description">
         <p>Matches the objects in table <code><anno>Tab</anno></code> using a
@@ -1550,8 +1565,7 @@ is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
     </div>
 
     <div class="function">
-      <h3 id="select_delete/2">select_delete(Tab, MatchSpec) -&gt; NumDeleted</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>NumDeleted = integer() &gt;= 0</code></li></ul>
+      <name name="select_delete" arity="2" since=""/>
       
       <div class="description">
         <p>Matches the objects in table <code><anno>Tab</anno></code> using a
@@ -1573,8 +1587,7 @@ is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
     </div>
 
     <div class="function">
-      <h3 id="select_replace/2">select_replace(Tab, MatchSpec) -&gt; NumReplaced</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>NumReplaced = integer() &gt;= 0</code></li></ul>
+      <name name="select_replace" arity="2" since="OTP 20.0"/>
       
       <div class="description">
         <p>Matches the objects in the table <code><anno>Tab</anno></code> using a
@@ -1583,7 +1596,7 @@ is_integer(X), is_integer(Y), X + Y &lt; 4711</pre>
           the match specification result.</p>
 	<p>The match-and-replace operation for each individual object is guaranteed to be
 	  <a href="#concurrency" class="seealso">atomic and isolated</a>. The
-	  <code>select_replace</code> table iteration as a whole, like all other select functions,
+	  <code>select_replace</code> table traversal as a whole, like all other select functions,
 	  does not give such guarantees.</p>
 	<p>The match specifiction must be guaranteed to <em>retain the key</em>
 	  of any matched object. If not, <code>select_replace</code> will fail with <code>badarg</code>
@@ -1613,9 +1626,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="select_reverse/1">select_reverse(Continuation) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li><li><code>Match = term()</code></li></ul>
+      <name name="select_reverse" arity="1" since="OTP R14B"/>
       
       <div class="description">
       <p>Continues a match started with <a href="#select_reverse/3" class="seealso">
@@ -1648,8 +1659,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="select_reverse/2">select_reverse(Tab, MatchSpec) -&gt; [Match]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Match = term()</code></li></ul>
+      <name name="select_reverse" arity="2" since="OTP R14B"/>
       
       <div class="description">
       <p>Works like <a href="#select/2" class="seealso"><code>select/2</code></a>,
@@ -1660,9 +1670,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="select_reverse/3">select_reverse(Tab, MatchSpec, Limit) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{[Match], Continuation} | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Limit = integer() &gt;= 1</code></li><li><code>Match = term()</code></li><li><code>Continuation = <a href="#type-continuation" class="seealso">continuation()</a></code></li></ul>
+      <name name="select_reverse" arity="3" since="OTP R14B"/>
       
       <div class="description">
       <p>Works like <a href="#select/3" class="seealso"><code>select/3</code></a>,
@@ -1679,8 +1687,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="setopts/2">setopts(Tab, Opts) -&gt; true</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Opts = Opt | [Opt]</code></li><li><code>Opt = {heir, pid(), HeirData} | {heir, none}</code></li><li><code>HeirData = term()</code></li></ul>
+      <name name="setopts" arity="2" since=""/>
       
       <div class="description">
         <p>Sets table options. The only allowed option to be set after the
@@ -1691,8 +1698,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="slot/2">slot(Tab, I) -&gt; [Object] | '$end_of_table'</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>I = integer() &gt;= 0</code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="slot" arity="2" since=""/>
       
       <div class="description">
         <p>This function is mostly for debugging purposes, Normally
@@ -1716,8 +1722,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="tab2file/2">tab2file(Tab, Filename) -&gt; ok | {error, Reason}</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <name name="tab2file" arity="2" since=""/>
       
       <div class="description">
         <p>Dumps table <code><anno>Tab</anno></code> to file
@@ -1728,8 +1733,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="tab2file/3">tab2file(Tab, Filename, Options) -&gt; ok | {error, Reason}</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>Options = [Option]</code></li><li><code>Option = {extended_info, [ExtInfo]} | {sync, boolean()}</code></li><li><code>ExtInfo = md5sum | object_count</code></li><li><code>Reason = term()</code></li></ul>
+      <name name="tab2file" arity="3" since=""/>
       
       <div class="description">
         <p>Dumps table <code><anno>Tab</anno></code> to file
@@ -1776,8 +1780,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="tab2list/1">tab2list(Tab) -&gt; [Object]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="tab2list" arity="1" since=""/>
       
       <div class="description">
         <p>Returns a list of all objects in table <code><anno>Tab</anno></code>.</p>
@@ -1785,17 +1788,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="tabfile_info/1">tabfile_info(Filename) -&gt; {ok, TableInfo} | {error, Reason}</h3>
-      <ul class="type_desc"><li><code>Filename = <a href="file.html#type-name" class="seealso">file:name()</a></code></li><li><code>TableInfo = [InfoItem]</code></li><li><code>InfoItem = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;{name, atom()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{type, Type} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{protection, Protection} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{named_table, boolean()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{keypos, integer() &gt;= 0} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{size, integer() &gt;= 0} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{extended_info, [ExtInfo]} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{version,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{Major :: integer() &gt;= 0, Minor :: integer() &gt;= 0}}</code></li><li><code>ExtInfo = md5sum | object_count</code></li><li><code>Type = bag | duplicate_bag | ordered_set | set</code></li><li><code>Protection = private | protected | public</code></li><li><code>Reason = term()</code></li></ul>
+      <name name="tabfile_info" arity="1" since=""/>
       
       <div class="description">
         <p>Returns information about the table dumped to file by
@@ -1873,14 +1866,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </div>
 
     <div class="function">
-      <h3 id="table/1">table(Tab) -&gt; QueryHandle</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>QueryHandle = <a href="qlc.html#type-query_handle" class="seealso">qlc:query_handle()</a></code></li></ul>
-      <h3 id="table/2">table(Tab, Options) -&gt; QueryHandle</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>QueryHandle = <a href="qlc.html#type-query_handle" class="seealso">qlc:query_handle()</a></code></li><li><code>Options = [Option] | Option</code></li><li><code>Option = {n_objects, NObjects} | {traverse, TraverseMethod}</code></li><li><code>NObjects = default | integer() &gt;= 1</code></li><li><code>TraverseMethod = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;first_next |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;last_prev |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;select |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{select, MatchSpec :: <a href="#type-match_spec" class="seealso">match_spec()</a>}</code></li></ul>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
       
       <div class="description">
         <p>Returns a Query List
@@ -1956,8 +1943,7 @@ true</pre>
     </div>
 
     <div class="function">
-      <h3 id="take/2">take(Tab, Key) -&gt; [Object]</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>Object = tuple()</code></li></ul>
+      <name name="take" arity="2" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns and removes a list of all objects with key
@@ -1971,8 +1957,7 @@ true</pre>
       </div>
     </div>
     <div class="function">
-      <h3 id="test_ms/2">test_ms(Tuple, MatchSpec) -&gt; {ok, Result} | {error, Errors}</h3>
-      <ul class="type_desc"><li><code>Tuple = tuple()</code></li><li><code>MatchSpec = <a href="#type-match_spec" class="seealso">match_spec()</a></code></li><li><code>Result = term()</code></li><li><code>Errors = [{warning | error, string()}]</code></li></ul>
+      <name name="test_ms" arity="2" since=""/>
       
       <div class="description">
         <p>This function is a utility to test a
@@ -1998,8 +1983,7 @@ true</pre>
     </div>
 
     <div class="function">
-      <h3 id="to_dets/2">to_dets(Tab, DetsTab) -&gt; DetsTab</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>DetsTab = <a href="dets.html#type-tab_name" class="seealso">dets:tab_name()</a></code></li></ul>
+      <name name="to_dets" arity="2" since=""/>
       
       <div class="description">
         <p>Fills an already created/opened Dets table with the objects
@@ -2009,14 +1993,12 @@ true</pre>
     </div>
 
     <div class="function"> 
-      <h3 id="update_counter/3">update_counter(Tab, Key, UpdateOp) -&gt; Result</h3><h3>update_counter(Tab, Key, X3 :: [UpdateOp]) -&gt; [Result]</h3><h3>update_counter(Tab, Key, Incr) -&gt; Result</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>UpdateOp = {Pos, Incr} | {Pos, Incr, Threshold, SetValue}</code></li><li><code>Pos = Incr = Threshold = SetValue = Result = integer()</code></li><li><code>Incr = Result = integer()</code></li></ul>
-      <h3 id="update_counter/4">update_counter(Tab, Key, UpdateOp, Default) -&gt; Result</h3><h3>update_counter(Tab, Key, X3 :: [UpdateOp], Default) -&gt; [Result]</h3><h3>update_counter(Tab, Key, Incr, Default) -&gt; Result</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>UpdateOp = {Pos, Incr} | {Pos, Incr, Threshold, SetValue}</code></li><li><code>Pos = Incr = Threshold = SetValue = Result = integer()</code></li><li><code>Default = tuple()</code></li><li><code>Incr = Result = integer()</code></li></ul>
-      
-      
-      
-      
+      <name name="update_counter" arity="3" clause_i="1" since=""/>
+      <name name="update_counter" arity="4" clause_i="1" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="2" since=""/>
+      <name name="update_counter" arity="4" clause_i="2" since="OTP 18.0"/>
+      <name name="update_counter" arity="3" clause_i="3" since=""/>
+      <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
       
       
       
@@ -2029,9 +2011,8 @@ true</pre>
         <p>This function provides an efficient way to update one or more 
           counters, without the trouble of having to look up an object, update 
           the object by incrementing an element, and insert the resulting
-          object into the table again. (The update is done atomically,
-          that is, no process 
-          can access the ETS table in the middle of the operation.)</p>
+          object into the table again. The operation is guaranteed to be
+          <a href="#concurrency" class="seealso">atomic and isolated</a>.</p>
         <p>This function destructively update the object with key
           <code><anno>Key</anno></code> in table <code><anno>Tab</anno></code> by adding
           <code><anno>Incr</anno></code> to the element at position
@@ -2095,10 +2076,8 @@ true</pre>
     </div>
 
     <div class="function">
-      <h3 id="update_element/3">update_element(Tab, Key, ElementSpec :: {Pos, Value}) -&gt; boolean()</h3><h3>update_element(Tab, Key, ElementSpec :: [{Pos, Value}]) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean()</h3>
-      <ul class="type_desc"><li><code>Tab = <a href="#type-tab" class="seealso">tab()</a></code></li><li><code>Key = term()</code></li><li><code>Pos = integer() &gt;= 1</code></li><li><code>Value = term()</code></li></ul>
-      
+      <name name="update_element" arity="3" clause_i="1" since=""/>
+      <name name="update_element" arity="3" clause_i="2" since=""/>
       
       
       
@@ -2139,8 +2118,7 @@ true</pre>
     </div>
 
     <div class="function">
-      <h3 id="whereis/1">whereis(TableName) -&gt; <a href="#type-tid" class="seealso">tid()</a> | undefined</h3>
-      <ul class="type_desc"><li><code>TableName = atom()</code></li></ul>
+      <name name="whereis" arity="1" since="OTP 21.0"/>
       
       <div class="description">
         <p>This function returns the

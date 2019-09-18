@@ -26,31 +26,77 @@
       <div style="margin:0px; padding:10px 20px;">
         
   
-  <h1>rand</h1>
+  <module since="OTP 18.0">rand</module>
   <h2 class="modsummary">Pseudo random number generation.</h2>
   <div class="description">
     <p>
       This module provides a pseudo random number generator.
       The module contains a number of algorithms.
-      The uniform distribution algorithms use the
+      The uniform distribution algorithms are based on the
       <url href="http://xorshift.di.unimi.it">
-	xoroshiro116+ and xorshift1024* algorithms by Sebastiano Vigna.
+	Xoroshiro and Xorshift algorithms
       </url>
+      by Sebastiano Vigna.
       The normal distribution algorithm uses the
       <url href="http://www.jstatsoft.org/v05/i08">
 	Ziggurat Method by Marsaglia and Tsang
       </url>
       on top of the uniform distribution algorithm.
     </p>
-    <p>For some algorithms, jump functions are provided for generating
-        non-overlapping sequences for parallel computations.
-        The jump functions perform calculations
-        equivalent to perform a large number of repeated calls
-        for calculating new states. </p>
+    <p>
+      For most algorithms, jump functions are provided for generating
+      non-overlapping sequences for parallel computations.
+      The jump functions perform calculations
+      equivalent to perform a large number of repeated calls
+      for calculating new states.
+    </p>
 
     <p>The following algorithms are provided:</p>
 
     <taglist>
+      <dt><code>exsss</code></dt>
+      <item>
+        <p>Xorshift116**, 58 bits precision and period of 2^116-1</p>
+        <p>Jump function: equivalent to 2^64 calls</p>
+	<p>
+	  This is the Xorshift116 generator combined with the StarStar scrambler
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	</p>
+	<p>
+	  The generator does not need 58-bit rotates so it is faster
+	  than the Xoroshiro116 generator, and when combined with
+	  the StarStar scrambler it does not have any weak low bits
+	  like <code>exrop</code> (Xoroshiro116+).
+	</p>
+	<p>
+	  Alas, this combination is about 10% slower than <code>exrop</code>,
+	  but is despite that the default algorithm thanks to its
+	  statistical qualities.
+	</p>
+      </item>
+      <dt><code>exro928ss</code></dt>
+      <item>
+        <p>Xoroshiro928**, 58 bits precision and a period of 2^928-1</p>
+        <p>Jump function: equivalent to 2^512 calls</p>
+	<p>
+	  This is a 58 bit version of Xoroshiro1024**,
+	  from the 2018 paper by David Blackman and Sebastiano Vigna:
+	  <url href="http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf">
+	    Scrambled Linear Pseudorandom Number Generators
+	  </url>
+	  that on a 64 bit Erlang system executes only about 40% slower than
+	  the default <code>exsss</code> algorithm but with much longer period
+	  and better statistical properties, and on the flip side
+	  a larger state.
+	</p>
+	<p>
+	  Many thanks to Sebastiano Vigna for his help with
+	  the 58 bit adaption.
+	</p>
+      </item>
       <dt><code>exrop</code></dt>
       <item>
         <p>Xoroshiro116+, 58 bits precision and period of 2^116-1</p>
@@ -77,7 +123,7 @@
     </taglist>
 
     <p>
-      The default algorithm is <code>exrop</code> (Xoroshiro116+).
+      The default algorithm is <code>exsss</code> (Xorshift116**).
       If a specific algorithm is
       required, ensure to always use <a href="#seed/1" class="seealso">
       <code>seed/1</code></a> to initialize the state.
@@ -148,19 +194,19 @@ R1 = rand:uniform(),</pre>
     <p>Use a specified algorithm:</p>
 
     <pre class="sh_erlang">
-_ = rand:seed(exs1024s),
+_ = rand:seed(exs928ss),
 R2 = rand:uniform(),</pre>
 
     <p>Use a specified algorithm with a constant seed:</p>
 
     <pre class="sh_erlang">
-_ = rand:seed(exs1024s, {123, 123534, 345345}),
+_ = rand:seed(exs928ss, {123, 123534, 345345}),
 R3 = rand:uniform(),</pre>
 
    <p>Use the functional API with a non-constant seed:</p>
 
    <pre class="sh_erlang">
-S0 = rand:seed_s(exrop),
+S0 = rand:seed_s(exsss),
 {R4, S1} = rand:uniform_s(S0),</pre>
 
    <p>Textbook basic form Box-Muller standard normal deviate</p>
@@ -189,8 +235,9 @@ SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
     </div>
 
     <p>
-      For all these generators the lowest bit(s) has got
-      a slightly less random behaviour than all other bits.
+      For all these generators except <code>exro928ss</code> and <code>exsss</code>
+      the lowest bit(s) has got a slightly less
+      random behaviour than all other bits.
       1 bit for <code>exrop</code> (and <code>exsp</code>),
       and 3 bits for <code>exs1024s</code>.
       See for example the explanation in the
@@ -205,7 +252,7 @@ up to (and included) 16TB, with the exception of binary rank tests,
 which fail due to the lowest bit being an LFSR; all other bits pass all
 tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     <p>
-      If this is a problem; to generate a boolean
+      If this is a problem; to generate a boolean with these algorithms
       use something like this:
     </p>
     <pre class="sh_erlang">(rand:uniform(16) &gt; 8)</pre>
@@ -225,7 +272,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
   <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
     <div class="type">
       <h3 id="type-builtin_alg">builtin_alg() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exs64 | exsplus | exsp | exs1024 | exs1024s | exrop</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exsss | exro928ss | exrop | exs1024s | exsp | exs64 |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exsplus | exs1024</h3>
     </div>
     <div class="type">
       <h3 id="type-alg">alg() = <a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | atom()</h3>
@@ -245,10 +293,11 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
     <div class="type">
       <h3 id="type-alg_state">alg_state() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs64_state" class="seealso">exs64_state()</a> |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exsplus_state" class="seealso">exsplus_state()</a> |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs1024_state" class="seealso">exs1024_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exro928_state" class="seealso">exro928_state()</a> |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exrop_state" class="seealso">exrop_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs1024_state" class="seealso">exs1024_state()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-exs64_state" class="seealso">exs64_state()</a> |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;term()</h3>
     </div>
     <div class="type">
@@ -264,11 +313,41 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       </div>
     </div>
     <div class="type">
-      <h3 id="type-exs64_state">exs64_state()</h3>
-      <div class="description"><p>Algorithm specific internal state</p></div>
+      <h3 id="type-seed">seed() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[integer()] | integer() | {integer(), integer(), integer()}</h3>
+      <div class="description">
+	<p>
+	  A seed value for the generator.
+	</p>
+	<p>
+	  A list of integers sets the generator's internal state directly,
+	  after algorithm-dependent checks of the value
+	  and masking to the proper word size.
+	</p>
+	<p>
+	  An integer is used as the initial state for a SplitMix64 generator.
+	  The output values of that is then used for setting
+	  the generator's internal state
+	  after masking to the proper word size
+	  and if needed avoiding zero values.
+	</p>
+	<p>
+	  A traditional 3-tuple of integers seed is passed through
+	  algorithm-dependent hashing functions to create
+	  the generator's initial state.
+	</p>
+      </div>
     </div>
     <div class="type">
       <h3 id="type-exsplus_state">exsplus_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-exro928_state">exro928_state()</h3>
+      <div class="description"><p>Algorithm specific internal state</p></div>
+    </div>
+    <div class="type">
+      <h3 id="type-exrop_state">exrop_state()</h3>
       <div class="description"><p>Algorithm specific internal state</p></div>
     </div>
     <div class="type">
@@ -276,14 +355,14 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <div class="description"><p>Algorithm specific internal state</p></div>
     </div>
     <div class="type">
-      <h3 id="type-exrop_state">exrop_state()</h3>
+      <h3 id="type-exs64_state">exs64_state()</h3>
       <div class="description"><p>Algorithm specific internal state</p></div>
     </div>
   </div>
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
-      <h3 id="export_seed/0">export_seed() -&gt; undefined | <a href="#type-export_state" class="seealso">export_state()</a></h3>
+      <name name="export_seed" arity="0" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns the random number state in an external format.
@@ -292,7 +371,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="export_seed_s/1">export_seed_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; <a href="#type-export_state" class="seealso">export_state()</a></h3>
+      <name name="export_seed_s" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns the random number generator state in an external format.
@@ -301,7 +380,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="jump/0">jump() -&gt; NewState :: <a href="#type-state" class="seealso">state()</a></h3>
+      <name name="jump" arity="0" since="OTP 20.0"/>
       
       <div class="description">
           <p>Returns the state
@@ -315,7 +394,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="jump/1">jump(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; NewState :: <a href="#type-state" class="seealso">state()</a></h3>
+      <name name="jump" arity="1" since="OTP 20.0"/>
       
       <div class="description">
           <p>Returns the state after performing jump calculation
@@ -327,7 +406,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="normal/0">normal() -&gt; float()</h3>
+      <name name="normal" arity="0" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns a standard normal deviate float (that is, the mean
@@ -337,7 +416,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="normal/2">normal(Mean :: number(), Variance :: number()) -&gt; float()</h3>
+      <name name="normal" arity="2" since="OTP 20.0"/>
       
       <div class="description">
         <p>Returns a normal N(Mean, Variance) deviate float
@@ -346,7 +425,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="normal_s/1">normal_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; {float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      <name name="normal_s" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns, for a specified state, a standard normal
@@ -356,10 +435,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="normal_s/3">normal_s(Mean :: number(),<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Variance :: number(),<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;State0 :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{float(), NewS :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      <name name="normal_s" arity="3" since="OTP 20.0"/>
       
       <div class="description">
         <p>Returns, for a specified state, a normal N(Mean, Variance)
@@ -368,9 +444,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="seed/1">seed(AlgOrStateOrExpState ::<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | <a href="#type-state" class="seealso">state()</a> | <a href="#type-export_state" class="seealso">export_state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      <name name="seed" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         
@@ -386,9 +460,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="seed/2">seed(Alg :: <a href="#type-builtin_alg" class="seealso">builtin_alg()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Seed :: {integer(), integer(), integer()}) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      <name name="seed" arity="2" since="OTP 18.0"/>
       
       <div class="description">
         <p>Seeds random number generation with the specified algorithm and
@@ -397,9 +469,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="seed_s/1">seed_s(AlgOrStateOrExpState ::<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-builtin_alg" class="seealso">builtin_alg()</a> | <a href="#type-state" class="seealso">state()</a> | <a href="#type-export_state" class="seealso">export_state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      <name name="seed_s" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         <p>
@@ -414,9 +484,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="seed_s/2">seed_s(Alg :: <a href="#type-builtin_alg" class="seealso">builtin_alg()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Seed :: {integer(), integer(), integer()}) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-state" class="seealso">state()</a></h3>
+      <name name="seed_s" arity="2" since="OTP 18.0"/>
       
       <div class="description">
         <p>Seeds random number generation with the specified algorithm and
@@ -425,7 +493,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform/0">uniform() -&gt; X :: float()</h3>
+      <name name="uniform" arity="0" since="OTP 18.0"/>
       
       <div class="description">
         <p>
@@ -461,7 +529,7 @@ end.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform_real/0">uniform_real() -&gt; X :: float()</h3>
+      <name name="uniform_real" arity="0" since="OTP 21.0"/>
       
       <div class="description">
         <p>
@@ -497,7 +565,7 @@ end.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform/1">uniform(N :: integer() &gt;= 1) -&gt; X :: integer() &gt;= 1</h3>
+      <name name="uniform" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns, for a specified integer <code><anno>N</anno> &gt;= 1</code>,
@@ -508,7 +576,7 @@ end.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform_s/1">uniform_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt; {X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      <name name="uniform_s" arity="1" since="OTP 18.0"/>
       
       <div class="description">
         <p>
@@ -544,8 +612,7 @@ end.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform_real_s/1">uniform_real_s(State :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{X :: float(), NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      <name name="uniform_real_s" arity="1" since="OTP 21.0"/>
       
       <div class="description">
         <p>
@@ -607,8 +674,7 @@ end.</pre>
     </div>
 
     <div class="function">
-      <h3 id="uniform_s/2">uniform_s(N :: integer() &gt;= 1, State :: <a href="#type-state" class="seealso">state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{X :: integer() &gt;= 1, NewState :: <a href="#type-state" class="seealso">state()</a>}</h3>
+      <name name="uniform_s" arity="2" since="OTP 18.0"/>
       
       <div class="description">
         <p>Returns, for a specified integer <code><anno>N</anno> &gt;= 1</code>

@@ -27,7 +27,7 @@
         
 
 
-<h1>diameter_transport</h1>
+<module since="OTP R14B03">diameter_transport</module>
 <h2 class="modsummary">Diameter transport interface.</h2>
 
 <div class="description">
@@ -74,10 +74,10 @@ and has the binary() to send in its <code>bin</code> field.</p>
 <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
 
 <div class="function">
-<h3 id="start/4">Mod:start({Type, Ref}, Svc, Config)
+<name since="OTP R14B03">Mod:start({Type, Ref}, Svc, Config)
          -&gt; {ok, Pid}
           | {ok, Pid, LAddrs}
-          | {error, Reason}</h3>
+          | {error, Reason}</name>
 
 <ul class="type">
 <li><code>Type = connect | accept</code></li>
@@ -152,10 +152,13 @@ its parent.</p>
 
 <taglist>
 
-<dt><code>{diameter, {send, <a href="#message" class="seealso">message()</a>}}</code></dt>
+<dt><code>{diameter, {send, <a href="#message" class="seealso">message()</a> | false}}</code></dt>
 <item>
 <p>
-An outbound Diameter message.</p>
+An outbound Diameter message.
+The atom <code>false</code> can only be received when request
+acknowledgements have been requests: see the <code>ack</code> message
+below.</p>
 </item>
 
 <dt><code>{diameter, {close, Pid}}</code></dt>
@@ -222,6 +225,27 @@ Not sent if the transport process has <code>Type=accept</code>. 
 endpoint to which the transport has connected.
 A <code>LocalAddr</code> list has the same semantics as one returned from
 <a href="#start/3" class="seealso">start/3</a>.</p>
+</item>
+
+<dt><code>{diameter, ack}</code></dt>
+<item>
+<p>
+Request acknowledgements of unanswered requests.
+A transport process should send this once before passing incoming
+Diameter messages into diameter.
+As a result, every Diameter request passed into diameter with a
+<code>recv</code> message (below) will be answered with a
+<code>send</code> message (above), either a <a href="#message" class="seealso">message()</a> for the transport
+process to send or the atom <code>false</code> if the request has been
+discarded or otherwise not answered.</p>
+
+<p>
+This is to allow a transport process to keep count of the number
+of incoming request messages that have not yet been answered or
+discarded, to allow it to regulate the amount of incoming traffic.
+Both diameter_tcp and diameter_sctp request acknowledgements when a
+<code>message_cb</code> is configured, turning send/recv message into
+callbacks that can be used to regulate traffic.</p>
 </item>
 
 <dt><code>{diameter, {recv, <a href="#message" class="seealso">message()</a>}}</code></dt>
