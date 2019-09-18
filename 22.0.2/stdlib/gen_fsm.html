@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>gen_fsm (stdlib) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <h1>gen_fsm</h1>
+  <h2 class="modsummary">Deprecated and replaced by gen_statem </h2>
+
+  <div class="description">
+    <p> Deprecated and replaced by  <a href="gen_statem.html" class="seealso"><code>gen_statem</code></a> </p>
+  </div>
+  <div class="section">
+    <span id="Migration to gen_statem"> </span>
+    <h4>Migration to gen_statem</h4>
+    
+    <p>Here follows a simple example of turning a gen_fsm into
+    a <a href="gen_statem.html" class="seealso"><code>gen_statem</code></a>. The example comes
+    from the previous Users Guide for <code>gen_fsm</code> </p>
+  
+    <code type="erl">
+-module(code_lock).
+-define(NAME, code_lock).
+%-define(BEFORE_REWRITE, true).
+
+-ifdef(BEFORE_REWRITE).
+-behaviour(gen_fsm).
+-else.
+-behaviour(gen_statem).
+-endif.
+
+-export([start_link/1, button/1, stop/0]).
+
+-ifdef(BEFORE_REWRITE).
+-export([init/1, locked/2, open/2, handle_sync_event/4, handle_event/3,
+	 handle_info/3, terminate/3, code_change/4]).
+-else.
+-export([init/1, callback_mode/0, locked/3, open/3, terminate/3, code_change/4]).
+%% Add callback__mode/0
+%% Change arity of the state functions
+%% Remove handle_info/3
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+start_link(Code) -&gt;
+    gen_fsm:start_link({local, ?NAME}, ?MODULE, Code, []).
+-else.
+start_link(Code) -&gt;
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+button(Digit) -&gt;
+    gen_fsm:send_event(?NAME, {button, Digit}).
+-else.
+button(Digit) -&gt;
+    gen_statem:cast(?NAME, {button,Digit}).
+    %% send_event is asynchronous and becomes a cast
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+stop() -&gt;
+    gen_fsm:sync_send_all_state_event(?NAME, stop).
+-else.
+stop() -&gt;
+    gen_statem:call(?NAME, stop).
+    %% sync_send is synchronous and becomes call
+    %% all_state is handled by callback code in gen_statem
+-endif.
+
+init(Code) -&gt;
+    do_lock(),
+    Data = #{code =&gt; Code, remaining =&gt; Code},
+    {ok, locked, Data}.
+
+-ifdef(BEFORE_REWRITE).
+-else.
+callback_mode() -&gt;
+    state_functions.
+%% state_functions mode is the mode most similar to
+%% gen_fsm. There is also handle_event mode which is
+%% a fairly different concept. 
+-endif.
+
+-ifdef(BEFORE_REWRITE).
+locked({button, Digit}, Data0) -&gt;
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} -&gt;
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} -&gt;
+	    {next_state, StateName, Data}
+    end.
+-else.
+locked(cast, {button,Digit}, Data0) -&gt;
+    case analyze_lock(Digit, Data0) of
+	{open = StateName, Data} -&gt;
+	    {next_state, StateName, Data, 10000};
+	{StateName, Data} -&gt;
+	    {next_state, StateName, Data}
+    end;
+locked({call, From}, Msg, Data) -&gt;    
+    handle_call(From, Msg, Data);
+locked({info, Msg}, StateName, Data) -&gt;    
+    handle_info(Msg, StateName, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above. 
+-endif.										
+
+-ifdef(BEFORE_REWRITE).
+open(timeout, State) -&gt;
+     do_lock(),
+    {next_state, locked, State};
+open({button,_}, Data) -&gt;
+    {next_state, locked, Data}.
+-else.
+open(timeout, _, Data) -&gt;
+    do_lock(),
+    {next_state, locked, Data};
+open(cast, {button,_}, Data) -&gt;
+    {next_state, locked, Data};
+open({call, From}, Msg, Data) -&gt;    
+    handle_call(From, Msg, Data);
+open(info, Msg, Data) -&gt;    
+    handle_info(Msg, open, Data).
+%% Arity differs
+%% All state events are dispatched to handle_call and handle_info help
+%% functions. If you want to handle a call or cast event specifically
+%% for this state you would add a special clause for it above.   
+-endif.	  
+
+-ifdef(BEFORE_REWRITE).
+handle_sync_event(stop, _From, _StateName, Data) -&gt;
+    {stop, normal, ok, Data}.
+
+handle_event(Event, StateName, Data) -&gt;
+    {stop, {shutdown, {unexpected, Event, StateName}}, Data}.
+
+handle_info(Info, StateName, Data) -&gt;
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}. 
+-else.   
+-endif.	
+  
+terminate(_Reason, State, _Data) -&gt;
+    State =/= locked andalso do_lock(),
+    ok.
+code_change(_Vsn, State, Data, _Extra) -&gt;
+    {ok, State, Data}.
+
+%% Internal functions
+-ifdef(BEFORE_REWRITE).
+-else.   
+handle_call(From, stop, Data) -&gt;
+     {stop_and_reply, normal,  {reply, From, ok}, Data}.
+
+handle_info(Info, StateName, Data) -&gt;
+    {stop, {shutdown, {unexpected, Info, StateName}}, StateName, Data}.
+%% These are internal functions for handling all state events
+%% and not behaviour callbacks as in gen_fsm
+-endif.	
+
+analyze_lock(Digit, #{code := Code, remaining := Remaining} = Data) -&gt;
+     case Remaining of
+         [Digit] -&gt;
+	     do_unlock(),
+	     {open,  Data#{remaining := Code}};
+         [Digit|Rest] -&gt; % Incomplete   
+             {locked, Data#{remaining := Rest}};
+         _Wrong -&gt;
+             {locked, Data#{remaining := Code}}
+     end.
+
+do_lock() -&gt;
+    io:format("Lock~n", []).
+do_unlock() -&gt;
+    io:format("Unlock~n", []).
+    </code>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
