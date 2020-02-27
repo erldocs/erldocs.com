@@ -65,13 +65,15 @@
     <span id="props_file"> </span>
     <p><em>File Properties</em></p>
 
-    <p>When the web server is started at application start time, the
-    properties are to be fetched from a configuration file that can
-    consist of a regular Erlang property list, that is, <code>[{Option,
-    Value}]</code>, where <code> Option = property() </code> and <code>Value =
-    term()</code>, followed by a full stop. If the web server is started
-    dynamically at runtime, a file can still be specified but also the
-    complete property list.</p>
+    <p>When the web server is started
+    at application start time, the properties are to be fetched from a
+    configuration file that can consist of a regular Erlang property
+    list, that is, <code>[{Option, Value}]</code>, where <code> Option = property()
+    </code> and <code>Value = term()</code>, followed by a full stop, or for
+    backwards compatibility, an Apache-like configuration file. If the
+    web server is started dynamically at runtime,
+    a file can still be specified but also the complete property
+    list.</p>
     
     <taglist>
       <dt><span id="prop_proplist_file"> </span>{proplist_file, path()}</dt>
@@ -82,9 +84,34 @@
 	properties.</p>
       </item>
 
+      <dt><span id="prop_file"> </span>{file, path()}</dt>
+      <item> 
+	<p>If this property is defined, <code>Inets</code> expects to find all 
+	other properties defined in this file, which uses Apache-like 
+	syntax. The file must include all properties listed 
+	under mandatory properties. The Apache-like syntax is the property, 
+	written as one word where each new word begins with a capital, 
+	followed by a white-space, followed by the value, followed by a 
+	new line.</p>
+	<p>Example:</p>
+	<code>
+{server_root, "/urs/local/www"} -&gt; ServerRoot /usr/local/www</code>
+	  
+	<p>A few exceptions are documented
+	  for each property that behaves differently,
+	  and the special cases <code>{directory, {path(), PropertyList}}</code> 
+	  and <code>{security_directory, {Dir, PropertyList}}</code>, are represented
+	  as:</p>
+	<pre class="sh_erlang">
+	  
+&lt;Directory Dir&gt;
+ &lt;Properties handled as described above&gt; 
+&lt;/Directory&gt;
+         </pre>
+      </item>
     </taglist>
     <div class="note"><h2>Note!</h2>
-	<p>Note support for legacy configuration file with Apache syntax is dropped in OTP-23.</p>
+	<p>The properties <code>proplist_file</code> and <code>file</code> are mutually exclusive. Also newer properties may not be supported as Apache-like options, this is a legacy feature.</p>
     </div>
 
     <span id="props_mand"> </span>
@@ -122,7 +149,8 @@
     <taglist>
       <dt><span id="prop_bind_address"> </span>{bind_address, ip_address() | hostname() | any}</dt>
       <item>
-	<p>Default is <code>any</code></p>
+	<p>Default is <code>any</code>. <code>any</code> is denoted <em>*</em> 
+	in the Apache-like configuration file.</p>
       </item>
 
       <dt><span id="profile"> </span>{profile, atom()}</dt>
@@ -272,7 +300,7 @@
           1590. File suffixes are mapped to MIME types before file delivery.
           The mapping between file suffixes and MIME types can be specified
 	  as an Apache-like file or directly in the property list. Such
-        a file can look like the follwoing:</p>
+          a file can look like the follwoing:</p>
         <pre class="sh_erlang">
 # MIME type	Extension  
 text/html	html htm
@@ -322,82 +350,6 @@ text/plain	asc txt</pre>
 	<p>By default, the value is as before, that is, <code>minimal</code>.</p>
       </item>
 
-      
-      <dt><span id="prop_logger"> </span>{logger, Options::list()}</dt>
-      <item>
-
-	<p>Currently only one option is supported: </p>
-	
-	<taglist>
-	  <dt><code>{error, ServerID::atom()}</code></dt>
-	  <item>	    <p>Produces  
-	    <a href="../kernel/logger.html#type-log_event" class="seealso">logger events</a>
-	    on logger <a href="../kernel/logger.html#type-level" class="seealso">level error</a>
-	    under the hierarchical logger <a href="../kernel/logger.html#type-log_event" class="seealso">domain:</a> <code>[otp, inets, httpd, ServerID, error]</code>
-	    The built in logger formatting 
-	    function produces log entries from the
-	    error reports:</p>
-	    
-	    <code>
-#{server_name =&gt; string()
-  protocol =&gt; internal | 'TCP' | 'TLS' | 'HTTP',
-  transport =&gt; "TCP "| "TLS", %% Present when protocol = 'HTTP'
-  uri =&gt; string(), %% Present when protocol = 'HTTP' and URI is valid
-  peer =&gt; inet:peername(),
-  host =&gt; inet:hostname(),
-  reason =&gt; term()
-}
-</code>
-
-<p>An example of a log entry with only default settings of logger</p>
-
-<code>
-=ERROR REPORT==== 9-Oct-2019::09:33:27.350235 ===
-   Server: My Server
- Protocol: HTTP
-Transport: TLS
-      URI: /not_there
-     Host: 127.0.1.1:80
-     Peer: 127.0.0.1:45253
-   Reason: [{statuscode,404},{description,"Object Not Found"}]
-</code>
-
-<p>Using this option makes mod_log and mod_disk_log error logs redundant.</p>
-	
-	<p>Add the filter</p>
-	<code>
-{fun logger_filters:domain/2,
-	{log,equal,[otp,inets, httpd, ServerID, error]}</code>
-	
-        to appropriate logger handler to handle the events. For
-        example to write the error log from an httpd server with a
-        <code>ServerID</code> of <code>my_server</code> to a file you can use the following
-        sys.config:
-
-	<code>[{kernel,
- [{logger,
-  [{handler, http_error_test, logger_std_h,
-    #{config =&gt; #{ file =&gt; "log/http_error.log" },
-      filters =&gt; [{inets_httpd, {fun logger_filters:domain/2,
-                                 {log, equal,
-                                  [otp, inets, httpd, my_server, error]
-                                 }}}],
-      filter_default =&gt; stop }}]}]}].
-	</code>
-
-	<p>or if you want to add it to the default logger via an API:</p>
-	
-	<code>logger:add_handler_filter(default,
-                          inets_httpd,
-                          {fun logger_filters:domain/2,
-                           {log, equal,
-                            [otp, inets, httpd, my_server, error]}}).</code>
-			    
-	  </item>      
-	</taglist> 
-	
-      </item>      
-      
       <dt><span id="prop_log_format"> </span>{log_format, common | combined}</dt>
       <item>
 	<p>Defines if access logs are to be written according to the <code>common</code>
@@ -488,8 +440,19 @@ Transport: TLS
 	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
 	
 	<p>Access to http://your.server.org/~bob/foo.gif would refer to
-	the file /home/bob/public/foo.gif. </p>
+	the file /home/bob/public/foo.gif.
 
+        In an Apache-like configuration file, <code>Re</code> is separated
+        from <code>Replacement</code> with one single space, and as expected
+        backslashes do not need to be backslash escaped, the
+        same example would become:</p>
+
+        <code>ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code>
+
+        <p>Beware of trailing space in <code>Replacement</code> to be used.
+        If you must have a space in <code>Re</code>, use, for example, the character 
+	encoding <code>\040</code>, see 
+	<a href="../stdlib/re.html" class="seealso">re(3)</a>.</p>
       </item>
 
       <dt><span id="prop_dir_idx"> </span>{directory_index, [string()]}</dt>      
@@ -621,8 +584,16 @@ Transport: TLS
 	<code>mod_esi:deliver/2</code>. Default is <code>15</code>. This is only relevant
 	for scripts that use the erl scheme.</p>
       </item>
+
+      <dt><span id="prop_esi_timeout"> </span>{eval_script_alias, {URLPath, [AllowedModule]}}</dt>
+      <item>
+	<p><code>URLPath = string()</code> and <code>AllowedModule = atom()</code>.
+	Same as <code>erl_script_alias</code> but for scripts
+	using the eval scheme. This is only supported
+	for backwards compatibility. The eval scheme is deprecated.</p>
+      </item>
     </taglist>
-    
+
     <span id="props_log"> </span>
     <p><em>Log Properties - Requires mod_log</em></p>
     <taglist>
@@ -749,7 +720,9 @@ Transport: TLS
 	<p>Sets the type of authentication database that is used for the
 	directory. The key difference between the different methods is
 	that dynamic data can be saved when Mnesia and Dets
-	are used.</p>
+	are used.
+	This property is called <code>AuthDbType</code> in the Apache-like
+	configuration files.</p>
       </item>
 
       <dt><span id="prop_auth_user_file"> </span>{auth_user_file, path()}</dt>
@@ -827,6 +800,20 @@ Transport: TLS
 	directory using a secret password.</p>
       </item>
       
+    </taglist>
+
+    <span id="props_htaccess"> </span> 
+    <p><em>Htaccess Authentication Properties - Requires mod_htaccess</em></p>
+    <taglist>
+      <dt><span id="prop_access_files"> </span>{access_files, [path()]}</dt>
+      <item>
+	<p>Specifies the filenames that are used for
+	access files. When a request comes, every directory in the path
+	to the requested asset are searched after files with the
+	names specified by this parameter. If such a file is found, the
+	file is parsed and the restrictions specified in it are
+	applied to the request.</p>
+      </item>
     </taglist>
 
     <span id="props_sec"> </span>
@@ -1112,7 +1099,29 @@ Transport: TLS
           closing the connection.</p>
       </div>
     </div>
- 
+
+    <div class="function">
+      <name since="">Module:load(Line, AccIn)-&gt; eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</name>
+      
+      <ul class="type">
+        <li><code>Line = string()</code></li>
+        <li><code>AccIn = [{Option, Value}]</code></li>
+	<li><code>AccOut = [{Option, Value}]</code></li>
+        <li><code>Option = property()</code></li>
+        <li><code>Value = term() </code></li>
+        <li><code>Reason = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>Converts a line in an Apache-like
+	  configuration file to an <code>{Option, Value}</code> tuple. Some
+	  more complex configuration options, such as <code>directory</code>
+	  and <code>security_directory</code>, create an
+	  accumulator. This function only needs clauses for the
+	  options implemented by this particular callback module.
+	</p>
+      </div>
+    </div>
+    
     <div class="function">
       <name since="">Module:remove(ConfigDB) -&gt; ok | {error, Reason} </name>
       

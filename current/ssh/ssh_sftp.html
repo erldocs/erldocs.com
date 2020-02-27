@@ -34,124 +34,60 @@
     SSH.</p>
   </div>
   
-  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
-    <div class="type">
-      <h3 id="type-sftp_option">sftp_option() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{timeout, timeout()} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{sftp_vsn, integer() &gt;= 1} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{window_size, integer() &gt;= 1} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{packet_size, integer() &gt;= 1}</h3>
-      <div class="description">
-      </div>
-    </div>
+ <div class="section">
+    <h4>DATA TYPES</h4>
+    <p>Type definitions that are used more than once in this module,
+    or abstractions to indicate the intended use of the data type, or both:
+    </p>
 
-    <datatype_title>Error cause</datatype_title>
-    <div class="type">
-      <h3 id="type-reason">reason() = atom() | string() | tuple()</h3>
-      <div class="description">
-	<p>A description of the reason why an operation failed.</p>
-	<p>The <code>atom()</code> value is formed from the sftp error codes in the protocol-level responses as defined in 
-	<url href="https://tools.ietf.org/html/draft-ietf-secsh-filexfer-13#page-49">draft-ietf-secsh-filexfer-13</url>
-	section 9.1.
+    <taglist>
+      <dt><code>reason()</code></dt>
+      <item>
+	<p>= <code>atom() | string() | tuple() </code>A description of the reason why an operation failed.</p>
+	<p>
+	  The <code>atom()</code> value is formed from the sftp error codes in the protocol-level responses as defined in 
+	  <url href="https://tools.ietf.org/id/draft-ietf-secsh-filexfer-13.txt">draft-ietf-secsh-filexfer-13.txt</url>
+	  section 9.1.
+	</p>
+	<p>
 	  The codes are named as <code>SSH_FX_*</code> which are transformed into lowercase of the star-part.
 	  E.g. the error code <code>SSH_FX_NO_SUCH_FILE</code>
 	  will cause the <code>reason()</code> to be <code>no_such_file</code>.
 	</p>
 	<p>The <code>string()</code> reason is the error information from the server in case of an exit-signal.  If that information is empty, the reason is the exit signal name.
 	</p>
-	<p>The <code>tuple()</code> reason are other errors like for example <code>{exit_status,1}</code>.
+	<p>The <code>tuple()</code> reason are other errors like the <code>{exit_status,integer()}</code> if the exit status is not 0.
 	</p>
-      </div>
-    </div>
+      </item>
 
-    <datatype_title>Crypto operations for open_tar</datatype_title>
-    <div class="type">
-      <h3 id="type-tar_crypto_spec">tar_crypto_spec() = <a href="#type-encrypt_spec" class="seealso">encrypt_spec()</a> | <a href="#type-decrypt_spec" class="seealso">decrypt_spec()</a></h3>
-      <h3 id="type-encrypt_spec">encrypt_spec() = {<a href="#type-init_fun" class="seealso">init_fun()</a>, <a href="#type-crypto_fun" class="seealso">crypto_fun()</a>, <a href="#type-final_fun" class="seealso">final_fun()</a>}</h3>
-      <h3 id="type-decrypt_spec">decrypt_spec() = {<a href="#type-init_fun" class="seealso">init_fun()</a>, <a href="#type-crypto_fun" class="seealso">crypto_fun()</a>}</h3>
-      <div class="description">
-	<p>Specifies the encryption or decryption applied to tar files when using
-	<a href="#open_tar/3" class="seealso">open_tar/3</a> or 
-	<a href="#open_tar/4" class="seealso">open_tar/4</a>.
-	</p>
-	<p>The encryption or decryption is applied to the generated stream of
-	bytes prior to sending the resulting stream to the SFTP server.
-	</p>
-	<p>For code examples see Section
-	<a href="using_ssh.html#example-with-encryption" class="seealso">Example with encryption</a>
-	in the ssh Users Guide.
-	</p>
-      </div>
-    </div>
+      <dt><code>connection_ref() =</code></dt>
+      <item><p><code>opaque()</code> - as returned by 
+      <a href="ssh.html#connect/3" class="seealso"><code>ssh:connect/3</code></a></p></item>
 
-    <div class="type">
-      <h3 id="type-init_fun">init_fun() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun(() -&gt; {ok, <a href="#type-crypto_state" class="seealso">crypto_state()</a>}) |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun(() -&gt; {ok, <a href="#type-crypto_state" class="seealso">crypto_state()</a>, <a href="#type-chunk_size" class="seealso">chunk_size()</a>})</h3>
-      <h3 id="type-chunk_size">chunk_size() = undefined | integer() &gt;= 1</h3>
-      <h3 id="type-crypto_state">crypto_state() = any()</h3>
-      <div class="description">
-	<p>The <code>init_fun()</code> in the
-	<a href="#type-tar_crypto_spec" class="seealso">tar_crypto_spec</a>
-	is applied once prior to any other <code>crypto</code>
-	operation. The intention is that this function initiates the encryption or
-	decryption for example by calling
-	<a href="../crypto/crypto.html#crypto_init/4" class="seealso">crypto:crypto_init/4</a>
-	or similar. The <code>crypto_state()</code> is the state such a function may return.
-	</p>
-	<p>If the selected cipher needs to have the input data partioned into
-	blocks of a certain size, the <code>init_fun()</code> should return the second
-	form of return value with the <code>chunk_size()</code> set to the block size.
-	If the <code>chunk_size()</code> is <code>undefined</code>, the size of the <code>PlainBin</code>s varies,
-	because this is	intended for stream crypto, whereas a fixed <code>chunk_size()</code> is intended for block crypto.
-	A <code>chunk_size()</code> can be changed in the return from the <code>crypto_fun()</code>.
-	The value can be changed between <code>pos_integer()</code> and <code>undefined</code>.
-	</p>
-      </div>
-    </div>
+      <dt><code>timeout()</code></dt>
+      <item><p>= <code>infinity | integer()</code> in milliseconds. Default infinity.</p></item>
+    </taglist>
+   </div>
 
-    <div class="type">
-      <h3 id="type-crypto_fun">crypto_fun() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((TextIn :: binary(), <a href="#type-crypto_state" class="seealso">crypto_state()</a>) -&gt; <a href="#type-crypto_result" class="seealso">crypto_result()</a>)</h3>
-      <h3 id="type-crypto_result">crypto_result() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, TextOut :: binary(), <a href="#type-crypto_state" class="seealso">crypto_state()</a>} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, TextOut :: binary(), <a href="#type-crypto_state" class="seealso">crypto_state()</a>, <a href="#type-chunk_size" class="seealso">chunk_size()</a>}</h3>
-      <div class="description">
-	<p>The initial <code>crypto_state()</code> returned from the
-	<a href="#type-init_fun" class="seealso">init_fun()</a>
-	is folded into repeated applications of the <code>crypto_fun()</code> in the
-	<a href="#type-tar_crypto_spec" class="seealso">tar_crypto_spec</a>.
-	The binary returned from that fun is sent to the remote SFTP server and
-	the new <code>crypto_state()</code> is used in the next call of the
-	<code>crypto_fun()</code>.
-	</p>
-	<p>If the <code>crypto_fun()</code> reurns a <code>chunk_size()</code>, that value
-	is as block size for further blocks in calls to <code>crypto_fun()</code>.
-	</p>
-      </div>
-    </div>
-
-    <div class="type">
-      <h3 id="type-final_fun">final_fun() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fun((FinalTextIn :: binary(), <a href="#type-crypto_state" class="seealso">crypto_state()</a>) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, FinalTextOut :: binary()})</h3>
-      <div class="description">
-	<p>If doing encryption,
-	the <code>final_fun()</code>  in the
-	<a href="#type-tar_crypto_spec" class="seealso">tar_crypto_spec</a>
-	is applied to the last piece of data.
-	The <code>final_fun()</code> is responsible for padding (if needed) and
-	encryption of that last piece.
-	</p>
-      </div>
-    </div>
-  </div>
+ <div class="section">
+    <h4>Time-outs</h4>
+    <p>If the request functions for the SFTP channel return <code>{error, timeout}</code>,
+     no answer was received from the server within the expected time.</p>
+     <p>The request may have reached the server and may have been performed.
+     However, no answer was received from the server within the expected time.</p>
+   </div>
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
      <div class="function">
-       <h3 id="apread/4">apread(ChannelPid, Handle, Position, Len) -&gt; {async, N} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = Len = integer()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>N = term()</code></li></ul>
+       <name since="">apread(ChannelPid, Handle, Position, Len) -&gt; {async, N} | {error, reason()}</name>
        
+       <ul class="type">
+	 <li><code>ChannelPid = pid()</code></li>
+         <li><code>Handle = term()</code></li>
+         <li><code>Position = integer()</code></li>
+         <li><code>Len = integer()</code></li>
+         <li><code>N = term()</code></li>
+       </ul>
        <div class="description"><p>The <code>apread/4</code> function reads from a specified position,
        combining the <a href="#position/3" class="seealso"><code>position/3</code></a> and 
        <a href="#aread/3" class="seealso"><code>aread/3</code></a> functions.</p>
@@ -159,9 +95,17 @@
      </div>
      
      <div class="function">
-	<h3 id="apwrite/4">apwrite(ChannelPid, Handle, Position, Data) -&gt; {async, N} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = integer()</code></li><li><code>Data = binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>N = term()</code></li></ul>
+	<name since="">apwrite(ChannelPid, Handle, Position, Data) -&gt; {async, N} | {error, reason()}</name>
 	
+	<ul class="type">
+	  <li><code>ChannelPid = pid()</code></li>
+	  <li><code>Handle = term()</code></li>
+	  <li><code>Position = integer()</code></li>
+	  <li><code>Len = integer()</code></li>
+	  <li><code>Data = binary()</code></li>
+	  <li><code>Timeout = timeout()</code></li>
+          <li><code>N = term()</code></li>
+	</ul>
        <div class="description"><p>The <code>apwrite/4</code> function writes to a specified position,
        combining the <a href="#position/3" class="seealso"><code>position/3</code></a> and 
        <a href="#awrite/3" class="seealso"><code>awrite/3</code></a> functions.</p>
@@ -169,9 +113,15 @@
       </div>
       
       <div class="function">
-	<h3 id="aread/3">aread(ChannelPid, Handle, Len) -&gt; {async, N} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Len = integer()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>N = term()</code></li></ul>
+	<name since="">aread(ChannelPid, Handle, Len) -&gt; {async, N} | {error, reason()}</name>
 	
+	<ul class="type">
+	  <li><code>ChannelPid = pid()</code></li>
+	  <li><code>Handle = term()</code></li>
+	  <li><code>Position = integer()</code></li>
+	  <li><code>Len = integer()</code></li>
+	  <li><code>N = term()</code></li>
+	</ul>
 	<div class="description">
 	  <p>Reads from an open file, without waiting for the result. If the
           handle is valid, the function returns <code>{async, N}</code>, where <code>N</code>
@@ -184,9 +134,16 @@
     </div>
 
     <div class="function">
-      <h3 id="awrite/3">awrite(ChannelPid, Handle, Data) -&gt; {async, N} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Data = binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li><li><code>N = term()</code></li></ul>
+      <name since="">awrite(ChannelPid, Handle, Data) -&gt; {async, N} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Position = integer()</code></li>
+        <li><code>Len = integer()</code></li>
+        <li><code>Data = binary()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Writes to an open file, without waiting for the result. If the
           handle is valid, the function returns <code>{async, N}</code>, where <code>N</code>
@@ -199,22 +156,28 @@
     </div>
 
     <div class="function">
-      <h3 id="close/2">close(ChannelPid, Handle) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="close/3">close(ChannelPid, Handle, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">close(ChannelPid, Handle) -&gt;</name>
+      <name since="">close(ChannelPid, Handle, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Closes a handle to an open file or directory on the server.</p>
       </div>
     </div>
 
     <div class="function">
-      <h3 id="delete/2">delete(ChannelPid, Name) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="delete/3">delete(ChannelPid, Name, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">delete(ChannelPid, Name) -&gt;</name>
+      <name since="">delete(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Deletes the file specified by <code>Name</code>.
 	</p>
@@ -222,11 +185,14 @@
     </div>
 
     <div class="function">
-      <h3 id="del_dir/2">del_dir(ChannelPid, Name) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="del_dir/3">del_dir(ChannelPid, Name, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">del_dir(ChannelPid, Name) -&gt;</name>
+      <name since="">del_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
 	<p>Deletes a directory specified by <code>Name</code>.
 	The directory must be empty before it can be successfully deleted.
@@ -235,11 +201,16 @@
     </div>
 
      <div class="function">
-      <h3 id="list_dir/2">list_dir(ChannelPid, Path) -&gt; {ok, FileNames} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>FileNames = [FileName]</code></li><li><code>FileName = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="list_dir/3">list_dir(ChannelPid, Path, Timeout) -&gt; {ok, FileNames} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>FileNames = [FileName]</code></li><li><code>FileName = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">list_dir(ChannelPid, Path) -&gt;</name>
+      <name since="">list_dir(ChannelPid, Path, Timeout) -&gt; {ok, Filenames} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Path = string()</code></li>
+        <li><code>Filenames = [Filename]</code></li>
+        <li><code>Filename = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Lists the given directory on the server, returning the
           filenames as a list of strings.</p>
@@ -247,11 +218,14 @@
     </div>
 
     <div class="function">
-      <h3 id="make_dir/2">make_dir(ChannelPid, Name) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="make_dir/3">make_dir(ChannelPid, Name, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">make_dir(ChannelPid, Name) -&gt;</name>
+      <name since="">make_dir(ChannelPid, Name, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Creates a directory specified by <code>Name</code>. <code>Name</code>
           must be a full path to a new directory. The directory can only be
@@ -260,11 +234,14 @@
     </div>
 
     <div class="function">
-      <h3 id="make_symlink/3">make_symlink(ChannelPid, Name, Target) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = Target = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="make_symlink/4">make_symlink(ChannelPid, Name, Target, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = Target = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">make_symlink(ChannelPid, Name, Target) -&gt;</name>
+      <name since="">make_symlink(ChannelPid, Name, Target, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+        <li><code>Target = string()</code></li>
+      </ul>
       <div class="description">
         <p>Creates a symbolic link pointing to <code>Target</code> with the
           name <code>Name</code>.
@@ -272,23 +249,32 @@
       </div>
     </div>
 
-    <div class="function">
-      <h3 id="open/3">open(ChannelPid, Name, Mode) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Mode = [read | write | append | binary | raw]</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="open/4">open(ChannelPid, Name, Mode, Timeout) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Mode = [read | write | append | binary | raw]</code></li><li><code>Timeout = timeout()</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+       <div class="function">
+      <name since="">open(ChannelPid, File, Mode) -&gt;</name>
+      <name since="">open(ChannelPid, File, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>File = string()</code></li>
+        <li><code>Mode = [Modeflag]</code></li>
+        <li><code>Modeflag = read | write | creat | trunc | append | binary</code></li>
+	<li><code>Timeout = timeout()</code></li>
+	<li><code>Handle = term()</code></li>
+      </ul>
       <div class="description">
         <p>Opens a file on the server and returns a handle, which
           can be used for reading or writing.</p>
       </div>
     </div>
     <div class="function">
-      <h3 id="opendir/2">opendir(ChannelPid, Path) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="opendir/3">opendir(ChannelPid, Path, Timeout) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">opendir(ChannelPid, Path) -&gt;</name>
+      <name since="">opendir(ChannelPid, Path, Timeout) -&gt; {ok, Handle} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Path = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Opens a handle to a directory on the server. The handle
           can be used for reading directory contents.</p>
@@ -296,51 +282,71 @@
     </div>
 
     <div class="function">
-      <h3 id="open_tar/3">open_tar(ChannelPid, Path, Mode) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>Mode = [read | write | {crypto, <a href="#type-tar_crypto_spec" class="seealso">tar_crypto_spec()</a>}]</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="open_tar/4">open_tar(ChannelPid, Path, Mode, Timeout) -&gt; {ok, Handle} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Path = string()</code></li><li><code>Mode = [read | write | {crypto, <a href="#type-tar_crypto_spec" class="seealso">tar_crypto_spec()</a>}]</code></li><li><code>Timeout = timeout()</code></li><li><code>Handle = term()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode) -&gt;</name>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode, Timeout) -&gt; {ok, Handle} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Path = string()</code></li>
+	<li><code>Mode = [read] | [write] | [read,EncryptOpt] | [write,DecryptOpt]</code></li>
+	<li><code>EncryptOpt = {crypto,{InitFun,EncryptFun,CloseFun}}</code></li>
+	<li><code>DecryptOpt = {crypto,{InitFun,DecryptFun}}</code></li>
+	<li><code>InitFun = (fun() -&gt; {ok,CryptoState}) | (fun() -&gt; {ok,CryptoState,ChunkSize})</code></li>
+	<li><code>CryptoState = any()</code></li>
+	<li><code>ChunkSize = undefined | pos_integer()</code></li>
+	<li><code>EncryptFun = (fun(PlainBin,CryptoState) -&gt; EncryptResult)</code></li>
+	<li><code>EncryptResult = {ok,EncryptedBin,CryptoState} | {ok,EncryptedBin,CryptoState,ChunkSize}</code></li>
+	<li><code>PlainBin = binary()</code></li>
+	<li><code>EncryptedBin = binary()</code></li>
+	<li><code>DecryptFun = (fun(EncryptedBin,CryptoState) -&gt; DecryptResult)</code></li>
+	<li><code>DecryptResult = {ok,PlainBin,CryptoState} | {ok,PlainBin,CryptoState,ChunkSize}</code></li>
+	<li><code>CloseFun = (fun(PlainBin,CryptoState) -&gt; {ok,EncryptedBin})</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Opens a handle to a tar file on the server, associated with <code>ChannelPid</code>.
-	The handle can be used for remote tar creation and extraction. The actual writing
-	and reading is performed by calls to 
-	<a href="../stdlib/erl_tar.html#add/3" class="seealso">erl_tar:add/3,4</a> and
-	<a href="../stdlib/erl_tar.html#extract/2" class="seealso">erl_tar:extract/2</a>.
-	Note: The 
-	<a href="../stdlib/erl_tar.html#init/3" class="seealso">erl_tar:init/3</a> function should not
-	be called, that one is called by this open_tar function.
+	The handle can be used for remote tar creation and extraction, as defined by the
+	<a href="../stdlib/erl_tar.html#init/3" class="seealso">erl_tar:init/3</a> function.
 	</p>
-	<p>For code examples see Section
-	<a href="using_ssh.html#sftp-client-with-tar-compression" class="seealso">SFTP Client with TAR Compression</a>
-	in the ssh Users Guide.
+
+	<p> For code exampel see Section
+	<a href="using_ssh.html" class="seealso">SFTP Client with TAR Compression and Encryption</a> in
+	the ssh Users Guide. </p>
+
+	<p>The <code>crypto</code> mode option is applied to the generated stream of bytes prior to sending
+	them to the SFTP server. This is intended for encryption but can be used for other
+	purposes.
 	</p>
-	<p>The <code>crypto</code> mode option is explained in the data types section above, see
-	<a href="#Crypto operations for open_tar" class="seealso">Crypto operations for open_tar</a>.
-	Encryption is assumed if the <code>Mode</code> contains <code>write</code>, and
-	decryption if the <code>Mode</code> contains <code>read</code>.
+	<p>The <code>InitFun</code> is applied once
+	prior to any other <code>crypto</code> operation. The returned <code>CryptoState</code> is then folded into
+	repeated applications of the <code>EncryptFun</code> or <code>DecryptFun</code>. The binary returned
+	from those funs are sent further to the remote SFTP server. Finally, if doing encryption,
+	the <code>CloseFun</code> is applied to the last piece of data. The <code>CloseFun</code> is
+	responsible for padding (if needed) and encryption of that last piece.
 	</p>
+	<p>The <code>ChunkSize</code> defines the size of the <code>PlainBin</code>s that <code>EncodeFun</code> is applied
+	to. If the <code>ChunkSize</code> is <code>undefined</code>, the size of the <code>PlainBin</code>s varies,
+	because this is	intended for stream crypto, whereas a fixed <code>ChunkSize</code> is intended for block crypto.
+	<code>ChunkSize</code>s can be changed in the return from the <code>EncryptFun</code> or
+	<code>DecryptFun</code>. The value can be changed between <code>pos_integer()</code> and <code>undefined</code>.
+	</p>
+
       </div>
     </div>
 
     <div class="function">
-      <h3 id="position/3">position(ChannelPid, Handle, Location) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, NewPosition} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Location = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;Offset |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{bof, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{cur, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{eof, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;bof | cur | eof</code></li><li><code>Offset = NewPosition = integer()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="position/4">position(ChannelPid, Handle, Location, Timeout) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, NewPosition} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Location = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;Offset |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{bof, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{cur, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;{eof, Offset} |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;bof | cur | eof</code></li><li><code>Timeout = timeout()</code></li><li><code>Offset = NewPosition = integer()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">position(ChannelPid, Handle, Location) -&gt;</name>
+      <name since="">position(ChannelPid, Handle, Location, Timeout) -&gt; {ok, NewPosition | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Location = Offset
+ | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</code></li>
+        <li><code>Offset = integer()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+        <li><code>NewPosition = integer()</code></li>
+      </ul>
       <div class="description">
         <p>Sets the file position of the file referenced by <code>Handle</code>.
           Returns <code>{ok, NewPosition}</code> (as an absolute offset) if
@@ -374,13 +380,17 @@
     </div>
 
     <div class="function">
-      <h3 id="pread/4">pread(ChannelPid, Handle, Position, Len) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Data} | eof | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = Len = integer()</code></li><li><code>Data = string() | binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="pread/5">pread(ChannelPid, Handle, Position, Len, Timeout) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Data} | eof | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = Len = integer()</code></li><li><code>Timeout = timeout()</code></li><li><code>Data = string() | binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">pread(ChannelPid, Handle, Position, Len) -&gt;</name>
+      <name since="">pread(ChannelPid, Handle, Position, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Position = integer()</code></li>
+        <li><code>Len = integer()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+        <li><code>Data = string() | binary()</code></li>
+      </ul>
        <div class="description"><p>The <code>pread/3,4</code> function reads from a specified position,
        combining the <a href="#position/3" class="seealso"><code>position/3</code></a> and 
        <a href="#read/3" class="seealso"><code>read/3,4</code></a> functions.</p>
@@ -388,11 +398,16 @@
      </div>
 
     <div class="function">
-      <h3 id="pwrite/4">pwrite(ChannelPid, Handle, Position, Data) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = integer()</code></li><li><code>Data = iolist()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="pwrite/5">pwrite(ChannelPid, Handle, Position, Data, Timeout) -&gt; ok | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Position = integer()</code></li><li><code>Data = iolist()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">pwrite(ChannelPid, Handle, Position, Data) -&gt; ok</name>
+      <name since="">pwrite(ChannelPid, Handle, Position, Data, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Position = integer()</code></li>
+        <li><code>Data = iolist()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
        <div class="description"><p>The <code>pwrite/3,4</code> function writes to a specified position,
        combining the <a href="#position/3" class="seealso"><code>position/3</code></a> and 
        <a href="#write/3" class="seealso"><code>write/3,4</code></a> functions.</p>
@@ -400,11 +415,16 @@
     </div>
 
     <div class="function">
-      <h3 id="read/3">read(ChannelPid, Handle, Len) -&gt; {ok, Data} | eof | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Len = integer()</code></li><li><code>Data = string() | binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="read/4">read(ChannelPid, Handle, Len, Timeout) -&gt; {ok, Data} | eof | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Handle = term()</code></li><li><code>Len = integer()</code></li><li><code>Timeout = timeout()</code></li><li><code>Data = string() | binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">read(ChannelPid, Handle, Len) -&gt;</name>
+      <name since="">read(ChannelPid, Handle, Len, Timeout) -&gt; {ok, Data} | eof | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Len = integer()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+        <li><code>Data = string() | binary()</code></li>
+      </ul>
       <div class="description">
         <p>Reads <code>Len</code> bytes from the file referenced by
           <code>Handle</code>. Returns <code>{ok, Data}</code>, <code>eof</code>, or
@@ -416,24 +436,32 @@
       </div>
     </div>
 
-    <div class="function">
-      <h3 id="read_file/2">read_file(ChannelPid, File) -&gt; {ok, Data} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>File = string()</code></li><li><code>Data = binary()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="read_file/3">read_file(ChannelPid, File, Timeout) -&gt; {ok, Data} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>File = string()</code></li><li><code>Data = binary()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <div class="function">
+      <name since="">read_file(ChannelPid, File) -&gt;</name>
+      <name since="">read_file(ChannelPid, File, Timeout) -&gt; {ok, Data} | {error, reason()}</name>
       
+      <ul class="type">
+	<li><code>ChannelPid = pid()</code></li>
+	<li><code>File = string()</code></li>
+        <li><code>Data = binary()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Reads a file from the server, and returns the data in a binary.</p>
       </div>
     </div>
 
-    <div class="function">
-      <h3 id="read_file_info/2">read_file_info(ChannelPid, Name) -&gt; {ok, FileInfo} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>FileInfo = <a href="file.html#type-file_info" class="seealso">file:file_info()</a></code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="read_file_info/3">read_file_info(ChannelPid, Name, Timeout) -&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, FileInfo} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>FileInfo = <a href="file.html#type-file_info" class="seealso">file:file_info()</a></code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <div class="function">
+      <name since="">read_file_info(ChannelPid, Name) -&gt;</name>
+      <name since="">read_file_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+        <li><code>Handle = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+        <li><code>FileInfo = record()</code></li>
+      </ul>
       <div class="description">
         <p>Returns a <code>file_info</code> record from the file system object specified by
           <code>Name</code> or <code>Handle</code>. See
@@ -442,28 +470,38 @@
 	</p>
 	<p>
 	  Depending on the underlying OS:es links might be followed and info on the final file, directory
-	  etc is returned. See <a href="#read_link_info/2" class="seealso">read_link_info/2</a>
+	  etc is returned. See <a href="#read_link_info/2" class="seealso">ssh_sftp::read_link_info/2</a>
 	  on how to get information on links instead.
 	</p>
       </div>
     </div>
 
      <div class="function">
-      <h3 id="read_link/2">read_link(ChannelPid, Name) -&gt; {ok, Target} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = Target = string()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
-      <h3 id="read_link/3">read_link(ChannelPid, Name, Timeout) -&gt; {ok, Target} | Error</h3>
-      <ul class="type_desc"><li><code>ChannelPid = pid()</code></li><li><code>Name = Target = string()</code></li><li><code>Timeout = timeout()</code></li><li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li></ul>
+      <name since="">read_link(ChannelPid, Name) -&gt;</name>
+      <name since="">read_link(ChannelPid, Name, Timeout) -&gt; {ok, Target} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+        <li><code>Target = string()</code></li>
+      </ul>
       <div class="description">
         <p>Reads the link target from the symbolic link specified by <code>name</code>.
 	</p>
       </div>
     </div>
 
-    <div class="function">
-      <name since="" name="read_link_info" arity="2"/>
-      <name since="" name="read_link_info" arity="3"/>
+     <div class="function">
+      <name since="">read_link_info(ChannelPid, Name) -&gt; {ok, FileInfo} | {error, reason()}</name>
+      <name since="">read_link_info(ChannelPid, Name, Timeout) -&gt; {ok, FileInfo} | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+        <li><code>Handle = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+        <li><code>FileInfo = record()</code></li>
+      </ul>
       <div class="description">
         <p>Returns a <code>file_info</code> record from the symbolic
           link specified by <code>Name</code> or <code>Handle</code>.
@@ -475,9 +513,15 @@
     </div>
 
     <div class="function">
-      <name since="" name="rename" arity="3"/>
-      <name since="" name="rename" arity="4"/>
+      <name since="">rename(ChannelPid, OldName, NewName) -&gt; </name>
+      <name since="">rename(ChannelPid, OldName, NewName, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>OldName = string()</code></li>
+        <li><code>NewName = string()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Renames a file named <code>OldName</code> and gives it the name
           <code>NewName</code>.
@@ -487,27 +531,25 @@
 
     <div class="function">
       <name since="">start_channel(ConnectionRef) -&gt;</name>
-      <name since="">start_channel(ConnectionRef, SftpOptions) -&gt;
-      {ok, ChannelPid} | Error</name>
+      <name since="">start_channel(ConnectionRef, Options) -&gt;
+      {ok, Pid} | {error, reason()|term()}</name>
 
-      <name since="">start_channel(Host) -&gt;</name>
       <name since="">start_channel(Host, Options) -&gt;</name>
-      <name since="">start_channel(Host, Port, Options) -&gt;</name>
+      <name since="">start_channel(Host, Port, Options) -&gt; 
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
+
       <name since="">start_channel(TcpSocket) -&gt;</name>
       <name since="">start_channel(TcpSocket, Options) -&gt;
-      {ok, ChannelPid, ConnectionRef} | Error</name>
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
 
       
       <ul class="type">
-        <li><code>Host = <a href="../ssh/ssh.html#type-host" class="seealso">ssh:host()</a></code></li>
-        <li><code>Port = <a href="../kernel/inet.html#type-port_number" class="seealso">inet:port_number()</a></code></li>
-	<li><code>TcpSocket = <a href="../ssh/ssh.html#type-open_socket" class="seealso">ssh:open_socket()</a></code></li>
-	<li><code>Options = [  <a href="#type-sftp_option" class="seealso">sftp_option()</a>
-		      | <a href="../ssh/ssh.html#type-client_option" class="seealso">ssh:client_option()</a> ]</code></li>
-	<li><code>SftpOptions = [  <a href="#type-sftp_option" class="seealso">sftp_option()</a> ]</code></li>
-	<li><code>ChannelPid = pid()</code></li>
-        <li><code>ConnectionRef = <a href="../ssh/ssh.html#type-connection_ref" class="seealso">ssh:connection_ref()</a></code></li>
-	<li><code>Error = {error, <a href="#type-reason" class="seealso">reason()</a>}</code></li>
+        <li><code>Host = string()</code></li>
+        <li><code>ConnectionRef = connection_ref()</code></li>
+        <li><code>Port = integer()</code></li>
+	<li><code>TcpSocket = port()</code></li>
+	<d>The socket is supposed to be from <a href="../kernel/gen_tcp.html#connect/3" class="seealso">gen_tcp:connect</a> or <a href="../kernel/gen_tcp.html#accept/1" class="seealso">gen_tcp:accept</a> with option <code>{active,false}</code></d>
+        <li><code>Options = [{Option, Value}]</code></li>
       </ul>
       <div class="description">
 	<p>If no connection reference is provided, a connection is set
@@ -548,8 +590,11 @@
     </div>
 
      <div class="function">
-      <name since="" name="stop_channel" arity="1"/>
+      <name since="">stop_channel(ChannelPid) -&gt; ok</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+      </ul>
       <div class="description">
 	<p>Stops an SFTP channel. Does not close the SSH connection.
 	Use <a href="ssh.html#close/1" class="seealso">ssh:close/1</a> to close it.</p>
@@ -557,9 +602,16 @@
     </div>
 
     <div class="function">
-      <name since="" name="write" arity="3"/>
-      <name since="" name="write" arity="4"/>
+      <name since="">write(ChannelPid, Handle, Data) -&gt;</name>
+      <name since="">write(ChannelPid, Handle, Data, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Handle = term()</code></li>
+        <li><code>Position = integer()</code></li>
+        <li><code>Data = iolist()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Writes <code>data</code> to the file referenced by <code>Handle</code>.
 	The file is to be opened with <code>write</code> or <code>append</code>
@@ -569,9 +621,15 @@
     </div>
     
     <div class="function">
-      <name since="" name="write_file" arity="3"/>
-      <name since="" name="write_file" arity="4"/>
+      <name since="">write_file(ChannelPid, File, Iolist) -&gt;</name>
+      <name since="">write_file(ChannelPid, File, Iolist, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>File = string()</code></li>
+        <li><code>Iolist = iolist()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Writes a file to the server.	The file is created if it does not exist
 	but overwritten if it exists.</p>
@@ -579,9 +637,15 @@
     </div>
     
     <div class="function">
-      <name since="" name="write_file_info" arity="3"/>
-      <name since="" name="write_file_info" arity="4"/>
+      <name since="">write_file_info(ChannelPid, Name, Info) -&gt;</name>
+      <name since="">write_file_info(ChannelPid, Name, Info, Timeout) -&gt; ok | {error, reason()}</name>
       
+      <ul class="type">
+        <li><code>ChannelPid = pid()</code></li>
+        <li><code>Name = string()</code></li>
+        <li><code>Info = record()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+      </ul>
       <div class="description">
         <p>Writes file information from a <code>file_info</code> record to the
 	file specified by <code>Name</code>. See

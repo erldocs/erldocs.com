@@ -32,9 +32,13 @@
     <p>A NIF library contains native implementation of some functions
       of an Erlang module. The native implemented functions (NIFs) are
       called like any other functions without any difference to the
-      caller. A NIF library is built as a dynamically linked library file
-      and loaded in runtime by calling <a href="erlang.html#load_nif/2" class="seealso">
-      <code>erlang:load_nif/2</code></a>.</p>
+      caller. Each NIF must have an implementation in Erlang that
+      is invoked if the function is called before the NIF library
+      is successfully loaded. A typical such stub implementation
+      is to throw an exception. But it can also be used as a fallback
+      implementation if the NIF library is not implemented for some
+      architecture.</p>
+
     <div class="warning"><h2>Warning!</h2>
       <span id="WARNING"> </span>
       <p><em>Use this functionality with extreme care.</em></p>
@@ -46,7 +50,7 @@
         VM will misbehave.</p>
       <list type="bulleted">
         <item>
-          <p>A native function that crashes will crash the whole VM.</p>
+          <p>A native function that crash will crash the whole VM.</p>
         </item>
         <item>
           <p>An erroneously implemented native function can cause a VM
@@ -65,9 +69,6 @@
         </item>
       </list>
     </div>
-  </div>
-  <div class="section">
-    <h4>Example</h4>
 
     <p>A minimal example of a NIF library can look as follows:</p>
 
@@ -94,13 +95,11 @@ ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)</pre>
 
 -export([init/0, hello/0]).
 
--on_load(init/0).
-
 init() -&gt;
       erlang:load_nif("./niftest", 0).
 
 hello() -&gt;
-      erlang:nif_error("NIF library not loaded").</pre>
+      "NIF library not loaded".</pre>
 
     <p>Compile and test can look as follows (on Linux):</p>
 
@@ -111,29 +110,27 @@ $&gt; erl
 1&gt; c(niftest).
 {ok,niftest}
 2&gt; niftest:hello().
+"NIF library not loaded"
+3&gt; niftest:init().
+ok
+4&gt; niftest:hello().
 "Hello world!"</pre>
 
-    <p>
-      In the example above the <a href="../doc/reference_manual/code_loading.html#on_load" class="seealso">
-      <em><code>on_load</code></em></a> directive is used get function <code>init</code> called
-      automatically when the module is loaded. Function <code>init</code> in turn
-      calls <a href="erlang.html#load_nif/2" class="seealso"><code>erlang:load_nif/2</code></a>
-      which loads the NIF library and replaces the <code>hello</code> function with its
-      native implementation in C. Once loaded, a NIF library is persistent. It
-      will not be unloaded until the module code version that it belongs to is
-      purged.</p>
-    <p>
-      Each NIF must have an implementation in Erlang to be invoked if the
-      function is called before the NIF library is successfully loaded. A
-      typical such stub implementation is to call <a href="erlang.html#nif_error/1" class="seealso">
-      <code>erlang:nif_error</code></a> which will raise an exception. The
-      Erlang function can also be used as a fallback implementation if the NIF
-      library lacks implementation for some OS or hardware architecture for example.</p>
+    <p>A better solution for a real module is to take advantage of the new
+      directive <code>on_load</code> (see section
+      <a href="../doc/reference_manual/code_loading.html#on_load" class="seealso">Running a
+      Function When a Module is Loaded</a> in the Erlang Reference
+      Manual) to load the NIF library automatically when the module is
+      loaded.</p>
+
     <div class="note"><h2>Note!</h2>
       <p>A NIF does not have to be exported, it can be local to the module.
         However, unused local stub functions will be optimized
         away by the compiler, causing loading of the NIF library to fail.</p>
     </div>
+
+    <p>Once loaded, a NIF library is persistent. It will not be unloaded
+      until the module code version that it belongs to is purged.</p>
   </div>
 
   <div class="section">
@@ -744,7 +741,7 @@ typedef struct {
       <item>
         <pre class="sh_erlang">
 typedef struct {
-    size_t size;
+    unsigned size;
     unsigned char* data;
 } ErlNifBinary;</pre>
         <p><code>ErlNifBinary</code> contains transient information about an
@@ -1308,7 +1305,7 @@ typedef struct {
 
     <div class="function">
       <name since="OTP 20.1"><ret>void</ret>
-        <nametext>enif_free_iovec(ErlNifIOVec* iov)</nametext></name>
+        <nametext>enif_free_iovec(ErlNifIOvec* iov)</nametext></name>
       
       <div class="description">
         <p>Frees an io vector returned from
@@ -1490,9 +1487,6 @@ enif_free_iovec(iovec);</pre>
           <code>term</code>.</p>
         <p>Returns <code>true</code> on success, or <code>false</code> if <code>term</code> is
           not a handle to a resource object of type <code>type</code>.</p>
-	<p><code>enif_get_resource</code> does not add a reference to the resource
-	  object. However, the pointer received in <code>*objp</code> is guaranteed to
-	  be valid at least as long as the resource handle <code>term</code> is valid.</p>
       </div>
     </div>
 
@@ -2945,10 +2939,6 @@ enif_map_iterator_destroy(env, &iter);</pre>
           References made by <a href="#enif_make_resource" class="seealso">
           <code>enif_make_resource</code></a>
           can only be removed by the garbage collector.</p>
-	<p>There are no guarantees exactly when the destructor of an
-	  unreferenced resource is called. It could be called directly by
-	  <code>enif_release_resource</code> but it could also be scheduled to be
-	  called at a later time possibly by another thread.</p>
       </div>
     </div>
 
