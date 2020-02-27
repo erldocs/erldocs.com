@@ -29,14 +29,46 @@
   <module since="OTP 22.0">socket</module>
   <h2 class="modsummary">Socket interface.</h2>
   <div class="description">
-    <p>This module provides an API for the socket interface.
-    It is used to create, delete and manipulate sockets,
-    send and receive data.</p>
-    <p>The idea is that it shall be as "close as possible" to the OS
+    <p>This module provides an API for network socket.
+    Functions are provided to create, delete and manupilate the sockets
+    aswell as sending and reciving data on them. </p>
+    <p>The intent is that it shall be as "close as possible" to the OS
     level socket interface. The only significant addition is that some of
     the functions,
     e.g. <a href="#recv/3" class="seealso"><code>recv/3</code></a>, 
     has a timeout argument. </p>
+    <div class="note"><h2>Note!</h2>
+      <p>Some functions allow for an <i>asynchronous</i> call.
+      This is achieved by setting the <code>Timeout</code> argument to
+      <code>nowait</code>. For instance, if calling the
+      <a href="#recv_async" class="seealso"><code>recv/3</code></a>
+      function with Timeout set to <code>nowait</code> (<code>recv(Sock, 0, nowait)</code>)
+      when there is actually nothing to read, it will return with
+      <code>{select, </code>
+      <a href="#type-select_info" class="seealso"><code>SelectInfo</code></a><code>}</code>
+      (<code>SelectInfo</code> contains the
+      <a href="socket.html#type-select_ref" class="seealso">SelectRef</a>).
+      When data eventually arrives a 'select' message
+      will be sent to the caller: </p>
+      <taglist>
+	<dt/>
+	<item><code>{'$socket', socket(), select, SelectRef}</code></item>
+      </taglist>
+      <p>The caller can now make another
+      call to the recv function and now expect data.</p>
+      <p>Note that all other users are <em>locked out</em> until the
+      'current user' has called the function (recv in this case).</p>
+      <p>Another message the user must be prepared for (when making asynchronous
+      calls) is the <code>abort</code> message:</p>
+      <taglist>
+	<dt/>
+	<item><code>{'$socket', socket(), abort, Info}</code></item>
+      </taglist>
+      <p>This message indicates
+      that the (asynchronous) operation has been aborted.
+      If, for instance, the socket has been closed (by another process),
+      <code>Info</code> will be <code>{SelectRef, closed}</code>. </p>
+    </div>
     <div class="note"><h2>Note!</h2>
       <p>There is currently <em>no</em> support for Windows. </p>
       <p>Support for IPv6 has been implemented but <em>not</em> tested. </p>
@@ -58,9 +90,48 @@
     <div class="type">
       <h3 id="socket/0">socket()</h3>
       <div class="description"><p>As returned by
-        <a href="#open/2" class="seealso"><code>open/2,3,4</code></a> and
+        <a href="#open/1" class="seealso"><code>open/1,2,3,4</code></a> and
         <a href="#accept/1" class="seealso"><code>accept/1,2</code></a>.</p>
       </div>
+    </div>
+    <div class="type">
+      <h3 id="type-select_tag">select_tag()</h3>
+      <div class="description">
+	<p>A tag that describes the (select) operation.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-select_ref">select_ref()</h3>
+      <div class="description">
+	<p>A reference that uniquely identifies the (select) operation.</p>
+      </div>
+    </div>
+    <div class="type">
+      <h3 id="type-select_info">select_info() = {select_info, <a href="#type-select_tag" class="seealso">select_tag()</a>, <a href="#type-select_ref" class="seealso">select_ref()</a>}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-socket_counters">socket_counters() = [{<a href="#type-socket_counter" class="seealso">socket_counter()</a>, integer() &gt;= 0}]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-socket_counter">socket_counter() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_byte | read_fails | read_pkg | read_pkg_max |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_tries | read_waits | write_byte | write_fails |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;write_pkg | write_pkg_max | write_tries | write_waits |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;acc_success | acc_fails | acc_tries | acc_waits</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-socket_info">socket_info() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{domain := <a href="#type-domain" class="seealso">domain()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := <a href="#type-type" class="seealso">type()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;protocol := <a href="#type-protocol" class="seealso">protocol()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ctrl := pid(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ctype := normal | fromfd | {fromfd, integer()},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;counters := <a href="#type-socket_counters" class="seealso">socket_counters()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;num_readers := integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;num_writers := integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;num_acceptors := integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;writable := boolean(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;readable := boolean()}</h3>
     </div>
     <div class="type">
       <h3 id="type-ip4_address">ip4_address() = {0..255, 0..255, 0..255, 0..255}</h3>
@@ -80,13 +151,17 @@
       <h3 id="type-ip_address">ip_address() = <a href="#type-ip4_address" class="seealso">ip4_address()</a> | <a href="#type-ip6_address" class="seealso">ip6_address()</a></h3>
     </div>
     <div class="type">
-      <h3 id="type-sockaddr">sockaddr() = <a href="#type-sockaddr_in4" class="seealso">sockaddr_in4()</a> | <a href="#type-sockaddr_in6" class="seealso">sockaddr_in6()</a> | <a href="#type-sockaddr_un" class="seealso">sockaddr_un()</a></h3>
+      <h3 id="type-sockaddr">sockaddr() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-sockaddr_in4" class="seealso">sockaddr_in4()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-sockaddr_in6" class="seealso">sockaddr_in6()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-sockaddr_un" class="seealso">sockaddr_un()</a> |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-sockaddr_ll" class="seealso">sockaddr_ll()</a></h3>
     </div>
     <div class="type">
       <h3 id="type-sockaddr_in4">sockaddr_in4() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{family := inet,<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port := <a href="#type-port_number" class="seealso">port_number()</a>,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr := any | loopback | <a href="#type-ip4_address" class="seealso">ip4_address()</a>}</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr := any | broadcast | loopback | <a href="#type-ip4_address" class="seealso">ip4_address()</a>}</h3>
     </div>
     <div class="type">
       <h3 id="type-sockaddr_in6">sockaddr_in6() = <br>
@@ -100,6 +175,21 @@
       <h3 id="type-sockaddr_un">sockaddr_un() = #{family := local, path := binary() | string()}</h3>
     </div>
     <div class="type">
+      <h3 id="type-sockaddr_ll">sockaddr_ll() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{family := packet,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;protocol := integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ifindex := integer(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pkttype := <a href="#type-packet_type" class="seealso">packet_type()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hatype := integer() &gt;= 0,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addr := binary()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-packet_type">packet_type() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;host | broadcast | multicast | otherhost | outgoing |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;loopback | user | kernel | fastroute |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer() &gt;= 0</h3>
+    </div>
+    <div class="type">
       <h3 id="type-port_number">port_number() = 0..65535</h3>
     </div>
     <div class="type">
@@ -107,12 +197,6 @@
     </div>
     <div class="type">
       <h3 id="type-in6_scope_id">in6_scope_id() = <a href="#type-uint32" class="seealso">uint32()</a></h3>
-    </div>
-    <div class="type">
-      <h3 id="type-accept_flags">accept_flags() = [<a href="#type-accept_flag" class="seealso">accept_flag()</a>]</h3>
-    </div>
-    <div class="type">
-      <h3 id="type-accept_flag">accept_flag() = nonblock | cloexec</h3>
     </div>
     <div class="type">
       <h3 id="type-send_flags">send_flags() = [<a href="#type-send_flag" class="seealso">send_flag()</a>]</h3>
@@ -143,7 +227,7 @@
       <h3 id="type-socket_option">socket_option() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;acceptconn | acceptfilter | bindtodevice | broadcast |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;busy_poll | debug | domain | dontroute | error | keepalive |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linger | mark | oobinline | passcred | peek_off | peekcred |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linger | mark | oobinline | passcred | peek_off | peercred |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;priority | protocol | rcvbuf | rcvbufforce | rcvlowat |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rcvtimeo | reuseaddr | reuseport | rxq_ovfl | setfib |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sndbuf | sndbufforce | sndlowat | sndtimeo | timestamp | type</h3>
@@ -163,12 +247,12 @@
       <h3 id="type-ipv6_socket_option">ipv6_socket_option() = <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;addrform | add_membership | authhdr | auth_level | checksum |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;drop_membership | dstopts | esp_trans_level |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esp_network_level | faith | flowinfo | hoplimit | hopopts |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;esp_network_level | faith | flowinfo | hopopts |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ipcomp_level | join_group | leave_group | mtu | mtu_discover |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;multicast_hops | multicast_if | multicast_loop | portrange |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pktoptions | recverr | recvpktinfo | pktinfo | recvtclass |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;router_alert | rthdr | tclass | unicast_hops | use_min_mtu |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;v6only</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pktoptions | recverr | recvhoplimit | hoplimit | recvpktinfo |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pktinfo | recvtclass | router_alert | rthdr | tclass |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unicast_hops | use_min_mtu | v6only</h3>
     </div>
     <div class="type">
       <h3 id="type-tcp_socket_option">tcp_socket_option() = <br>
@@ -197,7 +281,7 @@
     </div>
     <div class="type">
       <h3 id="type-ip_tos">ip_tos() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lowdeley | throughput | reliability | mincost | integer()</h3>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lowdelay | throughput | reliability | mincost | integer()</h3>
     </div>
     <div class="type">
       <h3 id="type-ip_mreq">ip_mreq() = <br>
@@ -308,8 +392,8 @@
     </div>
     <div class="type">
       <h3 id="type-cmsghdr_type">cmsghdr_type() = <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;timestamp | pktinfo | tos | ttl | rights | credentials |<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origdstaddr |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;credentials | hoplevel | origdstaddr | pktinfo | recvtos |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rights | timestamp | tos | ttl |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;integer()</h3>
     </div>
     <div class="type">
@@ -319,23 +403,90 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := credentials, data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := integer(), data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := tos, data := <a href="#type-ip_tos" class="seealso">ip_tos()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := recvtos, data := <a href="#type-ip_tos" class="seealso">ip_tos()</a>} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := ttl, data := integer()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := recvttl, data := integer()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := pktinfo, data := <a href="#type-ip_pktinfo" class="seealso">ip_pktinfo()</a>} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := origdstaddr, data := <a href="#type-sockaddr_in4" class="seealso">sockaddr_in4()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := recverr,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-extended_err" class="seealso">extended_err()</a> | binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := integer(), data := binary()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := hoplevel, data := integer()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := pktinfo, data := <a href="#type-ipv6_pktinfo" class="seealso">ipv6_pktinfo()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := recverr,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-extended_err" class="seealso">extended_err()</a> | binary()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := tclass, data := integer()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := integer(), data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := integer(), type := integer(), data := binary()}</h3>
     </div>
     <div class="type">
       <h3 id="type-cmsghdr_send">cmsghdr_send() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := timestamp, data := binary()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := rights, data := binary()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := credentials, data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := socket, type := integer(), data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := tos, data := <a href="#type-ip_tos" class="seealso">ip_tos()</a> | binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := ttl, data := integer() | binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ip, type := integer(), data := binary()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := tclass, data := integer()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := ipv6, type := integer(), data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := udp, type := integer(), data := binary()} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{level := integer(), type := integer(), data := binary()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-icmp_dest_unreach">icmp_dest_unreach() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;net_unreach | host_unreach | port_unreach | frag_needed |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;net_unknown | host_unknown |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-uint8" class="seealso">uint8()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-icmpv6_dest_unreach">icmpv6_dest_unreach() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;noroute | adm_prohibited | not_neighbour | addr_unreach |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;port_unreach | policy_fail | reject_route |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#type-uint8" class="seealso">uint8()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-ee_origin">ee_origin() = none | local | icmp | icmp6 | <a href="#type-uint8" class="seealso">uint8()</a></h3>
+    </div>
+    <div class="type">
+      <h3 id="type-extended_err">extended_err() = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{error := term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origin := icmp,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := dest_unreach,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code := <a href="#type-icmp_dest_unreach" class="seealso">icmp_dest_unreach()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offender := undefined | <a href="#type-sockaddr" class="seealso">sockaddr()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{error := term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origin := icmp,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := time_exceeded | <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code := <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offender := undefined | <a href="#type-sockaddr" class="seealso">sockaddr()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{error := term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origin := icmp6,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := dest_unreach,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code := <a href="#type-icmpv6_dest_unreach" class="seealso">icmpv6_dest_unreach()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offender := undefined | <a href="#type-sockaddr" class="seealso">sockaddr()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{error := term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origin := icmp6,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := pkt_toobig | time_exceeded | <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code := <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offender := undefined | <a href="#type-sockaddr" class="seealso">sockaddr()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#{error := term(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;origin := <a href="#type-ee_origin" class="seealso">ee_origin()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;type := <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code := <a href="#type-uint8" class="seealso">uint8()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;info := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data := <a href="#type-uint32" class="seealso">uint32()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;offender := undefined | <a href="#type-sockaddr" class="seealso">sockaddr()</a>}</h3>
     </div>
     <div class="type">
       <h3 id="type-uint8">uint8() = 0..255</h3>
@@ -379,12 +530,19 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{udp, <a href="#type-supports_options_udp" class="seealso">supports_options_udp()</a>} |<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{sctp, <a href="#type-supports_options_sctp" class="seealso">supports_options_sctp()</a>}]</h3>
     </div>
+    <div class="type">
+      <h3 id="type-supports_send_flags">supports_send_flags() = [{<a href="#type-send_flag" class="seealso">send_flag()</a>, boolean()}]</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-supports_recv_flags">supports_recv_flags() = [{<a href="#type-recv_flag" class="seealso">recv_flag()</a>, boolean()}]</h3>
+    </div>
   </div>
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
-      <name name="accept" arity="1" since="OTP 22.0"/>
-      <name name="accept" arity="2" since="OTP 22.0"/>
+      <h3 id="accept/1">accept(LSocket) -&gt; {ok, Socket} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>LSocket = Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <name name="accept" arity="2" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Accept a connection on a socket.</p>
@@ -396,7 +554,30 @@
     </div>
 
     <div class="function">
-      <name name="bind" arity="2" since="OTP 22.0"/>
+      <name name="accept" arity="2" clause_i="1" anchor="accept_async" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Accept a connection on a socket.</p>
+
+	<p>This call is used with connection-based socket types
+	(<code>stream</code> or <code>seqpacket</code>). It extracs the first pending
+	connection request for the listen socket and returns the (newly)
+	connected socket.</p>
+
+	<p>In the case when there is no connections waiting, the function 
+	will return with the <code>SelectInfo</code>. The caller can then await a 
+	select message, <code>{'$socket', Socket, select, Info}</code> (where
+	<code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the <code>SelectInfo</code>),
+	when a client connects (a subsequent call to accept will then return 
+	the socket). </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="bind/2">bind(Socket, Addr) -&gt; {ok, Port} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Addr = any | broadcast | loopback | <a href="#type-sockaddr" class="seealso">sockaddr()</a></code></li><li><code>Port = <a href="#type-port_number" class="seealso">port_number()</a></code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Bind a name to a socket.</p>
@@ -409,7 +590,21 @@
     </div>
 
     <div class="function">
-      <name name="close" arity="1" since="OTP 22.0"/>
+      <h3 id="cancel/2">cancel(Socket, SelectInfo) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>SelectInfo = <a href="#type-select_info" class="seealso">select_info()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+	<p>Cancel an asynchronous request.</p>
+
+	<p>Call this function in order to cancel a previous
+	asynchronous call to, e.g.
+	<a href="#recv/3" class="seealso"><code>recv/3</code></a>. </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="close/1">close(Socket) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
 	<p>Closes the socket.</p>
@@ -428,13 +623,34 @@
     </div>
 
     <div class="function">
-      <name name="connect" arity="2" since="OTP 22.0"/>
-      <name name="connect" arity="3" since="OTP 22.0"/>
+      <h3 id="connect/2">connect(Socket, SockAddr) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>SockAddr = <a href="#type-sockaddr" class="seealso">sockaddr()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <name name="connect" arity="3" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>This function connects the socket to the address
 	specied by the <code>SockAddr</code> argument.</p>
       </div>
+    </div>
+
+    <div class="function">
+      <name name="connect" arity="3" clause_i="1" anchor="connect_async" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>This function connects the socket to the address
+	specied by the <code>SockAddr</code> argument.</p>
+
+ 	<p>In the case when its not possible to immediately establish a
+	connection, the function will return with the
+	<a href="#type-select_info" class="seealso"><code>SelectInfo</code></a>.
+	The caller can then await a 
+	select message, <code>{'$socket', Socket, select, Info}</code> (where
+	<code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the <code>SelectInfo</code>,
+	a subsequent call to connect will then 
+	establish the connection). </p>
+     </div>
     </div>
 
     <div class="function">
@@ -468,26 +684,36 @@
       
       <div class="description">
         <p>Get an option on a socket.</p>
-	<p>What properties are valid depend  both on <code>Level</code> and
-	on what kind of socket it is (<code>domain</code>, <code>type</code> and
-	<code>protocol</code>).</p>
+
 	<p>When specifying <code>Level</code> as an integer, and therefor
 	using "native mode", it is *currently* up to the caller to
 	know how to interpret the result.</p>
 
-	<p>See the
-	<a href="socket_usage.html#socket_options" class="seealso">socket options</a>
-	chapter of the users guide for more info. </p>
-
-	<div class="note"><h2>Note!</h2><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></div>
+	<p>For more info, see
+	<a href="#getopt/3" class="seealso">getopt</a> above. </p>
       </div>
     </div>
 
     <div class="function">
-      <name name="listen" arity="1" since="OTP 22.0"/>
-      <name name="listen" arity="2" since="OTP 22.0"/>
+      <h3 id="info/1">info(Socket) -&gt; <a href="#type-socket_info" class="seealso">socket_info()</a></h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li></ul>
+      
+      <div class="description">
+        <p>Get miscellaneous info about the socket.</p>
+	<p>The function returns a map with each info item as a key-value
+	binding. It reflects the "current" state of the socket. </p>
+	<div class="note"><h2>Note!</h2>
+	  <p>In order to ensure data integrity, mutex'es are taken when
+	  needed. So, do not call this function often. </p>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="listen/1">listen(Socket) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="listen/2">listen(Socket, Backlog) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Backlog = integer() &gt;= 1</code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Listen for connections on a socket.</p>
@@ -495,29 +721,101 @@
     </div>
 
     <div class="function">
-      <name name="open" arity="2" since="OTP 22.0"/>
-      <name name="open" arity="3" since="OTP 22.0"/>
-      <name name="open" arity="4" since="OTP 22.0"/>
+      <h3 id="number_of/0">number_of() -&gt; integer() &gt;= 0</h3>
       
       <div class="description">
-        <p>Creates an endpoint (socket) for communication.</p>
-        <p>For some <code>types</code> there is a default protocol, which will
-	be used if no protocol is specified: </p>
-
-	<list>
-	  <item><p><code>stream</code>: <code>tcp</code></p></item>
-          <item><p><code>dgram</code>: <code>udp</code></p></item>
-          <item><p><code>seqpacket</code>: <code>sctp</code></p></item>
-	</list>
-
-	<p>The <code>Extra</code> argument is intended for "obscure" options.
-	Currently the only supported option is <code>netns</code>, which
-	is only supported on the linux platform.</p>
+        <p>Returns the number of active sockets.</p>
       </div>
     </div>
 
     <div class="function">
-      <name name="peername" arity="1" since="OTP 22.0"/>
+      <h3 id="open/1">open(FD) -&gt; {ok, Socket} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>FD = integer()</code></li><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <name name="open" arity="2" clause_i="1" since="OTP 23.0"/>
+      
+      <div class="description">
+	<p>Create an endpoint (socket) for communication based on an
+	already existing file descriptor.
+	The function attempts to retrieve domain, type and protocol from
+	the system. This is however not possible on all platforms, and
+	in those cases it expects it in <code>Opts</code>. </p>
+
+	<p>The <code>Opts</code> argument is intended for providing extra
+	information for the open call:</p>
+	<taglist>
+	  <dt><code>dup: boolean()</code></dt>
+	  <item>
+	    <p>Shall the provided descriptor be duplicated (dup) or not.
+	    <br>
+Defaults to <code>true</code>. </p>
+	  </item>
+
+	  <dt><code>debug: boolean()</code></dt>
+	  <item>
+	    <p>Enable or disable debug during the open call.
+	    <br>
+Defaults to <code>false</code>. </p>
+	  </item>
+
+	  <dt><code>domain: socket:domain()</code></dt>
+	  <item>
+	    <p>Which domain is the descriptor of. </p>
+	  </item>
+
+	  <dt><code>type: socket:type()</code></dt>
+	  <item>
+	    <p>Which type is the descriptor of. </p>
+	  </item>
+
+	  <dt><code>protocol: socket:protocol()</code></dt>
+	  <item>
+	    <p>Which protocol is the descriptor of. </p>
+	  </item>
+
+	</taglist>
+
+	<div class="note"><h2>Note!</h2>
+	  <p>This function should be used with care! </p>
+	  <p>On some platforms its <em>necessary</em> to provide the
+	  <code>protocol</code> as its impossible to retrieve it. </p>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <name name="open" arity="2" clause_i="2" since="OTP 22.0"/>
+      <h3 id="open/3">open(Domain, Type, Protocol) -&gt; {ok, Socket} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Domain = <a href="#type-domain" class="seealso">domain()</a></code></li><li><code>Type = <a href="#type-type" class="seealso">type()</a></code></li><li><code>Protocol = default | <a href="#type-protocol" class="seealso">protocol()</a></code></li><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="open/4">open(Domain, Type, Protocol, Opts) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ok, Socket} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Domain = <a href="#type-domain" class="seealso">domain()</a></code></li><li><code>Type = <a href="#type-type" class="seealso">type()</a></code></li><li><code>Protocol = default | <a href="#type-protocol" class="seealso">protocol()</a></code></li><li><code>Opts = map()</code></li><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Reason = term()</code></li></ul>
+      
+      <div class="description">
+	<p>Creates an endpoint (socket) for communication.</p>
+
+	<p>For some <code>types</code> there is a default protocol,
+	indicated by <code>default</code>, which it <em>may</em> be
+	possible to specify.
+	And for <code>Domain = local</code>, if a protocol <em>is</em> pecified,
+	it <em>must</em> be <code>default</code>. </p>
+
+	<p>The <code>Opts</code> argument is intended for "other" options.
+	Currently the only supported option(s) are <code>netns</code>, which
+	is only supported on the linux platform and <code>debug</code> (controls debug
+	printouts during the open call).</p>
+
+	<div class="note"><h2>Note!</h2>
+	  <p>It may not be possible to specify the default protocol (except
+	  when <code>Domain = local</code>). We need to be able to retreive
+	  the resulting protocol, which is <em>not</em> possble on all
+	  platforms. </p>
+	</div>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="peername/1">peername(Socket) -&gt; {ok, SockAddr} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>SockAddr = <a href="#type-sockaddr" class="seealso">sockaddr()</a></code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Returns the address of the peer connected to the socket.</p>
@@ -525,11 +823,13 @@
     </div>
 
     <div class="function">
-      <name name="recv" arity="1" since="OTP 22.0"/>
-      <name name="recv" arity="2" since="OTP 22.0"/>
+      <h3 id="recv/1">recv(Socket) -&gt; {ok, Data} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Data = binary()</code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="recv/2">recv(Socket, Length) -&gt; {ok, Data} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Length = integer() &gt;= 0</code></li><li><code>Data = binary()</code></li><li><code>Reason = term()</code></li></ul>
       <name name="recv" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="recv" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recv" arity="4" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="recv" arity="4" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Receive a message from a socket.</p>
@@ -540,21 +840,51 @@
     </div>
 
     <div class="function">
-      <name name="recvfrom" arity="1" since="OTP 22.0"/>
-      <name name="recvfrom" arity="2" since="OTP 22.0"/>
-      <name name="recvfrom" arity="3" clause_i="1" since="OTP 22.0"/>
+      <name name="recv" arity="3" clause_i="2" anchor="recv_async" since="OTP 22.1"/>
+      <name name="recv" arity="4" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Receive a message from a socket.</p>
+
+	<p>There is a special case for the argument <code>Length</code>.
+	If it is set to zero (0), it means "give me everything you 
+	currently have".</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <code>SelectInfo</code>. The caller can then await a 
+	select message, <code>{'$socket', Socket, select, Info}</code> (where
+	<code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the <code>SelectInfo</code>),
+	when data has arrived (a subsequent call to recv will then return 
+	the data). </p>
+	<p>Note that if a length (<code>&gt; 0</code>) is specified, and only part
+	of that amount of data is available, the function will return with
+	that data <em>and</em> the <code>SelectInfo</code> (if the caller don't 
+	want to wait for the remaining data, it must immediately call
+	the <a href="#cancel/2" class="seealso"><code>cancel/2</code></a> function.)</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recvfrom/1">recvfrom(Socket) -&gt; {ok, {Source, Data}} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Source = <a href="#type-sockaddr" class="seealso">sockaddr()</a> | undefined</code></li><li><code>Data = binary()</code></li><li><code>Reason = term()</code></li></ul>
+      <h3 id="recvfrom/2">recvfrom(Socket, BufSz) -&gt; {ok, {Source, Data}} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>BufSz = integer() &gt;= 0</code></li><li><code>Source = <a href="#type-sockaddr" class="seealso">sockaddr()</a> | undefined</code></li><li><code>Data = binary()</code></li><li><code>Reason = term()</code></li></ul>
       <name name="recvfrom" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="recvfrom" arity="3" clause_i="3" since="OTP 22.0"/>
-      <name name="recvfrom" arity="4" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="5" since="OTP 22.0"/>
+      <name name="recvfrom" arity="4" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Receive a message from a socket.</p>
         <p>This function reads "messages", which means that regardless of
-	how much we want to read, it returns when we get a message.</p>
+	how much we want to read, it returns when we get a message
+	(if the buffer size is too small, the message will be truncated).</p>
         <p>The <code>BufSz</code> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
-	size (setopt with <code>Level</code> = <code>otp</code> and <code>Key</code> = <code>rcvbuf</code>)
-	is used.</p>
+	size (setopt with <code>Level</code> = <code>otp</code> and
+	<code>Key</code> = <code>rcvbuf</code>) is used.</p>
         <p>It may be impossible to know what (buffer) size is appropriate
 	"in advance", and in those cases it may be convenient to use the
 	(recv) 'peek' flag. When this flag is provided, the message is *not*
@@ -564,12 +894,44 @@
     </div>
 
     <div class="function">
-      <name name="recvmsg" arity="1" since="OTP 22.0"/>
+      <name name="recvfrom" arity="3" clause_i="1" anchor="recvfrom_async" since="OTP 22.1"/>
+      <name name="recvfrom" arity="3" clause_i="4" since="OTP 22.1"/>
+      <name name="recvfrom" arity="4" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message
+	(if the buffer size is too small, the message will be truncated).</p>
+        <p>The <code>BufSz</code> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <code>Level</code> = <code>otp</code> and
+	<code>Key</code> = <code>rcvbuf</code>) is used.</p>
+        <p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvfrom call
+	is needed, possibly with a then adjusted buffer size.</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <code>SelectInfo</code>. The caller can then await a 
+	select message, <code>{'$socket', Socket, select, Info}</code> (where
+	<code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the <code>SelectInfo</code>),
+	when data has arrived (a subsequent call to recvfrom will then return 
+	the data). </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="recvmsg/1">recvmsg(Socket) -&gt; {ok, MsgHdr} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>MsgHdr = <a href="#type-msghdr" class="seealso">msghdr()</a></code></li><li><code>Reason = term()</code></li></ul>
       <name name="recvmsg" arity="2" clause_i="1" since="OTP 22.0"/>
-      <name name="recvmsg" arity="2" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.0"/>
+      <name name="recvmsg" arity="2" clause_i="3" since="OTP 22.0"/>
       <name name="recvmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="recvmsg" arity="5" since="OTP 22.0"/>
+      <name name="recvmsg" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="recvmsg" arity="5" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Receive a message from a socket.</p>
@@ -583,8 +945,8 @@
 	
         <p>The <code>BufSz</code> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
-	size (setopt with <code>Level</code> = <code>otp</code> and <code>Key</code> = <code>rcvbuf</code>)
-	is used.</p>
+	size (setopt with <code>Level</code> = <code>otp</code> and
+	<code>Key</code> = <code>rcvbuf</code>) is used.</p>
 
         <p>The <code>CtrlSz</code> argument basically defines the size of the
 	receive buffer for the control messages.
@@ -600,10 +962,53 @@
     </div>
 
     <div class="function">
-      <name name="send" arity="2" since="OTP 22.0"/>
+      <name name="recvmsg" arity="2" clause_i="2" anchor="recvmsg_async" since="OTP 22.1"/>
+      <name name="recvmsg" arity="3" clause_i="1" since="OTP 22.1"/>
+      <name name="recvmsg" arity="5" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message.</p>
+	<p>The message will be delivered in the form of a <code>msghdr()</code>,
+	which may contain the source address (if socket not connected),
+	a list of <code>cmsghdr_recv()</code> (depends on what socket options have
+	been set and what the protocol and platform supports) and
+	also a set of flags, providing further info about the read. </p>
+	
+        <p>The <code>BufSz</code> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <code>Level</code> = <code>otp</code> and
+	<code>Key</code> = <code>rcvbuf</code>) is used.</p>
+
+        <p>The <code>CtrlSz</code> argument basically defines the size of the
+	receive buffer for the control messages.
+	By setting the value to zero (0), the configured size (setopt
+	with <code>Level</code> = <code>otp</code>) is used.</p>
+
+	<p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvmsg call
+	is needed, possibly with a then adjusted buffer size.</p>
+
+	<p>In the case when there is no data waiting, the function 
+	will return with the <code>SelectInfo</code>. The caller can then await a 
+	select message, <code>{'$socket', Socket, select, Info}</code> (where
+	<code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the <code>SelectInfo</code>),
+	when data has arrived (a subsequent call to recvmsg will then return 
+	the data). </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="send/2">send(Socket, Data) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Data = iodata()</code></li><li><code>Reason = term()</code></li></ul>
       <name name="send" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="send" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="send" arity="4" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="send" arity="4" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Send a message on a connected socket.</p>
@@ -611,10 +1016,35 @@
     </div>
 
     <div class="function">
-      <name name="sendmsg" arity="2" since="OTP 22.0"/>
+      <name name="send" arity="3" clause_i="2" anchor="send_async" since="OTP 22.1"/>
+      <name name="send" arity="4" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Send a message on a connected socket.</p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <code>SelectInfo</code>. The caller
+	can then await a select message,
+	<code>{'$socket', Socket, select, Info}</code>
+	(where <code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the
+	<code>SelectInfo</code>), when there is room for more data (a subsequent
+	call to send will then send the data). </p>
+	<p>Note that if not all the data was sent, the function will return
+	with the remaining data <em>and</em> the <code>SelectInfo</code>
+	(if the caller don't 
+	want to wait to be able to send the rest, it should immediately call
+	the <a href="#cancel/2" class="seealso"><code>cancel/2</code></a> function.)</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sendmsg/2">sendmsg(Socket, MsgHdr) -&gt; ok | {ok, Remaining} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>MsgHdr = <a href="#type-msghdr" class="seealso">msghdr()</a></code></li><li><code>Remaining = <a href="erlang.html#type-iovec" class="seealso">erlang:iovec()</a></code></li><li><code>Reason = term()</code></li></ul>
       <name name="sendmsg" arity="3" clause_i="1" since="OTP 22.0"/>
-      <name name="sendmsg" arity="3" clause_i="2" since="OTP 22.0"/>
-      <name name="sendmsg" arity="4" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="3" since="OTP 22.0"/>
+      <name name="sendmsg" arity="4" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
 	<p>Send a message on a socket. The destination, if needed
@@ -635,13 +1065,64 @@
     </div>
 
     <div class="function">
-      <name name="sendto" arity="3" since="OTP 22.0"/>
+      <name name="sendmsg" arity="3" clause_i="2" anchor="sendmsg_async" since="OTP 22.1"/>
+      <name name="sendmsg" arity="4" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+	<p>Send a message on a socket. The destination, if needed
+	(socket <em>not</em> connected) is provided in the <code>MsgHdr</code>,
+	which also contains the message to send,
+	The <code>MsgHdr</code> may also contain an list of optional <code>cmsghdr_send()</code>
+	(depends on what the protocol and platform supports).</p>
+
+	<p>Unlike the <a href="#send/2" class="seealso"><code>send</code></a> function,
+	this one sends <em>one message</em>.
+	This means that if, for whatever reason, its not possible to send the
+	message in one go, the function will instead return with the
+	<em>remaining</em> data (<code>{ok, Remaining}</code>). Thereby leaving it
+	up to the caller to decide what to do (retry with the remaining data
+	of give up). </p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <code>SelectInfo</code>. The caller
+	can then await a select message,
+	<code>{'$socket', Socket, select, Info}</code>
+	(where <code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the
+	<code>SelectInfo</code>), when there is room for more data (a subsequent
+	call to sendmsg will then send the data). </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="sendto/3">sendto(Socket, Data, Dest) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>Data = binary()</code></li><li><code>Dest = <a href="#type-sockaddr" class="seealso">sockaddr()</a></code></li><li><code>Reason = term()</code></li></ul>
       <name name="sendto" arity="4" clause_i="1" since="OTP 22.0"/>
-      <name name="sendto" arity="4" clause_i="2" since="OTP 22.0"/>
-      <name name="sendto" arity="5" since="OTP 22.0"/>
+      <name name="sendto" arity="4" clause_i="3" since="OTP 22.0"/>
+      <name name="sendto" arity="5" clause_i="2" since="OTP 22.0"/>
       
       <div class="description">
         <p>Send a message on a socket, to the specified destination.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name name="sendto" arity="4" clause_i="2" anchor="sendto_async" since="OTP 22.1"/>
+      <name name="sendto" arity="5" clause_i="1" since="OTP 22.1"/>
+      
+      <div class="description">
+        <p>Send a message on a socket, to the specified destination.</p>
+
+	<p>In the case when there is no room in the (system-) buffers,
+	the function will return with the <code>SelectInfo</code>. The caller
+	can then await a select message,
+	<code>{'$socket', Socket, select, Info}</code>
+	(where <code>Info</code> is the
+	<a href="socket.html#type-select_ref" class="seealso"><code>ref</code></a>
+	field from the
+	<code>SelectInfo</code>), when there is room for more data (a subsequent
+	call to sendto will then send the data). </p>
       </div>
     </div>
 
@@ -679,26 +1160,19 @@
       
       <div class="description">
         <p>Set options on a socket.</p>
-	<p>What properties are valid depend both on <code>Level</code> and on
-	what kind of socket it is (<code>domain</code>, <code>type</code> and
-	<code>protocol</code>).</p>
 
-	<p>See the
-	<a href="socket_usage.html#socket_options" class="seealso">socket options</a>
-	chapter of the users guide for more info. </p>
+	<p>When specifying <code>Level</code> as an integer, and therefor
+	using "native mode", it is *currently* up to the caller to
+	know how to encode the <code>Value</code>.</p>
 
-	<div class="note"><h2>Note!</h2><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></div>
-
-	<div class="note"><h2>Note!</h2><p>Sockets are set 'non-blocking' when created, so this option
-	is *not* available (as it would adversely effect the Erlang VM
-	to set a socket 'blocking').</p></div>
+	<p>For more info, see
+	<a href="#setopt/4" class="seealso">setopt</a> above. </p>
       </div>
     </div>
 
     <div class="function">
-      <name name="shutdown" arity="2" since="OTP 22.0"/>
+      <h3 id="shutdown/2">shutdown(Socket, How) -&gt; ok | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>How = <a href="#type-shutdown_how" class="seealso">shutdown_how()</a></code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Shut down all or part of a full-duplex connection.</p>
@@ -706,7 +1180,8 @@
     </div>
 
     <div class="function">
-      <name name="sockname" arity="1" since="OTP 22.0"/>
+      <h3 id="sockname/1">sockname(Socket) -&gt; {ok, SockAddr} | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Socket = <a href="#type-socket" class="seealso">socket()</a></code></li><li><code>SockAddr = <a href="#type-sockaddr" class="seealso">sockaddr()</a></code></li><li><code>Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Returns the current address to which the socket is bound.</p>
@@ -714,18 +1189,31 @@
     </div>
 
     <div class="function">
-      <name name="supports" arity="0" since="OTP 22.0"/>
+      <h3 id="supports/0">supports() -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[{options, <a href="#type-supports_options" class="seealso">supports_options()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{sctp, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ipv6, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{local, boolean()} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{send_flags, <a href="#type-supports_send_flags" class="seealso">supports_send_flags()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{recv_flags, <a href="#type-supports_recv_flags" class="seealso">supports_recv_flags()</a>} |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{netns, boolean()}]</h3>
       <name name="supports" arity="1" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="3" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
+      <name name="supports" arity="1" clause_i="5" since="OTP 23.0"/>
+      <name name="supports" arity="1" clause_i="6" since="OTP 23.0"/>
+      <name name="supports" arity="1" clause_i="7" since="OTP 23.0"/>
+      <name name="supports" arity="1" clause_i="8" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="3" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="5" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="7" since="OTP 22.0"/>
+      <name name="supports" arity="2" clause_i="7" since="OTP 23.0"/>
+      <name name="supports" arity="2" clause_i="8" since="OTP 23.0"/>
+      <name name="supports" arity="2" clause_i="9" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="3" since="OTP 22.0"/>
@@ -738,6 +1226,59 @@
 	<p>This function intends to retreive information about what the
 	platform supports. Such as if SCTP is supported. Or which socket
 	options are supported. </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="which_sockets/0">which_sockets() -&gt; [<a href="#type-socket" class="seealso">socket()</a>]</h3>
+      <h3 id="which_sockets/1">which_sockets(FilterRule) -&gt; [<a href="#type-socket" class="seealso">socket()</a>]</h3>
+      <ul class="type_desc"><li><code>FilterRule = <br>
+&nbsp;&nbsp;&nbsp;&nbsp;inet | inet6 | stream | dgram | seqpacket | sctp | tcp | udp |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;pid() |<br>
+&nbsp;&nbsp;&nbsp;&nbsp;fun((<a href="#type-socket_info" class="seealso">socket_info()</a>) -&gt; boolean())</code></li></ul>
+      
+      <div class="description">
+	<p>Returns a list of all sockets, according to the
+	filter rule.</p>
+	<p>There are several pre-made filter rule(s) and one general: </p>
+	<taglist>
+	  <dt><code>inet | inet6</code></dt>
+	  <item>
+	    <p>Selection based on the domain of the socket.
+	    <br>
+Only a subset is valid. </p>
+	  </item>
+
+	  <dt><code>stream | dgram | seqpacket</code></dt>
+	  <item>
+	    <p>Selection based on the type of the socket.
+	    <br>
+Only a subset is valid. </p>
+	  </item>
+
+	  <dt><code>sctp | tcp | udp</code></dt>
+	  <item>
+	    <p>Selection based on the protocol of the socket.
+	    <br>
+Only a subset is valid. </p>
+	  </item>
+
+	  <dt><code>pid()</code></dt>
+	  <item>
+	    <p>Selection base on which sockets has this pid as
+	    Controlling Process. </p>
+	  </item>
+
+	  <dt><code>fun((socket_info()) -&gt; boolean())</code></dt>
+	  <item>
+	    <p>The general filter rule.
+	    <br>
+A fun that takes the socket info and returns a
+	    <code>boolean()</code>
+	    (<code>true</code> if the socket sould be included and
+	    <code>false</code> if should not). </p>
+	  </item>
+	</taglist>
       </div>
     </div>
 

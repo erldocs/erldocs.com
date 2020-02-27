@@ -48,6 +48,7 @@
 gen_event module                   Callback module
 ----------------                   ---------------
 gen_event:start
+gen_event:start_monitor
 gen_event:start_link       -----&gt;  -
 
 gen_event:add_handler
@@ -56,6 +57,7 @@ gen_event:add_sup_handler  -----&gt;  Module:init/1
 gen_event:notify
 gen_event:sync_notify      -----&gt;  Module:handle_event/2
 
+gen_event:send_request
 gen_event:call             -----&gt;  Module:handle_call/2
 
 -                          -----&gt;  Module:handle_info/2
@@ -123,6 +125,15 @@ gen_event:stop             -----&gt;  Module:terminate/2
     </div>
     <div class="type">
       <h3 id="type-del_handler_ret">del_handler_ret() = ok | term() | {'EXIT', term()}</h3>
+    </div>
+    <div class="type">
+      <h3 id="type-request_id">request_id() = term()</h3>
+      <div class="description">
+	<p>
+	  A request handle, see <a href="#send_request/3" class="seealso"> <code>send_request/3</code> </a>
+	  for details.
+	</p>
+      </div>
     </div>
   </div>
 
@@ -281,6 +292,40 @@ gen_event:stop             -----&gt;  Module:terminate/2
       </div>
     </div>
 
+
+    <div class="function">
+      <name since="OTP-23">check_response(Msg, RequestId) -&gt; Result</name>
+      
+      <ul class="type">
+	<li><code>Msg = term()</code></li>
+	<li><code>RequestId = request_id()</code></li>
+	<li><code>Result = {reply, Reply} | no_reply | {error, Error}</code></li>
+	<li><code>Reply = Error = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>
+	  This function is used to check if a previously received
+	  message, for example by <code>receive</code> or
+	  <code>handle_info/2</code>, is a result of a request made with
+	  <a href="#send_request/3" class="seealso"><code>send_request/3</code></a>.
+	  If <code>Msg</code> is a reply to the handle <code>RequestId</code>
+	  the result of the request is returned in <code>Reply</code>.
+	  Otherwise returns <code>no_reply</code> and no cleanup is done, and
+	  thus the function shall be invoked repeatedly until a reply
+	  is returned.
+	</p>
+	<p>
+	  If the specified event handler is not
+          installed, the function returns <code>{error,bad_module}</code>. If
+          the callback function fails with <code>Reason</code> or returns an
+          unexpected value <code>Term</code>, this function returns
+          <code>{error,{'EXIT',Reason}}</code> or <code>{error,Term}</code>,
+          respectively. If the event manager dies before or during the
+	  request this function returns <code>{error,{Reason, EventMgrRef}}</code>.
+	</p>
+      </div>
+    </div>
+
     <div class="function"> 
       <name since="">delete_handler(EventMgrRef, Handler, Args) -&gt; Result</name>
       
@@ -342,6 +387,48 @@ gen_event:stop             -----&gt;  Module:terminate/2
           <code>Module:handle_event/2</code></a>.</p>
         <p><code>notify/1</code> does not fail even if the specified event manager
           does not exist, unless it is specified as <code>Name</code>.</p>
+      </div>
+    </div>
+
+
+    <div class="function">
+      <name since="OTP-23">send_request(EventMgrRef, Handler, Request) -&gt; RequestId</name>
+      
+      <ul class="type">
+        <li><code>EventMgrRef = Name | {Name,Node} | {global,GlobalName}</code></li>
+        <li><code>  | {via,Module,ViaName} | pid()</code></li>
+        <li><code> Node = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+	<li><code>Handler = Module | {Module,Id}</code></li>
+        <li><code> Module = atom()</code></li>
+        <li><code> Id = term()</code></li>
+        <li><code>Request = term()</code></li>
+        <li><code>RequestId = request_id()</code></li>
+      </ul>
+      <div class="description">
+        <p>
+	  Sends a request to event handler <code>Handler</code> installed in
+	  event manager <code>EventMgrRef</code> and returns a handle
+	  <code>RequestId</code>.  The return value <code>RequestId</code> shall
+	  later be used with <a href="#wait_response/2" class="seealso">
+	  <code>wait_response/2</code></a> or <a href="#check_response/2" class="seealso">
+	  <code>check_response/2</code></a> in the same process to
+	  fetch the actual result of the request.
+	</p>
+	<p>
+	  The call <code>gen_event:wait_response(gen_event:send_request(EventMgrRef,Handler,Request), Timeout)</code>
+	  can be seen as equivalent to
+	  <a href="#call/3" class="seealso"><code>gen_event:call(EventMgrRef,Handler,Request,Timeout)</code></a>,
+	  ignoring the error handling.
+	</p>
+	<p>
+	  The event manager calls <a href="../#Module/handle_call/2.html" class="seealso">
+          <code>Module:handle_call/2</code></a> to handle the request.
+	</p>
+        <p>
+	  <code>Request</code> is any term that is passed as one of
+          the arguments to <code>Module:handle_call/3</code>.
+	</p>
       </div>
     </div>
 
@@ -428,6 +515,40 @@ gen_event:stop             -----&gt;  Module:terminate/2
           <code>EventMgrName</code> exists already, the function returns
           <code>{error,{already_started,Pid}}</code>, where <code>Pid</code> is
           the pid of that process.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name since="OTP 23.0">start_monitor() -&gt; Result</name>
+      <name since="OTP 23.0">start_monitor(EventMgrName | Options) -&gt; Result</name>
+      <name since="OTP 23.0">start_monitor(EventMgrName, Options) -&gt; Result</name>
+      
+      <ul class="type">
+        <li><code>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</code></li>
+        <li><code> Name = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code> Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</code></li>
+        <li><code>  Dbgs = [Dbg]</code></li>
+        <li><code>   Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</code></li>
+        <li><code>  SOpts = [term()]</code></li>
+        <li><code>Result = {ok,{Pid,Mon}} | {error,{already_started,Pid}}</code></li>
+        <li><code> Pid = pid()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a stand-alone event manager process, that is, an event
+          manager that is not part of a supervision tree (and thus has
+          no supervisor) and atomically sets up a monitor to
+	  the newly created process.</p>
+        <p>For a description of the arguments and return values, see
+          <a href="#start_link/0" class="seealso"><code>start_link/0,1</code></a>.
+	Note that the return value on successful start differs from
+	<code>start_link/3,4</code>. <code>start_monitor/3,4</code> will return
+	<code>{ok,{Pid,Mon}}</code> where <code>Pid</code> is the process identifier
+	of the process, and <code>Mon</code> is a reference to the monitor
+	set up to monitor the process. If the start is not successful,
+	the caller will be blocked until the <code>DOWN</code> message has
+	been received and removed from the message queue.</p>
       </div>
     </div>
 
@@ -538,6 +659,49 @@ gen_event:stop             -----&gt;  Module:terminate/2
           the connection between <code>Handler2</code> and the calling process.</p>
         <p>For a description of the arguments and return values, see 
           <a href="#swap_handler/3" class="seealso"><code>swap_handler/3</code></a>.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name since="OTP-23">wait_response(RequestId, Timeout) -&gt; Result</name>
+      
+      <ul class="type">
+	<li><code>RequestId = request_id()</code></li>
+	<li><code>Reply = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+	<li><code>Result = {reply, Reply} | timeout | {error, Error}</code></li>
+	<li><code>Reply = Error = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>
+	This function is used to wait for a reply of a request made with
+	<a href="#send_request/3" class="seealso"><code>send_request/3</code></a>
+	from the event manager. This function must be called from the same
+	process from which <a href="#send_request/3" class="seealso"><code>send_request/3</code></a>
+	was made.
+	</p>
+	<p>
+	  <code>Timeout</code> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <code>infinity</code> to wait indefinitely.
+	  If no reply is received within the specified
+	  time, the function returns <code>timeout</code> and no cleanup is
+	  done, and thus the function must be invoked repeatedly until a
+	  reply is returned.
+	</p>
+	<p>
+	  The return value <code>Reply</code> is defined in the return value
+	  of <code>Module:handle_call/3</code>.
+	</p>
+	<p>
+	  If the specified event handler is not
+          installed, the function returns <code>{error,bad_module}</code>. If
+          the callback function fails with <code>Reason</code> or returns an
+          unexpected value <code>Term</code>, this function returns
+          <code>{error,{'EXIT',Reason}}</code> or <code>{error,Term}</code>,
+          respectively. If the event manager dies before or during the
+	  request this function returns <code>{error,{Reason, EventMgrRef}}</code>.
+	</p>
       </div>
     </div>
 

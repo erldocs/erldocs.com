@@ -35,13 +35,29 @@
       a function on a remote node and collect the answer. It is used
       for collecting information on a remote node, or for running a
       function with some specific side effects on the remote node.</p>
+      <div class="note"><h2>Note!</h2><p>
+	<code>rpc:call()</code> and friends makes it quite hard to distinguish
+	between successful results, raised exceptions, and other errors.
+	This cannot be changed due to compatibility reasons. As of OTP 23,
+	a new module <a href="erpc.html" class="seealso"><code>erpc</code></a> was
+	introduced in order to provide an API that makes it possible
+	to distingush between the different results. The <code>erpc</code>
+	module provides a subset (however, the central subset) of the
+	functionality available in the <code>rpc</code> module. The <code>erpc</code>
+	implementation also provides a more scalable implementation with
+	better performance than the original <code>rpc</code> implementation.
+	However, since the introduction of <code>erpc</code>, the <code>rpc</code>
+	module implements large parts of its central functionality using
+	<code>erpc</code>, so the <code>rpc</code> module wont not suffer scalability
+	wise and performance wise compared to <code>erpc</code>.
+      </p></div>
   </div>
 
   <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
     <div class="type">
       <h3 id="type-key">key()</h3>
       <div class="description">
-        <p>As returned by
+        <p>Opaque value returned by
           <a href="#async_call/4" class="seealso"><code>async_call/4</code></a>.</p>
       </div>
     </div>
@@ -49,7 +65,8 @@
 
   <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
     <div class="function">
-      <name name="abcast" arity="2" since=""/>
+      <h3 id="abcast/2">abcast(Name, Msg) -&gt; abcast</h3>
+      <ul class="type_desc"><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>abcast([node()|nodes()], <anno>Name</anno>,
@@ -58,7 +75,8 @@
     </div>
 
     <div class="function">
-      <name name="abcast" arity="3" since=""/>
+      <h3 id="abcast/3">abcast(Nodes, Name, Msg) -&gt; abcast</h3>
+      <ul class="type_desc"><li><code>Nodes = [node()]</code></li><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li></ul>
       
       <div class="description">
         <p>Broadcasts the message <code><anno>Msg</anno></code> asynchronously to
@@ -68,7 +86,8 @@
     </div>
 
     <div class="function">
-      <name name="async_call" arity="4" since=""/>
+      <h3 id="async_call/4">async_call(Node, Module, Function, Args) -&gt; Key</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Key = <a href="#type-key" class="seealso">key()</a></code></li></ul>
       
       <div class="description">
         <p>Implements <em>call streams with promises</em>, a type of
@@ -82,7 +101,17 @@
           <a href="#nb_yield/1" class="seealso"><code>nb_yield/1,2</code></a>
           to retrieve the value of evaluating <code>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</code> on node
-          <code><anno>Node</anno></code>.</p>
+        <code><anno>Node</anno></code>.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <a href="erpc.html#send_request/4" class="seealso"><code>erpc:send_request()</code></a>
+	    function from the <code>erpc</code> module instead. This also
+	    gives you the ability retrieve the results in other useful
+	    ways.
+	  </p>
+	</div>
         <div class="note"><h2>Note!</h2>
           <p><a href="#yield/1" class="seealso"><code>yield/1</code></a> and
             <a href="#nb_yield/1" class="seealso"><code>nb_yield/1,2</code></a>
@@ -93,45 +122,62 @@
     </div>
 
     <div class="function">
-      <name name="block_call" arity="4" since=""/>
+      <h3 id="block_call/4">block_call(Node, Module, Function, Args) -&gt; Res | {badrpc, Reason}</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Res = Reason = term()</code></li></ul>
       
-      <div class="description">
-        <p>Same as <a href="#call/4" class="seealso"><code>call/4</code></a>,
-          but the RPC server at <code><anno>Node</anno></code> does
-          not create a separate process to handle the call. Thus,
-          this function can be used if the intention of the call is to
-          block the RPC server from any other incoming requests until
-          the request has been handled. The function can also be used
-          for efficiency reasons when very small fast functions are
-          evaluated, for example, BIFs that are guaranteed not to
-          suspend.</p>
+	<div class="description">
+	<p>
+	  The same as calling
+	  <a href="#block_call/5" class="seealso"><code>rpc:block_call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</code></a>.
+	</p>
       </div>
     </div>
 
     <div class="function">
-      <name name="block_call" arity="5" since=""/>
+      <h3 id="block_call/5">block_call(Node, Module, Function, Args, Timeout) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Res | {badrpc, Reason}</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Res = Reason = term()</code></li><li><code>Timeout = 0..4294967295 | infinity</code></li></ul>
       
       <div class="description">
-        <p>Same as
-          <a href="#block_call/4" class="seealso"><code>block_call/4</code></a>,
-          but with a time-out value in the same manner as
-          <a href="#call/5" class="seealso"><code>call/5</code></a>.</p>
+	  <p>
+	    The same as calling
+	    <a href="#call/5" class="seealso"><code>rpc:call(<anno>Node</anno>,
+	    <anno>Module</anno>, <anno>Function</anno>,
+	    <anno>Args</anno>, <anno>Timeout</anno>)</code></a> with
+	    the exception that it also blocks other <code>rpc:block_call()</code>
+	    operations from executing concurrently on the node
+	    <code><anno>Node</anno></code>.
+	  </p>
+	  <div class="warning"><h2>Warning!</h2><p>
+	    Note that it also blocks other operations than just
+	    <code>rpc:block_call()</code> operations, so use it with care.
+	  </p></div>
       </div>
     </div>
 
     <div class="function">
-      <name name="call" arity="4" since=""/>
+      <h3 id="call/4">call(Node, Module, Function, Args) -&gt; Res | {badrpc, Reason}</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Res = Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Evaluates <code>apply(<anno>Module</anno>, <anno>Function</anno>,
-          <anno>Args</anno>)</code> on node <code><anno>Node</anno></code> and returns
+        <anno>Args</anno>)</code> on node <code><anno>Node</anno></code> and returns
           the corresponding value <code><anno>Res</anno></code>, or
-          <code>{badrpc, <anno>Reason</anno>}</code> if the call fails.</p>
+          <code>{badrpc, <anno>Reason</anno>}</code> if the call fails.
+	  The same as calling
+	  <a href="#call/5" class="seealso"><code>rpc:call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</code></a>.
+	</p>
       </div>
     </div>
 
     <div class="function">
-      <name name="call" arity="5" since=""/>
+      <h3 id="call/5">call(Node, Module, Function, Args, Timeout) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Res | {badrpc, Reason}</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Res = Reason = term()</code></li><li><code>Timeout = 0..4294967295 | infinity</code></li></ul>
       
       <div class="description">
         <p>Evaluates <code>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -142,16 +188,50 @@
           a time-out value in milliseconds. If the call times out,
           <code><anno>Reason</anno></code> is <code>timeout</code>.</p>
         <p>If the reply arrives after the call times out, no message
-          contaminates the caller's message queue, as this
-          function spawns off a middleman process to act as (a void)
-          destination for such an orphan reply. This feature also makes
-          this function more expensive than <code>call/4</code> at
-          the caller's end.</p>
+          contaminates the caller's message queue.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <a href="erpc.html#call/4" class="seealso"><code>erpc:call()</code></a>
+	    function from the <code>erpc</code> module instead.
+	  </p>
+	</div>
+	<div class="note"><h2>Note!</h2>
+	  <p>Here follows the details of what exactly is returned.</p>
+	  <p><code>{badrpc, <anno>Reason</anno>}</code> will be returned in the
+	  following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function fails with an <code>exit</code> exception.</item>
+            <item>The called function fails with an <code>error</code> exception.</item>
+	    <item>The called function returns a term that matches
+	    <code>{'EXIT', _}</code>.</item>
+	    <item>The called function <code>throws</code>
+	    a term that matches <code>{'EXIT', _}</code>.</item>
+          </list>
+
+	  <p><code><anno>Res</anno></code> is returned in the following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function returns normally with a term that does
+	    <strong>not</strong> match <code>{'EXIT',_}</code>.</item>
+            <item>The called function <code>throw</code>s a term that does
+	    <strong>not</strong> match <code>{'EXIT',_}</code>.</item>
+          </list>
+	</div>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <code>apply()</code>. It may
+	    be the calling process itself, an <code>rpc</code> server,
+	    another server, or a freshly spawned process.
+	  </p>
+	</div>
       </div>
     </div>
 
     <div class="function">
-      <name name="cast" arity="4" since=""/>
+      <h3 id="cast/4">cast(Node, Module, Function, Args) -&gt; true</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li></ul>
       
       <div class="description">
         <p>Evaluates <code>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -160,11 +240,20 @@
           process is not suspended until the evaluation is complete, as
           is the case with
           <a href="#call/4" class="seealso"><code>call/4,5</code></a>.</p>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <code>apply()</code>. It may
+	    be an <code>rpc</code> server, another server, or a
+	    freshly spawned process.
+	  </p>
+	</div>
       </div>
     </div>
 
     <div class="function">
-      <name name="eval_everywhere" arity="3" since=""/>
+      <h3 id="eval_everywhere/3">eval_everywhere(Module, Function, Args) -&gt; abcast</h3>
+      <ul class="type_desc"><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>eval_everywhere([node()|nodes()],
@@ -174,7 +263,8 @@
     </div>
 
     <div class="function">
-      <name name="eval_everywhere" arity="4" since=""/>
+      <h3 id="eval_everywhere/4">eval_everywhere(Nodes, Module, Function, Args) -&gt; abcast</h3>
+      <ul class="type_desc"><li><code>Nodes = [node()]</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li></ul>
       
       <div class="description">
         <p>Evaluates <code>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -184,16 +274,18 @@
     </div>
 
     <div class="function">
-      <name name="multi_server_call" arity="2" since=""/>
+      <h3 id="multi_server_call/2">multi_server_call(Name, Msg) -&gt; {Replies, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li><li><code>Replies = [Reply :: term()]</code></li><li><code>BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>multi_server_call([node()|nodes()],
           <anno>Name</anno>, <anno>Msg</anno>)</code>.</p>
       </div>
     </div>
-
+    
     <div class="function">
-      <name name="multi_server_call" arity="3" since=""/>
+      <h3 id="multi_server_call/3">multi_server_call(Nodes, Name, Msg) -&gt; {Replies, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Nodes = [node()]</code></li><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li><li><code>Replies = [Reply :: term()]</code></li><li><code>BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>Can be used when interacting with servers called
@@ -216,7 +308,8 @@
     </div>
 
     <div class="function">
-      <name name="multicall" arity="3" since=""/>
+      <h3 id="multicall/3">multicall(Module, Function, Args) -&gt; {ResL, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>ResL = [Res :: term() | {badrpc, Reason :: term()}]</code></li><li><code>BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>multicall([node()|nodes()], <anno>Module</anno>,
@@ -244,7 +337,9 @@
     </div>
 
     <div class="function">
-      <name name="multicall" arity="5" since=""/>
+      <h3 id="multicall/5">multicall(Nodes, Module, Function, Args, Timeout) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ResL, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Nodes = [node()]</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = [term()]</code></li><li><code>Timeout = 0..4294967295 | infinity</code></li><li><code>ResL = [Res :: term() | {badrpc, Reason :: term()}]</code></li><li><code>BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>In contrast to an RPC, a multicall is an RPC that is sent
@@ -276,11 +371,20 @@
 {ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</pre>
+	<div class="note"><h2>Note!</h2>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <a href="erpc.html#multicall/4" class="seealso"><code>erpc:multicall()</code></a>
+	    function from the <code>erpc</code> module instead.
+	  </p>
+	</div>
       </div>
     </div>
 
     <div class="function">
-      <name name="nb_yield" arity="1" since=""/>
+      <h3 id="nb_yield/1">nb_yield(Key) -&gt; {value, Val} | timeout</h3>
+      <ul class="type_desc"><li><code>Key = <a href="#type-key" class="seealso">key()</a></code></li><li><code>Val = (Res :: term()) | {badrpc, Reason :: term()}</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>nb_yield(<anno>Key</anno>, 0)</code>.</p>
@@ -288,7 +392,8 @@
     </div>
 
     <div class="function">
-      <name name="nb_yield" arity="2" since=""/>
+      <h3 id="nb_yield/2">nb_yield(Key, Timeout) -&gt; {value, Val} | timeout</h3>
+      <ul class="type_desc"><li><code>Key = <a href="#type-key" class="seealso">key()</a></code></li><li><code>Timeout = 0..4294967295 | infinity</code></li><li><code>Val = (Res :: term()) | {badrpc, Reason :: term()}</code></li></ul>
       
       <div class="description">
         <p>Non-blocking version of
@@ -296,6 +401,8 @@
           the tuple <code>{value, <anno>Val</anno>}</code> when the computation is
           finished, or <code>timeout</code> when <code><anno>Timeout</anno></code>
           milliseconds has elapsed.</p>
+	  <p>See the note in <a href="#call/4" class="seealso"><code>call/4</code></a>
+	  for more details of <anno>Val</anno>.</p>
         <div class="note"><h2>Note!</h2>
           <p>This function must be called by the same process from which
             <a href="#async_call/4" class="seealso"><code>async_call/4</code></a>
@@ -305,7 +412,8 @@
     </div>
 
     <div class="function">
-      <name name="parallel_eval" arity="1" since=""/>
+      <h3 id="parallel_eval/1">parallel_eval(FuncCalls) -&gt; ResL</h3>
+      <ul class="type_desc"><li><code>FuncCalls = [{Module, Function, Args}]</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>Args = ResL = [term()]</code></li></ul>
       
       <div class="description">
         <p>Evaluates, for every tuple in <code><anno>FuncCalls</anno></code>,
@@ -317,7 +425,8 @@
     </div>
 
     <div class="function">
-      <name name="pinfo" arity="1" since=""/>
+      <h3 id="pinfo/1">pinfo(Pid) -&gt; [{Item, Info}] | undefined</h3>
+      <ul class="type_desc"><li><code>Pid = pid()</code></li><li><code>Item = atom()</code></li><li><code>Info = term()</code></li></ul>
       
       <div class="description">
         <p>Location transparent version of the BIF
@@ -336,7 +445,8 @@
     </div>
 
     <div class="function">
-      <name name="pmap" arity="3" since=""/>
+      <h3 id="pmap/3">pmap(FuncSpec, ExtraArgs, List1) -&gt; List2</h3>
+      <ul class="type_desc"><li><code>FuncSpec = {Module, Function}</code></li><li><code>Module = module()</code></li><li><code>Function = atom()</code></li><li><code>ExtraArgs = [term()]</code></li><li><code>List1 = [Elem :: term()]</code></li><li><code>List2 = [term()]</code></li></ul>
       
       <div class="description">
         <p>Evaluates <code>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -348,7 +458,8 @@
     </div>
 
     <div class="function">
-      <name name="sbcast" arity="2" since=""/>
+      <h3 id="sbcast/2">sbcast(Name, Msg) -&gt; {GoodNodes, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li><li><code>GoodNodes = BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>Equivalent to <code>sbcast([node()|nodes()], <anno>Name</anno>,
@@ -357,7 +468,8 @@
     </div>
 
     <div class="function">
-      <name name="sbcast" arity="3" since=""/>
+      <h3 id="sbcast/3">sbcast(Nodes, Name, Msg) -&gt; {GoodNodes, BadNodes}</h3>
+      <ul class="type_desc"><li><code>Name = atom()</code></li><li><code>Msg = term()</code></li><li><code>Nodes = GoodNodes = BadNodes = [node()]</code></li></ul>
       
       <div class="description">
         <p>Broadcasts the message <code><anno>Msg</anno></code> synchronously to
@@ -377,7 +489,9 @@
     </div>
 
     <div class="function">
-      <name name="server_call" arity="4" since=""/>
+      <h3 id="server_call/4">server_call(Node, Name, ReplyWrapper, Msg) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reply | {error, Reason}</h3>
+      <ul class="type_desc"><li><code>Node = node()</code></li><li><code>Name = atom()</code></li><li><code>ReplyWrapper = Msg = Reply = term()</code></li><li><code>Reason = nodedown</code></li></ul>
       
       <div class="description">
         <p>Can be used when interacting with a server called
@@ -396,7 +510,8 @@
     </div>
 
     <div class="function">
-      <name name="yield" arity="1" since=""/>
+      <h3 id="yield/1">yield(Key) -&gt; Res | {badrpc, Reason}</h3>
+      <ul class="type_desc"><li><code>Key = <a href="#type-key" class="seealso">key()</a></code></li><li><code>Res = Reason = term()</code></li></ul>
       
       <div class="description">
         <p>Returns the promised answer from a previous
@@ -409,6 +524,8 @@
             <a href="#async_call/4" class="seealso"><code>async_call/4</code></a>
             was made otherwise it will never return.</p>
         </div>
+	<p>See the note in <a href="#call/4" class="seealso"><code>call/4</code></a>
+	for more details of the return value.</p>
       </div>
     </div>
   </div>

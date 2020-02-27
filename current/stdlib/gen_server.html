@@ -46,11 +46,13 @@
 gen_server module            Callback module
 -----------------            ---------------
 gen_server:start
+gen_server:start_monitor
 gen_server:start_link -----&gt; Module:init/1
 
 gen_server:stop       -----&gt; Module:terminate/2
 
 gen_server:call
+gen_server:send_request
 gen_server:multi_call -----&gt; Module:handle_call/3
 
 gen_server:cast
@@ -153,8 +155,8 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
           <item><code>{via,Module,ViaName}</code>, if the <code>gen_server</code> process is
             registered through an alternative process registry</item>
         </list>
-        <p><code>Request</code> is any term that is passed as one of
-          the arguments to <code>Module:handle_call/3</code>.</p>
+        <p><code>Request</code> is any term that is passed as the
+          first argument to <code>Module:handle_call/3</code>.</p>
         <p><code>Timeout</code> is an integer greater than zero that
           specifies how many milliseconds to wait for a reply, or
           the atom <code>infinity</code> to wait indefinitely. Defaults to
@@ -198,6 +200,43 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
     </div>
 
     <div class="function">
+      <name since="OTP-23">check_response(Msg, RequestId) -&gt; Result</name>
+      
+      <ul class="type">
+	<li><code>RequestId = term()</code></li>
+	<li><code>Result = {reply, Reply} | no_reply | {error, {Reason, ServerRef}}</code></li>
+	<li><code>Msg = Reply = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+	<li><code>Reason = term()</code></li>
+	<li><code>ServerRef = Name | {Name,Node} | {global,GlobalName}</code></li>
+        <li><code>  | {via,Module,ViaName} | pid()</code></li>
+        <li><code> Node = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>
+	  This function is used to check if a previously received
+	  message, for example by <code>receive</code> or
+	  <code>handle_info/2</code>, is a result of a request made with
+	  <a href="#send_request/2" class="seealso"><code>send_request/2</code></a>.
+	  If <code>Msg</code> is a reply to the handle <code>RequestId</code>
+	  the result of the request is returned in <code>Reply</code>.
+	  Otherwise returns <code>no_reply</code> and no cleanup is done, and
+	  thus the function must be invoked repeatedly until a reply
+	  is returned.
+	</p>
+	<p>
+	  The return value <code>Reply</code> is defined in the return value
+	  of <code>Module:handle_call/3</code>.
+	</p>
+	<p>
+	  The function returns an error if the <code>gen_server</code>
+	  dies before or during this request.
+	</p>
+      </div>
+    </div>
+
+    <div class="function">
       <name since="">enter_loop(Module, Options, State)</name>
       <name since="">enter_loop(Module, Options, State, ServerName)</name>
       <name since="">enter_loop(Module, Options, State, Timeout)</name>
@@ -230,7 +269,7 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
           is needed than the <code>gen_server</code> process behavior provides.</p>
         <p><code>Module</code>, <code>Options</code>, and <code>ServerName</code> have
           the same meanings as when calling
-          <a href="#start_link/3" class="seealso"><code>start[_link]/3,4</code></a>.
+          <a href="#start_link/3" class="seealso"><code>start[_link|_monitor]/3,4</code></a>.
           However, if <code>ServerName</code> is specified, the process must
           have been registered accordingly <em>before</em> this function
           is called.</p>
@@ -278,8 +317,8 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
           <code>[node()|nodes()]</code>.</p>
         <p><code>Name</code> is the locally registered name of each
           <code>gen_server</code> process.</p>
-        <p><code>Request</code> is any term that is passed as one of
-          the arguments to <code>Module:handle_call/3</code>.</p>
+        <p><code>Request</code> is any term that is passed as the first
+          argument to <code>Module:handle_call/3</code>.</p>
         <p><code>Timeout</code> is an integer greater than zero that
           specifies how many milliseconds to wait for each reply, or
           the atom <code>infinity</code> to wait indefinitely. Defaults
@@ -305,12 +344,11 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
     </div>
 
     <div class="function">
-      <name since="">reply(Client, Reply) -&gt; Result</name>
+      <name since="">reply(Client, Reply) -&gt; ok</name>
       
       <ul class="type">
         <li><code>Client - see below</code></li>
         <li><code>Reply = term()</code></li>
-        <li><code>Result = term()</code></li>
       </ul>
       <div class="description">
         <p>This function can be used by a <code>gen_server</code> process to
@@ -324,8 +362,55 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
           the callback function. <code>Reply</code> is any term
           given back to the client as the return value of
           <code>call/2,3</code> or <code>multi_call/2,3,4</code>.</p>
-        <p>The return value <code>Result</code> is not further defined, and
-          is always to be ignored.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name since="OTP-23">send_request(ServerRef, Request) -&gt; RequestId</name>
+      
+      <ul class="type">
+        <li><code>ServerRef = Name | {Name,Node} | {global,GlobalName}</code></li>
+        <li><code>  | {via,Module,ViaName} | pid()</code></li>
+        <li><code> Node = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+        <li><code>RequestId = term()</code></li>
+        <li><code>Timeout = int()&gt;0 | infinity</code></li>
+        <li><code>Request = term()</code></li>
+      </ul>
+      <div class="description">
+        <p>
+	  Sends a request to the <code>ServerRef</code> of the
+          <code>gen_server</code> process and returns a handle <code>RequestId</code>.
+	  The return value <code>RequestId</code> shall later be used with
+          <a href="#wait_response/2" class="seealso"> <code>wait_response/2</code></a> or
+	  <a href="#check_response/2" class="seealso"> <code>check_response/2</code></a>
+	  to fetch the actual result of the request.
+	</p>
+	<p>
+	  The call <code>gen_server:wait_response(gen_server:send_request(ServerRef,Request), Timeout)</code>
+	  can be seen as equivalent to
+	  <a href="#call/3" class="seealso"><code>gen_server:call(Server,Request,Timeout)</code></a>,
+	  ignoring the error handling.
+	</p>
+	<p>
+	  The <code>gen_server</code> process calls
+	  <a href="../#Module/handle_call/3.html" class="seealso"> <code>Module:handle_call/3</code></a>
+	  to handle the request.
+	</p>
+        <p><code>ServerRef</code> can be any of the following:</p>
+        <list type="bulleted">
+          <item>The pid</item>
+          <item><code>Name</code>, if the <code>gen_server</code> process is locally
+            registered</item>
+          <item><code>{Name,Node}</code>, if the <code>gen_server</code> process is locally
+            registered at another node</item>
+          <item><code>{global,GlobalName}</code>, if the <code>gen_server</code> process is
+            globally registered</item>
+          <item><code>{via,Module,ViaName}</code>, if the <code>gen_server</code> process is
+            registered through an alternative process registry</item>
+        </list>
+        <p><code>Request</code> is any term that is passed as the first
+        argument to <code>Module:handle_call/3</code>.</p>
       </div>
     </div>
 
@@ -463,6 +548,43 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
     </div>
 
     <div class="function">
+      <name since="OTP 23.0">start_monitor(Module, Args, Options) -&gt; Result</name>
+      <name since="OTP 23.0">start_monitor(ServerName, Module, Args, Options) -&gt; Result</name>
+      
+      <ul class="type">
+        <li><code>ServerName = {local,Name} | {global,GlobalName}</code></li>
+        <li><code>  | {via,Module,ViaName}</code></li>
+        <li><code> Name = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+        <li><code>Module = atom()</code></li>
+        <li><code>Args = term()</code></li>
+        <li><code>Options = [Option]</code></li>
+        <li><code> Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</code></li>
+        <li><code>  Dbgs = [Dbg]</code></li>
+        <li><code>   Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</code></li>
+        <li><code>  SOpts = [term()]</code></li>
+        <li><code>Result = {ok,{Pid,Mon}} | ignore | {error,Error}</code></li>
+        <li><code> Pid = pid()</code></li>
+        <li><code> Error = {already_started,Pid} | term()</code></li>
+      </ul>
+      <div class="description">
+        <p>Creates a standalone <code>gen_server</code> process, that is, a
+          <code>gen_server</code> process that is not part of a supervision tree
+          (and thus has no supervisor) and atomically sets up a monitor to
+	  the newly created server.</p>
+        <p>For a description of arguments and return values, see
+        <a href="#start_link/3" class="seealso"><code>start_link/3,4</code></a>.
+	Note that the return value on successful start differs from
+	<code>start_link/3,4</code>. <code>start_monitor/3,4</code> will return
+	<code>{ok,{Pid,Mon}}</code> where <code>Pid</code> is the process identifier
+	of the server, and <code>Mon</code> is a reference to the monitor
+	set up to monitor the server. If the start is not successful,
+	the caller will be blocked until the <code>DOWN</code> message has
+	been received and removed from the message queue.</p>
+      </div>
+    </div>
+
+    <div class="function">
       <name since="OTP 18.0">stop(ServerRef) -&gt; ok</name>
       <name since="OTP 18.0">stop(ServerRef, Reason, Timeout) -&gt; ok</name>
       
@@ -493,6 +615,49 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
           <code>timeout</code> exception is raised.</p>
         <p>If the process does not exist, a <code>noproc</code> exception
           is raised.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <name since="OTP-23">wait_response(RequestId, Timeout) -&gt; Result</name>
+      
+      <ul class="type">
+	<li><code>RequestId = term()</code></li>
+	<li><code>Result = {reply, Reply} | timeout | {error, {Reason, ServerRef}}</code></li>
+	<li><code>Reply = term()</code></li>
+	<li><code>Timeout = timeout()</code></li>
+	<li><code>Reason = term()</code></li>
+	<li><code>ServerRef = Name | {Name,Node} | {global,GlobalName}</code></li>
+        <li><code>  | {via,Module,ViaName} | pid()</code></li>
+        <li><code> Node = atom()</code></li>
+        <li><code> GlobalName = ViaName = term()</code></li>
+      </ul>
+      <div class="description">
+	<p>
+	This function is used to wait for a reply of a request made with
+	<a href="#send_request/2" class="seealso"><code>send_request/2</code></a>
+	from the <code>gen_server</code> process. This function must be called
+	from the same process from which
+	<a href="#send_request/2" class="seealso"><code>send_request/2</code></a>
+	was made.
+	</p>
+	<p>
+	  <code>Timeout</code> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <code>infinity</code> to wait indefinitely.
+	  If no reply is received within the specified
+	  time, the function returns <code>timeout</code> and no cleanup is
+	  done, and thus the function can be invoked repeatedly until a
+	  reply is returned.
+	</p>
+	<p>
+	  The return value <code>Reply</code> is defined in the return value
+	  of <code>Module:handle_call/3</code>.
+	</p>
+	<p>
+	  The function returns an error if the <code>gen_server</code>
+	  dies before or during this request.
+	</p>
       </div>
     </div>
   </div>
@@ -778,8 +943,9 @@ gen_server:abcast     -----&gt; Module:handle_cast/2
       </ul>
       <div class="description">
         <p>Whenever a <code>gen_server</code> process is started using
-          <a href="#start/3" class="seealso"><code>start/3,4</code></a> or
-          <a href="#start_link/3" class="seealso"><code>start_link/3,4</code></a>,
+          <a href="#start/3" class="seealso"><code>start/3,4</code></a>,
+          <a href="#start_monitor/3" class="seealso"><code>start_monitor/3,4</code></a>,
+          or <a href="#start_link/3" class="seealso"><code>start_link/3,4</code></a>,
           this function is called by the new process to initialize.</p>
         <p><code>Args</code> is the <code>Args</code> argument provided to the start
           function.</p>
