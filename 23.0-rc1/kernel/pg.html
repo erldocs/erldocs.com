@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>pg (kernel) -  (Erlang Documentation)</title>
+    <link href="../erldocs.css" type="text/css" rel="stylesheet"/>
+    <link href="/search.xml" rel="search" type="application/opensearchdescription+xml" title="erldocs"/>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-44246018-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </head>
+
+  <body>
+    <div id="sidebar" class="inactive">
+      <input type="text" id="search" autocomplete="off" placeholder="press TAB to search"/>
+      <ul id="results"> </ul>
+    </div>
+
+    <div id="content">
+      <div style="margin:0px; padding:10px 20px;">
+        
+  
+  <module since="OTP 23.0">pg</module>
+  <h2 class="modsummary">Distributed named process groups.</h2>
+  <div class="description">
+    <p>This module implements process groups. A message can be sent
+      to one, some, or all group members.</p>
+
+    <p>Up until OTP 17 there used to exist an experimental <code>pg</code>
+      module in <code>stdlib</code>. This <code>pg</code> module is not the same
+      module as that experimental <code>pg</code> module, and only share
+      the same module name.</p>
+
+    <p>A group of processes can be accessed by a common name. For
+      example, if there is a group named <code>foobar</code>, there can be a
+      set of processes (which can be located on different nodes) that
+      are all members of the group <code>foobar</code>. There are no special
+      functions for sending a message to the group. Instead, client
+      functions are to be written with the functions
+      <a href="#get_members/1" class="seealso"><code>get_members/1</code></a> and
+      <a href="#get_local_members/1" class="seealso"><code>get_local_members/1</code></a>
+      to determine which processes are members of the group.
+      Then the message can be sent to one or more group members.</p>
+    <p>If a member terminates, it is automatically removed from the group.</p>
+
+    <p>A process may join multiple groups. It may join the same group multiple times.
+      It is only allowed to join processes running on local node.
+    </p>
+
+    <p>Process Groups implement strong eventual consistency.
+      Unlike <a href="pg2.html" class="seealso"><code>pg2</code></a>, that provides
+      strong ordering guarantees, Process Groups membership view may temporarily
+      diverge. For example, when processes on <code>node1</code> and <code>node2</code>
+      join concurrently, <code>node3</code> and <code>node4</code> may receive updates in
+      a different order.</p>
+
+    <p> Membership view is not transitive. If <code>node1</code> is not directly
+      connected to <code>node2</code>, they will not see each other groups. But if
+      both are connected to <code>node3</code>, <code>node3</code> will have the full view. </p>
+
+    <p>Groups are automatically created when any process joins,
+      and are removed when all processes leave the group. Non-existing group is
+      considered empty (containing no processes).</p>
+
+    <p>Process groups can be organised into multiple scopes. Scopes are
+      completely independent of each other. A process may join any
+      number of groups in any number of scopes. Scopes are designed to
+      decouple single mesh into a set of overlay networks, reducing
+      amount of traffic required to propagate group membership
+      information. Default scope <code>pg</code> is started automatically
+      when <a href="kernel_app.html#start_pg" class="seealso"><code>kernel(6)</code></a>
+      is configured to do so.
+    </p>
+
+    <div class="note"><h2>Note!</h2><p>
+      Scope name is used to register process locally, and to name an ETS table.
+      If there is another process registered under this name, or another ETS table
+      exists, scope fails to start.</p>
+      <p>Local membership is not preserved if scope process exits and
+        restarts. This behaviour is different from
+        <a href="pg2.html" class="seealso"><code>pg2</code></a>, that recovers
+        local membership from remote nodes.
+    </p></div>
+
+  </div>
+
+  <div id="types" class="category"><h4><a href="#types">Types</a></h4><hr/>
+    <div class="type">
+      <h3 id="type-group">group() = any()</h3>
+      <div class="description"><p>The identifier of a process group.</p></div>
+    </div>
+  </div>
+
+  <div id="functions" class="category"><h4><a href="#functions">Functions</a></h4><hr/>
+
+    <div class="function">
+      <h3 id="start_link/0">start_link() -&gt; {ok, pid()} | {error, any()}</h3>
+      
+      <div class="description">
+        <p>Starts the default <code>pg</code> scope within supervision tree.
+          Kernel may be configured to do it automatically, see
+          <a href="kernel_app.html#start_pg" class="seealso"><code>kernel(6)</code></a>
+          configuration manual.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="start/1">start(Scope :: atom()) -&gt; {ok, pid()} | {error, any()}</h3>
+      <h3 id="start_link/1">start_link(Scope :: atom()) -&gt; {ok, pid()} | {error, any()}</h3>
+      
+      <div class="description">
+        <p>Starts additional scope.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="join/2">join(Group :: <a href="#type-group" class="seealso">group()</a>, PidOrPids :: pid() | [pid()]) -&gt; ok</h3>
+      <h3 id="join/3">join(Scope :: atom(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Group :: <a href="#type-group" class="seealso">group()</a>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PidOrPids :: pid() | [pid()]) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok</h3>
+      
+      <div class="description">
+        <p>Joins single process or multiple processes to the
+          group <code>Name</code>. A process can join a group many times and
+          must then leave the group the same number of times.</p>
+        <p><code>PidOrPids</code> may contain the same process multiple times.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="leave/2">leave(Group :: <a href="#type-group" class="seealso">group()</a>, PidOrPids :: pid() | [pid()]) -&gt; ok</h3>
+      <h3 id="leave/3">leave(Scope :: atom(), Group :: <a href="#type-group" class="seealso">group()</a>, Pid :: pid() | [pid()]) -&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ok | not_joined</h3>
+      
+      <div class="description">
+        <p>Makes the process <code>PidOrPids</code> leave the group <code>Name</code>.
+	  If the process is not a member of the group, <code>not_joined</code> is
+	  returned.</p>
+        <p>When list of processes is passed as <code>PidOrPids</code>, function
+        returns <code>not_joined</code> only when all processes of the list
+        are not joined.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_local_members/1">get_local_members(Group :: <a href="#type-group" class="seealso">group()</a>) -&gt; [pid()]</h3>
+      <h3 id="get_local_members/2">get_local_members(Scope :: atom(), Group :: <a href="#type-group" class="seealso">group()</a>) -&gt; [pid()]</h3>
+      
+      <div class="description">
+        <p>Returns all processes running on the local node in the
+          group <code>Name</code>. Processes are returned in no specific order.
+          This function is optimised for speed.
+        </p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="get_members/1">get_members(Group :: <a href="#type-group" class="seealso">group()</a>) -&gt; [pid()]</h3>
+      <h3 id="get_members/2">get_members(Scope :: atom(), Group :: <a href="#type-group" class="seealso">group()</a>) -&gt; [pid()]</h3>
+      
+      <div class="description">
+        <p>Returns all processes in the group <code>Name</code>.
+          Processes are returned in no specific order.
+          This function is optimised for speed.</p>
+      </div>
+    </div>
+
+    <div class="function">
+      <h3 id="which_groups/0">which_groups() -&gt; [Group :: <a href="#type-group" class="seealso">group()</a>]</h3>
+      <h3 id="which_groups/1">which_groups(Scope :: atom()) -&gt; [Group :: <a href="#type-group" class="seealso">group()</a>]</h3>
+      
+      <div class="description">
+        <p>Returns a list of all known groups.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <h4>See Also</h4>
+    <p><a href="kernel_app.html" class="seealso"><code>kernel(6)</code></a></p>
+  </div>
+
+      </div>
+  </div>
+
+    <script type="text/javascript">
+      var CURRENT_ROOT = "../";
+    </script>
+
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../erldocs_index.js"></script>
+    <script type="text/javascript" src="../erldocs.js"></script>
+  </body>
+</html>
